@@ -1,0 +1,274 @@
+=== RESULTADO DA BUSCA POR PALAVRAS-CHAVE ===
+
+
+
+================================================================================
+PALAVRA-CHAVE: webservice (2 ocorrências)
+================================================================================
+
+[1] ...ônica MOC 1.00a Página 5 / 59 Controle de Versões Versão Publicação Descrição 1.00 01/2022 Versão inicial do MOC 1.00 1.00a 02/2023 Atualização com a NT 2022.001 e simplificação dos Webservices === PÁGINA 6 === Projeto Nota Fiscal Fatura de Serviço de Comunicação Eletrônica MOC 1.00a Página 6 / 59 Histórico de Alterações / Cronograma Versão Histórico de atualizaçõe...
+
+[2] ...s Implantação Homologação Implantação Produção 1.00  Elaboração do draft do MOC da NFCom 1.00a  Atualização com a NT 2022.001 e webservices 04/2023 05/2023 === PÁGINA 7 === Projeto Nota Fiscal Fatura de Serviço de Comunicação Eletrônica MOC 1.00a Página 7 / 59 1 Introdução Este Manual tem por objetivo a definição das...
+
+
+
+================================================================================
+PALAVRA-CHAVE: web service (59 ocorrências)
+================================================================================
+
+[1] .................................. 15 3.3 Modelo Operacional .......................................................................................................... 16 3.4 Padrão de Mensagens dos Web Services ........................................................................ 17 3.4.1 Área de dados das mensagens .........................................................................................
+
+[2] .............. 17 3.4.2 Validação da estrutura XML das Mensagens dos Web Services.............................................. 17 3.4.3 Schemas XML das Mensagens dos Web Services ................................................................... 18 3.5 Versão dos Schemas XML ............................................................................................... 19...
+
+[3] ........................................................ 22 3.8 SEFAZ virtual ................................................................................................................... 23 4 Web Services .......................................................................................................................... 24 4.1 Regras de Validação Gerais ..........................................
+
+[4] ............................. 25 4.1.2 Grupo B-0: Validação da Compactação da Mensagem ............................................................ 25 4.1.3 Grupo B: Validação Inicial da Mensagem no Web Service ....................................................... 26 4.1.4 Grupo C: Validação da área de dados da mensagem .............................................................. 26 4.1.5 Grupo D: V...
+
+[5] ............................. 31 4.3.2 Leiaute Mensagem de Retorno ................................................................................................. 31 4.3.3 Descrição do Processo de Web Service ................................................................................... 31 4.3.4 Regras de Validação Básicas do Serviço ....................................................................
+
+
+
+================================================================================
+PALAVRA-CHAVE: SOAP (6 ocorrências)
+================================================================================
+
+[1] ...municação segue o padrão de Web Services definido pelo WS-I Basic Profile. A troca de mensagens entre os Web Services do Ambiente Autorizador e o aplicativo do contribuinte será realizada no padrão SOAP versão 1.2, com troca de mensagens XML no padrão Style/Enconding: Document/Literal. A chamada dos diferentes Web Services do Projeto NFCom é realizada com o envio de uma mensagem através do campo...
+
+[2] ...Z do Contribuinte ou SEFAZ Virtual) Meio físico de comunicação Internet Protocolo Internet TLS versão 1.2, com autenticação mútua através de certificados digitais. Padrão de troca de mensagens SOAP versão 1.2 Padrão da mensagem XML no padrão Style/Encoding: Document/Literal. Padrão de certificado digital X.509 versão 3, emitido por Autoridade Certificadora credenciada pela Infra-estrutura...
+
+[3] ...Comunicação Eletrônica MOC 1.00a Página 17 / 59 3.4 Padrão de Mensagens dos Web Services 3.4.1 Área de dados das mensagens A informação armazenada na área de dados <Body> da mensagem SOAP é um documento que deve atender o leiaute definido na documentação do Web Service acessado. Para os serviços de recepção, a mensagem deverá ser compactada no padrão GZip, onde o resultado da comp...
+
+[4] ...actação é convertido para Base64, reduzindo o tamanho da mensagem em aproximadamente 70%, conforme abaixo: <soap12:Body> <NFComDadosMsg xmlns="http://www.portalfiscal.inf.br/NFCom/wsdl/NFComRecepcao"> string</NFComDadosMsg> </soap12:Body> Para os demais serviços (Consulta, Recepção Event...
+
+[5] ...os e Status), a mensagem deverá utilizar XML sem compactação: <soap12:Body> <NFComDadosMsg xmlns="http://www.portalfiscal.inf.br/NFCom/wsdl/NFComRecepcaoEvento"> xml</NFComDadosMsg> </soap12:Body A área referente ao SOAP Header não deverá ser informada. 3.4.2 Validação da estrutura XML das Mensagens dos Web Services As informações são enviadas ou recebidas dos Web Services atrav...
+
+
+
+================================================================================
+PALAVRA-CHAVE: soap (6 ocorrências)
+================================================================================
+
+[1] ...municação segue o padrão de Web Services definido pelo WS-I Basic Profile. A troca de mensagens entre os Web Services do Ambiente Autorizador e o aplicativo do contribuinte será realizada no padrão SOAP versão 1.2, com troca de mensagens XML no padrão Style/Enconding: Document/Literal. A chamada dos diferentes Web Services do Projeto NFCom é realizada com o envio de uma mensagem através do campo...
+
+[2] ...Z do Contribuinte ou SEFAZ Virtual) Meio físico de comunicação Internet Protocolo Internet TLS versão 1.2, com autenticação mútua através de certificados digitais. Padrão de troca de mensagens SOAP versão 1.2 Padrão da mensagem XML no padrão Style/Encoding: Document/Literal. Padrão de certificado digital X.509 versão 3, emitido por Autoridade Certificadora credenciada pela Infra-estrutura...
+
+[3] ...Comunicação Eletrônica MOC 1.00a Página 17 / 59 3.4 Padrão de Mensagens dos Web Services 3.4.1 Área de dados das mensagens A informação armazenada na área de dados <Body> da mensagem SOAP é um documento que deve atender o leiaute definido na documentação do Web Service acessado. Para os serviços de recepção, a mensagem deverá ser compactada no padrão GZip, onde o resultado da comp...
+
+[4] ...actação é convertido para Base64, reduzindo o tamanho da mensagem em aproximadamente 70%, conforme abaixo: <soap12:Body> <NFComDadosMsg xmlns="http://www.portalfiscal.inf.br/NFCom/wsdl/NFComRecepcao"> string</NFComDadosMsg> </soap12:Body> Para os demais serviços (Consulta, Recepção Event...
+
+[5] ...os e Status), a mensagem deverá utilizar XML sem compactação: <soap12:Body> <NFComDadosMsg xmlns="http://www.portalfiscal.inf.br/NFCom/wsdl/NFComRecepcaoEvento"> xml</NFComDadosMsg> </soap12:Body A área referente ao SOAP Header não deverá ser informada. 3.4.2 Validação da estrutura XML das Mensagens dos Web Services As informações são enviadas ou recebidas dos Web Services atrav...
+
+
+
+================================================================================
+PALAVRA-CHAVE: gzip (2 ocorrências)
+================================================================================
+
+[1] ...e dados <Body> da mensagem SOAP é um documento que deve atender o leiaute definido na documentação do Web Service acessado. Para os serviços de recepção, a mensagem deverá ser compactada no padrão GZip, onde o resultado da compactação é convertido para Base64, reduzindo o tamanho da mensagem em aproximadamente 70%, conforme abaixo: <soap12:Body> <NFComDadosMsg xmlns="http://...
+
+[2] ...o destinado à recepção de mensagens de envio de NFCom. Processo : síncrono. Nome Serviço: NFComRecepcao Método: nfcomRecepcao Parâmetro da Mensagem da área de dados: Compactada utilizando GZip (Base64) 4.2.1 Leiaute Mensagem de Entrada Entrada: Estrutura XML da nota fiscal fatura de serviço de comunicação eletrônica está definida no documento Anexo I: Manual de Orientações do Contri...
+
+
+
+================================================================================
+PALAVRA-CHAVE: GZIP (2 ocorrências)
+================================================================================
+
+[1] ...e dados <Body> da mensagem SOAP é um documento que deve atender o leiaute definido na documentação do Web Service acessado. Para os serviços de recepção, a mensagem deverá ser compactada no padrão GZip, onde o resultado da compactação é convertido para Base64, reduzindo o tamanho da mensagem em aproximadamente 70%, conforme abaixo: <soap12:Body> <NFComDadosMsg xmlns="http://...
+
+[2] ...o destinado à recepção de mensagens de envio de NFCom. Processo : síncrono. Nome Serviço: NFComRecepcao Método: nfcomRecepcao Parâmetro da Mensagem da área de dados: Compactada utilizando GZip (Base64) 4.2.1 Leiaute Mensagem de Entrada Entrada: Estrutura XML da nota fiscal fatura de serviço de comunicação eletrônica está definida no documento Anexo I: Manual de Orientações do Contri...
+
+
+
+================================================================================
+PALAVRA-CHAVE: compactação (9 ocorrências)
+================================================================================
+
+[1] ................................................... 25 4.1.1 Grupo A: Validação do Certificado de Transmissão (protocolo TLS)........................................ 25 4.1.2 Grupo B-0: Validação da Compactação da Mensagem ............................................................ 25 4.1.3 Grupo B: Validação Inicial da Mensagem no Web Service ....................................................... 26...
+
+[2] ...SOAP é um documento que deve atender o leiaute definido na documentação do Web Service acessado. Para os serviços de recepção, a mensagem deverá ser compactada no padrão GZip, onde o resultado da compactação é convertido para Base64, reduzindo o tamanho da mensagem em aproximadamente 70%, conforme abaixo: <soap12:Body> <NFComDadosMsg xmlns="http://www.portalfiscal.inf.br/NFCom/wsdl...
+
+[3] .../NFComRecepcao"> string</NFComDadosMsg> </soap12:Body> Para os demais serviços (Consulta, Recepção Eventos e Status), a mensagem deverá utilizar XML sem compactação: <soap12:Body> <NFComDadosMsg xmlns="http://www.portalfiscal.inf.br/NFCom/wsdl/NFComRecepcaoEvento"> xml</NFComDadosMsg> </soap12:Body A área referente ao SOAP Header não deverá ser infor...
+
+[4] ...m outros certificados digitais de Autoridade Certificadora Raiz que não sejam “ICP-Brasil” no repositório de certificados digitais do servidor de Web Service da SEFAZ. 4.1.2 Grupo B-0: Validação da Compactação da Mensagem O sistema do autorizador deverá descompactar mensagem da área de Dados. Todas as validações serão aplicadas sobre o XML já descompactado # Regra de Validação Aplic. cStat Efeito Mens...
+
+[5] ...agem B00 Verificar compactação da mensagem da área de dados Obrig. 244 Rej. Rejeição: Falha na descompactação da área de dados === PÁGINA 26 === Projeto Nota Fiscal Fatura de Serviço de Comunicação Eletrônica MOC 1.00a Página 26 / 59 4.1.3 Grupo B: Validação Inicial da Mensagem no Web...
+
+
+
+================================================================================
+PALAVRA-CHAVE: compactado (2 ocorrências)
+================================================================================
+
+[1] ...iberados após autorização da equipe de Gestão do Projeto formada pelos Líderes dos Projetos nos Estados e representante das Empresas. A cada nova liberação de schema será disponibilizado um arquivo compactado contendo o conjunto de schemas a serem utilizados pelas empresas para a geração dos arquivos XML. Este arquivo será denominado “Pacote de Liberação” e terá a mesma numeração da versão do Manual de...
+
+[2] ...vice da SEFAZ. 4.1.2 Grupo B-0: Validação da Compactação da Mensagem O sistema do autorizador deverá descompactar mensagem da área de Dados. Todas as validações serão aplicadas sobre o XML já descompactado # Regra de Validação Aplic. cStat Efeito Mensagem B00 Verificar compactação da mensagem da área de dados Obrig. 244 Rej. Rejeição: Falha na descompactação da área de dados === PÁGINA 26 ==...
+
+
+
+================================================================================
+PALAVRA-CHAVE: base64 (6 ocorrências)
+================================================================================
+
+[1] ...Grupo do Método de DigestMethod XS16 Algorithm A XS15 C 1-1 Atributo Algorithm de DigestMethod: http://www.w3.org/2000/09/xmldsig#sha1 XS17 DigestValue E XS07 C 1-1 Digest Value (Hash SHA-1 – Base64) XS18 SignatureValue G XS01 - 1-1 Grupo do Signature Value XS19 KeyInfo G XS01 - 1-1 Grupo do KeyInfo XS20 X509Data G XS19 - 1-1 Grupo X509 XS21 X509Certificate E XS20 C 1-1 Certificado Digit...
+
+[2] ...al x509 em Base64 A assinatura do Contribuinte na NFCom será feita na TAG <infNFCom> identificada pelo atributo Id, cujo conteúdo deverá ser um identificador único (chave de acesso) precedido do literal ‘NFCom’ p...
+
+[3] ...Projeto Nota Fiscal Fatura de Serviço de Comunicação Eletrônica MOC 1.00a Página 15 / 59  Função de “message digest” : SHA-1 ( http://www.w3.org/2000/09/xmldsig#sha1 );  Codificação : Base64 ( http://www.w3.org/2000/09/xmldsig#base64 );  Transformações exigidas : Útil para realizar a canonicalização do XML enviado para realizar a validação correta da Assinatura Digital. São elas: (1)...
+
+[4] ...atender o leiaute definido na documentação do Web Service acessado. Para os serviços de recepção, a mensagem deverá ser compactada no padrão GZip, onde o resultado da compactação é convertido para Base64, reduzindo o tamanho da mensagem em aproximadamente 70%, conforme abaixo: <soap12:Body> <NFComDadosMsg xmlns="http://www.portalfiscal.inf.br/NFCom/wsdl/NFComRecepcao"> string</...
+
+[5] ...inado à recepção de mensagens de envio de NFCom. Processo : síncrono. Nome Serviço: NFComRecepcao Método: nfcomRecepcao Parâmetro da Mensagem da área de dados: Compactada utilizando GZip (Base64) 4.2.1 Leiaute Mensagem de Entrada Entrada: Estrutura XML da nota fiscal fatura de serviço de comunicação eletrônica está definida no documento Anexo I: Manual de Orientações do Contribuinte –...
+
+
+
+================================================================================
+PALAVRA-CHAVE: Base64 (6 ocorrências)
+================================================================================
+
+[1] ...Grupo do Método de DigestMethod XS16 Algorithm A XS15 C 1-1 Atributo Algorithm de DigestMethod: http://www.w3.org/2000/09/xmldsig#sha1 XS17 DigestValue E XS07 C 1-1 Digest Value (Hash SHA-1 – Base64) XS18 SignatureValue G XS01 - 1-1 Grupo do Signature Value XS19 KeyInfo G XS01 - 1-1 Grupo do KeyInfo XS20 X509Data G XS19 - 1-1 Grupo X509 XS21 X509Certificate E XS20 C 1-1 Certificado Digit...
+
+[2] ...al x509 em Base64 A assinatura do Contribuinte na NFCom será feita na TAG <infNFCom> identificada pelo atributo Id, cujo conteúdo deverá ser um identificador único (chave de acesso) precedido do literal ‘NFCom’ p...
+
+[3] ...Projeto Nota Fiscal Fatura de Serviço de Comunicação Eletrônica MOC 1.00a Página 15 / 59  Função de “message digest” : SHA-1 ( http://www.w3.org/2000/09/xmldsig#sha1 );  Codificação : Base64 ( http://www.w3.org/2000/09/xmldsig#base64 );  Transformações exigidas : Útil para realizar a canonicalização do XML enviado para realizar a validação correta da Assinatura Digital. São elas: (1)...
+
+[4] ...atender o leiaute definido na documentação do Web Service acessado. Para os serviços de recepção, a mensagem deverá ser compactada no padrão GZip, onde o resultado da compactação é convertido para Base64, reduzindo o tamanho da mensagem em aproximadamente 70%, conforme abaixo: <soap12:Body> <NFComDadosMsg xmlns="http://www.portalfiscal.inf.br/NFCom/wsdl/NFComRecepcao"> string</...
+
+[5] ...inado à recepção de mensagens de envio de NFCom. Processo : síncrono. Nome Serviço: NFComRecepcao Método: nfcomRecepcao Parâmetro da Mensagem da área de dados: Compactada utilizando GZip (Base64) 4.2.1 Leiaute Mensagem de Entrada Entrada: Estrutura XML da nota fiscal fatura de serviço de comunicação eletrônica está definida no documento Anexo I: Manual de Orientações do Contribuinte –...
+
+
+
+================================================================================
+PALAVRA-CHAVE: envelope (5 ocorrências)
+================================================================================
+
+[1] ...ransform G XS10 - 2-2 Grupo de Transform XS13 Algorithm A XS12 C 1-1 Atributos válidos Algorithm do Transform: http://www.w3.org/TR/2001/REC-xml-c14n- 20010315 http://www.w3.org/2000/09/xmldsig#enveloped- signature XS14 XPath E XS12 C 0-N XPath XS15 DigestMethod G XS07 - 1-1 Grupo do Método de DigestMethod XS16 Algorithm A XS15 C 1-1 Atributo Algorithm de DigestMethod: http://www.w3.org/2000...
+
+[2] ...nferência da assinatura digital. A assinatura digital do documento eletrônico deverá atender aos seguintes padrões adotados:  Padrão de assinatura: “XML Digital Signature”, utilizando o formato “Enveloped” (http://www.w3.org/TR/xmldsig-core/ );  Certificado digital: Emitido por AC credenciada no ICP-Brasil (http://www.w3.org/2000/09/xmldsig#X509Data );  Cadeia de Certificação: EndCertOnly (I...
+
+[3] ...( http://www.w3.org/2000/09/xmldsig#base64 );  Transformações exigidas : Útil para realizar a canonicalização do XML enviado para realizar a validação correta da Assinatura Digital. São elas: (1) Enveloped ( http://www.w3.org/2000/09/xmldsig#enveloped-signature ) (2) C14N ( http://www.w3.org/TR/2001/REC-xml-c14n-20010315 ) 3.2.5 Validação da Assinatura Digital pelo Ambiente Autorizador Para a val...
+
+[4] ...nsável pela transmissão. === PÁGINA 16 === Projeto Nota Fiscal Fatura de Serviço de Comunicação Eletrônica MOC 1.00a Página 16 / 59 Padrão de assinatura digital XML Digital Signature, Enveloped, com certificado digital X.509 versão 3, com chave privada de 1024 bits, com padrões de criptografia assimétrica RSA, algoritmo message digest SHA-1 e utilização das transformações Enveloped e C14...
+
+[5] ...re do padrão do Projeto: - Não assinado o atributo “ID” (falta “Reference URI” na assinatura) (*validado também pelo Schema) - Faltam os “Transform Algorithm” previstos na assinatura (“C14N” e “Enveloped”) Estas validações são implementadas pelo Schema XML da Signature Obrig. 298 Rej. Rejeição: Assinatura difere do padrão do Projeto E02 Valor da assinatura (SignatureValue) difere do valor calc...
+
+
+
+================================================================================
+PALAVRA-CHAVE: nfcomDadosMsg (3 ocorrências)
+================================================================================
+
+[1] ...versão 1.2, com troca de mensagens XML no padrão Style/Enconding: Document/Literal. A chamada dos diferentes Web Services do Projeto NFCom é realizada com o envio de uma mensagem através do campo NFComDadosMsg. A resposta do processamento da requisição pela aplicação do ambiente autorizador será realizada através de uma mensagem XML através do campo NFComResultMsg 3.2.3 Padrão de Certificado Digital...
+
+[2] ...a mensagem deverá ser compactada no padrão GZip, onde o resultado da compactação é convertido para Base64, reduzindo o tamanho da mensagem em aproximadamente 70%, conforme abaixo: <soap12:Body> <NFComDadosMsg xmlns="http://www.portalfiscal.inf.br/NFCom/wsdl/NFComRecepcao"> string</NFComDadosMsg> </soap12:Body> Para os demais serviços (Consulta, Recepção Eventos e Status), a mensagem...
+
+[3] ...deverá utilizar XML sem compactação: <soap12:Body> <NFComDadosMsg xmlns="http://www.portalfiscal.inf.br/NFCom/wsdl/NFComRecepcaoEvento"> xml</NFComDadosMsg> </soap12:Body A área referente ao SOAP Header não deverá ser informada. 3.4.2 Validação da estrutura XML das Mensagens dos Web Services As informações são enviadas ou recebidas dos Web Servi...
+
+
+
+================================================================================
+PALAVRA-CHAVE: transmissão (15 ocorrências)
+================================================================================
+
+[1] ........................ 24 4.1 Regras de Validação Gerais ............................................................................................. 25 4.1.1 Grupo A: Validação do Certificado de Transmissão (protocolo TLS)........................................ 25 4.1.2 Grupo B-0: Validação da Compactação da Mensagem ............................................................ 25 4.1.3 Grupo B: Val...
+
+[2] ...po otherName OID = 2.16.76.1.3.3, respeitando a Política do Certificado. === PÁGINA 13 === Projeto Nota Fiscal Fatura de Serviço de Comunicação Eletrônica MOC 1.00a Página 13 / 59 b) Transmissão (durante a transmissão das mensagens entre o servidor do contribuinte e o Ambiente Autorizador): O certificado digital utilizado para identificação do aplicativo do contribuinte deverá conter o CN...
+
+[3] ...PJ do responsável pela transmissão das mensagens, mas não necessita ser o mesmo CNPJ do estabelecimento emissor da NFCom, devendo ter a extensão Extended Key Usage com permissão de "Autenticação Cliente". c) Geração do QR Code da N...
+
+[4] ...A1 ou A3, devendo conter o CNPJ do proprietário do certificado digital. Para assinatura de mensagens, utilizar o certificado digital de um dos estabelecimentos da empresa emissora de NFCom. Para transmissão, utilizar o certificado digital do responsável pela transmissão. === PÁGINA 16 === Projeto Nota Fiscal Fatura de Serviço de Comunicação Eletrônica MOC 1.00a Página 16 / 59 Padrão de a...
+
+[5] ...enéricas para os serviços da NFCom. Os quadros serão relacionados a cada serviço conforme a necessidade, além das regras específicas de cada Web Service. 4.1.1 Grupo A: Validação do Certificado de Transmissão (protocolo TLS) # Regra de Validação Aplic. cStat Efeito Mensagem A01 Certificado de Transmissor Inválido: - Certificado de Transmissor inexistente na mensagem - Versão difere "3" - Se informado...
+
+
+
+================================================================================
+PALAVRA-CHAVE: envio (12 ocorrências)
+================================================================================
+
+[1] ...a do status do serviço. d) Registro de Eventos Para cada serviço oferecido existirá um Web Service específico. O fluxo de comunicação é sempre iniciado pelo aplicativo do contribuinte através do envio de uma mensagem ao Web Service com a solicitação do serviço desejado. O Web Service sempre devolve uma mensagem de resposta confirmando o recebimento da solicitação de serviço ao aplicativo do con...
+
+[2] ...os XML, o contribuinte deverá submeter o arquivo da NFCom e as demais mensagens XML para validação pelo Schema (XSD – XML Schema Definition), disponibilizado pelo Ambiente Autorizador, antes de seu envio. === PÁGINA 12 === Projeto Nota Fiscal Fatura de Serviço de Comunicação Eletrônica MOC 1.00a Página 12 / 59 3.2.2 Padrão de Comunicação A comunicação entre o contribuinte e a Secre...
+
+[3] ...ntribuinte será realizada no padrão SOAP versão 1.2, com troca de mensagens XML no padrão Style/Enconding: Document/Literal. A chamada dos diferentes Web Services do Projeto NFCom é realizada com o envio de uma mensagem através do campo NFComDadosMsg. A resposta do processamento da requisição pela aplicação do ambiente autorizador será realizada através de uma mensagem XML através do campo NFComRe...
+
+[4] ...dos contribuintes. O mecanismo de utilização dos Web Services segue as seguintes premissas: a) Será disponibilizado um Web Service por serviço, existindo um método para cada tipo de serviço; b) O envio da solicitação e a obtenção do retorno serão realizados na mesma conexão através de um único método. c) As URLs dos Web Services encontram-se no Portal Nacional da NFCom (dfe- portal.svrs.rs.gov.br...
+
+[5] ...O contribuinte deve transmitir uma NFCom através do Web Service de recepção de NFCom e receberá o resultado do processamento na mesma conexão. Função: serviço destinado à recepção de mensagens de envio de NFCom. Processo : síncrono. Nome Serviço: NFComRecepcao Método: nfcomRecepcao Parâmetro da Mensagem da área de dados: Compactada utilizando GZip (Base64) 4.2.1 Leiaute Mensagem de E...
+
+
+
+================================================================================
+PALAVRA-CHAVE: HTTP (29 ocorrências)
+================================================================================
+
+[1] ...buinte e o Ambiente Autorizador: Contribuinte Ambiente Autorizador Cliente NFCom ( ERP ou software específico ) NFCom Aplicativo de Faturamento ( ERP ou software específico ) HTTPS Fluxo de Comunicação Serviços Síncronos Aplicação NFCom NFCom Arquitetura de Comunicação – Visão Conceitual Web Services Transações === PÁGINA 10 === Projeto Nota Fiscal Fatura de S...
+
+[2] ...ão <?xml version="1.0" encoding="UTF-8"?>. b) Declaração namespace O documento XML deverá ter uma única declaração de namespace no elemento raiz do documento com o seguinte padrão: <NFCom xmlns=”http://www.portalfiscal.inf.br/NFCom” > (exemplo para o XML da NFCom) O uso de declaração namespace diferente do padrão estabelecido para o Projeto é vedado. A declaração do namespace da assinatura d...
+
+[3] ...xo. c) Prefixo de namespace Não é permitida a utilização de prefixos de namespace. Essa restrição visa otimizar o tamanho do arquivo XML. Assim, ao invés da declaração: <NFCom:NFCom xmlns:NFCom=”http://www.portalfiscal.inf.br/NFCom”> (exemplo para o XML da NFCom com prefixo NFCom) deverá ser adotada a declaração: <NFCom xmlns =”http://www.portalfiscal.inf.br/NFCom” > === PÁGINA 11 ===...
+
+[4] ...nformações serão obtidas a partir do Certificado do emitente: <KeyValue> <RSAKeyValue> <Modulus> <Exponent> O Projeto NFCom utiliza um subconjunto do padrão de assinatura XML definido pelo http://www.w3.org/TR/xmldsig-core/ , que tem o seguinte leiaute: # Campo Ele Pai Tipo Ocor. Tam. Descrição/Observação XS01 Signature Raiz - - - - XS02 SignedInfo G XS01 - 1-1 Grupo da Informação da a...
+
+[5] ...ssinatura XS03 CanonicalizationMethod G XS02 - 1-1 Grupo do Método de Canonicalização XS04 Algorithm A XS03 C 1-1 Atributo Algorithm de CanonicalizationMethod: http://www.w3.org/TR/2001/REC-xml-c14n- 20010315 === PÁGINA 14 === Projeto Nota Fiscal Fatura de Serviço de Comunicação Eletrônica MOC 1.00a Página 14 / 59 XS05 SignatureMethod G XS02 - 1...
+
+
+
+================================================================================
+PALAVRA-CHAVE: https (3 ocorrências)
+================================================================================
+
+[1] ...buinte e o Ambiente Autorizador: Contribuinte Ambiente Autorizador Cliente NFCom ( ERP ou software específico ) NFCom Aplicativo de Faturamento ( ERP ou software específico ) HTTPS Fluxo de Comunicação Serviços Síncronos Aplicação NFCom NFCom Arquitetura de Comunicação – Visão Conceitual Web Services Transações === PÁGINA 10 === Projeto Nota Fiscal Fatura de Se...
+
+[2] ...Página 55 / 59 http(s)://URL_da_SEFAZ/NFCom/consulta http(s)://URL_da_SEFAZ/NFCom/qrcode A relação de endereços dos serviços de consulta das SEFAZ encontra-se no Portal Nacional da NFCom ( https://dfe-portal.svrs.rs.gov.br/NFCom/Servicos ) === PÁGINA 56 === Projeto Nota Fiscal Fatura de Serviço de Comunicação Eletrônica MOC 1.00a Página 56 / 59 11 Contingência Off-line pa...
+
+[3] ...Fatura de Serviço de Comunicação Eletrônica MOC 1.00 Página 59 / 59 12 WS disponíveis Os endereços dos Web Services disponíveis podem ser obtidos no sítio nacional do projeto no endereço https://dfe-portal.svrs.rs.gov.br/NFCom Obtenção do WSDL: A documentação do WSDL pode ser obtida na internet acessando o endereço do Web Service desejado. Exemplificando, para obter o WSDL de cada um d...
+
+
+
+================================================================================
+PALAVRA-CHAVE: POST (26 ocorrências)
+================================================================================
+
+[1] ......................................... 44 7.4 Número do protocolo ........................................................................................................ 45 7.5 Tempo médio de resposta ................................................................................................ 45 7.6 Relação de CFOP válidos para NFCom ............................................................
+
+[2] ...DANFE-COM. === PÁGINA 8 === Projeto Nota Fiscal Fatura de Serviço de Comunicação Eletrônica MOC 1.00a Página 8 / 59 2.1.3 Chave de Acesso da NFCom A Chave de Acesso da NFCom é composta pelos seguintes campos que se encontram dispersos no leiaute da NFCom (vide Anexo I): Código da UF AAMM da emissão CNPJ do Emitente Modelo (mod) Série (serie) Número da NFCom Forma d...
+
+[3] ...sso O Dígito Verificador (DV) irá garantir a integridade da chave de acesso, protegendo-a principalmente contra digitações erradas. 2.1.4 Chave Natural da NFCom A Chave Natural da NFCom é composta pelos campos de UF, CNPJ do Emitente, Série e Número da NFCom, além do modelo do documento fiscal eletrônico, forma de emissão e do Site em que ela foi autorizada. O Sistema de Autorização de Uso...
+
+[4] ...comunicação é sempre iniciado pelo aplicativo do contribuinte através do envio de uma mensagem ao Web Service com a solicitação do serviço desejado. O Web Service sempre devolve uma mensagem de resposta confirmando o recebimento da solicitação de serviço ao aplicativo do contribuinte na mesma conexão. O processamento da solicitação de serviço é concluído na mesma conexão, com a devolução de uma...
+
+[5] ...a de mensagens XML no padrão Style/Enconding: Document/Literal. A chamada dos diferentes Web Services do Projeto NFCom é realizada com o envio de uma mensagem através do campo NFComDadosMsg. A resposta do processamento da requisição pela aplicação do ambiente autorizador será realizada através de uma mensagem XML através do campo NFComResultMsg 3.2.3 Padrão de Certificado Digital O certificad...
+
+
+
+================================================================================
+PALAVRA-CHAVE: certificado digital (23 ocorrências)
+================================================================================
+
+[1] ........................................ 10 3.2.2 Padrão de Comunicação ........................................................................................................... 12 3.2.3 Padrão de Certificado Digital ..................................................................................................... 12 3.2.4 Padrão da Assinatura Digital ............................................................
+
+[2] ...do campo NFComDadosMsg. A resposta do processamento da requisição pela aplicação do ambiente autorizador será realizada através de uma mensagem XML através do campo NFComResultMsg 3.2.3 Padrão de Certificado Digital O certificado digital utilizado no Projeto da NFCom será emitido por Autoridade Certificadora credenciada pela Infraestrutura de Chaves Públicas Brasileira – ICP-Brasil, tipo A1 ou A3, devendo c...
+
+[3] ...onter o CNPJ da pessoa jurídica titular do certificado digital. Os certificados digitais serão exigidos em 3 (três) momentos distintos para o projeto: a) Assinatura de Mensagens: O certificado digital utilizado para essa função deverá conter o CNPJ de um dos estabelecimentos da empresa emissora da NFCom. Por mensagens, entenda-se: o Pedido de Autorização de Uso (Arquivo NFCom), o Registro de Eve...
+
+[4] ...ntos de NFCom e demais arquivos XML que necessitem de assinatura. O certificado digital deverá ter o “uso da chave” previsto para a função de assinatura digital e atributo de "não recusa" obrigatoriamente com o CNPJ no campo otherName OID = 2.16.76.1.3.3, respeitando a Política do Ce...
+
+[5] ...al Fatura de Serviço de Comunicação Eletrônica MOC 1.00a Página 13 / 59 b) Transmissão (durante a transmissão das mensagens entre o servidor do contribuinte e o Ambiente Autorizador): O certificado digital utilizado para identificação do aplicativo do contribuinte deverá conter o CNPJ do responsável pela transmissão das mensagens, mas não necessita ser o mesmo CNPJ do estabelecimento emissor da NFCom...
+
+
+
+================================================================================
+PALAVRA-CHAVE: TLS (11 ocorrências)
+================================================================================
+
+[1] ...4 4.1 Regras de Validação Gerais ............................................................................................. 25 4.1.1 Grupo A: Validação do Certificado de Transmissão (protocolo TLS)........................................ 25 4.1.2 Grupo B-0: Validação da Compactação da Mensagem ............................................................ 25 4.1.3 Grupo B: Validação Inicial...
+
+[2] ...e circunscrição do contribuinte, exceto nos casos em que a UF autorizadora da NFCom utilize serviços de SEFAZ VIRTUAL. O meio físico de comunicação utilizado será a Internet, com o uso do protocolo TLS versão 1.2, com autenticação mútua, que além de garantir um duto de comunicação seguro na Internet, permite a identificação do servidor e do cliente através de certificados digitais, eliminando a...
+
+[3] ...08-24.html ). Meio lógico de comunicação Web Services, disponibilizados pelo AMBIENTE AUTORIZADOR (SEFAZ do Contribuinte ou SEFAZ Virtual) Meio físico de comunicação Internet Protocolo Internet TLS versão 1.2, com autenticação mútua através de certificados digitais. Padrão de troca de mensagens SOAP versão 1.2 Padrão da mensagem XML no padrão Style/Encoding: Document/Literal. Padrão de c...
+
+[4] ...vices Description Language) de cada Web Service. d) O processo de utilização dos Web Services sempre é iniciado pelo contribuinte enviando uma mensagem nos padrões XML e SOAP, através do protocolo TLS com autenticação mútua. e) A ocorrência de qualquer erro na validação dos dados recebidos interrompe o processo com a disponibilização de uma mensagem contendo o código e a descrição do erro....
+
+[5] ...os da NFCom. Os quadros serão relacionados a cada serviço conforme a necessidade, além das regras específicas de cada Web Service. 4.1.1 Grupo A: Validação do Certificado de Transmissão (protocolo TLS) # Regra de Validação Aplic. cStat Efeito Mensagem A01 Certificado de Transmissor Inválido: - Certificado de Transmissor inexistente na mensagem - Versão difere "3" - Se informado, Basic Constra...
+

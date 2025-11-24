@@ -1,0 +1,283 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  HomeIcon,
+  DocumentTextIcon,
+  UserIcon,
+  UsersIcon,
+  BuildingOfficeIcon,
+  ChartBarIcon,
+  ArrowRightOnRectangleIcon,
+  ChevronLeftIcon,
+  Bars3Icon
+} from '@heroicons/react/24/outline';
+import { PageType } from '../types';
+import { useAuth } from '../contexts/AuthContext';
+import CompanySelector from './CompanySelector';
+
+interface MenuItemType {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  path: PageType;
+  group: string;
+}
+
+interface MenuGroupType {
+  name: string;
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+  items: MenuItemType[];
+}
+
+interface Props {
+  children: React.ReactNode;
+  currentPage: PageType;
+  onNavigate: (page: PageType) => void;
+}
+
+const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigate }) => {
+  const navigate = useNavigate();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [drawerCollapsed, setDrawerCollapsed] = useState(false);
+  const { user, logout } = useAuth();
+
+  // Largura do drawer colapsado (não utilizado diretamente, mas mantido para referência)
+
+  // Itens do menu organizados por grupos para NFCom
+  const menuGroups: MenuGroupType[] = [
+    {
+      name: 'NFCom',
+      icon: DocumentTextIcon,
+      color: 'green',
+      items: [
+        { label: 'Emitir NFCom', icon: DocumentTextIcon, path: 'nfcom' as PageType, group: 'nfcom' },
+      ]
+    },
+    {
+      name: 'Cadastros',
+      icon: BuildingOfficeIcon,
+      color: 'purple',
+      items: [
+        
+        { label: 'Clientes', icon: UsersIcon, path: 'clients' as PageType, group: 'cadastros' },
+            { label: 'Serviços', icon: DocumentTextIcon, path: 'services' as PageType, group: 'cadastros' },
+            { label: 'Contratos', icon: DocumentTextIcon, path: 'contracts' as PageType, group: 'cadastros' },
+      ]
+    },
+    {
+      name: 'Administração',
+      icon: UserIcon,
+      color: 'orange',
+      items: [
+        { label: 'Empresas', icon: BuildingOfficeIcon, path: 'companies' as PageType, group: 'cadastros' },
+        { label: 'Usuários', icon: UserIcon, path: 'users' as PageType, group: 'administracao' },
+        { label: 'Routers', icon: HomeIcon, path: 'routers' as PageType, group: 'administracao' },
+      ]
+    },
+    {
+      name: 'Relatórios',
+      icon: ChartBarIcon,
+      color: 'emerald',
+      items: [
+        { label: 'Relatórios', icon: ChartBarIcon, path: 'reports' as PageType, group: 'relatorios' },
+      ]
+    },
+  ];
+
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
+
+  const handleNavigate = (page: PageType) => {
+    onNavigate(page);
+    // Fechar sidebar automaticamente em mobile após navegação
+    if (window.innerWidth < 768) { // md breakpoint
+      setMobileOpen(false);
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
+  // Função não utilizada (mantida para compatibilidade futura)
+
+  const getGroupColor = (color: string) => {
+    const colors = {
+      blue: 'bg-blue-100 text-blue-600',
+      green: 'bg-green-100 text-green-600',
+      purple: 'bg-purple-100 text-purple-600',
+      orange: 'bg-orange-100 text-orange-600',
+      emerald: 'bg-emerald-100 text-emerald-600',
+    };
+    return colors[color as keyof typeof colors] || 'bg-gray-100 text-gray-600';
+  };
+
+  return (
+    <div className="flex h-screen bg-gray-100">
+      {/* Sidebar */}
+      <div
+        className={`fixed inset-y-0 left-0 z-50 bg-white shadow-lg transform transition-all duration-300 ease-in-out flex flex-col ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        } ${drawerCollapsed ? 'w-16' : 'w-64'} md:translate-x-0`}
+      >
+        <div className={`flex items-center border-b border-gray-200 transition-all duration-300 ${
+          drawerCollapsed ? 'p-2 justify-center' : 'p-6'
+        } bg-gradient-to-r from-indigo-50 to-blue-50`}>
+          <div
+            className={`flex items-center ${drawerCollapsed ? '' : 'mr-3'} cursor-pointer hover:bg-white/60 rounded-lg ${drawerCollapsed ? 'p-1' : 'p-2'} transition-all duration-200`}
+            onClick={() => setDrawerCollapsed(!drawerCollapsed)}
+            title={drawerCollapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
+          >
+            <Bars3Icon className={`text-indigo-600 ${drawerCollapsed ? 'h-5 w-5' : 'h-5 w-5 mr-3'}`} />
+            {!drawerCollapsed && (
+              <h1 className="text-sm font-bold text-gray-800 truncate bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">
+                Brazcom ISP Suite
+              </h1>
+            )}
+          </div>
+          <button
+            onClick={() => setDrawerCollapsed(!drawerCollapsed)}
+            className={`text-gray-500 hover:text-indigo-600 ${drawerCollapsed ? 'p-1' : 'p-2'} rounded-lg hover:bg-white/60 transition-all duration-200 ${
+              drawerCollapsed ? 'ml-0' : 'ml-auto'
+            }`}
+            title={drawerCollapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
+          >
+            {drawerCollapsed ? (
+              <ChevronLeftIcon className="h-4 w-4" />
+            ) : (
+              <ChevronLeftIcon className="h-4 w-4" />
+            )}
+          </button>
+        </div>
+
+        <nav
+          className={`flex-1 ${drawerCollapsed ? 'mt-4' : 'mt-6'} ${drawerCollapsed ? 'px-0.5' : ''} overflow-y-auto`}
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          {/* Dashboard item - standalone above groups */}
+          <div className="mb-4">
+            <button
+              onClick={() => handleNavigate('dashboard')}
+              className={`flex items-center w-full transition-colors rounded-lg ${
+                drawerCollapsed ? 'mx-0.5 px-1 py-3 justify-center' : 'mx-2 px-4 py-3'
+              } ${
+                currentPage === 'dashboard'
+                  ? 'bg-indigo-50 text-indigo-700 border-r-2 border-indigo-700 shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              }`}
+              title={drawerCollapsed ? 'Dashboard' : ''}
+            >
+              <HomeIcon className={`flex-shrink-0 ${drawerCollapsed ? 'h-6 w-6' : 'h-5 w-5 mr-3'}`} />
+              {!drawerCollapsed && (
+                <span className="truncate font-medium">Dashboard</span>
+              )}
+            </button>
+          </div>
+
+          {/* Separator before groups */}
+          {!drawerCollapsed && (
+            <div className="mx-4 mb-4 border-t border-gray-200"></div>
+          )}
+
+          {menuGroups.map((group, groupIndex) => (
+            <div key={group.name} className="mb-2">
+              {/* Título do grupo */}
+              {!drawerCollapsed && (
+                <div className="px-4 py-2">
+                  <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wider flex items-center">
+                    <div className={`p-1 rounded ${getGroupColor(group.color)} mr-2`}>
+                      <group.icon className="h-3 w-3" />
+                    </div>
+                    {group.name}
+                  </h3>
+                </div>
+              )}
+
+              {/* Itens do grupo */}
+              {group.items.map((item) => (
+                <button
+                  key={item.path}
+                  onClick={() => handleNavigate(item.path)}
+                  className={`flex items-center w-full transition-colors rounded-lg ${
+                    drawerCollapsed ? 'mx-0.5 px-1 py-3 justify-center' : 'mx-2 px-4 py-3'
+                  } ${
+                    currentPage === item.path
+                      ? 'bg-indigo-50 text-indigo-700 border-r-2 border-indigo-700 shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                  title={drawerCollapsed ? item.label : ''}
+                >
+                  <item.icon className={`flex-shrink-0 ${drawerCollapsed ? 'h-6 w-6' : 'h-5 w-5 mr-3'}`} />
+                  {!drawerCollapsed && (
+                    <span className="truncate font-medium">{item.label}</span>
+                  )}
+                </button>
+              ))}
+
+              {/* Separador entre grupos */}
+              {groupIndex < menuGroups.length - 1 && !drawerCollapsed && (
+                <div className="mx-4 my-4 border-t border-gray-200"></div>
+              )}
+            </div>
+          ))}
+
+          {/* Botão de logout */}
+          <div className={`${drawerCollapsed ? 'px-0.5' : 'px-2'}`}>
+            <button
+              onClick={handleLogout}
+              className={`flex items-center w-full transition-colors rounded-lg ${
+                drawerCollapsed ? 'px-1 py-3 justify-center' : 'px-4 py-3'
+              } text-gray-600 hover:bg-red-50 hover:text-red-700`}
+              title={drawerCollapsed ? 'Sair' : ''}
+            >
+              <ArrowRightOnRectangleIcon className={`flex-shrink-0 ${drawerCollapsed ? 'h-6 w-6' : 'h-5 w-5 mr-3'}`} />
+              {!drawerCollapsed && (
+                <span>Sair</span>
+              )}
+            </button>
+          </div>
+        </nav>
+      </div>
+
+      {/* Main content */}
+      <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${
+        drawerCollapsed ? 'md:ml-16' : 'md:ml-64'
+      }`}>
+        {/* Top bar */}
+        <header className="bg-white shadow-sm border-b border-gray-200">
+          <div className="flex items-center justify-between h-16 px-3 sm:px-4">
+            <button
+              onClick={handleDrawerToggle}
+              className="p-2 rounded-md text-gray-400 hover:text-gray-600 md:hidden"
+            >
+              <Bars3Icon className="w-6 h-6" />
+            </button>
+
+            <div className="flex items-center space-x-4">
+              <div>
+                <CompanySelector />
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Page content */}
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-3 sm:p-4 md:p-6">
+          {children}
+        </main>
+      </div>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black bg-opacity-50 md:hidden"
+          onClick={handleDrawerToggle}
+        />
+      )}
+    </div>
+  );
+};
+
+export default AuthenticatedLayout;

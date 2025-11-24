@@ -1,0 +1,800 @@
+
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>Portal da Nota Fiscal Fatura de Servi&#231;o de Comunica&#231;&#227;o Eletr&#244;nica - SVRS</title>
+
+    <link rel="icon" href="/Content/img/favicon.ico" type="image/x-icon" />
+
+    <link rel="stylesheet" href="/Content/font-awesome/css/font-awesome.min.css" media="all" />
+    <link rel="stylesheet" href="/Content/css/bootstrap-matriz.min.css" media="all" />
+    <link rel="stylesheet" href="/Content/css/bootstrap-override.css" media="all" />
+    <link rel="stylesheet" href="/Content/css/Nfcom.css" media="all" />
+    <link rel="stylesheet" href="/Content/css/print.css" media="print" />
+    <link rel="stylesheet" href="/Scripts/summernote/summernote-lite.css" />
+    <link rel="stylesheet" href="/Scripts/datepicker/datepicker.min.css" />
+
+    <link rel="stylesheet" href="/Content/css/owl.carousel.css" media="all" />
+    <link rel="alternate stylesheet" href="/Content/css/contraste.css" title="contraste" media="all" />
+    <script type="text/javascript" src="/Scripts/jquery-3.2.1.min.js"></script>
+    <script type="text/javascript" src="/Scripts/bootstrap.min.js"></script>
+    <script type="text/javascript" src="/Scripts/summernote/summernote-lite.js"></script>
+    <script type="text/javascript" src="/Scripts/datepicker/datepicker.min.js"></script>
+    <script type="text/javascript" src="/Scripts/datepicker/datepicker.pt-BR.js"></script>
+    <script type="text/javascript" src="/Scripts/jquery.browser.min.js"></script>
+    <script type="text/javascript" src="/Scripts/snap.svg-min.js"></script>
+    <script>
+        function download_arquivo_estatico(sistema, tipo, nome) {
+            var iframe = document.createElement('iframe');//se o iframe não existe, cria
+            iframe.id = 'iframe-resource';
+            iframe.style.display = 'none';
+            jQuery('body').append(iframe);
+            jQuery('#iframe-resource').attr({
+                src: '/' + sistema + '/DownloadArquivoEstatico/?sistema=' + sistema + '&tipoArquivo=' + tipo + '&nomeArquivo=' + nome
+            });
+        }
+    </script>
+
+</head>
+<body id="bodyPricipal">
+
+    <header id="cabecalho" class="cabecalho">
+        <div class="container">
+            <a class="cabecalho__logo logo" href="/Nfcom" title="Ir para a página inicial"><h1 class="text-hide">NFCom</h1></a>
+            <span class="cabecalho__titulo ">Portal da Nota Fiscal Fatura de Servi&#231;o de Comunica&#231;&#227;o Eletr&#244;nica - SVRS</span>
+            <div id="menu-parent" class="cabecalho__menu-parent">
+                    <div style="margin-bottom: 2%">
+                        <i class="fa fa-lock fa-redondo"></i>
+                        <a style="color:white; cursor:pointer" href="/Soe/Login?provider=SoeOidc">Acesso Restrito SEFAZ</a>
+                    </div>
+                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#menuPrincipal"> <span class="sr-only">Alterna a navegação</span> <span class="icon-bar"></span> <span class="icon-bar"></span> <span class="icon-bar"></span></button>
+                <button type="button" class="navbar-toggle busca-toggle visible-xs visible-sm" data-toggle="collapse" data-target="#frmBuscaGeral"><span class="sr-only">Abrir a busca</span><span class="glyphicon glyphicon-search"></span></button>
+
+                <form id="frmBuscaGeral" method="get" action="/Nfcom/Busca" class="collapse" role="search">
+                    <div class="input-group">
+                        <label for="buscageralTextBox" class="sr-only">Buscar</label>
+                        <input type="text" class="form-control" placeholder="Buscar" id="buscageralTextBox" name="palavraschave" required />
+                        <span class="input-group-btn">
+                            <button type="submit" class="btn btn-default"><span class="glyphicon glyphicon-search"></span><span class="sr-only">Buscar</span> </button>
+                        </span>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </header>
+
+    <nav id="menuPrincipal" class="navbar navbar-cor navbar-default collapse" style="height: 1px;">
+        <div class="container">
+            <div class="navbar-collapse" id="menuPrincipalCollapse">
+                <a class="sr-only" id="menuInicio">Início do menu</a>
+                <div class="redes-sociais-xs visible-xs">
+
+                </div>
+                <ul class="nav navbar-nav">
+                    <li class="active"><a title="Inicial - Página inicial do site" href="index.html">Inicial</a></li>
+                    <li><a href="/Nfcom" title="Home">Home</a></li>
+                    <li><a href="/Nfcom/Sobre" title="Sobre">Sobre</a></li>
+                    <li><a href="/Nfcom/Avisos" title="Avisos">Avisos</a></li>
+                    <li><a href="/Nfcom/Noticias" title="Notícias">Notícias</a></li>
+                        <li><a href="/Nfcom/Servicos" title="Serviços">Serviços</a></li>
+                    <li><a href="/Nfcom/Documentos" title="Documentos">Documentos</a></li>
+                        <li><a href="/Nfcom/Legislacao" title="Legislação">Legislação</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    
+    <div class="wrapper__corpo">
+        <div class="corpo">
+            <div class="row">
+                <div class="col-sm-offset-1 col-md-8 col-md-offset-0 coluna-principal">
+                    
+
+
+<div class="row">
+
+    <div class="col-sm-offset-1 col-md-11 col-md-offset-0 coluna-principal">
+
+        <div class="row">
+
+            <article class="col-xs-12 artigo artigo__pagina__simples--padrao">
+
+                <ol class="breadcrumb">
+                    <li><a href="/Nfcom">Home</a></li>
+                    <li><a href="/Nfcom/Documentos">Documentos</a></li>
+                </ol>
+
+                <div class="artigo__ferramentas clearfix">
+                    <div class="btn-group btn-group-sm artigo__ferramentas__botoes pull-left">
+                        <a title="Clique para imprimir esta página" class="btn btn-default" href="javascript: this.print();"><i class="fa fa-print"></i> Imprimir</a>
+                    </div>
+                </div>
+
+
+                    <header class="artigo__cabecalho">
+                        <h1 class="artigo__titulo">Manuais</h1>
+                    </header>
+                    <div class="artigo__texto">
+
+                        <section id="pagedlistItens" class="conteudo-lista matriz-ui-pagedlist-container defaultpagedlist">
+
+                            <input type="hidden" class="matriz-ui-pagedlist-pagesize" value="10" style="display: inline-block;">
+
+                            <div class="matriz-ui-pagedlist-body conteudo-lista__body" style="display: block;">
+
+                                    <article class="conteudo-lista__item clearfix">
+                                        <header>
+                                            <time class="conteudo-lista__item__datahora" datetime=" 24/09/2024">
+                                                24/09/2024
+                                            </time>
+                                            <h2 class="conteudo-lista__item__titulo">
+
+                                                    <a href="#" onclick="download_arquivo_estatico('NFCOM', 1, 'MOC_NFCOM_Anexo II_DANFE-COM_v1.00.pdf');">Manual de Orienta&#231;&#245;es do Contribuinte - Anexo II -DANFE-COM</a>
+                                            </h2>
+                                        </header>
+                                        <p><p>Manual de Orientações do Contribuinte contando as especificações do Documento Auxiliar da NFCom</p></p>
+
+
+                                    </article>
+                                    <article class="conteudo-lista__item clearfix">
+                                        <header>
+                                            <time class="conteudo-lista__item__datahora" datetime=" 11/04/2023">
+                                                11/04/2023
+                                            </time>
+                                            <h2 class="conteudo-lista__item__titulo">
+
+                                                    <a href="#" onclick="download_arquivo_estatico('NFCOM', 1, 'MOC_NFCOM_Anexo I_Leiaute e Regras de Validacao_v1.00a.pdf');">MOC NFCom 1.00a - Anexo I Leiaute e Regras de Valida&#231;&#227;o</a>
+                                            </h2>
+                                        </header>
+                                        <p><p><span style="color: rgb(31, 31, 31); font-size: 15.3664px;">Manual de Orientações do Contribuinte da NFCom Anexo I Leiaute e Regras de Validação - versão 1.00a.</span><br></p></p>
+
+
+                                    </article>
+                                    <article class="conteudo-lista__item clearfix">
+                                        <header>
+                                            <time class="conteudo-lista__item__datahora" datetime=" 11/04/2023">
+                                                11/04/2023
+                                            </time>
+                                            <h2 class="conteudo-lista__item__titulo">
+
+                                                    <a href="#" onclick="download_arquivo_estatico('NFCOM', 1, 'MOC_NFCOM_VisaoGeral_v1.00a.pdf');">MOC NFCom 1.00a - Vis&#227;o Geral</a>
+                                            </h2>
+                                        </header>
+                                        <p><p><span style="color: rgb(31, 31, 31); font-size: 15.3664px;">Manual de Orientações do Contribuinte da NFCom Visão Geral - versão 1.00a.</span><br></p></p>
+
+
+                                    </article>
+
+                            </div>
+
+                        </section>
+
+                    </div>
+                    <header class="artigo__cabecalho">
+                        <h1 class="artigo__titulo">Schemas</h1>
+                    </header>
+                    <div class="artigo__texto">
+
+                        <section id="pagedlistItens" class="conteudo-lista matriz-ui-pagedlist-container defaultpagedlist">
+
+                            <input type="hidden" class="matriz-ui-pagedlist-pagesize" value="10" style="display: inline-block;">
+
+                            <div class="matriz-ui-pagedlist-body conteudo-lista__body" style="display: block;">
+
+                                    <article class="conteudo-lista__item clearfix">
+                                        <header>
+                                            <time class="conteudo-lista__item__datahora" datetime=" 01/10/2025">
+                                                01/10/2025
+                                            </time>
+                                            <h2 class="conteudo-lista__item__titulo">
+
+                                                    <a href="#" onclick="download_arquivo_estatico('NFCOM', 2, 'PL_NFCOM_1.00_NT2025.001 RTC_1.10_corr.zip');">Schemas NT 2025.001 - RTC 1.10</a>
+                                            </h2>
+                                        </header>
+                                        <p><p><span style="font-size: 15.3664px;">Pacote de schemas que acompanha a minuta de nota técnica 2025.001 - Reforma Tributária do Consumo</span></p><p><span style="font-size: 15.3664px;">[1.01a - Correção dos schemas]</span></p><p><span style="font-size: 15.3664px;">[1.02 - Acompanha NT 1.02]</span></p><p><span style="font-size: 15.3664px;">[1.03 - Correção eventos tipos basicos]</span></p><p><span style="font-size: 15.3664px;">[1.04 - Acompanha a NT 1.04]</span></p><p><span style="font-size: 15.3664px;">[1.05 - Ajustes de schema e regras de validação]</span></p><p><span style="font-size: 15.3664px;">[1.05a - Correção do tipo de dados da AliqEfet]</span></p><p><span style="font-size: 15.3664px;">[1.05b - Correção no ID do schema de evento]</span></p><p><span style="font-size: 15.3664px;">[1.06 - Nova tag opcional vIBS e ajuste no QRCode para aceitar CNPJ Alfa]</span></p><p><span style="font-size: 15.3664px;">[1.05a - Correção do tipo de dados da AliqEfet]</span></p><p><span style="font-size: 15.3664px;">[1.09 - Correções]</span></p><p><span style="font-size: 15.3664px;">[1.10 - Remoção do grupo crédito presumido, criação do indDoacao e grupo estorno crédito]</span></p><p><span style="font-size: 15.3664px;">[1.10 corr - Corrigido indDoacao]</span><span style="font-size: 15.3664px;"></span><span style="font-size: 15.3664px;"></span><span style="font-size: 15.3664px;"></span><span style="font-size: 15.3664px;"></span><span style="font-size: 15.3664px;"></span><span style="font-size: 15.3664px;"></span><span style="font-size: 15.3664px;"></span><span style="font-size: 15.3664px;"></span><span style="font-size: 15.3664px;"></span><span style="font-size: 15.3664px;"></span><span style="font-size: 15.3664px;"></span></p></p>
+
+
+                                    </article>
+                                    <article class="conteudo-lista__item clearfix">
+                                        <header>
+                                            <time class="conteudo-lista__item__datahora" datetime=" 16/10/2024">
+                                                16/10/2024
+                                            </time>
+                                            <h2 class="conteudo-lista__item__titulo">
+
+                                                    <a href="#" onclick="download_arquivo_estatico('NFCOM', 2, 'PL_NFCOM_1.00_NT2024002_rev1.00.zip');">Schemas da NT 2024.002 [rev 1.00]</a>
+                                            </h2>
+                                        </header>
+                                        <p><p>Pacote de schemas que acompanha a NT 2024.002 da NFCom</p><p><span style="background-color: rgb(247, 198, 206);">[rev1.00 - Correção no tamanho da tag hash115]</span></p></p>
+
+
+                                    </article>
+                                    <article class="conteudo-lista__item clearfix">
+                                        <header>
+                                            <time class="conteudo-lista__item__datahora" datetime=" 16/01/2024">
+                                                16/01/2024
+                                            </time>
+                                            <h2 class="conteudo-lista__item__titulo">
+
+                                                    <a href="#" onclick="download_arquivo_estatico('NFCOM', 2, 'PL_NFCOM_1.00_NT2024001.zip');">Schemas NT 2024.001</a>
+                                            </h2>
+                                        </header>
+                                        <p><p>Pacote de schemas que acompanha a NT 2024.001 da NFCom</p></p>
+
+
+                                    </article>
+                                    <article class="conteudo-lista__item clearfix">
+                                        <header>
+                                            <time class="conteudo-lista__item__datahora" datetime=" 03/01/2024">
+                                                03/01/2024
+                                            </time>
+                                            <h2 class="conteudo-lista__item__titulo">
+
+                                                    <a href="#" onclick="download_arquivo_estatico('NFCOM', 2, 'PL_NFCOM_1.00_NT2023002_Rev1.01.zip');">Schemas da NT 2023.002 [Revis&#227;o 1.01]</a>
+                                            </h2>
+                                        </header>
+                                        <p><p>Schemas XML que acompanham a NT 2023.002 da NFCom.</p><p><br></p><p><span style="background-color: rgb(231, 214, 222);">[Revisão 1.01&nbsp; - Correção no tamanho do campo tpAssinante]</span></p></p>
+
+
+                                    </article>
+                                    <article class="conteudo-lista__item clearfix">
+                                        <header>
+                                            <time class="conteudo-lista__item__datahora" datetime=" 24/07/2023">
+                                                24/07/2023
+                                            </time>
+                                            <h2 class="conteudo-lista__item__titulo">
+
+                                                    <a href="#" onclick="download_arquivo_estatico('NFCOM', 2, 'PL_NFCOM_1.00_NT2023001.zip');">Schemas NFCom 1.00a - NT 2023.001</a>
+                                            </h2>
+                                        </header>
+                                        <p><p>Pacote de Schemas XSD correspondente ao MOC versão 1.00a da NFCom correspondente a NT 2023.001</p></p>
+
+
+                                    </article>
+
+                            </div>
+
+                        </section>
+
+                    </div>
+                    <header class="artigo__cabecalho">
+                        <h1 class="artigo__titulo">Notas T&#233;cnicas</h1>
+                    </header>
+                    <div class="artigo__texto">
+
+                        <section id="pagedlistItens" class="conteudo-lista matriz-ui-pagedlist-container defaultpagedlist">
+
+                            <input type="hidden" class="matriz-ui-pagedlist-pagesize" value="10" style="display: inline-block;">
+
+                            <div class="matriz-ui-pagedlist-body conteudo-lista__body" style="display: block;">
+
+                                    <article class="conteudo-lista__item clearfix">
+                                        <header>
+                                            <time class="conteudo-lista__item__datahora" datetime=" 30/09/2025">
+                                                30/09/2025
+                                            </time>
+                                            <h2 class="conteudo-lista__item__titulo">
+
+                                                    <a href="#" onclick="download_arquivo_estatico('NFCOM', 3, 'NFCom_Nota_Tecnica_2025_001_RTC_v1.10.pdf');">Nota T&#233;cnica 2025.001 - RTC v1.10</a>
+                                            </h2>
+                                        </header>
+                                        <p><p><span style="color: rgb(31, 31, 31); font-size: 15.3664px;">Publica-se a nota técnica 2025.001 da NFCom que trata das alterações necessárias para a Reforma Tributária do Consumo.</span></p><p style="font-size: 15.3664px;"><span style="color: rgb(31, 31, 31); font-size: 15.3664px;"><b>Obs</b>: Nova data para entrada dos SCHEMAS em PRODUÇÃO: <span style="background-color: rgb(255, 255, 0);">20/10/2025</span></span></p><p style="font-size: 15.3664px;"><span style="color: rgb(31, 31, 31); font-size: 15.3664px;">         Ambiente de HOMOLOGAÇÃO: Será atualizado com a v1.10 até <span style="background-color: rgb(255, 255, 0);">20/10/2025</span> (conforme implementação de cada autorizador)</span></p><p style="font-size: 15.3664px;"><span style="color: rgb(31, 31, 31); font-size: 15.3664px;">         Regra de validação que exige grupo IBS e CBS passa para <span style="background-color: rgb(255, 255, 0);">implementação Futura (sem data definida)</span>. </span></p></p>
+
+
+                                    </article>
+                                    <article class="conteudo-lista__item clearfix">
+                                        <header>
+                                            <time class="conteudo-lista__item__datahora" datetime=" 07/05/2025">
+                                                07/05/2025
+                                            </time>
+                                            <h2 class="conteudo-lista__item__titulo">
+
+                                                    <a href="#" onclick="download_arquivo_estatico('DFE', 3, 'DFe NTCJ 2025.001_CNPJ Alfa_v1.00.pdf');">Nota T&#233;cnica DFe Conjunta - CNPJ Alfanum&#233;rico v1.00</a>
+                                            </h2>
+                                        </header>
+                                        <p><p>Publica-se a nota técnica conjunta que apresenta as orientações e alterações nos sistemas de autorização dos documentos fiscais eletrônicos: NFe, NFCe, CTe, BPe, MDFe, NF3e e NFCom.</p></p>
+
+
+                                    </article>
+                                    <article class="conteudo-lista__item clearfix">
+                                        <header>
+                                            <time class="conteudo-lista__item__datahora" datetime=" 18/06/2024">
+                                                18/06/2024
+                                            </time>
+                                            <h2 class="conteudo-lista__item__titulo">
+
+                                                    <a href="#" onclick="download_arquivo_estatico('NFCOM', 3, 'NFCom_Nota_Tecnica_2024_002_v1.00.pdf');">Nota T&#233;cnica 2024.002</a>
+                                            </h2>
+                                        </header>
+                                        <p><p>Nota Técnica 2024.002 da NFCom que provoca alterações no Schema e regras de validação do documento.</p></p>
+
+
+                                    </article>
+                                    <article class="conteudo-lista__item clearfix">
+                                        <header>
+                                            <time class="conteudo-lista__item__datahora" datetime=" 01/02/2024">
+                                                01/02/2024
+                                            </time>
+                                            <h2 class="conteudo-lista__item__titulo">
+
+                                                    <a href="#" onclick="download_arquivo_estatico('NFCOM', 3, 'NFCom_Nota_Tecnica_2024_001_v1.01.pdf');">Nota T&#233;cnica 2024.001 v1.01</a>
+                                            </h2>
+                                        </header>
+                                        <p><p>Esta NT busca adequar o leiaute e as Regras de validação da NFCom contemplando ajustes 
+identificados como melhorias e complementos da versão 1.00 estabelecida no MOC da 
+NFCom</p><p><span style="color: rgb(198, 123, 165);">[v1.01 - Ajustes nas regras de validação da NT 2024.001]</span></p><p><b>Homologação: 26/02/2024</b><br></p><p><b>Produção: 11/03/2024</b></p><p><br></p></p>
+
+
+                                    </article>
+                                    <article class="conteudo-lista__item clearfix">
+                                        <header>
+                                            <time class="conteudo-lista__item__datahora" datetime=" 07/11/2023">
+                                                07/11/2023
+                                            </time>
+                                            <h2 class="conteudo-lista__item__titulo">
+
+                                                    <a href="#" onclick="download_arquivo_estatico('NFCOM', 3, 'NFCom_Nota_Tecnica_2023_002_v1.00.pdf');">Nota T&#233;cnica 2023.002 v1.00</a>
+                                            </h2>
+                                        </header>
+                                        <p><p>Esta NT busca adequar o leiaute e as Regras de validação da NFCom contemplando ajustes 
+identificados como melhorias e complementos da versão 1.00 estabelecida no MOC da 
+NFCom.</p></p>
+
+
+                                    </article>
+                                    <article class="conteudo-lista__item clearfix">
+                                        <header>
+                                            <time class="conteudo-lista__item__datahora" datetime=" 01/08/2023">
+                                                01/08/2023
+                                            </time>
+                                            <h2 class="conteudo-lista__item__titulo">
+
+                                                    <a href="#" onclick="download_arquivo_estatico('NFCOM', 3, 'NFCom_Nota_Tecnica_2023_001_v1.01.pdf');">Nota T&#233;cnica 2023.001 v1.01</a>
+                                            </h2>
+                                        </header>
+                                        <p><p class="ListaNiv1" style="margin:0cm;text-indent:0cm;mso-list:none;tab-stops:
+35.4pt">Esta NT busca adequar as Regras de validação da NFCom visando permitir
+a operação das operadoras em cenários não explorados e não identificados na
+fase inicial do projeto. As regras devem ser aplicadas já na primeira versão
+quando for disponibilizado o ambiente de autorização da NFCOM.</p><p class="ListaNiv1" style="margin:0cm;text-indent:0cm;mso-list:none;tab-stops:
+35.4pt"><span style="font-family: Helvetica, sans-serif; color: rgb(31, 31, 31); background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;"><o:p><br></o:p></span></p><p class="ListaNiv1" style="margin:0cm;text-indent:0cm;mso-list:none;tab-stops:
+35.4pt"><span style="font-family: Helvetica, sans-serif; color: rgb(31, 31, 31); background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; background-color: rgb(214, 165, 189);"><o:p>[v1.01 - Correção na grafia do nome do campo de envio de dados para os serviços da NFCom)</o:p></span></p></p>
+
+
+                                    </article>
+
+                            </div>
+
+                        </section>
+
+                    </div>
+                    <header class="artigo__cabecalho">
+                        <h1 class="artigo__titulo">Tabelas</h1>
+                    </header>
+                    <div class="artigo__texto">
+
+                        <section id="pagedlistItens" class="conteudo-lista matriz-ui-pagedlist-container defaultpagedlist">
+
+                            <input type="hidden" class="matriz-ui-pagedlist-pagesize" value="10" style="display: inline-block;">
+
+                            <div class="matriz-ui-pagedlist-body conteudo-lista__body" style="display: block;">
+
+                                    <article class="conteudo-lista__item clearfix">
+                                        <header>
+                                            <time class="conteudo-lista__item__datahora" datetime=" 06/10/2025">
+                                                06/10/2025
+                                            </time>
+                                            <h2 class="conteudo-lista__item__titulo">
+
+                                                    <a href="#" onclick="download_arquivo_estatico('DFE', 12, 'cCredPres_2025-10-06_Public_verde.xlsx');">Tabela de C&#243;digos de Cr&#233;dito Presumido </a>
+                                            </h2>
+                                        </header>
+                                        <p><p>Tabela atualizada que divulga a codificação do crédito presumido e seus indicadores.</p><p>Também pode ser visualizada online na área da Conformidade Fácil em: https://dfe-portal.svrs.rs.gov.br/CFF/TabelaCreditoPresumido</p><p><br></p><p><br></p></p>
+
+
+                                    </article>
+                                    <article class="conteudo-lista__item clearfix">
+                                        <header>
+                                            <time class="conteudo-lista__item__datahora" datetime=" 03/10/2025">
+                                                03/10/2025
+                                            </time>
+                                            <h2 class="conteudo-lista__item__titulo">
+
+                                                    <a href="#" onclick="download_arquivo_estatico('DFE', 12, 'CST_cClassTrib_2025-10-03_Public_verde.xlsx');">Tabela de C&#243;digo de Classifica&#231;&#227;o Tribut&#225;ria da RT</a>
+                                            </h2>
+                                        </header>
+                                        <p><p>Tabela atualizada de CST e cClassTrib da Reforma Tributária.</p><p>Pode ser visualizada também de forma online na área da Conformidade Fácil: <a href="https://dfe-portal.svrs.rs.gov.br/CFF/ClassificacaoTributaria">https://dfe-portal.svrs.rs.gov.br/CFF/ClassificacaoTributaria</a></p></p>
+
+
+                                    </article>
+
+                            </div>
+
+                        </section>
+
+                    </div>
+                    <header class="artigo__cabecalho">
+                        <h1 class="artigo__titulo">Informes T&#233;cnicos</h1>
+                    </header>
+                    <div class="artigo__texto">
+
+                        <section id="pagedlistItens" class="conteudo-lista matriz-ui-pagedlist-container defaultpagedlist">
+
+                            <input type="hidden" class="matriz-ui-pagedlist-pagesize" value="10" style="display: inline-block;">
+
+                            <div class="matriz-ui-pagedlist-body conteudo-lista__body" style="display: block;">
+
+                                    <article class="conteudo-lista__item clearfix">
+                                        <header>
+                                            <time class="conteudo-lista__item__datahora" datetime=" 22/10/2025">
+                                                22/10/2025
+                                            </time>
+                                            <h2 class="conteudo-lista__item__titulo">
+
+                                                    <a href="#" onclick="download_arquivo_estatico('NFCOM', 16, 'NFCom_Informe_Tecnico_2025_001_Atualiza&#231;ao Tabela cClass_v1.01.pdf');">Informe T&#233;cnico 2025.001 - Novos cClass 1.01</a>
+                                            </h2>
+                                        </header>
+                                        <p><p>IT 20025.001 da NFCom que atualiza a tabela cClass com novos itens.</p><p><span style="background-color: rgb(255, 231, 206);">[1.01 - Atualização na descrição do cClass 0600402]</span></p></p>
+
+
+                                    </article>
+                                    <article class="conteudo-lista__item clearfix">
+                                        <header>
+                                            <time class="conteudo-lista__item__datahora" datetime=" 06/10/2025">
+                                                06/10/2025
+                                            </time>
+                                            <h2 class="conteudo-lista__item__titulo">
+
+                                                    <a href="#" onclick="download_arquivo_estatico('DFE', 16, 'IT 2025.002_v1.21 - C&#243;digos de Classifica&#231;&#227;o Tribut&#225;ria.pdf');">IT 2025.002 RT C&#243;digo de Classifica&#231;&#227;o Tribut&#225;ria v1.21</a>
+                                            </h2>
+                                        </header>
+                                        <p><p>De forma geral, o Informe Técnico tem a finalidade de:
+</p><p>• Divulgar orientações e aperfeiçoamentos para os Serviços de Autorização de Uso dos 
+DF-e, que são usados pelas Empresas;
+</p><p>• Divulgar e manter registro da atualização de tabelas de domínio usadas pelo Serviço
+de Autorização, não significando obrigatoriamente a necessidade de alteração no 
+Sistema de Computação das Empresas;
+</p><p>• Divulgar e manter registro de orientações sobre a prestação de informações no leiaute 
+do DF-e, informando sobre o preenchimento de campo e outros;
+</p><p>• Divulgar e manter registro de comunicados e outras necessidades de comunicação 
+com as empresas</p></p>
+
+
+                                    </article>
+
+                            </div>
+
+                        </section>
+
+                    </div>
+
+            </article>
+
+        </div>
+
+    </div>
+
+
+</div>
+                </div>
+                <div id="divColunaLateral" class="col-sm-offset-1 col-md-4 col-md-offset-0 coluna-lateral">
+                    
+
+
+<div class="coluna-lateral__corpo">
+    <div class="row">
+
+                <div class="col-xs-12">
+                    <a href="/Soe/Login?provider=OpenIdConnect&returnUrl=/Nfcom">
+                        <style>
+                            .rounded-button {
+                                background-color: #f5f5f5;
+                                color: #1351b4;
+                                border: none;
+                                padding: 10px 20px;
+                                font-size: 16px;
+                                cursor: pointer;
+                                border-radius: 100em;
+                                transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+                                justify-content: space-between;
+                                align-items: center;
+                                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+                            }
+
+                                .rounded-button:hover {
+                                    box-shadow: 0 10px 15px rgba(0, 0, 0, 0.15), 0 4px 6px rgba(0, 0, 0, 0.1);
+                                    transform: translateY(-2px);
+                                }
+
+                            .imagemGovBr {
+                                padding-left: 10px;
+                                height: 30px;
+                            }
+                        </style>
+                        <div class="btn btn-xs block m-b rounded-button">
+                            Entrar com<img class="imagemGovBr" src="https://www.gov.br/++theme++padrao_govbr/img/govbr-colorido-b.png" alt="gov.br" />
+                        </div>
+                    </a>
+                </div>
+                <br />
+                <br />
+                <br />
+                <div class="col-xs-12">
+                    <section class="panel panel-default panel--matriz" style="margin-bottom: 4%">
+                        <div class="panel-heading">
+                            <i class="fa fa-gear fa-redondo" style="margin-right:8px"></i>
+                            <h2 class="panel-title">Janela de Manutenção</h2>
+                        </div>
+                        <div class="panel-body">
+                            <p>
+                                As manutenções programadas do ambiente DFe são sempre efetuadas aos Domingos das 07h00 às 09h00.
+                                Pequenas manutenções sem risco de indisponibilidade (ou de baixo risco) serão programadas
+                                com até 36 horas de antecedência. Demais manutenções, serão comunicadas em tempo hábil.
+                                Ver previsão de manutenção no box abaixo.
+                            </p>
+                                <div class="bg-warning text-justify fa-border"><strong>Não há manutenção prevista para o próximo Domingo</strong></div>
+                        </div>
+                    </section>
+                </div>
+            <div class="col-xs-12">
+                <section class="panel panel-default panel--matriz secretarias" style="margin-bottom: 4%">
+                    <div class="panel-heading">
+                        <i class="fa fa-building fa-redondo" style="margin-right:8px"></i>
+                        <h2 class="panel-title">Secretarias de Fazenda</h2>
+                    </div>
+                    <div class="panel-body">
+                        <form class="form">
+                            <div class="form-group">
+                                <select id="fExemplo" class="form-control" name="fExemplo" required="" aria-required="true" onchange="javascript: window.open(this.value)">
+                                    <option value="http://www.sefaz.ac.gov.br/">Acre</option>
+                                    <option value="http://www.sefaz.al.gov.br/">Alagoas</option>
+                                    <option value="http://www.sefaz.ap.gov.br/">Amapá</option>
+                                    <option value="http://www.sefaz.am.gov.br/">Amazonas</option>
+                                    <option value="http://www.sefaz.ba.gov.br/">Bahia</option>
+                                    <option value="http://www.sefaz.ce.gov.br/">Ceará</option>
+                                    <option value="https://receita.fazenda.df.gov.br/">Distrito Federal</option>
+                                    <option value="http://www.sefaz.es.gov.br/">Espirito Santo</option>
+                                    <option value="http://www.sefaz.go.gov.br/">Goiás</option>
+                                    <option value="http://www.sefaz.ma.gov.br/">Maranhão</option>
+                                    <option value="http://www.sefaz.mt.gov.br/">Mato Grosso</option>
+                                    <option value="http://www.sefaz.ms.gov.br/">Mato Grosso do Sul</option>
+                                    <option value="http://www.fazenda.mg.gov.br/">Minas Gerais</option>
+                                    <option value="http://www.sefa.pa.gov.br/">Pará</option>
+                                    <option value="http://www.receita.pb.gov.br/">Paraíba</option>
+                                    <option value="http://www.fazenda.pr.gov.br/">Paraná</option>
+                                    <option value="http://www.sefaz.pe.gov.br/">Pernambuco</option>
+                                    <option value="http://www.sefaz.pi.gov.br/">Piauí</option>
+                                    <option value="https://atendimentodfe.fazenda.rj.gov.br/ForAtendimentoDFE/contribuinte/formulario">Rio de Janeiro</option>
+                                    <option value="http://www.set.rn.gov.br/">Rio Grande do Norte</option>
+                                    <option value="http://www.sefaz.rs.gov.br/">Rio Grande do Sul</option>
+                                    <option value="http://www.sefin.ro.gov.br/">Rondônia</option>
+                                    <option value="http://www.sefaz.rr.gov.br/">Roraima</option>
+                                    <option value="http://www.sef.sc.gov.br/">Santa Catarina</option>
+                                    <option value="http://www.fazenda.sp.gov.br/">São Paulo</option>
+                                    <option value="http://www.sefaz.se.gov.br/">Sergipe</option>
+                                    <option value="http://www.sefaz.to.gov.br/">Tocantins</option>
+                                </select>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+            </div>
+                <div class="col-xs-12">
+                    <section class="panel panel-default panel--matriz lista-links" style="margin-bottom: 4%">
+                        <div id="qtd-dfes" class="panel-heading" style="cursor:pointer" href="#" onclick="$('#modalResumoQtdDfes').modal('show');">
+                            <i class="fa fa-newspaper-o fa-redondo" style="margin-right:8px"></i>
+                            <h2 class="panel-title">DFe Autorizados na SVRS (30 dias)</h2>
+                        </div>
+
+                    </section>
+                </div>
+                <div id="modalResumoQtdDfes" class="modal fade">
+                    <!--Como chamar um arquivo svg o que é um arquivo svg-->
+                    <div class="modal-dialog" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <div class="titulo-modal">
+                                    <p>DFe Autorizados na SVRS (30 dias) </p>
+                                </div>
+                            </div>
+                            <div class="modal-body modal--body">
+                                
+                                <div class="form-group">
+                                    <div class="col-lg-12 area-modal-form">
+                                        
+
+                                        <div class="col-lg-12">
+                                            <label id="tipo-de-sistema">Total de DFes:</label>
+                                            <label class="numero-de-dfes" style="font-size: 25px; font-weight: 500;"></label>
+                                        </div>
+
+                                    </div>
+                                    
+<link rel="stylesheet" href="/Content/css/DfesDoBrasil.css" />
+
+
+<!-- aqui vamos colocar o html que foi gerado na index.html-->
+<div class="container svgMapContainer">
+    <svg xmlns:mapsvg="http://mapsvg.com" xmlns:dc="http://purl.org/dc/elements/1.1/"
+         xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:svg="http://www.w3.org/2000/svg"
+         xmlns="http://www.w3.org/2000/svg"
+         id="svgMap"
+         viewBox="-30 -30 700 700"
+         width="100%"
+         height="100%"
+         preserveAspectRatio="xMinYMin meet">
+    </svg>
+</div>
+
+<div class="tooltip-mapa"></div>
+
+<div class="col-md-12 qtd-tabela ">
+    <table class="table">
+        <thead class="titulo-tabela">
+            <tr>
+                <th scope="col">#</th>
+                <th scope="col">UF</th>
+                <th scope="col">DFes Autorizados</th>
+                <th scope="col">Referente ao total</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <th scope="row">1°</th>
+                <td class="codUf26"></td>
+                <td class="qtdDfes26">0000</td>
+                <td class="porcertagemDfes26">0%</td>
+
+            </tr>
+            <tr>
+                <th scope="row">2°</th>
+                <td class="codUf25"></td>
+                <td class="qtdDfes25" >0000</td>
+                <td class="porcertagemDfes25" >0%</td>
+
+            </tr>
+            <tr>
+                <th scope="row">3°</th>
+                <td class="codUf24"></td>
+                <td class="qtdDfes24">0000</td>
+                <td class="porcertagemDfes24" >0%</td>
+
+            </tr>
+        </tbody>
+        <caption style="margin-top: 1%;">UFs que mais autorizaram DFes.</caption>
+    </table>
+</div>
+<script type="text/javascript" src="/Scripts/brasil.js"></script>
+
+<script>
+
+    ResumoSistemasDfes('Nfcom');
+    
+
+
+
+</script>
+
+                                </div>
+                                <div class="corpo-modal">
+
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-default" data-dismiss="modal" onclick="fecharModal()" style="margin-top: 2%;">Fechar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <div class="col-xs-12">
+                <section class="panel panel-default panel--matriz lista-links" style="margin-bottom: 4%">
+                    <div class="panel-heading">
+                        <i class="fa fa-link fa-redondo" style="margin-right:8px"></i>
+                        <h2 class="panel-title">Navegação</h2>
+                    </div>
+                    <div class="panel-body">
+                        <ul style="font-size: 110%">
+                                <li><a href="/Bpe" title="BPe - Portal do Bilhete de Passagem Eletrônico">Portal do BPe</a></li>
+                                                            <li><a href="/Cte" title="CTe - Portal do Conhecimento de Transporte Eletrônico">Portal do CTe</a></li>
+                                                            <li><a href="/Mdfe" title="MDFe - Portal do Manifesto Eletrônico de Documentos Fiscais">Portal do MDFe</a></li>
+                                                            <li><a href="/Nfce" title="NFCe - Portal da Nota Fiscal do Consumidor Eletrônica">Portal da NFCe</a></li>
+                                                            <li><a href="/Nf3e" title="NF3e - Portal da Nota Fiscal da Energia Elétrica Eletrônica">Portal da NF3E</a></li>
+                                                                                        <li><a href="/Nfe" title="NFe - Portal da Nota Fiscal Eletrônica">Portal da NFe</a></li>
+                                                            <li><a href="/Nff" title="NFF - Portal da Nota Fiscal Fácil">Portal da NFF</a></li>
+                                                            <li><a href="/One" title="ONE - Portal do Operador Nacional dos Estados">Portal do ONE</a></li>
+                                                            <li><a href="/Dce" title="DCE - Portal da Declaração de Conteúdo Eletrônica">Portal da DCe</a></li>
+                                                            <li><a href="/Difal" title="DIFAL - Portal da DIFAL">Portal da DIFAL</a></li>
+                                                            <li><a href="/Pes" title="PES - Portal da Plataforma de Emissão Simplificada">Portal da PES</a></li>
+                                                            <li><a href="/Cff" title="CFF - Portal da Conformidade Fácil">Portal da CFF</a></li>
+                                                            <li><a href="/Nfag" title="NFAG - Portal da Nota Fiscal da Água e Saneamento Eletrônica">Portal da NFAG</a></li>
+                        </ul>
+                    </div>
+                </section>
+            </div>
+            <div class="col-xs-12">
+                <section class="panel panel-default panel--matriz lista-links" style="margin-bottom: 4%">
+                    <div class="panel-heading">
+                        <i class="fa fa-cloud fa-redondo" style="margin-right:8px"></i>
+                        <h2 class="panel-title">Links externos</h2>
+                    </div>
+                    <div class="panel-body">
+                        <ul style="font-size: 110%">
+                            <li><a href="http://www.cte.fazenda.gov.br" target="_blank" title="CTe - Conhecimento de Transporte Eletrônico">CTe</a></li>
+                            <li><a href="http://www.nfe.fazenda.gov.br" target="_blank" title="NFe - Nota Fiscal Eletrônica">NFe</a></li>
+                            <li><a href="http://nfce.encat.org" target="_blank" title="NFCe - Notal Fiscal de Consumidor Eletrônica">NFCe</a></li>
+                            <li><a href="https://www.confaz.fazenda.gov.br/" target="_blank" title="CONFAZ - Conselho Nacional de Política Fazendaria">CONFAZ</a></li>
+                        </ul>
+                    </div>
+                </section>
+            </div>
+                <div class="col-xs-12">
+                    <section class="panel panel-default panel--matriz lista-links" style="margin-bottom: 4%">
+                        <div class="panel-heading">
+                            <i class="fa fa-question fa-redondo" style="margin-right:8px"></i>
+                            <h2 class="panel-title">Dúvidas frequentes</h2>
+                        </div>
+                        <div class="panel-body">
+                            <ul>
+                                <li>
+                                    <a href="/Nfcom/Faq" title="Perguntas Mais Frequentes">FAQ</a>
+                                </li>
+                            </ul>
+                        </div>
+                    </section>
+                </div>
+    </div>
+</div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="rodape">
+    <div class="wrapper-rodape__expediente">
+        <div class="container" style="width: 60%">
+            <div class="row">
+                <div class="col-md-12">
+                    <a class="cabecalho__logo" title="Visite o site da RECEITA ESTADUAL RS" style="background-size:cover; background-position: 50% 50%; background-image:url(../../Content/img/logos/logo_Receita_branco.png)" target="_blank" href="https://receita.fazenda.rs.gov.br/"></a>
+                    <a class="cabecalho__logo" title="Visite o site da PROCERGS" style="min-width:55%; float:right; background-size:auto; background-position: 50% 50%; background-image:url(../../Content/img/logos/logo_Procergs.png)" target="_blank" href="https://www.procergs.rs.gov.br/"></a>
+                </div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+    
+    <script type="text/javascript" src="/Scripts/bootstrap.320.min.js"></script>
+    
+    <script type="text/javascript" src="/Scripts/owl.carousel.js"></script>
+    <script type="text/javascript" src="/Scripts/banner-rotativo.js"></script>
+    <script type="text/javascript" src="/Scripts/master.js"></script>
+
+    <div id="modalLogin" class="modal fade">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">Sair</span>
+                    </button>
+                    <br />
+                </div>
+                <div class="modal-body">
+                    <div id="modalBodyResult"></div>
+                </div>
+                <div class="modal-footer"></div>
+            </div>
+        </div>
+    </div>
+
+
+</body>
+</html>
+<!-- SRVPRO963 -->

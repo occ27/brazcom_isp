@@ -1,0 +1,497 @@
+[
+  {
+    "code": "010",
+    "title": "Assinatura",
+    "example": ""
+  },
+  {
+    "code": "0100101",
+    "title": "Assinatura de serviços de telefonia",
+    "example": ""
+  },
+  {
+    "code": "0100201",
+    "title": "Assinatura de serviços de comunicação de dados",
+    "example": ""
+  },
+  {
+    "code": "0100301",
+    "title": "Assinatura de serviços de TV por Assinatura",
+    "example": ""
+  },
+  {
+    "code": "0100401",
+    "title": "Assinatura de serviços de comunicação multimídia",
+    "example": ""
+  },
+  {
+    "code": "020",
+    "title": "Habilitação",
+    "example": ""
+  },
+  {
+    "code": "0200101",
+    "title": "Habilitação de serviços de telefonia",
+    "example": ""
+  },
+  {
+    "code": "0200201",
+    "title": "Habilitação de serviços de comunicação de dados",
+    "example": ""
+  },
+  {
+    "code": "0200301",
+    "title": "Habilitação de TV por Assinatura",
+    "example": ""
+  },
+  {
+    "code": "030",
+    "title": "Serviço Medido",
+    "example": ""
+  },
+  {
+    "code": "0300101",
+    "title": "Serviço Medido - Chamadas locais",
+    "example": ""
+  },
+  {
+    "code": "0300102",
+    "title": "Serviço Medido - Chamadas longa distância nacional",
+    "example": ""
+  },
+  {
+    "code": "0300103",
+    "title": "Serviço Medido - Chamadas longa distância internacionais",
+    "example": ""
+  },
+  {
+    "code": "0300104",
+    "title": "Serviço Medido - Chamadas originadas em Roaming",
+    "example": ""
+  },
+  {
+    "code": "0300105",
+    "title": "Serviço Medido - Chamadas recebidas em Roaming",
+    "example": ""
+  },
+  {
+    "code": "0300106",
+    "title": "Serviço Medido - Adicional de chamada",
+    "example": ""
+  },
+  {
+    "code": "0300107",
+    "title": "Serviço Medido - Números Especiais (0300/0500/0600/0800/etc.)",
+    "example": ""
+  },
+  {
+    "code": "0300108",
+    "title": "Serviço Medido - Mensagem SMS",
+    "example": ""
+  },
+  {
+    "code": "0300109",
+    "title": "Serviço Medido - Mensagem MMS",
+    "example": ""
+  },
+  {
+    "code": "0300201",
+    "title": "Serviço Medido - Comunicação de dados",
+    "example": ""
+  },
+  {
+    "code": "0300301",
+    "title": "Serviço Medido - Pay-per-view (programação TV)",
+    "example": ""
+  },
+  {
+    "code": "0300401",
+    "title": "Serviço Medido - Comunicação multimidia",
+    "example": ""
+  },
+  {
+    "code": "040",
+    "title": "Serviço Não Medido",
+    "example": ""
+  },
+  {
+    "code": "0400101",
+    "title": "Serviço Não Medido - Telefonia",
+    "example": ""
+  },
+  {
+    "code": "0400201",
+    "title": "Serviço Não Medido - Comunicação de dados",
+    "example": ""
+  },
+  {
+    "code": "0400301",
+    "title": "Serviço Não Medido - TV por Assinatura",
+    "example": ""
+  },
+  {
+    "code": "0400401",
+    "title": "Serviço Não Medido - Provimento à internet",
+    "example": ""
+  },
+  {
+    "code": "0400501",
+    "title": "Serviço Não Medido - Comunicação multimídia",
+    "example": ""
+  },
+  {
+    "code": "045",
+    "title": "Serviços Combinados",
+    "example": ""
+  },
+  {
+    "code": "0450101",
+    "title": "Serviços Combinados (dados, voz, mensagens e outros)",
+    "example": ""
+  },
+  {
+    "code": "050",
+    "title": "Serviço Pré-pago",
+    "example": ""
+  },
+  {
+    "code": "0500101",
+    "title": "Cartão Telefônico - Telefonia Fixa",
+    "example": ""
+  },
+  {
+    "code": "0500102",
+    "title": "Carga / Recarga de Créditos - Telefonia Fixa",
+    "example": ""
+  },
+  {
+    "code": "0500201",
+    "title": "Carga / Recarga de Créditos - Telefonia Móvel",
+    "example": ""
+  },
+  {
+    "code": "0500301",
+    "title": "Carga / Recarga de Créditos - Serviço de Comunicação Multimídia",
+    "example": ""
+  },
+  {
+    "code": "0500401",
+    "title": "Carga / Recarga de Créditos - TV por assinatura",
+    "example": ""
+  },
+  {
+    "code": "0500501",
+    "title": "Recarga de Créditos - Antecipação",
+    "example": ""
+  },
+  {
+    "code": "0500601",
+    "title": "Repasse de Pré-pago",
+    "example": ""
+  },
+  {
+    "code": "060",
+    "title": "Outros Serviços",
+    "example": ""
+  },
+  {
+    "code": "0600101",
+    "title": "Facilidades Adicionais (identificador, caixa postal, não-perturbe, etc)",
+    "example": ""
+  },
+  {
+    "code": "0600201",
+    "title": "Streaming de vídeo e audio",
+    "example": ""
+  },
+  {
+    "code": "0600301",
+    "title": "Serviço de Rastreamento",
+    "example": ""
+  },
+  {
+    "code": "0600401",
+    "title": "Veiculação de publicidade e propaganda em qualquer meio",
+    "example": ""
+  },
+  {
+    "code": "0600402",
+    "title": "Veiculação de publicidade por rádio e TV de recepção livre e gratuita",
+    "example": ""
+  },
+  {
+    "code": "0600501",
+    "title": "Outros Serviços (substituição de número, troca de aparelho, instalação, software, visita técnica, etc.)",
+    "example": ""
+  },
+  {
+    "code": "0600601",
+    "title": "Outros serviços de valor adicionado",
+    "example": ""
+  },
+  {
+    "code": "070",
+    "title": "Cessão Meios de Rede",
+    "example": ""
+  },
+  {
+    "code": "0700101",
+    "title": "Interconexão",
+    "example": ""
+  },
+  {
+    "code": "0700201",
+    "title": "Roaming",
+    "example": ""
+  },
+  {
+    "code": "0700301",
+    "title": "Exploração Industrial de Linha Dedicada - EILD",
+    "example": ""
+  },
+  {
+    "code": "0700401",
+    "title": "Lançamento de ICMS proporcional às saídas isentas, não tributadas ou com redução de base de cálculo (§ 1º, Cláusula terceira, Convênio ICMS 17/2013)",
+    "example": ""
+  },
+  {
+    "code": "0700501",
+    "title": "Lançamento de ICMS proporcional às cessões de meio destinadas a consumo próprio (§ 1º Cláusula terceira, Convênio ICMS 17/2013)",
+    "example": ""
+  },
+  {
+    "code": "0700601",
+    "title": "Lançamento de ICMS complementar, na condição de responsável tributário",
+    "example": ""
+  },
+  {
+    "code": "080",
+    "title": "Disponibilização de Equipamentos e Infraestrutura",
+    "example": ""
+  },
+  {
+    "code": "0800101",
+    "title": "Aparelho telefônico",
+    "example": ""
+  },
+  {
+    "code": "0800201",
+    "title": "Aparelho Identificador de chamadas",
+    "example": ""
+  },
+  {
+    "code": "0800301",
+    "title": "Modem",
+    "example": ""
+  },
+  {
+    "code": "0800401",
+    "title": "Rack",
+    "example": ""
+  },
+  {
+    "code": "0800501",
+    "title": "Sala/Recinto",
+    "example": ""
+  },
+  {
+    "code": "0800601",
+    "title": "Roteador",
+    "example": ""
+  },
+  {
+    "code": "0800701",
+    "title": "Servidor",
+    "example": ""
+  },
+  {
+    "code": "0800801",
+    "title": "Multiplexador",
+    "example": ""
+  },
+  {
+    "code": "0800901",
+    "title": "Decodificador/Conversor",
+    "example": ""
+  },
+  {
+    "code": "0801001",
+    "title": "Outros equipamentos",
+    "example": ""
+  },
+  {
+    "code": "0801101",
+    "title": "Fibra apagada",
+    "example": ""
+  },
+  {
+    "code": "0801201",
+    "title": "Capacidade Satelital",
+    "example": ""
+  },
+  {
+    "code": "0801301",
+    "title": "Antenas",
+    "example": ""
+  },
+  {
+    "code": "0801401",
+    "title": "Dutos e Postes",
+    "example": ""
+  },
+  {
+    "code": "100",
+    "title": "Cobrança Própria",
+    "example": ""
+  },
+  {
+    "code": "1000101",
+    "title": "Cobrança de seguros",
+    "example": ""
+  },
+  {
+    "code": "1000201",
+    "title": "Cobrança de parcelamento",
+    "example": ""
+  },
+  {
+    "code": "1000301",
+    "title": "Cobrança de juros de mora",
+    "example": ""
+  },
+  {
+    "code": "1000401",
+    "title": "Cobrança de multa de mora",
+    "example": ""
+  },
+  {
+    "code": "1000402",
+    "title": "Cobrança de multa por descumprimento de contrato (fidelização)",
+    "example": ""
+  },
+  {
+    "code": "1000501",
+    "title": "Cobrança de conta de meses anteriores",
+    "example": ""
+  },
+  {
+    "code": "1000601",
+    "title": "Correção monetária",
+    "example": ""
+  },
+  {
+    "code": "1000701",
+    "title": "Taxas",
+    "example": ""
+  },
+  {
+    "code": "1000801",
+    "title": "Adiantamento relativo a serviços de comunicação por radiodifusão de recepção livre e gratuita",
+    "example": ""
+  },
+  {
+    "code": "1000901",
+    "title": "Cobrança por venda de mercadorias",
+    "example": ""
+  },
+  {
+    "code": "110",
+    "title": "Cobrança de Terceiros",
+    "example": ""
+  },
+  {
+    "code": "1100101",
+    "title": "Cobrança de Serviços de Terceiros",
+    "example": ""
+  },
+  {
+    "code": "1100201",
+    "title": "Cobrança de Seguros",
+    "example": ""
+  },
+  {
+    "code": "1100301",
+    "title": "Cobrança de Juros de Mora",
+    "example": ""
+  },
+  {
+    "code": "1100401",
+    "title": "Cobrança de Multa de Mora",
+    "example": ""
+  },
+  {
+    "code": "1100501",
+    "title": "Cobrança de Conta de meses anteriores",
+    "example": ""
+  },
+  {
+    "code": "1100601",
+    "title": "Correção Monetária",
+    "example": ""
+  },
+  {
+    "code": "1100701",
+    "title": "Doações",
+    "example": ""
+  },
+  {
+    "code": "1100801",
+    "title": "Cobrança por disponibilização de equipamentos",
+    "example": ""
+  },
+  {
+    "code": "1100901",
+    "title": "Cobrança por venda de mercadorias",
+    "example": ""
+  },
+  {
+    "code": "120",
+    "title": "Cobrança Centralizada",
+    "example": ""
+  },
+  {
+    "code": "1200101",
+    "title": "Item lançado em outra NFCom - Cobrança centralizada",
+    "example": ""
+  },
+  {
+    "code": "130",
+    "title": "Cofaturamento",
+    "example": ""
+  },
+  {
+    "code": "1300101",
+    "title": "Item lançado em outra NFCom - Cobrança por cofaturamento",
+    "example": ""
+  },
+  {
+    "code": "590",
+    "title": "Deduções",
+    "example": ""
+  },
+  {
+    "code": "5900101",
+    "title": "Dedução relativa a impugnação de serviços",
+    "example": ""
+  },
+  {
+    "code": "5900201",
+    "title": "Dedução referente ajuste de conta",
+    "example": ""
+  },
+  {
+    "code": "5900301",
+    "title": "Dedução relativa à multa pela interrupção de fornecimento",
+    "example": ""
+  },
+  {
+    "code": "5900401",
+    "title": "Dedução por pagamento em duplicidade",
+    "example": ""
+  },
+  {
+    "code": "5900501",
+    "title": "Outras deduções",
+    "example": ""
+  }
+]

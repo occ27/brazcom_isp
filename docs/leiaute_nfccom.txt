@@ -1,0 +1,2026 @@
+  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Projeto Nota Fiscal Fatura 
+de Serviço de 
+Comunicação Eletrônica  
+ 
+Manual de Orientação do Contribuinte 
+Anexo I – Leiaute e Regras de Validação da NFCom  
+ 
+Versão 1.00a - janeiro 2023  
+ 
+
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a    
+ 
+Página 2 / 38 
+ 
+Sumário 
+ 
+Controle de Versões ..................................................................................................... 3  
+Histórico de Alterações / Cronograma .......................................................................... 4  
+1 Introdução ............................................................................................................. 5  
+2 Regras de Validação da NFCom ........................................................................... 6  
+2.1 Regras de Validação Básicas do Serviço ....................................................... 6  
+2.2 Regras de Validação Específicas da NFCom ................................................. 6  
+2.3 Eventos de Marcação originados pela NFCom ............................................. 21  
+3 Leiaute da NFCom ............................................................................................... 23  
+ 
+ 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a    
+ 
+Página 3 / 38 
+ 
+Controle de Versões  
+Versão Publicação Descrição 
+1.00 01/2022 Criação deste manual como documento anexo do MOC. Corresponde ao 
+Anexo I do MOC 1.00, que trata do leiaute da NFCom.  
+1.00a 01/2023 Atualização das regras com NT 2022.001 
+ 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a    
+ 
+Página 4 / 38 
+ 
+Histórico de Alterações / Cronograma  
+Versão Histórico de atualizações Implantação 
+Homologação Implantação 
+Produção 
+1.00  Elaboração do draft do MOC da NFCom  - - 
+1.00a  Atualização com NT 2022.001 e Webservices 04/2023 06/2023 
+ 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a    
+ 
+Página 5 / 38 
+ 
+1 Introdução  
+Este documento é parte integrante do Manual de Orientação do Contribuinte (MOC) e 
+por objetivo a definição do leiaute da NFCom, modelo 62. 
+O Manual de Orientação do Contribuinte 1.00a é composto pelos seguintes documentos: 
+ MOC – Visão Geral 
+ MOC – Anexo I – Leiaute e Regras de Validação da NFCom 
+ MOC – Anexo II – Manual de Especificações Técnicas do DANFE-COM  
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 6 / 38 
+ 
+2 Regras de Validação da NFCom 
+As validações descritas a seguir aplicam-se a NFCom enviada ao serviço de recepção síncrono (MOC Visão Geral - item 4.2). 
+2.1 Regras de Validação Básicas do Serviço 
+ 
+Deverão ser aplicadas as validações gerais conforme quadro abaixo (MOC Visão Geral – Item 4.1): 
+ 
+Grupo Descrição  
+D Validação do Certificado de Assinatura  
+E Validação da Assinatura Digital  
+2.2 Regras de Validação Específicas da NFCom 
+ 
+# Regra de Validação Aplic. cStat. Efeito Mensagem 
+Validações Gerais 
+G01 Tipo do ambiente da NFCom (tag: ide/tpAmb) difere do ambiente do Web 
+Service   Obrig. 252 Rej. Rejeição: Ambiente informado diverge do Ambiente de 
+recebimento 
+G02 Código da UF do Emitente (tag: ide/cUF) difere da UF Autorizadora Obrig. 226 Rej. Rejeição: Código da UF do Emitente diverge da UF autorizadora 
+G03 Sigla da UF do Emitente (tag: emit/UF) difere da UF Autorizadora 
+ 
+Exceção : Essa regra não deverá ser aplicada quando o Emitente (par CNPJ 
++ IE) estiverem informados no CCC com tipo de Inscrição = 4 (Contribuinte 
+da UF com endereço em outra UF) Obrig. 247 Rej. Rejeição: Sigla da UF do Emitente diverge da UF autorizadora 
+G04 Se forma de emissão da NFCom = 1 (Normal):  
+dhCont e xJust não devem ser informados Obrig. 415 Rej. Rejeição: Data e Justificativa de entrada em contingência não 
+devem ser informadas para tipo de emissão igual a Normal.  
+G05 Se forma de emissão (tag: ide/tpEmis) da NFCom = 2 (Contingência Off-
+Line): 
+dhCont e xJust devem ser informados 
+ Obrig. 416 Rej. Rejeição: Data e Justificativa de entrada em contingência devem 
+ser informadas 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 7 / 38 
+ 
+G06 Se Data de entrada em contingência (tag: ide/dhCont) estiver informada, esta 
+deve ser menor ou igual à data de emissão Obrig 417 Rej. Rejeição: Data de entrada em contingência posterior ou igual a 
+data de emissão. 
+G07 Se informado número do Site de autorização diferente de Normal 
+(nSiteAutoriz > 0) verificar se o Site do Autorizador corresponde ao que foi 
+informado. 
+ 
+Observação : O número do Site só deve ser diferente de zero para 
+ambientes de autorização em múltiplos Sites (a relação do número 
+identificador de cada Site deverá ser disponibilizada pelo Autorizador) Obrig. 418 Rej. Rejeição: Site de autorização inválido 
+G08 Se forma de emissão (tag: ide/tpEmis) da NFCom = 2 (Contingência Off-
+Line): 
+Rejeitar se Tipo da NFCom for diferente de 0 (Normal) Obrig. 419 Rej. Rejeição: Emissão Off-line só é permitida para NFCom do tipo 
+Normal 
+G09 Campo "ID" inválido: 
+- Falta literal "NFCom" 
+- Chave de acesso do campo ID difere da concatenação dos campos 
+correspondentes Obrig. 227 Rej. Rejeição: Erro na composição do Campo ID 
+G10 Verificar se Ano da chave de acesso é inferior a 2022 Obrig. 421 Rej. Rejeição: Ano da NFCom informado na chave de acesso inválido 
+G11 Dígito Verificador inválido da Chave de acesso resultante da concatenação 
+dos campos correspondentes Obrig. 253 Rej. Rejeição: Digito Verificador da chave de acesso composta 
+inválido 
+Validações do Emitente 
+G12 Validar CNPJ Emitente (dígito controle, zeros ou nulo) 
+ Obrig. 207 Rej. Rejeição: CNPJ do emitente inválido 
+G13 IE do Emitente deve ser informada (zeros ou nulo) Obrig. 229 Rej. Rejeição: IE do emitente não informada 
+G14 Validar IE Emitente (erro no dígito de controle) 
+Obs.: Antes da validação, a IE deverá ser normalizada, na aplicação da 
+SEFAZ, com o acréscimo de zeros não significativos previstos na definição 
+do formato da IE se necessário.  
+Exemplo:  IE informada 130000019, formato da IE: NNNNNNNNNND, a IE 
+deve ser padronizada para 00130000019, com o acréscimo dos zeros não 
+significativos necessários para a validação do dígito verificador. Obrig. 209 Rej. Rejeição: IE do emitente inválida 
+G15 Se informada IE do emitente na UF de destino (IEUFDest): 
+Validar IE Emitente UF Destino (erro no dígito de controle) 
+Obs.: Antes da validação, a IE deverá ser normalizada, na aplicação da 
+SEFAZ, com o acréscimo de zeros não significativos previstos na definição 
+do formato da IE se necessário.  
+ 
+Exemplo:  IE informada 130000019, formato da IE: NNNNNNNNNND, a IE 
+deve ser padronizada para 00130000019, com o acréscimo dos zeros não 
+significativos necessários para a validação do dígito verificador. Obrig. 498 Rej. Rejeição: IE do emitente na UF de partilha inválida 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 8 / 38 
+ 
+G16 Emitente não credenciado para emissão de NFCom 
+ Obrig. 203 Rej. Rejeição: Emissor não habilitado para emissão da NFCom 
+G17 Acessar Cadastro de Emitentes (CCC, Chave: UF, IE):  
+- IE emitente não cadastrada  Obrig. 230 Rej. Rejeição: IE do emitente não cadastrada 
+G18 IE do Emitente deve estar vinculada ao CNPJ (tratar Regime Especial de IE 
+única) Obrig. 231 Rej. Rejeição: IE do emitente não vinculada ao CNPJ 
+G19 Emitente em situação irregular perante o Fisco  Obrig. 205 Rej. Rejeição: Emitente em situação irregular perante o Fisco 
+ 
+G20 Município do Emitente diverge da UF (verificar se as 2 posições da esquerda 
+do código de município que identifica o código da UF é compatível com a 
+sigla da UF informada) Obrig. 407 Rej Rejeição: Código de Município diverge da UF do Emitente da 
+NFCom 
+G21 Código do Município Emitente inexistente (Tabela Municípios do IBGE) 
+ Obrig. 408 Rej. Rejeição: Município do Emitente inexistente 
+Validações do Destinatário/Assinante 
+G22 Se CNPJ Destinatário informado:  
+- Validar CNPJ Destinatário (dígito de controle, zeros)  Obrig. 422 Rej. Rejeição: CNPJ do Destinatário inválido 
+G23 Se CPF Destinatário informado:  
+- Validar CPF Destinatário (dígito de controle, zeros) Obrig. 423 Rej. Rejeição: CPF do Destinatário inválido 
+G24 Se idOutros informado: 
+- Não poderá ser informada IE Destinatário. Obrig. 424 Rej. Rejeição: IE não deve ser informada para Destinatário do tipo 
+outros 
+G25 Se indicador de Destinatário for igual a Contribuinte (indIEDest=1): 
+ 
+- Rejeitar se o Destinatário indicado não possuir informação da IE ou se 
+estiver informado “ISENTO” Obrig, 426 Rej. Rejeição: IE deve ser informada para tomador Contribuinte  
+G26 Se indicador de Destinatário for igual a Isento de Inscrição (indIEDest=2): 
+ 
+- Rejeitar se o Destinatário indicado não possuir informação de IE ou se 
+estiver informada diferente do literal “ISENTO" Obrig. 420 Rej. Rejeição: IE do tomador isento deve ser preenchida com 
+“ISENTO” 
+G27 Se indicador de Destinatário for igual a Não Contribuinte (indIEDest=9): 
+- Rejeitar se o Destinatário indicado possuir a tag IE informada Facult. 431 Rej. Rejeição: IE não pode ser informada para tomador não 
+contribuinte 
+G28 Rejeitar quando informado Destinatário como Contribuinte Isento de 
+Inscrição Estadual (indIEDest=2) em UF que não permite esta situação, 
+conforme abaixo: 
+- AM, BA, CE, GO, MG, MS, MT, PE, RN, SE, SP Obrig. 432 Rej. Rejeição: UF do Destinatário não aceita ISENTO com Inscrição 
+Estadual 
+G29 Município do Destinatário deve pertencer à UF (verificar se as 2 posições da 
+esquerda do código de município que identifica o código da UF é compatível 
+com a sigla da UF informada) Obrig. 405 Rej Rejeição: Código de Município diverge da UF do Destinatário da 
+NFCom 
+G30 Código do Município do Destinatário deve existir (Tabela Municípios do 
+IBGE) Obrig. 406 Rej. Rejeição: Município do Destinatário inexistente 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 9 / 38 
+ 
+G31 Se IE Destinatário informada: 
+- Validar IE do Destinatário (erro no dígito de controle) 
+ 
+Observação:  Antes da validação, a IE deverá ser normalizada, na aplicação 
+da SEFAZ, com o acréscimo de zeros não significativos previstos na 
+definição do formato da IE se necessário.  Obrig. 427 Rej. Rejeição: IE do Destinatário inválida 
+G32 Se IE Destinatário informada:  
+Acessar Cadastro de Contribuinte da UF (Chave: IE Destinatário)  
+- IE deve estar cadastrada 
+ 
+Observação : desconsiderar a situação da IE perante o fisco Facult. 428 Rej. Rejeição: IE do Destinatário não cadastrada 
+G33  Se IE e CNPJ Destinatário informados:  
+Acessar Cadastro de Contribuinte da UF (Chave: IE Destinatário.)  
+- IE deve estar vinculada ao CNPJ 
+ 
+Observação : desconsiderar a situação da IE perante o fisco Facult. 429 Rej. Rejeição: IE do Destinatário não vinculada ao CNPJ 
+G34 Se IE Destinatário = “ISENTO” ou não informada 
+Acessar Cadastro de Contribuinte da UF  
+- Destinatário possui IE ativa na UF 
+Observação: Retornar a IE que está ativa e associada ao CNPJ Facult. 430 Rej. Rejeição: IE do Destinatário não informada 
+G34a Se tipo de faturamento da NFCom DIFERENTE de 2 (Cofaturamento) (tag: 
+tpFat): Devem ser informados número do contrato (tag: nContrato) e data do 
+início do contrato (tag: dContratoIni) Obrig.. 537 Rej. Rejeição: Dados do contrato são obrigatórios para tipo de 
+faturamento normal e centralizado 
+Validações do Assinante 
+G35 Se data final do contrato for informada (tag: dContratoFim) deve ser maior ou 
+igual que a data inicial (tag: dContratoIni) Obrig. 425 Rej. Rejeição: Data de fim do contrato não pode ser anterior a inicial 
+G36 Se informados terminais adicionais (tag: nroTermAdic): 
+Não pode existir número de terminal adicional repetido na lista Obrig 474 Rej. Rejeição: Número de terminal adicional repetido 
+G36a Se informado terminal principal (tag: NroTermPrinc) a UF do terminal (tag: 
+cUF) deve ser a mesma UF de autorização da NFCom Obrig 535 Rej. Rejeição: Terminal principal em UF diferente da UF de 
+autorização da NFCom 
+G36b Se informados terminais adicionais (tag: nroTermAdic): 
+As UF dos terminais adicionais (tag:cUF) devem ser iguais a UF da 
+autorização da NFCom Obrig 536 Rej. Rejeição: Terminal adicional em UF diferente da UF de 
+autorização da NFCom 
+Validações da Data de Emissão 
+G37 Data/Hora de Emissão posterior a Data/Hora de Recebimento (o Ambiente 
+Autorizador deve considerar a hora local do emissor para a validação). A 
+SEFAZ deve tolerar uma diferença máxima de 5 minutos quando a data/hora 
+de emissão for maior que a data de recebimento, em função da 
+sincronização de horário de servidores. Obrig. 212 Rej. Rejeição: Data/hora de emissão NFCom posterior a data/hora de 
+recebimento 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 10 / 38 
+ 
+G38 Se tipo de emissão for Normal (tag:tpEmis=1): 
+Data-Hora de Emissão com atraso superior a 120 horas em relação ao 
+horário de recepção na SEFAZ Autorizadora. 
+Exceção : A critério da UF, pode ser aceita NFCom com Data de Emissão 
+muito atrasada, desde que tenha sido emitido em contingência Off-Line 
+(tag:tpEmis=2). A NFCom transmitido para a SEFAZ Autorizadora após o 
+prazo de 120 horas deve retornar: cStat=”150- Autorizado Uso de NFCom, 
+autorização fora de prazo”.  Obrig. 228 Rej. Rejeição: NFCom com Data-Hora de Emissão muito atrasada 
+Validações do Banco de Dados 
+G39 Acessar BD NFCom (Chave: UF, CNPJ Emit, Modelo, Série, Nro): 
+ 
+ - Verificar Duplicidade de NFCom com diferença na Chave de Acesso 
+(Campo de Código Numérico difere) 
+Retornar a chave de acesso já autorizada, o número do protocolo e data de 
+autorização 
+[chNFCom: 99999999999999999999999999999999999999999999] 
+[nProt:9999999999999999][dhAut: AAAA-MM-DDTHH:MM:SS TZD] Obrig 539 Rej. Rejeição: Duplicidade de NFCom, com diferença na Chave de 
+Acesso 
+[chNFCom: 
+99999999999999999999999999999999999999999999] 
+[nProt:9999999999999999] 
+[dhAut: AAAA-MM-DDTHH:MM:SS TZD]. 
+G40 Acessar BD NFCom (Chave: UF, CNPJ Emit, Modelo, Série, Nro): 
+Verificar Duplicidade de NFCom 
+Retornar Protocolo e data de autorização. 
+[nProt:9999999999999999][dhAut: AAAA-MM-DDTHH:MM:SS TZD]. 
+ 
+Observação : Esta validação leva em consideração o ambiente de 
+autorização do DF-e (tpEmis e nSiteAutoriz) Obrig. 204 Rej. Rejeição: Duplicidade de NFCom  
+[nProt:9999999999999999][dhAut: AAAA-MM-DDTHH:MM:SS 
+TZD]. 
+G41 Verificar se NFCom está cancelada 
+Retornar Protocolo e data de autorização do evento de cancelamento.  
+[nProt:9999999999999999][dhCanc: AAAA-MM-DDTHH:MM:SS TZD] Obrig. 218 Rej. Rejeição: NFCom já está cancelada na base de dados da 
+SEFAZ.  
+[nProt:9999999999999999][dhCanc: AAAA-MM-DDTHH:MM:SS 
+TZD]. 
+G42 Verificar se NFCom está substituída: 
+Retornar Protocolo e data de autorização do evento de substituição.  
+[nProt:9999999999999999][dhSubst: AAAA-MM-DDTHH:MM:SS TZD] Obrig. 224 Rej. Rejeição: NFCom já está substituída na base de dados da 
+SEFAZ.  
+[nProt:9999999999999999][dhSubst: AAAA-MM-DDTHH:MM:SS 
+TZD]. 
+Validações da Substituição 
+G43 Se o Tipo da NFCom = 3 (Substituição) (tag: finNFCom): 
+ - O grupo de informações da substituição (grupo: gSub) deve ser informado Obrig. 411 Rej. Rejeição: Grupo NFCom de Substituição deve ser informado 
+para a NFCom de Substituição 
+G44 Se o Tipo da NFCom for diferente de 3 (Substituição) (tag: finNFCom): 
+- O grupo de informações da substituição (grupo: gSub) NÃO deve ser 
+informado 
+ Obrig. 412 Rej. Rejeição: Grupo NFCom de Substituição não deve ser informado 
+para NFCom que não seja de Substituição 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 11 / 38 
+ 
+G45 Se Tipo da NFCom = 3 (Substituição) (tag: finNFCom): 
+- Rejeitar se a data da emissão da NFCom informada ou a competência da 
+NF papel forem anteriores a 5 anos da data atual Obrig. 413 Rej. Rejeição: NFCom ou NF substituída com data de emissão 
+anterior a 5 anos da data atual 
+G46 Se Tipo da NFCom = 3 (Substituição) (tag: finNFCom): 
+- Rejeitar se o CNPJ da NF em papel for diferente do CNPJ do emitente da 
+NFCom de Substituição (tag: gNF/CNPJ). Obrig. 496 Rej. Rejeição: CNPJ da NF substituída deve ser o mesmo do CNPJ 
+emissor da NFCom de substituição 
+G47 Se Tipo da NFCom = 3 (Substituição) (tag: finNFCom) e informada chave de 
+acesso da NFCom substituída: 
+ - Validar chave de acesso da NFCom substituída.  
+ 
+Retornar motivo da rejeição da Chave de Acesso: CNPJ zerado ou inválido, 
+Ano < 2021 ou maior que atual, Mês inválido (0 ou > 12), Modelo diferente de 
+62, Número zerado, Tipo de emissão inválido, UF inválida ou DV inválido) 
+[Motivo: XXXXXXXXXXXX] Obrig. 414 Rej Rejeição: Chave de acesso da NFCom substituída inválida 
+[Motivo: XXXXXXXXXXX] 
+G48 Se Tipo da NFCom = 3 (Substituição) (tag: finNFCom) e informada chave de 
+acesso da NFCom substituída:  
+- NFCom substituída não pode existir com diferença na Chave de Acesso 
+ 
+Retornar a chave de acesso já autorizada, o número do protocolo e data de 
+autorização da NFCom 
+[chNFCom: 99999999999999999999999999999999999999999999] 
+[nProt:9999999999999999][dhAut: AAAA-MM-DDTHH:MM:SS TZD] Obrig. 206 Rej. Rejeição: NFCom substituída com diferença de Chave de Acesso 
+[chNFCom: 
+99999999999999999999999999999999999999999999] 
+[nProt:9999999999999999][dhAut: AAAA-MM-DDTHH:MM:SS 
+TZD] 
+G49 Se Tipo da NFCom = 3 (Substituição) (tag: finNFCom) e informada chave de 
+acesso da NFCom substituída:  
+- A NFCom substituída deve existir 
+Acesso BD NFCom (Chave: CNPJ Emit, Modelo, Série, Nro) 
+ 
+Observação : Esta validação leva em consideração o ambiente de 
+autorização do DF-e (nSiteAutoriz) Obrig 208 Rej Rejeição: NFCom a ser substituída inexistente 
+G50 Se Tipo da NFCom = 3 (Substituição) (tag: finNFCom) e informada chave de 
+acesso da NFCom substituída:  
+- A NFCom substituída não pode estar cancelada  Obrig. 210 Rej Rejeição: NFCom a ser substituída não pode estar cancelada 
+G51 Se Tipo da NFCom = 3 (Substituição) (tag: finNFCom) e informada chave de 
+acesso da NFCom substituída:   
+- A NFCom substituída não pode estar substituída Obrig. 211 Rej Rejeição: NFCom a ser substituída não pode ter sido substituída 
+anteriormente 
+G52 Se Tipo da NFCom = 3 (Substituição (tag:finNFCom) e informada chave de 
+acesso da NFCom substituída: 
+- A NFCom substituída DEVE ser do tipo Normal (tag:finNFCom=0) ou de 
+Substituição (tag:finNFCom=3) 
+ Obrig. 219 Rej. Rejeição: NFCom a ser substituída deve ser do tipo Normal ou 
+Substituição 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 12 / 38 
+ 
+G53 Se Tipo da NFCom = 3 (Substituição) (tag: finNFCom): 
+- CNPJ do emitente da NFCom substituta deve ser igual ao informado na 
+NFCom substituída 
+ 
+Exceção : os casos de alteração do CNPJ da empresa por motivo de 
+aquisição, fusão, incorporação deve ser tratados no ambiente de autorização 
+da NFCom   Obrig. 221 Rej. Rejeição: CNPJ do emitente da NFCom substituta deve ser igual 
+ao informado na NFCom substituída 
+G54 Se Tipo da NFCom = 3 (Substituição) (tag: finNFCom): 
+- Identificação do destinatário da NFCom substituta deve ser igual ao 
+informado na NFCom substituída (tags: CNPJ/CPF/idOutros) Obrig. 484 Rej. Rejeição: Destinatário da NFCOM substituição deve ser igual a 
+NFCOM original 
+G55 Se o Tipo da NFCom = 3 (Substituição) (tag: finNFCom): 
+- A NFCom Substituída deve ser do mesmo tipo de faturamento (tag: tpFat) 
+da NFCom de Substituição Obrig. 527 Rej. Rejeição: NFCom substituída com tipo de faturamento diferente 
+da NFCom de Substituição 
+G56 Se Tipo da NFCom = 3 (Substituição) (tag: finNFCom) e informada NF 
+substituída em papel (grupo: gNF): 
+- Competência da emissão da NF substituída deve ser anterior a 
+obrigatoriedade de emissão de NFCom na UF  Obrig. 234 Rej. Rejeição: Indicação de NF papel substituída é limitada ao prazo 
+da Obrigatoriedade da NFCom 
+G57 Se Tipo da NFCom = 3 (Substituição) (tag: finNFCom) e informada NF 
+substituída em papel (grupo: gNF): 
+- O Hash do convênio 115 (hash115) deverá ser preenchido.  
+ 
+Observação : Regra facultativa a critério da UF do emitente Facult. 235 Rej. Rejeição: O hash do convênio 115 deve ser informado para NF 
+substituída 
+Validações da NFCom de Ajuste 
+G58 Se tipo da NFCom = 4 (NFCom de Ajuste) (tag: finNFCom): 
+ 
+- Verificar se foi informada chave de acesso (chNFComAnt) e o número do 
+item (nItemAnt) da NFCom anterior (de tipo Normal) no detalhamento de 
+todos os Produtos e Serviços (grupo: det) 
+ 
+Observação: A chave de acesso anterior poderá ser relacionada no tipo 
+Normal quando se quiser fazer referência a um item devolvido de nota de 
+exercício anterior Obrig. 238 Rej. Rejeição: Chave de acesso anterior deve ser informada para este 
+tipo de NFCom 
+G59 Se informada chave de acesso de NFCom anterior (tag: chNFComAnt) no 
+detalhamento dos Produtos e Serviços (grupo: det): 
+ 
+- Validar chave de acesso da NFCom anterior.  
+Retornar motivo da rejeição da Chave de Acesso: CNPJ zerado ou inválido, 
+Ano < 2021 ou maior que atual, Mês inválido (0 ou > 12), Modelo diferente de 
+62, Número zerado, Tipo de emissão inválido, UF inválida ou DV inválido) 
+[Motivo: XXXXXXXXXXXX] Obrig. 242 Rej. Rejeição: Rejeição: Chave de Acesso anterior inválida 
+[Motivo: XXXXXXXXX] 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 13 / 38 
+ 
+G60 Se informada chave de acesso de NFCom anterior (tag: chNFComAnt) no 
+detalhamento dos Produtos e Serviços (grupo: det): 
+ 
+- NFCom anterior não pode existir com diferença na Chave de Acesso 
+Retornar a chave de acesso já autorizada, o número do protocolo e data de 
+autorização da NFCom 
+ 
+[chNFCom: 99999999999999999999999999999999999999999999] 
+[nProt:9999999999999999][dhAut: AAAA-MM-DDTHH:MM:SS TZD] Obrig. 245 Rej. Rejeição: NFCom anterior com diferença de Chave de Acesso 
+[chNFCom: 
+99999999999999999999999999999999999999999999] 
+[nProt:9999999999999999][dhAut: AAAA-MM-DDTHH:MM:SS 
+TZD] 
+G61 Se informada chave de acesso de NFCom anterior (tag: chNFComAnt) no 
+detalhamento dos Produtos e Serviços (grupo: det): 
+- A NFCom anterior deve existir 
+Acesso BD NFCom (Chave: CNPJ Emit, Modelo, Série, Nro) 
+ 
+Observação : Esta validação leva em consideração o ambiente de 
+autorização do DF-e (nSiteAutoriz). Obrig 246 Rej Rejeição: NFCom anterior inexistente 
+G62 Se informada chave de acesso de NFCom anterior (tag: chNFComAnt) no 
+detalhamento dos Produtos e Serviços (grupo: det): 
+  
+- A NFCom anterior não pode estar cancelada  Obrig. 250 Rej Rejeição: NFCom a anterior não pode estar cancelada 
+G63 Se informada chave de acesso de NFCom anterior (tag: chNFComAnt) no 
+detalhamento dos Produtos e Serviços (grupo: det): 
+ 
+- A NFCom anterior não pode estar substituída Obrig. 251 Rej Rejeição: NFCom a anterior não pode ter sido substituída  
+G64 Se informada chave de acesso da NFCom anterior (tag: chNFComAnt):  
+- CNPJ do emitente da NFCom anterior deve ser igual ao informado na 
+NFCom de ajuste 
+ 
+Exceção : os casos de alteração do CNPJ da empresa por motivo de 
+aquisição, fusão, incorporação deve ser tratados no ambiente de autorização 
+da NFCom   Obrig. 255 
+ Rej. Rejeição: CNPJ do emitente da NFCom anterior deve ser igual 
+ao informado na NFCom de Ajuste  
+G65 Se tipo da NFCom = 4 (NFCom de Ajuste) (tag: finNFCom) e informada 
+chave de acesso da NFCom anterior (tag: chNFComAnt):  
+- A NFCom de ajuste e a NFCom anterior devem ser do tipo de faturamento 
+Normal (tag: tpFat=1) Obrig. 531 Rej. Rejeição: NFCom de ajuste e ajustada devem ser do tipo de 
+faturamento normal 
+G66 Se tipo da NFCom = 4 (NFCom de Ajuste) (tag: finNFCom) e informada 
+chave de acesso da NFCom anterior (tag: chNFComAnt):  
+- A NFCom anterior devem ser do tipo de Normal ou Ajuste (tag: 
+finNFCom=0 ou 4) 
+ Obrig. 534 Rej. Rejeição: NFCom ajustada devem ser do tipo Normal ou Ajuste 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 14 / 38 
+ 
+Validações do Cofaturamento 
+G67 Se tipo de faturamento da NFCom = 2 (Cofaturamento) (tag: tpFat): 
+- Verificar se foi informado grupo de informações do cofaturamento 
+(grupo:det/gCofat) com a chave de acesso da NFCom da Operadora Local 
+(tag: chNFComLocal) no detalhamento da NFCom Obrig. 515 Rej. Rejeição: Chave de acesso da NFCom emitida pela operadora 
+Local deve ser informada para NFCom de Cofaturamento 
+G68 Se tipo de faturamento da NFCom for diferente de 2 (Cofaturamento) (tag: 
+tpFat diferente de 2): 
+ 
+- Rejeitar se foi informado grupo de informações do cofaturamento 
+(grupo:det/gCofat)  Obrig. 532 Rej. Rejeição: Tipo de faturamento incompatível com grupo de 
+informações do cofaturamento 
+G69 Se tipo da NFCom = 4 (NFCom de Ajuste) (tag: finNFCom): 
+- Rejeitar se informado grupo do cofaturamento e chave de acesso da 
+NFCom da Operadora Local (grupo: det/gCofat; tag: chNFComLocal) Obrig. 516 Rej. Rejeição: NFCom do tipo Ajuste é incompatível com o 
+Cofaturamento 
+G70 Se informada chave de acesso de NFCom da operadora local (tag: 
+gCofat/chNFComLocal): 
+ 
+- Validar chave de acesso da NFCom da operadora local.  
+ 
+Retornar motivo da rejeição da Chave de Acesso: CNPJ zerado ou inválido, 
+Ano < 2021 ou maior que atual, Mês inválido (0 ou > 12), Modelo diferente de 
+62, Número zerado, Tipo de emissão inválido, UF inválida ou DV inválido) 
+[Motivo: XXXXXXXXXXXX] Obrig. 517 Rej. Rejeição: Rejeição: Chave de Acesso da NFCom emitida pela 
+operadora local inválida 
+[Motivo: XXXXXXXXX] 
+G71 Se informada chave de acesso de NFCom da operadora local (tag: 
+gCofat/chNFComLocal): 
+ 
+- NFCom da operadora Local não pode existir com diferença na Chave de 
+Acesso 
+Retornar a chave de acesso já autorizada, o número do protocolo e data de 
+autorização da NFCom 
+ 
+[chNFCom: 99999999999999999999999999999999999999999999] 
+[nProt:9999999999999999][dhAut: AAAA-MM-DDTHH:MM:SS TZD] Obrig. 518 Rej. Rejeição: NFCom da operadora local com diferença de Chave de 
+Acesso 
+[chNFCom: 
+99999999999999999999999999999999999999999999] 
+[nProt:9999999999999999][dhAut: AAAA-MM-DDTHH:MM:SS 
+TZD] 
+G72 Se informada chave de acesso de NFCom da operadora local (tag: 
+gCofat/chNFComLocal): 
+- A NFCom da operadora local deve existir 
+Acesso BD NFCom (Chave: CNPJ Emit, Modelo, Série, Nro) 
+ 
+Observação : Esta validação leva em consideração o ambiente de 
+autorização do DF-e (nSiteAutoriz). 
+ Obrig 519 Rej Rejeição: NFCom da operadora local inexistente 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 15 / 38 
+ 
+G73 Se informada chave de acesso de NFCom da operadora local (tag: 
+gCofat/chNFComLocal): 
+ - A NFCom da operadora local não pode estar cancelada  Obrig. 520 Rej Rejeição: NFCom da operadora local não pode estar cancelada 
+G74 Se informada chave de acesso de NFCom da operadora local (tag: 
+gCofat/chNFComLocal): 
+- A NFCom da operadora local não pode estar substituída Obrig. 521 Rej Rejeição: NFCom da operadora local não pode ter sido 
+substituída  
+G75 Se informada chave de acesso de NFCom da operadora local (tag: 
+gCofat/chNFComLocal): 
+- A NFCom da operadora local deve ser do tipo de faturamento normal (tag: 
+tpFat=0) Obrig. 533 Rej. Rejeição: NFCom da operadora local deve ser de tipo de 
+faturamento normal 
+G76 Se Tipo de faturamento da NFCom = 2 (cofaturamento) 
+ - CNPJ do emitente da NFCom emitida pela operadora Local deve ser 
+DIFERENTE do emitente ao informado na NFCom da operadora de Longa 
+Distância.  Obrig. 267 Rej. Rejeição: O CNPJ da NFCom LD deve ser diferente da NFCom 
+Local 
+G77 Se Tipo de faturamento da NFCom = 2 (cofaturamento): 
+A NFCom Local referenciada (tag: chNFComLocal) deve ser do tipo Normal 
+ou Substituição Obrig. 241 Rej. Rejeição: Tipo da NFCom Local informada incompatível com 
+cofaturamento 
+Validações da Fatura da NFCom 
+G78 Se Tipo de Faturamento = 0 (Normal) (tag: tpFat): 
+- O grupo de fatura deverá estar preenchido (grupo: gFat) 
+ 
+Exceção : Essa regra não deverá ser aplicada quando informados o 
+indicador de pré-pago do grupo ide (tag: indPrePago) ou o indicador de 
+Cessão de Meios de Rede do grupo ide (tag: indCessaoMeiosRede) Obrig. 270 Rej. Rejeição: Grupo de informações da fatura deve informada para 
+tipo de faturamento normal 
+G79 Se Tipo de Faturamento = 1 (Faturamento Centralizado): 
+- O grupo de informações do Faturamento Centralizado (grupo: gFatCentral) 
+deve estar preenchido Obrig. 272 Rej Rejeição: Grupo de informações da fatura centralizada deve ser 
+informado para Faturamento Centralizado 
+G80 Se Tipo da NFCom = 4 (NFCom de Ajuste) (tag:finNFCom) ou Tipo de 
+Faturamento da NFCom = 2 (Cofaturamento) (tag: tpFat): 
+- NÃO devem ser preenchidos grupos de fatura (gFat e gFatCentral) Obrig. 273 Rej. Rejeição: Grupo de informações da fatura não deve ser 
+informado para Cofaturamento e NFCom de Ajuste 
+G81 Se Tipo de faturamento NFCom = 1 (Faturamento Centralizado) (tag: tpFat): 
+- Validar CNPJ do Emitente centralizador (dígito de controle, zeros) Obrig 274 Rej Rejeição: CNPJ do Emitente Centralizador inválido 
+G82 Se Tipo de faturamento da NFCom = 1 (Faturamento Centralizado) (tag: 
+tpFat): 
+- CNPJ do Emitente centralizador deve ser da mesma raiz do emitente da 
+NFCom 
+Exceção : os casos de alteração do CNPJ da empresa por motivo de 
+aquisição, fusão, incorporação deve ser tratados no ambiente de autorização 
+da NFCom   Obrig. 275 Rej Rejeição: CNPJ-Base do Emitente centralizador difere do CNPJ-
+Base do emitente da NFCom 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 16 / 38 
+ 
+Validações dos Itens da NFCom (Verificar em cada um dos itens) 
+G83 Código de Classificação (tag: cClass) informado inválido (Verificar tabela de 
+códigos de classificação, item 7.8 do MOC) Obrig. 276 Rej. Rejeição: Código de classificação do item inexistente 
+[nItem: NNN] 
+G84 NFCom com CFOP inválido 
+Aceitar somente os CFOP relacionados no item 7.7 deste MOC Obrig, 433 Rej. Rejeição: CFOP inválido para NFCom 
+[nItem: NNN] 
+G86 Valor do item (tag: vProd) difere de valor unitário (tag: vItem) * Quantidade 
+Faturada (tag: qFaturada) – valor do Desconto (tag:vDesc) + Outras 
+Despesas Acessórias (tag: vOutro) 
+ 
+Observação:  Considerar uma tolerância de R$ 0,05 para mais ou para 
+menos. Obrig. 435 Rej. Rejeição: Valor do item difere de valor unitário x quantidade 
+faturada (- Desconto) (+Despesas) 
+[nItem: NNN] 
+G87 Se a NFCOM possuir um item de um cClass de serviço pré-pago o indicador 
+de pré-pago deve informado (tag: indPrePago) Obrig. 522 Rej. Rejeição: A NFCOM de serviço pré-pago deve ser marcada com 
+indicador de pré-pago 
+G88 Se a NFCom possuir um item de um cClass de faturamento centralizado: 
+- A NFCom deve ser do tipo normal ou substituição (tag: finNFCom=0 ou 3) e 
+ter o tipo de faturamento normal (tag: tpFat=0) Obrig. 277 Rej. Rejeição: NFCom incompatível com item de cClass de 
+faturamento centralizado 
+[nItem: NNN] 
+G89 Se a NFCom possuir um item de um cClass de faturamento centralizado: 
+- O item com este cClass não pode ser tributado. 
+Observação:  utilizar CST90 sem indicação do destaque de ICMS Obrig. 269 Rej. Rejeição: Item com classificação de faturamento centralizado não 
+pode ser tributado 
+[nItem: NNN] 
+G90 Se a NFCom possuir um item de um cClass de faturamento centralizado: 
+- Deverá ser indicada a chave de acesso da NFCom anterior (chNFComAnt) 
+no item que indicar este cClass de faturamento centralizado 
+ 
+Observação: as regras de validação de chave de acesso anterior e sua 
+existência em banco de dados estão acobertadas pelas regras definidas no 
+bloco da NFCom de Ajuste 
+ 
+Exceção:  Esta regra só poderá ser aplicada se as UF autorizadoras 
+estiverem no mesmo ambiente de autorização (SEFAZ Virtual ou UF de 
+autorização própria) e no caso de 2 UF envolvidas ambas já estiverem com a 
+NFCom implantada.  Facul. 278 Rej. Rejeição: Item de classificação de faturamento centralizado deve 
+indicar a NFCom anterior de referência. 
+[nItem: NNN] 
+G91 Se a NFCom possuir um item de um cClass de faturamento centralizado: 
+- A NFCom anterior informada deve ser do tipo de Faturamento = 1 
+(Faturamento Centralizado) (tag:tpFat) 
+ 
+Exceção: Esta regra só poderá ser aplicada se as UF autorizadoras 
+estiverem no mesmo ambiente de autorização (SEFAZ Virtual ou UF de 
+autorização própria) e no caso de 2 UF envolvidas ambas já estiverem com a 
+NFCom implantada. Facul. 279 Rej. Rejeição: NFCom anterior referente a item de faturamento 
+centralizado deve ser do tipo de faturamento “Faturamento 
+Centralizado” 
+[nItem: NNN] 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 17 / 38 
+ 
+G92 Se tipo de Faturamento da NFCom = 1 (Faturamento Centralizado): 
+- Não poderá relacionar itens de cClass de faturamento centralizado Obrig. 268 Rej. Rejeição: NFCom de faturamento centralizado não pode 
+relacionar item com cClass de faturamento centralizado 
+[nItem: NNN] 
+G93 Se a NFCom possuir um item de um cClass de cofaturamento: 
+- A NFCom deve ser do tipo normal ou substituição Obrig. 262 Rej. Rejeição: NFCom deve ser do Normal ou Substituição para 
+utilizar item com cClass de cofaturamento 
+[nItem: NNN] 
+G94 Se a NFCom possuir um item de um cClass de cofaturamento: 
+- O item com este cClass não pode ser tributado. 
+ 
+Observação:  utilizar CST90 sem indicação do destaque de ICMS Obrig. 266 Rej. Rejeição: Item com classificação de cofaturamento não pode ser 
+tributado 
+[nItem: NNN] 
+G95 Se tipo de Faturamento da NFCom = 2 (Cofaturamento) (tag: tpFat): 
+- Não poderá relacionar itens de cClass de cofaturamento Obrig. 265 Rej. Rejeição: NFCom de cofaturamento não pode relacionar item 
+com cClass de cofaturamento 
+[nItem: NNN] 
+G96 Se a NFCom possuir um item de um cClass de cofaturamento: 
+- Deverá ser informado no item o CNPJ da operadora de Longa distância 
+(tag:CNPJLD)  Obrig. 263 Rej. Rejeição: CNPJ da Operadora LD deve ser informado 
+[nItem: NNN] 
+G97 Se o item NÃO for de um cClass de cofaturamento: 
+- O CNPJ da Operadora de Longa Distância não deve ser informado 
+(tag:CNPJLD) Obrig. 288 Rej. Rejeição: CNPJ da Operadora LD não deve ser informado 
+[nItem: NNN] 
+G98 Se a NFCom possuir um item de um cClass de cofaturamento: 
+- Validar CNPJ da Operadora LD (dígito de controle, zeros) Obrig. 264 Rej. Rejeição: CNPJ da Operadora inválido 
+[nItem: NNN] 
+Validações dos Itens da NFCom (Tributos) 
+G99 Se CST de ICMS = 00, 20: 
+Verificar se Valor do ICMS corresponde ao Valor da base de cálculo X 
+Alíquota. 
+ 
+Observação : Considerar uma tolerância de R$ 0,10 para mais ou para 
+menos. Obrig. 444 Rej. Rejeição: Valor do ICMS não corresponde à base de cálculo x 
+alíquota 
+[nItem: NNN] 
+G100 Se CST de ICMS = 90 e informados dados do BC, pICMS e vICMS: 
+Verificar se Valor do ICMS corresponde ao Valor da base de cálculo X 
+Alíquota. 
+Observação : Considerar uma tolerância de R$ 0,10 para mais ou para 
+menos. Obrig. 444 Rej. Rejeição: Valor do ICMS não corresponde à base de cálculo x 
+alíquota 
+[nItem: NNN] 
+G101 Se informado grupo de informações do PIS (grupo: PIS): 
+Verificar se Valor do PIS corresponde ao Valor da base de cálculo X 
+Alíquota. 
+ 
+Observação : Considerar uma tolerância de R$ 0,10 para mais ou para 
+menos. Obrig. 443 Rej. Rejeição: Valor do PIS não corresponde à base de cálculo x 
+alíquota 
+[nItem: NNN] 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 18 / 38 
+ 
+G102 Se informado grupo de informações do COFINS (grupo: COFINS): 
+Verificar se Valor do COFINS corresponde ao Valor da base de cálculo X 
+Alíquota. 
+Observação : Considerar uma tolerância de R$ 0,10 para mais ou para 
+menos. Obrig. 445 Rej. Rejeição: Valor do COFINS não corresponde à base de cálculo x 
+alíquota 
+[nItem: NNN] 
+G103 Se informado grupo de informações do FUST (grupo: FUST): 
+Verificar se Valor do FUST corresponde ao Valor da base de cálculo X 
+Alíquota. 
+Observação : Considerar uma tolerância de R$ 0,10 para mais ou para 
+menos. Obrig. 446 Rej. Rejeição: Valor do FUST não corresponde à base de cálculo x 
+alíquota 
+[nItem: NNN] 
+G104 Se informado grupo de informações do FUNTTEL (grupo: FUNTTEL): 
+Verificar se Valor do FUNTTEL corresponde ao Valor da base de cálculo X 
+Alíquota. 
+Observação : Considerar uma tolerância de R$ 0,10 para mais ou para 
+menos. Obrig. 476 Rej. Rejeição: Valor do FUNTTEL não corresponde à base de cálculo 
+x alíquota 
+[nItem: NNN] 
+G105 Se a informado grupo de informações da partilha de ICMS com a UF destino 
+(ICMSUFDest): 
+Deverá ser informada a IE do emitente na UF de destino (IE Virtual) Obrig 497 Rej. Rejeição: A IE do emitente na UF de destino deve ser informada 
+quando houver item com partilha 
+G105a Se NÃO informado indicador de que não existe situação tributária para o item 
+(tag: indSemCST), o item DEVE possuir CFOP Obrig. 540 Rej. Rejeição: CFOP é obrigatório para item com CST informado. 
+[nItem: NNN] 
+G105b Se informado indicador de que não existe situação tributária para o item (tag: 
+indSemCST), o item NÃO pode possuir CFOP Obrig. 541 Rej. Rejeição: Vedada indicação de CFOP para item sem CST 
+[nItem: NNN] 
+Validações dos Totais da NFCom 
+G106 A soma da BC ICMS nos itens não pode ser negativo 
+ Obrig. 500 Rej. Rejeição: O somatório da BC ICMS não pode ser negativo 
+G107 Total da BC ICMS difere do somatório do valor dos itens 
+ Obrig. 447 Rej. Rejeição: Total da base de cálculo difere do somatório dos itens 
+G108 A soma do ICMS nos itens não pode ser negativo 
+ Obrig. 501 Rej. Rejeição: O somatório do ICMS não pode ser negativo 
+G109 Total do ICMS difere do somatório do valor dos itens 
+ Obrig. 448 Rej. Rejeição: Total do ICMS difere do somatório dos itens 
+G110 Valor total do ICMS superior ao valor limite estabelecido pela SEFAZ (valor 
+parametrizado por UF) 
+ Facult 451 Rej. Rejeição: Total do ICMS superior ao valor limite estabelecido 
+para a UF 
+G111 A soma do ICMS Desonerado nos itens não pode ser negativo Obrig. 502 Rej. Rejeição: O somatório do ICMS Desonerado não pode ser 
+negativo 
+G112 Valor total do ICMS Desonerado difere do somatório do valor dos itens Obrig. 452 Rej. Rejeição: Total do ICMS desonerado difere do somatório dos 
+itens 
+G113 A soma do FCP nos itens não pode ser negativo Obrig. 503 Rej. Rejeição: O somatório do FCP não pode ser negativo 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 19 / 38 
+ 
+G114 Total do Fundo de combate à pobreza (FCP) difere do somatório do valor os 
+itens Obrig. 455 Rej. Rejeição: Total do FCP difere do somatório dos itens 
+G115 A soma do PIS nos itens não pode ser negativo Obrig. 504 Rej. Rejeição: O somatório do PIS não pode ser negativo 
+G116 Total do PIS difere do somatório do valor dos itens 
+ Obrig. 457 Rej. Rejeição: Total do PIS difere do somatório dos itens 
+G117 A soma do COFINS nos itens não pode ser negativo 
+ Obrig. 505 Rej. Rejeição: O somatório do COFINS não pode ser negativo 
+G118 Total do COFINS difere do somatório do valor dos itens 
+ Obrig. 458 Rej. Rejeição: Total do COFINS difere do somatório dos itens 
+G119 A soma do FUST nos itens não pode ser negativo 
+ Obrig. 506 Rej. Rejeição: O somatório do FUST não pode ser negativo 
+G120 Total do FUST difere do somatório do valor dos itens 
+ Obrig. 256 Rej. Rejeição: Total do FUST difere do somatório dos itens 
+G121 A soma do FUNTTEL nos itens não pode ser negativo 
+ Obrig. 507 Rej. Rejeição: O somatório do FUNTTEL não pode ser negativo 
+G122 Total do FUNTTEL difere do somatório do valor dos itens 
+ Obrig. 257 Rej. Rejeição: Total do FUNTTEL difere do somatório dos itens 
+G123 A soma do PIS retido nos itens não pode ser negativo 
+ Obrig. 508 Rej. Rejeição: O somatório do PIS retido não pode ser negativo 
+G124 Total do PIS retido difere do somatório do valor dos itens 
+ Obrig. 258 Rej. Rejeição: Total do PIS retido difere do somatório dos itens 
+G125 A soma do COFINS retido nos itens não pode ser negativo 
+ Obrig. 509 Rej. Rejeição: O somatório do COFINS retido não pode ser negativo 
+G126 Total do COFINS retido difere do somatório do valor dos itens 
+ Obrig. 259 Rej. Rejeição: Total do COFINS retido difere do somatório dos itens 
+G127 A soma do CSLL nos itens não pode ser negativo 
+ Obrig. 510 Rej. Rejeição: O somatório do CSLL não pode ser negativo 
+G128 Total do CSLL retido difere do somatório do valor dos itens 
+ Obrig. 260 Rej. Rejeição: Total do CSLL retido difere do somatório dos itens 
+G129 A soma do IRRF nos itens não pode ser negativo 
+ Obrig. 511 Rej. Rejeição: O somatório do IRRF não pode ser negativo 
+G130 Total do IRRF retido difere do somatório do valor dos itens 
+ Obrig. 461 Rej. Rejeição: Total do IRRF retido difere do somatório dos itens 
+G131 A soma do Descontos nos itens não pode ser negativo Obrig. 512 Rej. Rejeição: O somatório dos Descontos não pode ser negativo 
+G132 Total dos Descontos difere do somatório do valor dos itens Obrig. 462 Rej. Rejeição: Total dos descontos difere do somatório dos itens 
+G133 A soma das Outras Despesas nos itens não pode ser negativa Obrig. 513 Rej. Rejeição: O somatório das Outras Despesas não pode ser 
+negativo 
+G134 Total de Outras Despesas difere do somatório do valor dos itens 
+ Obrig. 477 Rej. Rejeição: Total das Outras Despesas difere do somatório dos 
+itens 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 20 / 38 
+ 
+G135 A soma dos Produtos e Serviços nos itens não pode ser negativo Obrig. 514 Rej. Rejeição: O somatório dos Produtos e Serviços não pode ser 
+negativo 
+G136 Total dos Produtos e Serviços difere do somatório do valor dos itens Obrig, 459 Rej. Rejeição: Total dos produtos e serviços difere do somatório dos 
+itens 
+G137 Valor total da NF (vNF) difere do somatório de: 
+ 
+(+) vProd  
+(-) vRetPIS 
+(-) vRetCofins 
+(-) vRetCSLL 
+(-) vIRRF 
+ 
+Observação:   Nos casos em que houver ICMS-ST, o valor do ICMS-ST 
+deve estar incluído no vProd. 
+ 
+O vProd do item já está considerando a aplicação de desconto e despesas 
+acessórias Obrig. 460 Rej. Rejeição: Total da NFCom difere do somatório dos valores que 
+compõe o valor total da NFCom 
+G138 Valor total da NFCom (tag: vNF) superior ao valor limite estabelecido pela 
+SEFAZ (valor parametrizado por UF) 
+ Facult. 463 Rej. Rejeição: Total da NFCom superior ao valor limite estabelecido 
+para a UF 
+Observação geral do grupo totais : Cada campo do grupo total é calculado pelo somatório do respectivo campo nos itens e conforme a natureza do Código de Classificação do Produto 
+(cClass) poderá ser somado ou deduzido (* -1) do valor total (ver item 7.8 do MOC Visão Geral). 
+O campo indicador de devolução (indDevolucao) se informado em um item também modifica seu valor multiplicando por -1. 
+Validações dos Autorizados ao XML 
+G139 Se informada autorização download XML com CNPJ (grupo: autXML): 
+CNPJ com zeros ou dígito inválido Obrig. 466 Rej. Rejeição: CNPJ autorizado para download inválido 
+G140 Se informada autorização download do XML com CPF:  
+CPF com zeros, nulo, números repetidos (111, 222, etc.), ou dígito de 
+controle inválido. Obrig. 467 Rej. Rejeição: CPF autorizado para download inválido 
+G141 Se informada autorização download XML (grupo: autXML): 
+- Verificar se existe duplicidade de CPF/CNPJ informado no grupo autXML 
+da NFCom Obrig. 468 Rej Rejeição: Documento autorizado ao XML duplicado na NFCom 
+Validações do QR Code 
+G142 Endereço do site da UF para a Consulta via QR Code difere do previsto.  
+Nota: O uso diferenciado de maiúsculas ou minúsculas não deve ser 
+considerado na validação.  
+ 
+Observação : Para consultar as URLs por UF utilizadas no QR Code, 
+acesse: http://dfe-portal.svrs.rs.gov.br/NFCom/ Obrig. 464 Rej. Rejeição: Endereço do site da UF da Consulta via QR Code 
+diverge do previsto 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 21 / 38 
+ 
+G143 Parâmetro Chave de Acesso no QR Code diverge da Chave de Acesso da 
+NFCom 
+ Obrig. 465 Rej. Rejeição: Parâmetro chave de acesso do QR Code divergente da 
+NFCom 
+G144 Se tipo de emissão for igual a Contingência: 
+O parâmetro sign deve ser informado no QR-Code Obrig. 469 Rej. Rejeição: Parâmetro sign não informado no QR Code para 
+emissão em contingência 
+G145 Se tipo de emissão for igual a Normal: 
+O parâmetro sign não deve ser informado no QR-Code Obrig. 470 Rej. Rejeição: Parâmetro sign não deve ser informado no QR Code 
+para emissão Normal 
+G146 Se tipo de emissão for igual a Contingência: 
+Valor da assinatura (sign) do QR-Code difere do valor calculado Obrig. 471 Rej. Rejeição: Assinatura do QR Code difere do calculado 
+Validações do Responsável Técnico 
+G147 Não informado o grupo de informações do responsável técnico 
+ 
+Observação: Implementação à critério da UF  Facul. 475 Rej. Rejeição: Obrigatória as informações do responsável técnico 
+G148 Se informado grupo do responsável técnico (grupo: gRespTec): 
+- Validar CNPJ (dígito controle, zeros ou nulo).  Facul. 472 Rej. Rejeição: CNPJ do responsável técnico inválido (zerado ou dígito 
+inválido) 
+2.3 Eventos de Marcação originados pela NFCom 
+ 
+As NFCom de tipos Substituição (finNFCom=3) e Ajuste (finNFCom=4) provocam a geração automática de eventos de marcação do fisco na 
+NFCom que estiverem relacionadas. 
+ 
+ Evento Autorizada NFCom de Substituição: será registrado na NFCom original indicada na tag chNFCOM (grupo: gSub) na NFCom de 
+Substituição, este evento altera a situação da NFCom para NFCom Substituída 
+ Evento Autorizada NFCom de Ajuste: será registrado em cada NFCom anterior indicada no atributo chNFComAnt (grupo: det) na 
+NFCom de Ajuste, este evento não altera a situação da NFCom anterior. Mesmo que ocorram repetições de chaves de NFCom 
+anteriores na NFCom de Ajuste, apenas um evento deverá ser gerado por chave referenciada. 
+As NFCom com Tipo de Faturamento Cofaturamento (tpFat=2) emitido pela operadora de longa distância também provoca a geração de evento 
+de marcação do Fisco na NFCom da operadora local. 
+ 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 22 / 38 
+ 
+ Evento Autorizada NFCom de Cofaturamento: registrado na NFCom da operadora local indicada na tag chNFComLocal (grupo: gCofat) 
+da NFCom da operadora de longa distância com tipo de faturamento = Cofaturamento (tpFat=2). 
+ Evento Substituída NFCom de Cofaturamento: registrado na NFCom da operadora local indicada na tag chNFComLocal (grupo: gCofat) 
+da NFCom da operadora de longa distância com tipo de faturamento = Cofaturamento (tpFat=2) quando esta for substituída por um 
+NFCom de Substituição (finNFCom=3). 
+ 
+ 
+  
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 23 / 38 
+ 
+3 Leiaute da NFCom 
+Legendas coluna Ele (Elemento): A – Atributo, E – Elemento, G – Grupo, ES – Elemento da Sequência, CE – Choice Element (escolha entre elementos), CG 
+– Choice Group (Escolha entre grupos). 
+ 
+Legendas coluna Tipo: N – Numérico, C – Caracteres, D – Data 
+ 
+ERXX – Expressão Regular (ver tabela de expressões regulares) 
+ 
+DXX – Valores de Domínio (ver tabela de valores de domínio) 
+ 
+Ocorr: 0 - 1 (opcional sem repetição), 1 – 1 (obrigatório sem repetição), 0 – n (opcional com múltiplas ocorrências), 1 – n (obrigatório com múltiplas ocorrências). 
+ 
+# Campo Nível Descrição  Ele TipoOcorr. Tamanho  Domínio  Exp.Reg.  Observações  
+1 infNFCom  0 Informações da NFCom  G  
+1 - 1     
+2 versao 1 Versão do leiaute A C 1 - 1   
+ER65  
+3 Id 1 Identificador da tag a ser assinada A C 1 - 1 49  
+ER62 Informar a chave de acesso da NFCom e precedida do 
+literal "NFCom" 
+4 ide 1 Identificação da NFCom  G  
+1 - 1     
+5 cUF 2 Código da UF de emissão e 
+autorização da NFCom E N 1 - 1 2 D1  
+Código da UF de emissão e autorização do 
+Documento Fiscal.  
+Utilizar a Tabela do IBGE de código de unidades da 
+federação. 
+6 tpAmb 2 Tipo do Ambiente E N 1 - 1 1 D7  
+1 - Produção; 
+2 - Homologação 
+7 mod 2 Modelo da NFCom E N 1 - 1 2 D4  
+Utilizar o código 62 para identificação da NFCom 
+8 serie 2 Série do documento fiscal E C 1 - 1 1 - 3  
+ER45 Informar a série do documento fiscal (informar zero 
+para série única). 
+9 nNF 2 Número do documento fiscal E C 1 - 1 1 - 9  
+ER44 Número que identifica o documento fiscal 1 a 
+999999999. 
+10 cNF 2 Código numérico que compõe a Chave 
+de Acesso. E C 1 - 1 7  
+ER54 Código aleatório gerado pelo emitente, com o objetivo 
+de evitar acessos indevidos ao documento. 
+11 cDV 2 Digito verificador da chave de acesso E C 1 - 1 1  
+ER55 Informar o dígito de controle da chave de acesso 
+documento fiscal, que deve ser calculado com a 
+aplicação do algoritmo módulo 11 (base 2,9) da chave 
+de acesso. 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 24 / 38 
+ 
+12 dhEmi 2 Data e hora de emissão do documento 
+fiscal E C 1 - 1 21  
+ER1 Formato AAAA-MM-DDTHH:MM:DD TZD 
+13 tpEmis 2 Forma de emissão do Documento 
+Fiscal E N 1 - 1 1 D7  
+1 - Normal 
+; 2 - Contingência 
+14 nSiteAutoriz 2 Identificação do número do Site do 
+Autorizador de recepção da NFCom E C 1 - 1 1  
+ER55 Se o autorizador da NFCom possuir apenas um site 
+deverá ser informado com Zero (0), em caso de 
+autorizador trabalhar com múltiplos sites indicar o 
+número do site para qual foi endereçada a NFCOM (1 
+a 9). 
+ 
+Observação: o ambiente autorizador que trabalhar 
+com mais de um Site deverá divulgar para cada 
+endereço de site qual número correspondente de 
+nSiteAutoriz o contribuinte pode usar 
+15 cMunFG 2 Código do município de ocorrência do 
+fato gerador E C 1 - 1 7  
+ER2  
+16 finNFCom 2 Finalidade de emissão da NFCom E N 1 - 1 1 D18  
+0 - NFCom Normal; 
+3 - NFCom de Substituição; 
+4 - NFCom ajuste de débito; 
+17 tpFat 2 Tipo de Faturamento da NFCom E N 1 - 1 1 D19  
+0- Faturamento Normal; 1 - Faturamento centralizado; 
+2 - Cofaturamento 
+18 verProc 2 Versão do processo de emissão E C 1 - 1 1 - 20  
+ER48 Informar a versão do aplicativo emissor de NFCom. 
+19 indPrePago 2 Indicador de serviço pré-pago E N 0 - 1 1 - 1 D8  
+1 – Serviço pré-pago (informar a tag somente se a 
+nota for referente a um serviço exclusivamente pré-
+pago) 
+20 indCessaoMeiosRede 2 Indicador de Sessão de Meios de 
+Rede. E N 0 - 1 1 - 1 D8  
+Uma vez informado (valor = 1), essa tag dispensa 
+geração do grupo Fatura. 
+Apenas para notas dos tipos Normal e Substituição 
+com tipo de faturamento normal 
+# --- x --- 2 Sequência XML - - 0 - 1     
+22 dhCont 2 Data e Hora da entrada em 
+contingência ES C 1 - 1 21  
+ER1 Informar a data e hora no formato AAAA-MM-
+DDTHH:MM:SS 
+23 xJust 2 Justificativa da entrada em 
+contingência ES C 1 - 1 15 - 256  
+ER48  
+24 emit 1 Identificação do Emitente do 
+documento fiscal  G  
+1 - 1     
+25 CNPJ 2 CNPJ do emitente E C 1 - 1 14  
+ER7 Informar zeros não significativos 
+26 IE 2 Inscrição Estadual do emitente E C 1 - 1 2 - 14  
+ER43  
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 25 / 38 
+ 
+27 IEUFDest 2 Inscrição Estadual Virtual do emitente 
+na UF de Destino da partilha (IE 
+Virtual) E C 0 - 1 2 - 14  
+ER43  
+28 CRT 2 Código do Regime Tributário E N 1 - 1 1 D22  
+Informar: 1=Simples Nacional; 
+2=Simples Nacional, excesso sublimite de receita 
+bruta; 
+3=Regime Normal. 
+29 xNome 2 Razão social ou Nome do emitente E C 1 - 1 2 - 60  
+ER48  
+30 xFant 2 Nome fantasia do emitente E C 0 - 1 1 - 60  
+ER48  
+31 enderEmit 2 Endereço do emitente G  
+1 - 1     
+32 xLgr 3 Logradouro E C 1 - 1 2 - 60  
+ER48  
+33 nro 3 Número E C 1 - 1 1 - 60  
+ER48  
+34 xCpl 3 Complemento E C 0 - 1 1 - 60  
+ER48  
+35 xBairro 3 Bairro E C 1 - 1 2 - 60  
+ER48  
+36 cMun 3 Código do município (utilizar a tabela 
+do IBGE) E C 1 - 1 7  
+ER2  
+37 xMun 3 Nome do município E C 1 - 1 2 - 60  
+ER48  
+38 CEP 3 CEP E C 1 - 1 8  
+ER54 Informar zeros não significativos 
+39 UF 3 Sigla da UF E C 1 - 1 2 D6   
+40 fone 3 Telefone E C 0 - 1 7 - 12  
+ER58  
+41 email 3 Endereço de E-mail E C 0 - 1 1 - 60  
+ER67  
+42 dest 1 Identificação do destinatário / 
+assinante  G  
+1 - 1     
+43 xNome 2 Razão social ou Nome do destinatário  E C 1 - 1 2 - 60  
+ER48  
+44 CNPJ 2 Número do CNPJ CE C 1 - 1 14  
+ER9 Em caso de empresa não estabelecida no Brasil, será 
+informado o CNPJ com zeros. 
+Informar os zeros não significativos. 
+45 CPF 2 Número do CPF CE C 1 - 1 11  
+ER10 Informar os zeros não significativos. 
+46 idOutros 2 Identificação do destinatário outros CE C 1 - 1 2 - 20  
+ER56 Identificação do destinatário não obrigado a inscrição 
+do CPF tais como estrangeiro, indígena e quilombola;  
+Em caso de não contar CPF do assinante, informar o 
+RG 
+47 indIEDest 2 Indicador da IE do Destinatário E N 1 - 1 1 D21  
+1 - Contribuinte ICMS (informar a IE do destinatário); 
+2 - Contribuinte isento de Inscrição no cadastro de 
+Contribuintes do ICMS; 
+9 - Não Contribuinte, que pode ou não possuir 
+Inscrição Estadual no Cadastro de Contribuintes do 
+ICMS. 
+ 
+Nota: No caso de Contribuinte Isento de Inscrição 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 26 / 38 
+ 
+(indIEDest=2) informar a tag IE do destinatário com o 
+literal ISENTO. 
+48 IE 2 Inscrição Estadual do destinatário E C 0 - 1 0 - 14  
+ER42  
+49 IM 2 Inscrição Municipal E C 0 - 1 1 - 15  
+ER48  
+50 enderDest 2 Endereço do destinatário / assinante G  
+1 - 1     
+51 xLgr 3 Logradouro E C 1 - 1 2 - 60  
+ER48  
+52 nro 3 Número E C 1 - 1 1 - 60  
+ER48  
+53 xCpl 3 Complemento E C 0 - 1 1 - 60  
+ER48  
+54 xBairro 3 Bairro E C 1 - 1 2 - 60  
+ER48  
+55 cMun 3 Código do município (utilizar a tabela 
+do IBGE) E C 1 - 1 7  
+ER2  
+56 xMun 3 Nome do município E C 1 - 1 2 - 60  
+ER48  
+57 CEP 3 CEP E C 1 - 1 8  
+ER54 Informar zeros não significativos 
+58 UF 3 Sigla da UF E C 1 - 1 2 D6   
+59 fone 3 Telefone E C 0 - 1 7 - 12  
+ER58  
+60 email 3 Endereço de E-mail E C 0 - 1 1 - 60  
+ER67  
+61 assinante  1 Dados do assinante  G  
+1 - 1     
+62 iCodAssinante 2 Código único de Identificação do 
+assinante E C 1 - 1 1 - 15  
+ER57  
+63 tpAssinante 2 Tipo de assinante E N 1 - 1 2 D16  
+1-Comercial; 
+2-Industrial; 
+3-Residencial/Pessoa Física; 
+4-Produtor Rural; 
+5-Órgão da administração pública estadual direta e 
+suas fundações e autarquias, quando mantidas pelo 
+poder público estadual e regidas por normas de direito 
+público, nos termos do Convênio ICMS 107/95; 
+6-Prestador de serviço de telecomunicação 
+responsável pelo recolhimento do imposto incidente 
+sobre a cessão dos meios de rede do prestador do 
+serviço ao usuário final, nos termos do Convênio ICMS 
+17/13 ; 
+7-Missões Diplomáticas, Repartições Consulares e 
+Organismos Internacionais, nos termos do Convênio 
+ICMS 158/94 ; 
+8-Igrejas e Templos de qualquer natureza ; 
+99-Outros não especificados anteriormente 
+64 tpServUtil 2 Tipo de serviço utilizado E N 1 - 1 1 D23  
+1-Telefonia;  
+2-Comunicação de dados;  
+3-TV por Assinatura; 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 27 / 38 
+ 
+4 - Provimento de acesso à Internet;  
+5-Multimídia;  
+6-Outros;  
+7-Varios; 
+65 nContrato 2 Número do Contrato do assinante E C 0 - 1 1 - 20  
+ER57  
+66 dContratoIni 2 Data de início do contrato E D 0 - 1 10  
+ER49 Formato AAAA-MM-DD 
+67 dContratoFim 2 Data de término do contrato E D 0 - 1 10  
+ER49 Formato AAAA-MM-DD 
+# --- x --- 2 Sequência XML - - 0 - 1     
+69 NroTermPrinc 2 Número do Terminal Principal do 
+serviço contratado ES C 1 - 1 7 - 12  
+ER58 Em se tratando de plano de prestação de serviço 
+telefônico corporativo, familiar ou similares, informar o 
+número do terminal telefônico principal do plano. 
+70 cUF 2 Código da UF de habilitação do 
+terminal ES N 1 - 1 2 D1  
+Utilizar a 
+Tabela do IBGE de código de unidades da federação. 
+# --- x --- 2 Sequência XML - - 0 - n     
+72 NroTermAdic 2 Número dos Terminais adicionais do 
+serviço contratado ES C 1 - 1 7 - 12  
+ER58  
+73 cUF 2 Código da UF de habilitação do 
+terminal ES N 1 - 1 2 D1   
+# --- x --- 1 Sequência XML - - 1 - 1     
+75 gSub 1 Grupo de informações da 
+substituição  GS  
+0 - 1     
+76 chNFCom 2 Chave de acesso da NFCom original CE C 1 - 1 44  
+ER3  
+77 gNF 2 Informação da NF modelo 21/22 
+referenciada CG  
+1 - 1     
+78 CNPJ 3 CNPJ do Emitente E C 1 - 1 14  
+ER7 Informar o CNPJ do emitente do Documento Fiscal 
+79 mod 3 Modelo do documento E N 1 - 1 2 D24  
+21 ou 22 
+80 serie 3 Serie do documento fiscal E C 1 - 1 3 - 3  
+ER48  
+81 nNF 3 Número do documento fiscal E C 1 - 1 1 - 9  
+ER44  
+82 CompetEmis 3 Ano e mês da emissão da NF 
+(AAAAMM) E C 1 - 1 6 - 6  
+ER69  
+83 hash115 3 Hash do registro no arquivo do 
+convênio 115 E C 0 - 1 32 - 32   
+Campo poderá ser exigido a critério da UF – campo 36 
+do arquivo MESTRE DE DOCUMENTO FISCAL 
+(Anexo Único, item 5 do Conv. 115/03) 
+84 motSub 2 Motivo da substituição E N 1 - 1 2 D25  
+01 – Erro de Preço;  
+02 – Erro Cadastral; 
+03 – Decisão Judicial; 
+04 - Erro de Tributação; 
+05 – Descontinuidade do Serviço 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 28 / 38 
+ 
+85 gCofat 1 Grupo de Informações do 
+Cofaturamento  GS  
+0 - 1     
+86 chNFComLocal 2 Chave de acesso da NFCom emitida 
+pela Operadora Local E C 1 - 1 44  
+ER3  
+87 det 1 Detalhamento de Produtos e 
+Serviços  GS  
+1 - 990     
+88 nItem 2 Número do item da NFCom A C 1 - 1 3  
+ER59  
+89 chNFComAnt 2 Chave de Acesso da NFCom anterior A C 1 - 1 44  
+ER3 Informar chave de acesso de referência anterior 
+90 nItemAnt 2 Número do item da NFCom anterior A C 1 - 1 3  
+ER59 Informar nro do item da chave de acesso de referência  
+anterior 
+91 prod 2 Dados do Produto ou Serviço G  
+1 - 1     
+92 cProd 3 Código do produto ou serviço. E C 1 - 1 1 - 60  
+ER48  
+93 xProd 3 Descrição do produto ou serviço E C 1 - 1 1 - 120  
+ER48  
+94 cClass 3 Código de classificação E C 1 - 1 7 - 7  
+ER2 Tabela de Classificação de Item da NFCom (validar 
+por RV) 
+95 CFOP 3 CFOP E C 0 - 1 4  
+ER68 Utilizar Tabela de CFOP.  
+96 CNPJLD 3 CNPJ da operadora LD E C 0 - 1 14  
+ER7 Informar o CNPJ da operadora LD que irá lançar o 
+item de cofaturamento em nota do tipo faturamento 2 
+97 uMed 3 Unidade Básica de Medida E N 1 - 1 1 D17  
+1=Minuto 
+2=MB; 
+3=GB; 
+4=UN 
+98 qFaturada 3 Quantidade Faturada E C 1 - 1 11, 0 
+11, 4  
+ER32 11 posições, sendo 11 inteiras e 0 a 4 casas decimais.  
+Informar a quantidade de comercialização do produto.  
+99 vItem 3 Valor unitário do item E C 1 - 1 13, 2 
+13, 8  
+ER40 15 posições, sendo 13 inteiras e 2 a 8 casas decimais.  
+100 vDesc 3 Valor do Desconto E C 0 - 1 13, 2  
+ER38 15 posições, sendo 13 inteiras e 2 casas decimais. 
+101 vOutro 3 Outras despesas acessórias E C 0 - 1 13, 2  
+ER38 15 posições, sendo 13 inteiras e 2 casas decimais. 
+102 vProd 3 Valor total do item E C 1 - 1 13, 2 
+13, 8  
+ER40 15 posições, sendo 13 inteiras e 2 a 8 casas decimais.  
+103 dExpiracao 3 Data de expiração de crédito E D 0 - 1 10  
+ER49 Formato AAAA-MM-DD. 
+104 indDevolucao 3 Indicador de devolução do valor do 
+item E N 0 - 1 1 - 1 D8  
+1 – Devolução do valor do item 
+105 imposto 2 Tributos incidentes no Produto ou 
+Serviço G  
+1 - 1     
+106 ICMS00 3 Prestação sujeito à tributação normal 
+do ICMS CG  
+1 - 1    
+Tributada integralmente 
+107 CST 4 classificação Tributária do Serviço E N 1 - 1 2 D9  
+00 - Tributação normal ICMS 
+108 vBC 4 Valor da BC do ICMS E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 29 / 38 
+ 
+109 pICMS 4 Alíquota do ICMS E C 1 - 1 3, 2  
+ER12 5 posições, sendo 3 inteiras e 2 casas decimais. 
+110 vICMS 4 Valor do ICMS E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+# --- x --- 4 Sequência XML - - 0 - 1     
+112 pFCP 4 Percentual de ICMS relativo ao Fundo 
+de Combate à Pobreza (FCP). ES C 1 - 1 3, 2  
+ER18 5 posições, sendo 3 inteiras e 2 casas decimais. 
+113 vFCP 4 Valor do ICMS relativo ao Fundo de 
+Combate à Pobreza (FCP). ES C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+114 ICMS20 3 Prestação sujeito à tributação com 
+redução de BC do ICMS CG  
+1 - 1     
+115 CST 4 Classificação Tributária do serviço E N 1 - 1 2 D10  
+20 - Tributação com BC reduzida do ICMS 
+116 pRedBC 4 Percentual de redução da BC E C 1 - 1 3, 2  
+ER13 5 posições, sendo 3 inteiras e 2 casas decimais. 
+117 vBC 4 Valor da BC do ICMS E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+118 pICMS 4 Alíquota do ICMS E C 1 - 1 3, 2  
+ER12 5 posições, sendo 3 inteiras e 2 casas decimais. 
+119 vICMS 4 Valor do ICMS E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+# --- x --- 4 Sequência XML - - 0 - 1     
+121 vICMSDeson 4 Valor do ICMS de desoneração ES C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+122 cBenef 4 Código de Benefício Fiscal na UF 
+aplicado ao item ES C 1 - 1 10   
+Código de Benefício Fiscal utilizado pela UF, aplicado 
+ao item. 
+# --- x --- 4 Sequência XML - - 0 - 1     
+124 pFCP 4 Percentual de ICMS relativo ao Fundo 
+de Combate à Pobreza (FCP). ES C 1 - 1 3, 2  
+ER18 5 posições, sendo 3 inteiras e 2 casas decimais. 
+125 vFCP 4 Valor do ICMS relativo ao Fundo de 
+Combate à Pobreza (FCP). ES C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+126 ICMS40 3 Tributação Isenta, Não tributada CG  
+1 - 1     
+127 CST 4 Classificação Tributária do serviço E N 1 - 1 2 D11  
+40=Isenta;  
+41=Não tributada; 
+# --- x --- 4 Sequência XML - - 0 - 1     
+129 vICMSDeson 4 Valor do ICMS de desoneração ES C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+130 cBenef 4 Código de Benefício Fiscal na UF 
+aplicado ao item ES C 1 - 1 10   
+Código de Benefício Fiscal utilizado pela UF, aplicado 
+ao 
+item. 
+131 ICMS51 3 Tributação com Diferimento CG  
+1 - 1    
+A exigência do preenchimento das informações do 
+ICMS diferido fica a critério de cada UF 
+132 CST 4 Classificação Tributária do serviço E N 1 - 1 2 D12  
+Tributação pelo ICMS 51 - Diferimento 
+# --- x --- 4 Sequência XML - - 0 - 1     
+134 vICMSDeson 4 Valor do ICMS de desoneração ES C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+135 cBenef 4 Código de Benefício Fiscal na UF 
+aplicado ao item ES C 1 - 1 10   
+Código de Benefício Fiscal utilizado pela UF, aplicado 
+ao item. 
+136 ICMS90 3 ICMS Outros CG  
+1 - 1     
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 30 / 38 
+ 
+137 CST 4 Classificação Tributária do Serviço E N 1 - 1 2 D13  
+90 - ICMS outros 
+# --- x --- 4 Sequência XML - - 0 - 1     
+139 vBC 4 Valor da BC do ICMS ES C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+140 pICMS 4 Alíquota do ICMS ES C 1 - 1 3, 2  
+ER12 5 posições, sendo 3 inteiras e 2 casas decimais. 
+141 vICMS 4 Valor do ICMS ES C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+142 ICMSSN 3 Simples Nacional CG  
+1 - 1     
+143 CST 4 Classificação Tributária do Serviço E N 1 - 1 2 D13  
+90 - Outros SN 
+144 indSN 4 Indica se o contribuinte é Simples 
+Nacional 1=Sim E N 1 - 1 1 D8   
+145 ICMSUFDest 3 Informações do ICMS de partilha com 
+a UF destinatária G  
+0 - n     
+146 cUFDest 4  
+A N 1 - 1 2 D1   
+147 vBCUFDest 4 Valor da BC do ICMS na UF de 
+destino E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+148 pFCPUFDest 4 Percentual do ICMS relativo ao Fundo 
+de Combate à pobreza (FCP) na UF 
+de destino E C 1 - 1 3, 2  
+ER12 5 posições, sendo 3 inteiras e 2 casas decimais. 
+Alíquota adotada nas operações internas na UF do 
+destinatário 
+149 pICMSUFDest 4 Alíquota interna da UF de destino E C 1 - 1 3, 2  
+ER12 5 posições, sendo 3 inteiras e 2 casas decimais. 
+Alíquota adotada nas operações internas na UF do 
+destinatário 
+150 vFCPUFDest 4 Valor do ICMS relativo ao Fundo de 
+Combate á Pobreza (FCP) da UF de 
+destino E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+151 vICMSUFDest 4 Valor do ICMS de partilha para a UF 
+de destino E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+152 vICMSUFEmi 4 Valor do ICMS de partilha para a UF 
+de emissão E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+153 cBenefUFDest 4 Código de Benefício Fiscal na UF 
+destino aplicado ao item E C 0 - 1 10   
+Código de Benefício Fiscal utilizado pela UF, aplicado 
+ao 
+item. 
+154 indSemCST 3 Sem Situação Tributária para o ICMS CE N 1 - 1 1 D8  
+Informar para itens que não tenham nenhuma relação 
+com o ICMS. 
+Quando informado o item NÃO PODE ter CFOP 
+informado 
+ 
+Se informado esse grupo o schema não permite 
+informar nenhum dos grupos de ICMSXX 
+155 PIS 3 Dados do PIS G  
+0 - 1     
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 31 / 38 
+ 
+156 CST 4 classificação Tributária do PIS E N 1 - 1 2 D14  
+01 – Tributável com alíquota básica 
+02 – Tributável com alíquota diferenciada 
+06 – Tributável com alíquota zero 
+07 – Operação isenta de contribuição 
+08 – Operação sem incidência da contribuição 
+09 – Operação com suspensão da contribuição 
+49 – Outras operações de saída 
+157 vBC 4 Valor da BC do PIS E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+158 pPIS 4 Alíquota do PIS (em percentual) E C 1 - 1 3, 2  
+ER17 5 posições, sendo 3 inteiras e 2 casas decimais. 
+159 vPIS 4 Valor do PIS E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+160 COFINS 3 Dados do COFINS G  
+0 - 1     
+161 CST 4 classificação Tributária do COFINS E N 1 - 1 2 D14  
+01 – Tributável com alíquota básica 
+02 – Tributável com alíquota diferenciada 
+06 – Tributável com alíquota zero 
+07 – Operação isenta de contribuição 
+08 – Operação sem incidência da contribuição 
+09 – Operação com suspensão da contribuição 
+49 – Outras operações de saída 
+162 vBC 4 Valor da BC do COFINS E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+163 pCOFINS 4 Alíquota do COFINS (em percentual) E C 1 - 1 3, 2  
+ER17 5 posições, sendo 3 inteiras e 2 casas decimais. 
+164 vCOFINS 4 Valor do COFINS E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+165 FUST 3 Dados do FUST G  
+0 - 1     
+166 vBC 4 Valor da BC do FUST E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+167 pFUST 4 Alíquota do FUST (em percentual) E C 1 - 1 3, 2  
+ER17 5 posições, sendo 3 inteiras e 2 casas decimais. 
+168 vFUST 4 Valor do FUST E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+169 FUNTTEL 3 Dados do FUNTTEL G  
+0 - 1     
+170 vBC 4 Valor da BC do FUNTTEL E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+171 pFUNTTEL 4 Alíquota do FUNTTEL (em percentual)  E C 1 - 1 3, 2  
+ER17 5 posições, sendo 3 inteiras e 2 casas decimais. 
+172 vFUNTTEL 4 Valor do FUNTEL E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+173 retTrib 3 Grupo de informações de retenção de 
+tributos federais G  
+0 - 1     
+174 vRetPIS 4 Valor do PIS retido E C 1 - 1 13, 2 
+13, 8  
+ER40 15 posições, sendo 13 inteiras e 2 a 8 casas decimais.  
+175 vRetCofins 4 Valor do COFNS retido E C 1 - 1 13, 2 
+13, 8  
+ER40 15 posições, sendo 13 inteiras e 2 a 8 casas decimais.  
+176 vRetCSLL 4 Valor da CSLL retida E C 1 - 1 13, 2 
+13, 8  
+ER40 15 posições, sendo 13 inteiras e 2 a 8 casas decimais.  
+177 vBCIRRF 4 Base de cálculo do IRRF E C 1 - 1 13, 2 
+13, 8  
+ER40 15 posições, sendo 13 inteiras e 2 a 8 casas decimais.  
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 32 / 38 
+ 
+178 vIRRF 4 Valor do IRRF retido E C 1 - 1 13, 2 
+13, 8  
+ER40 15 posições, sendo 13 inteiras e 2 a 8 casas decimais.  
+179 gProcRef 2 Grupo Processo referenciado G  
+0 - 1    
+Este grupo somente deverá ser preenchido quando 
+houver processo judicial ou administrativo que altere 
+valores. 
+180 vItem 3 Valor unitário do item E C 1 - 1 13, 2 
+13, 8  
+ER40 15 posições, sendo 13 inteiras e 2 a 8 casas decimais.  
+Informar o valor sem a influência da decisão 
+judicial/administrativa.  
+181 qFaturada 3 Quantidade Faturada E C 1 - 1 11, 0 
+11, 4  
+ER32 11 posições, sendo 11 inteiras e 0 a 4 casas decimais.  
+Informar a quantidade de comercialização do produto.  
+182 vProd 3 Valor total do item E C 1 - 1 13, 2 
+13, 8  
+ER40 15 posições, sendo 13 inteiras e 2 a 8 casas decimais.  
+183 vDesc 3 Valor do Desconto E C 0 - 1 13, 2  
+ER38 15 posições, sendo 13 inteiras e 2 casas decimais. 
+184 vOutro 3 Outras despesas acessórias E C 0 - 1 13, 2  
+ER38 15 posições, sendo 13 inteiras e 2 casas decimais. 
+185 indDevolucao 3 Indicador de devolução do valor do 
+item E N 0 - 1 1 - 1 D8  
+1 – Devolução do valor do item 
+186 vBC 3 Valor da BC do ICMS E C 0 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+187 pICMS 3 Alíquota do ICMS E C 0 - 1 3, 2  
+ER12 5 posições, sendo 3 inteiras e 2 casas decimais. 
+188 vICMS 3 Valor do ICMS E C 0 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+189 vPIS 3 Valor do PIS E C 0 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+190 vCOFINS 3 Valor do COFINS E C 0 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+191 gProc 3 Grupo identificador do Processo G  
+1 - 10     
+192 tpProc 4 Tipo de Processo E N 1 - 1 1 D19  
+0 - SEFAZ; 1 - Justiça Federal; 2 - Justiça Estadual 
+193 nProcesso 4 Número do Processo E C 1 - 1 1 - 60  
+ER48  
+194 gRessarc 2 Grupo de Informações detalhadas de 
+item de cClass de Ressarcimento G  
+0 - 1    
+Este grupo somente deverá ser preenchido quando 
+houver processo judicial ou administrativo que altere 
+valores. 
+195 tpRessarc 3 Tipo de Ressarcimento E N 1 - 1 2 D26  
+1 - Cobrança Indevida 
+2 - Interrupção 
+99 - Outros 
+196 dRef 3 Data de referência E D 1 - 1 10  
+ER49 Formato AAAA-MM-DD 
+197 nProcesso 3 Número do Processo E C 0 - 1 1 - 60  
+ER48  
+198 nProtReclama 3 Número do protocolo de reclamação E C 0 - 1 1 - 60  
+ER48  
+199 xObs 3 Observações sobre o processo de 
+ressarcimento E C 0 - 1 15 - 100  
+ER48  
+200 infAdProd 2 Informações adicionais do produto 
+(norma referenciada, informações 
+complementares, etc) E C 0 - 1 1 - 500  
+ER48  
+201 total 1 Dados dos totais da NFCom  GS  
+1 - 1     
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 33 / 38 
+ 
+202 vProd 2 Valor Total dos produtos e serviços E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+203 ICMSTot 2 Totais referentes ao ICMS G  
+1 - 1     
+204 vBC 3 BC do ICMS E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+205 vICMS 3 Valor Total do ICMS E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+206 vICMSDeson 3 Valor Total do ICMS desonerado E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+207 vFCP 3 Valor Total do FCP (Fundo de 
+Combate à Pobreza). E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+208 vCOFINS 2 Valor do COFINS E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+209 vPIS 2 Valor do PIS E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+210 vFUNTTEL 2 Valor do FUNTTEL E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+211 vFUST 2 Valor do FUST E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+212 vRetTribTot 2 Total da retenção de tributos federais G  
+1 - 1     
+213 vRetPIS 3 Valor do PIS retido E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+214 vRetCofins 3 Valor do COFNS retido E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+215 vRetCSLL 3 Valor da CSLL retida E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+216 vIRRF 3 Valor do IRRF retido E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+217 vDesc 2 Valor Total do Desconto E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+218 vOutro 2 Outras Despesas acessórias E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+219 vNF 2 Valor Total da NFCom E C 1 - 1 13, 2  
+ER37 15 posições, sendo 13 inteiras e 2 casas decimais. 
+220 gFidelidade 1 Grupo de informações do programa 
+de fidelidade do assinante  GS  
+0 - 1     
+221 qtdSaldoPts 2 Saldo de pontos do cliente na data de 
+referência E C 1 - 1 1 - 20  
+ER60  
+222 dRefSaldoPts 2 Data de aferição do saldo de pontos E D 1 - 1 10  
+ER49 Formato AAAA-MM-DD 
+223 qtdPtsResg 2 Qtd de pontos resgatados na data de 
+referência E C 1 - 1 1 - 20  
+ER60  
+224 dRefResgPts 2 Data de resgate dos pontos E D 1 - 1 10  
+ER49 Formato AAAA-MM-DD 
+225 gFat 1 Grupo de informações de controle 
+da Fatura  CG  
+0 - 1     
+226 CompetFat 2 Ano e mês referência do faturamento 
+(AAAAMM) E C 1 - 1 6 - 6  
+ER69  
+227 dVencFat 2 Data de vencimento da fatura E D 1 - 1 10  
+ER49 Formato AAAA-MM-DD 
+# --- x --- 2 Sequência XML - - 0 - 1     
+229 dPerUsoIni 2 Período de uso inicial ES D 1 - 1 10  
+ER49 Formato AAAA-MM-DD. 
+230 dPerUsoFim 2 Período de uso final ES D 1 - 1 10  
+ER49 Formato AAAA-MM-DD. 
+231 codBarras 2 Linha digitável do código de barras E C 1 - 1 1 - 48  
+ER61  
+232 codDebAuto 2 Código de autorização débito em conta  CE C 1 - 1 1 - 20  
+ER60  
+233 codBanco 2 Número do banco para débito em 
+conta E C 1 - 1 3 - 5  
+ER48  
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 34 / 38 
+ 
+234 codAgencia 2 Número da agência bancária para 
+débito em conta E C 1 - 1 1 - 10  
+ER48  
+235 enderCorresp 2 Endereço de entrega da fatura. G  
+0 - 1    
+Informar se diferente do endereço do destinatário 
+236 xLgr 3 Logradouro E C 1 - 1 2 - 60  
+ER48  
+237 nro 3 Número E C 1 - 1 1 - 60  
+ER48  
+238 xCpl 3 Complemento E C 0 - 1 1 - 60  
+ER48  
+239 xBairro 3 Bairro E C 1 - 1 2 - 60  
+ER48  
+240 cMun 3 Código do município (utilizar a tabela 
+do IBGE) E C 1 - 1 7  
+ER2  
+241 xMun 3 Nome do município E C 1 - 1 2 - 60  
+ER48  
+242 CEP 3 CEP E C 1 - 1 8  
+ER54 Informar zeros não significativos 
+243 UF 3 Sigla da UF E C 1 - 1 2 D6   
+244 fone 3 Telefone E C 0 - 1 7 - 12  
+ER58  
+245 email 3 Endereço de E-mail E C 0 - 1 1 - 60  
+ER67  
+246 gPIX 2 Grupo de informações do PIX G  
+0 - 1     
+247 urlQRCodePIX 3 URL do QRCode do PIX que será 
+apresentado na fatura E C 1 - 1 2 - 2000  
+ER48  
+248 gFatCentral 1 Grupo de informações do 
+Faturamento Centralizado  CG  
+0 - 1     
+249 CNPJ 2 CNPJ do Emitente centralizador E C 1 - 1 14  
+ER7 Informar o CNPJ do emitente do Documento Fiscal 
+250 cUF 2 Código da UF do emitente 
+centralizador E N 1 - 1 2 D1  
+Código da UF do emitente do Documento Fiscal. 
+Utilizar a 
+Tabela do IBGE de código de unidades da federação. 
+251 autXML 1 Autorizados para download do XML 
+do DF-e G  
+0 - 10    
+Informar CNPJ ou CPF. Preencher os zeros não 
+significativos.  
+252 CNPJ 2 CNPJ do autorizado CE C 1 - 1 14  
+ER7 Informar zeros não significativos 
+253 CPF 2 CPF do autorizado CE C 1 - 1 11  
+ER10 Informar zeros não significativos 
+254 infAdic 1 Informações Adicionais  G  
+0 - 1     
+255 infAdFisco 2 Informações adicionais de interesse do 
+Fisco E C 0 - 1 1 - 2000  
+ER48 Norma referenciada, informações complementares, etc  
+256 infCpl 2 Informações complementares de 
+interesse do Contribuinte E C 0 - 5 1 - 3000  
+ER48  
+257 gRespTec 1 Informações do Responsável 
+Técnico pela emissão do DF -e G  
+0 - 1     
+258 CNPJ 2 CNPJ da pessoa jurídica responsável 
+técnica pelo sistema utilizado na 
+emissão do documento fiscal 
+eletrônico E C 1 - 1 14  
+ER7 Informar o CNPJ da pessoa jurídica desenvolvedora 
+do sistema utilizado na emissão do documento fiscal 
+eletrônico. 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 35 / 38 
+ 
+259 xContato 2 Nome da pessoa a ser contatada E C 1 - 1 2 - 60  
+ER48 Informar o nome da pessoa a ser contatada na 
+empresa desenvolvedora do sistema utilizado na 
+emissão do documento fiscal eletrônico. No caso de 
+pessoa física, informar o respectivo nome. 
+260 email 2 Email da pessoa jurídica a ser 
+contatada E C 1 - 1 1 - 60  
+ER67  
+261 fone 2 Telefone da pessoa jurídica a ser 
+contatada E C 1 - 1 7 - 12  
+ER58 Preencher com o Código DDD + número do telefone. 
+# --- x --- 0 Sequência XML - - 0 - 1     
+263 idCSRT 2 Identificador do código de segurança 
+do responsável técnico ES C 1 - 1 3  
+ER6 Identificador do CSRT utilizado para geração do hash 
+264 hashCSRT 2 Hash do token do código de segurança 
+do responsável técnico ES C 1 - 1 20   
+O hashCSRT é o resultado das funções SHA-1 e 
+base64 do token CSRT fornecido pelo fisco + chave 
+de acesso do DF-e. (Implementação em futura NT) 
+ 
+Observação: 28 caracteres são representados no 
+schema como 20 bytes do tipo base64Binary 
+265 infNFComSupl 0 Informações suplementares da 
+NFCom G  
+1 - 1     
+266 qrCodNFCom 1 Texto com o QR-Code para consulta 
+da NFCom E C 1 - 1 50 - 
+1000  
+ER63  
+267  
+0 ds:Signature E C 1 - 1     
+ 
+Express ões Regulares  
+ER1 (((20(([02468][048])|([13579][26]))-02-29))|(20[0-9][0-9])-((((0[1-9])|(1[0-2]))-((0[1-9])|(1\d)|(2[0-8])))|((((0[13578])|(1[02]))-31)|(((0[1,3-9])|(1[0-2]))-
+(29|30)))))T(20|21|22|23|[0-1]\d):[0-5]\d:[0-5]\d([\-,\+](0[0-9]|10|11):00|([\+](12):00)) 
+ER2 [0-9]{7} 
+ER3 [0-9]{44} 
+ER4 [0-9]{36} 
+ER5 [0-9]{16} 
+ER6 [0-9]{3} 
+ER7 [0-9]{14} 
+ER8 [0-9]{3,14} 
+ER9 [0-9]{0}|[0-9]{14} 
+ER10 [0-9]{11} 
+ER11 [0-9]{3,11} 
+ER12 0|0\.[0-9]{2}|[1-9]{1}[0-9]{0,2}(\.[0-9]{2})? 
+ER13 0\.[0-9]{2}|[1-9]{1}[0-9]{0,2}(\.[0-9]{2})? 
+ER14 0|0\.[0-9]{3}|[1-9]{1}[0-9]{0,2}(\.[0-9]{3})? 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 36 / 38 
+ 
+ER15 0\.[0-9]{3}|[1-9]{1}[0-9]{0,2}(\.[0-9]{3})? 
+ER16 [0-9]{1,3}(\.[0-9]{2,3})? 
+ER17 0|0\.[0-9]{2,4}|[1-9]{1}[0-9]{0,2}(\.[0-9]{2,4})? 
+ER18 0\.[0-9]{2,4}|[1-9]{1}[0-9]{0,2}(\.[0-9]{2,4})? 
+ER19 0(\.[0-9]{2,4})?|[1-9]{1}[0-9]{0,1}(\.[0-9]{2,4})?|100(\.0{2,4})? 
+ER20 [0-9]{1,4}(\.[0-9]{2,8})? 
+ER21 0|0\.[0-9]{3}|[1-9]{1}[0-9]{0,4}(\.[0-9]{3})? 
+ER22 0|0\.[0-9]{3}|[1-9]{1}[0-9]{0,7}(\.[0-9]{3})? 
+ER23 0\.[0-9]{3}|[1-9]{1}[0-9]{0,7}(\.[0-9]{3})? 
+ER24 0|0\.[0-9]{4}|[1-9]{1}[0-9]{0,7}(\.[0-9]{4})? 
+ER25 0\.[0-9]{4}|[1-9]{1}[0-9]{0,7}(\.[0-9]{4})? 
+ER26 0|0\.[0-9]{6}|[1-9]{1}[0-9]{0,8}(\.[0-9]{6})? 
+ER27 0\.[0-9]{6}|[1-9]{1}[0-9]{0,8}(\.[0-9]{6})? 
+ER28 0|0\.[0-9]{8}|[1-9]{1}[0-9]{0,8}(\.[0-9]{8})? 
+ER29 0\.[0-9]{8}|[1-9]{1}[0-9]{0,8}(\.[0-9]{8})? 
+ER30 0|0\.[0-9]{4}|[1-9]{1}[0-9]{0,10}(\.[0-9]{4})? 
+ER31 0\.[0-9]{4}|[1-9]{1}[0-9]{0,10}(\.[0-9]{4})? 
+ER32 [0-9]{1,11}(\.[0-9]{2,4})? 
+ER33 0|0\.[0-9]{3}|[1-9]{1}[0-9]{0,11}(\.[0-9]{3})? 
+ER34 0\.[0-9]{3}|[1-9]{1}[0-9]{0,11}(\.[0-9]{3})? 
+ER35 0|0\.[0-9]{4}|[1-9]{1}[0-9]{0,11}(\.[0-9]{4})? 
+ER36 0\.[0-9]{4}|[1-9]{1}[0-9]{0,11}(\.[0-9]{4})? 
+ER37 0|0\.[0-9]{2}|[1-9]{1}[0-9]{0,12}(\.[0-9]{2})? 
+ER38 0\.[0-9]{2}|[1-9]{1}[0-9]{0,12}(\.[0-9]{2})? 
+ER39 [0-9]{1,13}(\.[0-9]{2,6})? 
+ER40 [0-9]{1,13}(\.[0-9]{2,8})? 
+ER41 [0-9]{1,13}(\.[0-9]{2,4})? 
+ER42 [0-9]{0,14}|ISENTO 
+ER43 [0-9]{2,14} 
+ER44 [1-9]{1}[0-9]{0,8} 
+ER45 0|[1-9]{1}[0-9]{0,2} 
+ER46 [0-9]{2} 
+ER47 [0-9]{1,4} 
+ER48 [!-ÿ]{1}[ -ÿ]{0,}[!-ÿ]{1}|[!-ÿ]{1} 
+ER49 ((((20|19|18)(([02468][048])|([13579][26]))-02-29))|((20|19|18)[0-9][0-9])-((((0[1-9])|(1[0-2]))-((0[1-9])|(1\d)|(2[0-8])))|((((0[13578])|(1[02]))-31)|(((0[1,3-9])|(1[0-
+2]))-(29|30))))) 
+ER50 [0-9]\.[0-9]{6}|[1-8][0-9]\.[0-9]{6}|90\.[0-9]{6}|-[0-9]\.[0-9]{6}|-[1-8][0-9]\.[0-9]{6}|-90\.[0-9]{6} 
+ER51 [0-9]\.[0-9]{6}|[1-9][0-9]\.[0-9]{6}|1[0-7][0-9]\.[0-9]{6}|180\.[0-9]{6}|-[0-9]\.[0-9]{6}|-[1-9][0-9]\.[0-9]{6}|-1[0-7][0-9]\.[0-9]{6}|-180\.[0-9]{6} 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 37 / 38 
+ 
+ER52 [0-9]{15} 
+ER53 (([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]) 
+ER54 [0-9]{8} 
+ER55 [0-9]{1} 
+ER56 ([!-ÿ]{0}|[!-ÿ]{2,20})? 
+ER57 ([!-ÿ]{0}|[!-ÿ]{1,15})? 
+ER58 [0-9]{7,12} 
+ER59 [1-9]{1}[0-9]{0,1}|[1-8]{1}[0-9]{2}|[9]{1}[0-8]{1}[0-9]{1}|[9]{1}[9]{1}[0]{1} 
+ER60 [0-9]{1,20} 
+ER61 [0-9]{1,48} 
+ER62 NFCom[0-9]{44} 
+ER63 ((HTTPS?|https?)://.*\?chNFCom=[0-9]{44}&amp;tpAmb=[1-2](&amp;sign=[!-ÿ]{1}[ -ÿ]{0,}[!-ÿ]{1}|[!-ÿ]{1})?) 
+ER64 [0-9]{1,15} 
+ER65 1\.00 
+ER66 (([0-1][0-9])|([2][0-3])):([0-5][0-9]):([0-5][0-9]) 
+ER67 [^@]+@[^\.]+\..+ 
+ER68 [123567][0-9]([0-9][1-9]|[1-9][0-9]) 
+ER69 [0-9]{1,6} 
+ 
+Domínio 
+D1 11, 12, 13, 14, 15, 16, 17, 21, 22, 23, 24, 25, 26, 27, 28, 29, 31, 32, 33, 35, 41, 42, 43, 50, 51, 52, 53 
+D2 11, 12, 13, 14, 15, 16, 17, 21, 22, 23, 24, 25, 26, 27, 28, 29, 31, 32, 33, 35, 41, 42, 43, 50, 51, 52, 53, 90, 91, 92, 93 
+D3 11, 12, 13, 14, 15, 16, 17, 21, 22, 23, 24, 25, 26, 27, 28, 29, 31, 32, 33, 35, 41, 42, 43, 50, 51, 52, 53, 99 
+D4 62 
+D5 AC, AL, AM, AP, BA, CE, DF, ES, GO, MA, MG, MS, MT, PA, PB, PE, PI, PR, RJ, RN, RO, RR, RS, SC, SE, SP, TO, EX 
+D6 AC, AL, AM, AP, BA, CE, DF, ES, GO, MA, MG, MS, MT, PA, PB, PE, PI, PR, RJ, RN, RO, RR, RS, SC, SE, SP, TO 
+D7 1, 2 
+D8 1 
+D9 00 
+D10 20 
+D11 40, 41 
+D12 51 
+D13 90 
+D14 01, 02, 06, 07, 08, 09, 49 
+D15 0, 3 
+D16 1, 2, 3, 4, 5, 6, 7, 8, 99 
+D17 1, 2, 3, 4 
+D18 0, 3, 4 
+
+---PAGE---
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica 
+MOC 1.00a   
+ 
+ 
+Página 38 / 38 
+ 
+D19 0, 1, 2 
+D20 1, 2, 3, 4, 5 
+D21 1, 2, 9 
+D22 1, 2, 3 
+D23 1, 2, 3, 4, 5, 6, 7, 
+D24 21, 22 
+D25 01, 02, 03, 04, 05, 06 
+D26 1, 2, 99 
+D27 1, 2, 3, 4, 5, 6, 7 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 

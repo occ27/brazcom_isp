@@ -1,0 +1,2666 @@
+
+
+=== PÁGINA 1 ===
+
+  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Projeto Nota Fiscal Fatura 
+de Serviço de 
+Comunicação Eletrônica  
+ 
+Manual de Orientação do Contribuinte 
+Padrões Técnicos de Comunicação da NFCom  
+ 
+Versão 1.00a - janeiro 2023  
+ 
+
+
+=== PÁGINA 2 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 2 / 59 
+ 
+Sumário 
+ 
+Controle de Versões ......................................................................................................................... 5  
+Histórico de Alterações / Cronograma .............................................................................................. 6  
+1 Introdução ................................................................................................................................. 7  
+2 Considerações Iniciais ............................................................................................................... 7  
+2.1 Conceitos ........................................................................................................................... 7  
+2.1.1 NFCom (modelo 62) .................................................................................................................... 7  
+2.1.2 DANFE-COM ............................................................................................................................... 7  
+2.1.3 Chave de Acesso da NFCom ...................................................................................................... 8  
+2.1.4 Chave Natural da NFCom ........................................................................................................... 8  
+3 Arquitetura de Comunicação com Contribuinte .......................................................................... 9  
+3.1 Modelo Conceitual .............................................................................................................. 9  
+3.2 Padrões Técnicos ............................................................................................................. 10  
+3.2.1 Padrão de documento XML ....................................................................................................... 10  
+3.2.2 Padrão de Comunicação ........................................................................................................... 12  
+3.2.3 Padrão de Certificado Digital ..................................................................................................... 12  
+3.2.4 Padrão da Assinatura Digital ..................................................................................................... 13  
+3.2.5 Validação da Assinatura Digital pelo Ambiente Autorizador ..................................................... 15  
+3.2.6 Resumo dos Padrões Técnicos ................................................................................................. 15  
+3.3 Modelo Operacional .......................................................................................................... 16  
+3.4 Padrão de Mensagens dos Web Services ........................................................................ 17  
+3.4.1 Área de dados das mensagens ................................................................................................. 17  
+3.4.2 Validação da estrutura XML das Mensagens dos Web Services.............................................. 17  
+3.4.3 Schemas XML das Mensagens dos Web Services ................................................................... 18  
+3.5 Versão dos Schemas XML ............................................................................................... 19  
+3.5.1 Liberação das versões dos schemas para a NFCom ............................................................... 19  
+3.5.2 Correção de Pacote de Liberação ............................................................................................. 19  
+3.5.3 Divulgação de novos Pacotes de Liberação ............................................................................. 20  
+3.5.4 Controle de Versão .................................................................................................................... 20  
+3.6 Sistema de Registro de Eventos ....................................................................................... 20  
+3.6.1 Relação dos Tipos de Evento .................................................................................................... 21  
+3.6.2 Eventos de Marcação ................................................................................................................ 22  
+3.7 Data e hora de emissão e outros horários ........................................................................ 22  
+3.8 SEFAZ virtual ................................................................................................................... 23  
+4 Web Services .......................................................................................................................... 24  
+4.1 Regras de Validação Gerais ............................................................................................. 25  
+4.1.1 Grupo A: Validação do Certificado de Transmissão (protocolo TLS)........................................ 25  
+4.1.2 Grupo B-0: Validação da Compactação da Mensagem ............................................................ 25  
+4.1.3 Grupo B: Validação Inicial da Mensagem no Web Service ....................................................... 26  
+4.1.4 Grupo C: Validação da área de dados da mensagem .............................................................. 26  
+4.1.5 Grupo D: Validações do Certificado de Assinatura Digital ........................................................ 26  
+4.1.6 Grupo E: Validações da Assinatura Digital ................................................................................ 27  
+4.2 Serviço de Recepção NFCom .......................................................................................... 28  
+4.2.1 Leiaute Mensagem de Entrada ................................................................................................. 28  
+
+=== PÁGINA 3 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 3 / 59 
+ 
+4.2.2 Leiaute Mensagem de Retorno ................................................................................................. 28  
+4.2.3 Leiaute de NFCom processada ................................................................................................. 29  
+4.2.4 Regras de Validação Básicas do Serviço .................................................................................. 29  
+4.2.5 Validação das regras de negócio da NFCom ............................................................................ 29  
+4.2.6 Final do Processamento da NFCom ......................................................................................... 30  
+4.3 Serviço de Consulta Situação da NFCom ......................................................................... 31  
+4.3.1 Leiaute Mensagem de Entrada ................................................................................................. 31  
+4.3.2 Leiaute Mensagem de Retorno ................................................................................................. 31  
+4.3.3 Descrição do Processo de Web Service ................................................................................... 31  
+4.3.4 Regras de Validação Básicas do Serviço .................................................................................. 32  
+4.3.5 Validação das Regras de Negócio da Consulta Situação ......................................................... 32  
+4.3.6 Final do Processamento ............................................................................................................ 33  
+4.4 Serviço de Consulta Status do Serviço de Autorização .................................................... 34  
+4.4.1 Leiaute Mensagem de Entrada ................................................................................................. 34  
+4.4.2 Leiaute Mensagem de Retorno ................................................................................................. 34  
+4.4.3 Descrição do Processo de Web Service ................................................................................... 34  
+4.4.4 Regras de Validação Básicas do Serviço .................................................................................. 35  
+4.4.5 Validação das Regras de Negócio da Consulta Status Serviço................................................ 35  
+4.4.6 Final do Processamento ............................................................................................................ 35  
+4.5 Serviço de Consulta Cadastro (NFeConsultaCadastro) .................................................... 36  
+4.5.1 Onde obter as Definições deste Web Service ........................................................................... 36  
+4.5.2 Onde obter os Schemas XML deste Web Service .................................................................... 36  
+5 Sistema de Registro de Eventos (Parte Geral) ........................................................................ 37  
+5.1.1 Leiaute Mensagem de Entrada ................................................................................................. 37  
+5.1.2 Leiaute Mensagem de Retorno ................................................................................................. 38  
+5.1.3 Descrição do Processo de Web Service ................................................................................... 38  
+5.1.4 Regras de Validação Básicas do Serviço .................................................................................. 39  
+5.1.5 Validação das Regras de Negócio do Serviço de Registro de Eventos ................................... 39  
+5.1.6 Processamento das validações específicas de cada evento .................................................... 40  
+5.1.7 Final do Processamento do Evento ........................................................................................... 40  
+6 Sistema de Registro de Eventos (Parte Específica) ................................................................. 41  
+6.1 Evento de Cancelamento.................................................................................................. 41  
+6.1.1 Validação das Regras Específicas do Evento ........................................................................... 41  
+6.1.2 Eventos de marcação originados no Cancelamento da NFCom .............................................. 42  
+6.1.3 Final do Processamento ............................................................................................................ 42  
+7 Web Services – Informações Adicionais .................................................................................. 43  
+7.1 Ambiente de Homologação / Produção............................................................................. 43  
+7.1.1 Sobre as condições de teste para as empresas ....................................................................... 43  
+7.2 Tratamento de caracteres especiais no texto de XML ...................................................... 43  
+7.3 Cálculo do dígito verificador da chave de acesso da NFCom ........................................... 44  
+7.4 Número do protocolo ........................................................................................................ 45  
+7.5 Tempo médio de resposta ................................................................................................ 45  
+7.6 Relação de CFOP válidos para NFCom ........................................................................... 46  
+7.7 Classificação de Produtos ................................................................................................ 46  
+8 Uso Indevido............................................................................................................................ 47  
+8.1 Erros e problemas comuns ............................................................................................... 47  
+8.2 Regras de Validação de Consumo Indevido ..................................................................... 48  
+9 QR Code ................................................................................................................................. 49  
+9.1 Licença ............................................................................................................................. 50  
+
+=== PÁGINA 4 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 4 / 59 
+ 
+9.2 Imagem do QR Code para NFCom ................................................................................... 50  
+9.2.1 Para NFCom com tipo de emissão Normal: .............................................................................. 50  
+9.2.2 Para NFCom com tipo de emissão Contingência Off-line: ........................................................ 50  
+9.3 Configurações para QR Code ........................................................................................... 51  
+9.3.1 Capacidade de armazenamento ............................................................................................... 51  
+9.3.2 Capacidade de correção de erros ............................................................................................. 52  
+9.3.3 Tipo de caracteres ..................................................................................................................... 52  
+9.4 URL da Consulta da NFCom via QR Code no XML .......................................................... 52  
+10 Consulta Pública NFCom ..................................................................................................... 53  
+10.1 Consulta Pública de NFCom via Digitação de Chave de Acesso ...................................... 53  
+10.2 Consulta Pública de NFCom via QR Code ....................................................................... 53  
+10.3 Tabela padronizada com os códigos e mensagens na consulta da NFCom ..................... 54  
+10.4 Padronização dos endereços das consultas públicas ....................................................... 54  
+11 Contingência Off-line para NFCom ...................................................................................... 56  
+11.1 Detalhes técnicos da Contingência Off-line ...................................................................... 57  
+11.2 Resumo das ações para entrada em contingência ........................................................... 58  
+12 WS disponíveis .................................................................................................................... 59  
+ 
+ 
+  
+
+=== PÁGINA 5 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 5 / 59 
+ 
+Controle de Versões  
+ 
+Versão Publicação Descrição 
+1.00 01/2022 Versão inicial do MOC 1.00 
+1.00a 02/2023 Atualização com a NT 2022.001 e simplificação dos Webservices 
+ 
+  
+
+=== PÁGINA 6 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 6 / 59 
+ 
+Histórico de Alterações / Cronograma  
+ 
+Versão Histórico de atualizações Implantação 
+Homologação Implantação 
+Produção 
+1.00  Elaboração do draft do MOC da NFCom    
+1.00a  Atualização com a NT 2022.001 e webservices 04/2023 05/2023 
+  
+
+=== PÁGINA 7 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 7 / 59 
+ 
+1 Introdução 
+Este Manual tem por objetivo a definição das especificações e critérios técnicos necessários para a 
+integração entre os Portais das Secretarias de Fazendas das Unidades Federadas e os sistemas 
+das empresas emissoras da Nota Fiscal Fatura de Serviço de Comunicação Eletrônica – NFCom.  
+2 Considerações Iniciais 
+A Nota Fiscal Fatura de Serviço de Comunicação Eletrônica (NFCom) está sendo desenvolvida de 
+forma integrada pelas Secretarias de Fazenda das Unidades Federadas, Agência Nacional de 
+Telecomunicações (ANATEL), Receita Federal do Brasil (RFB) e representantes das empresas do 
+segmento de comunicações, a partir da assinatura do Protocolo ENAT, que atribuiu ao Encontro 
+Nacional de Coordenadores e Administradores Tributários Estaduais (ENCAT) a coordenação e a 
+responsabilidade pelo desenvolvimento e implantação do Projeto NFCom. 
+2.1 Conceitos 
+2.1.1 NFCom (modelo 62) 
+ 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica (NFCom) é o documento emitido e 
+armazenado eletronicamente, de existência apenas digital, cuja validade jurídica é garantida pela 
+assinatura digital do emitente e autorização de uso pela administração tributária da unidade 
+federada do contribuinte. 
+A Nota Fiscal Fatura de Serviço de Comunicação Eletrônica (Modelo 62) poderá ser utilizada, a 
+critério das unidades federadas, para substituir: 
+ Nota Fiscal de Serviço de Comunicação (modelo 21); 
+ Nota Fiscal de Serviço de Telecomunicações (modelo 22). 
+2.1.2 DANFE-COM 
+ 
+O DANFE-COM (Documento Auxiliar da Nota Fiscal Fatura de Serviço de Comunicação Eletrônica) 
+é um documento auxiliar impresso em papel e sua especificação/modelos de leiaute encontram-se 
+disponíveis no documento Anexo II: Manual de Orientações do Contribuinte – DANFE-COM. 
+ 
+
+=== PÁGINA 8 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 8 / 59 
+ 
+2.1.3 Chave de Acesso da NFCom 
+ 
+A Chave de Acesso da NFCom é composta pelos seguintes campos que se encontram dispersos 
+no leiaute da NFCom (vide Anexo I): 
+ Código 
+da UF 
+ AAMM 
+da 
+emissão CNPJ do 
+Emitente Modelo 
+(mod) Série 
+(serie) Número 
+da 
+NFCom 
+ Forma 
+de 
+emissão 
+da 
+NFCom Site 
+Autoriz. Código 
+Numérico DV 
+Quantidade 
+de 
+caracteres  02 04 14 02 03 09 01 01 07 01 
+  
+ cUF - Código da UF do emitente do Documento Fiscal 
+ AAMM - Ano e Mês de emissão da NFCom 
+ CNPJ - CNPJ do emitente 
+ mod - Modelo do Documento Fiscal 
+ serie - Série do Documento Fiscal 
+ nNF - Número do Documento Fiscal 
+ tpEmis - forma de emissão da NFCom 
+ nSiteAutoriz – Site do Autorizador que recepcionou a NFCOM 
+ cNFCom  - Código Numérico que compõe a Chave de Acesso  
+ cDV - Dígito Verificador da Chave de Acesso  
+ 
+O Dígito Verificador (DV) irá garantir a integridade da chave de acesso, protegendo-a 
+principalmente contra digitações erradas. 
+2.1.4 Chave Natural da NFCom 
+ 
+A Chave Natural da NFCom é composta pelos campos de UF, CNPJ do Emitente, Série e Número 
+da NFCom, além do modelo do documento fiscal eletrônico, forma de emissão e do Site em que ela 
+foi autorizada. O Sistema de Autorização de Uso da SEFAZ valida a existência de uma NFCom 
+previamente autorizada e rejeita novos pedidos de autorização para NFCom com duplicidade da 
+Chave Natural quando autorizados no mesmo ambiente de autorização. A informação da Forma de 
+Emissão e do Site em que foi Autorizada a NFCom podem indicar ambientes alternativos de 
+autorização da SEFAZ. 
+ 
+ 
+ 
+
+=== PÁGINA 9 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 9 / 59 
+ 
+3 Arquitetura de Comunicação com Contribuinte 
+3.1 Modelo Conceitual 
+ 
+O ambiente autorizador de NFCom irá disponibilizar os seguintes serviços: 
+a) Recepção de NFCom (Modelo 62) – Modelo síncrono (uma nota); 
+b) Consulta da Situação Atual da NFCom; 
+c) Consulta do status do serviço. 
+d) Registro de Eventos 
+ 
+Para cada serviço oferecido existirá um Web Service específico. O fluxo de comunicação é sempre 
+iniciado pelo aplicativo do contribuinte através do envio de uma mensagem ao Web Service com a 
+solicitação do serviço desejado. 
+O Web Service sempre devolve uma mensagem de resposta confirmando o recebimento da 
+solicitação de serviço ao aplicativo do contribuinte na mesma conexão. 
+O processamento da solicitação de serviço é concluído na mesma conexão, com a devolução de 
+uma mensagem com o resultado do processamento do serviço solicitado; 
+O diagrama a seguir ilustra o fluxo conceitual de comunicação entre o aplicativo do contribuinte e o 
+Ambiente Autorizador: 
+ 
+ 
+ 
+ 
+Contribuinte 
+Ambiente Autorizador  
+Cliente NFCom 
+( 
+ERP ou software específico 
+ ) 
+NFCom 
+Aplicativo de Faturamento  
+( 
+ERP ou software específico 
+ ) 
+HTTPS 
+Fluxo de  
+Comunicação 
+Serviços  
+Síncronos 
+Aplicação NFCom 
+NFCom 
+Arquitetura de Comunicação – Visão Conceitual  
+Web Services 
+ Transações 
+
+=== PÁGINA 10 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 10 / 59 
+ 
+3.2 Padrões Técnicos 
+3.2.1 Padrão de documento XML 
+ 
+a) Padrão de Codificação 
+A especificação do documento XML adotada é a recomendação W3C para XML 1.0, disponível em 
+www.w3.org/TR/REC-xml e a codificação dos caracteres será em UTF-8, assim todos os 
+documentos XML serão iniciados com a seguinte declaração: 
+<?xml version="1.0" encoding="UTF-8"?> 
+ 
+OBS: Lembrando que cada arquivo XML somente poderá ter uma única declaração <?xml 
+version="1.0" encoding="UTF-8"?>. 
+b) Declaração namespace 
+O documento XML deverá ter uma única declaração de namespace no elemento raiz do 
+documento com o seguinte padrão: 
+<NFCom xmlns=”http://www.portalfiscal.inf.br/NFCom” > (exemplo para o XML da NFCom)  
+ 
+O uso de declaração namespace diferente do padrão estabelecido para o Projeto é vedado. 
+A declaração do namespace da assinatura digital deverá ser realizada na própria tag <Signature>, 
+conforme exemplo abaixo. 
+c) Prefixo de namespace 
+Não é permitida a utilização de prefixos de namespace. Essa restrição visa otimizar o tamanho do 
+arquivo XML. 
+Assim, ao invés da declaração: 
+<NFCom:NFCom xmlns:NFCom=”http://www.portalfiscal.inf.br/NFCom”>  (exemplo para o XML da 
+NFCom com prefixo NFCom) deverá ser adotada a declaração: 
+<NFCom xmlns =”http://www.portalfiscal.inf.br/NFCom” > 
+ 
+ 
+ 
+
+=== PÁGINA 11 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 11 / 59 
+ 
+d) Otimização na montagem do arquivo 
+Na geração do arquivo XML da NFCom, excetuados os campos identificados como obrigatórios no 
+modelo (primeiro dígito da coluna de ocorrências do leiaute iniciada com 1, ex.: 1-1, 1-2, 1-N), não 
+deverão ser incluídas as TAGs de campos com conteúdo zero (para campos tipo numérico) ou 
+vazio (para campos tipo caractere). 
+Na geração do arquivo XML da NFCom, deverão ser preenchidos no modelo apenas as TAGs de 
+campos identificados como obrigatórios no leiaute ou os campos obrigatórios por força da 
+legislação pertinente. Os campos obrigatórios no leiaute são identificados pelo primeiro dígito da 
+coluna ocorrência (“Ocorr”) que inicie com 1, ex.: 1-1, 1-2, 1-N. Os campos obrigatórios por força da 
+legislação pertinente devem ser informados, mesmo que no leiaute seu preenchimento seja 
+facultativo. 
+A regra constante do parágrafo anterior deverá estender-se para os campos onde não há indicação 
+de obrigatoriedade e que, no entanto, seu preenchimento torna-se obrigatório por estar 
+condicionado à legislação específica ou ao negócio do contribuinte. Neste caso, deverá constar a 
+TAG com o valor correspondente e, para os demais campos, deverão ser eliminadas as TAGs. 
+Para reduzir o tamanho final do arquivo XML da NFCom alguns cuidados de programação deverão 
+ser assumidos: 
+ Não incluir "zeros não significativos" para campos numéricos; 
+ Não incluir "espaços" ("line-feed", "carriage return", "tab", caractere de "espaço" entre as 
+TAGs) no início ou no final de campos numéricos e alfanuméricos; 
+ Não incluir comentários no arquivo XML; 
+ Não incluir anotação e documentação no arquivo XML (TAG annotation e TAG 
+documentation); 
+ Não incluir caracteres de formatação no arquivo XML ("line-feed", "carriage return", "tab", 
+caractere de "espaço" entre as TAGs). 
+ 
+e) Validação de Schema 
+Para garantir minimamente a integridade das informações prestadas e a correta formação dos 
+arquivos XML, o contribuinte deverá submeter o arquivo da NFCom e as demais mensagens XML 
+para validação pelo Schema (XSD – XML Schema Definition), disponibilizado pelo Ambiente 
+Autorizador, antes de seu envio. 
+
+=== PÁGINA 12 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 12 / 59 
+ 
+3.2.2 Padrão de Comunicação 
+ 
+A comunicação entre o contribuinte e a Secretaria de Fazenda Estadual será baseada em Web 
+Services disponíveis no Portal da Secretaria de Fazenda Estadual de circunscrição do contribuinte, 
+exceto nos casos em que a UF autorizadora da NFCom utilize serviços de SEFAZ VIRTUAL. 
+O meio físico de comunicação utilizado será a Internet, com o uso do protocolo TLS versão 1.2, 
+com autenticação mútua, que além de garantir um duto de comunicação seguro na Internet, 
+permite a identificação do servidor e do cliente através de certificados digitais, eliminando a 
+necessidade de identificação do usuário através de nome ou código de usuário e senha. 
+O modelo de comunicação segue o padrão de Web Services definido pelo WS-I Basic Profile. 
+A troca de mensagens entre os Web Services do Ambiente Autorizador e o aplicativo do 
+contribuinte será realizada no padrão SOAP versão 1.2, com troca de mensagens XML no padrão 
+Style/Enconding: Document/Literal. 
+A chamada dos diferentes Web Services do Projeto NFCom é realizada com o envio de uma 
+mensagem através do campo NFComDadosMsg. 
+A resposta do processamento da requisição pela aplicação do ambiente autorizador será realizada 
+através de uma mensagem XML através do campo NFComResultMsg 
+3.2.3 Padrão de Certificado Digital 
+ 
+O certificado digital utilizado no Projeto da NFCom será emitido por Autoridade Certificadora 
+credenciada pela Infraestrutura de Chaves Públicas Brasileira – ICP-Brasil, tipo A1 ou A3, devendo 
+conter o CNPJ da pessoa jurídica titular do certificado digital.  
+Os certificados digitais serão exigidos em 3 (três) momentos distintos para o projeto: 
+a) Assinatura de Mensagens: O certificado digital utilizado para essa função deverá conter o 
+CNPJ de um dos estabelecimentos da empresa emissora da NFCom. Por mensagens, 
+entenda-se: o Pedido de Autorização de Uso (Arquivo NFCom), o Registro de Eventos de 
+NFCom e demais arquivos XML que necessitem de assinatura. O certificado digital deverá 
+ter o “uso da chave” previsto para a função de assinatura digital e atributo de "não recusa" 
+obrigatoriamente com o CNPJ no campo otherName OID = 2.16.76.1.3.3, respeitando a 
+Política do Certificado. 
+
+=== PÁGINA 13 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 13 / 59 
+ 
+b) Transmissão  (durante a transmissão das mensagens entre o servidor do contribuinte e o 
+Ambiente Autorizador): O certificado digital utilizado para identificação do aplicativo do 
+contribuinte deverá conter o CNPJ do responsável pela transmissão das mensagens, mas 
+não necessita ser o mesmo CNPJ do estabelecimento emissor da NFCom, devendo ter a 
+extensão Extended Key Usage com permissão de "Autenticação Cliente". 
+c) Geração do QR Code da NFCom: O certificado digital utilizado para a assinatura da 
+NFCom deverá ser utilizado para assinar a chave de acesso da NFCom na geração do QR 
+Code na hipótese de emissão off-line, conforme será descrito em item futuro deste manual. 
+3.2.4 Padrão da Assinatura Digital 
+ 
+As mensagens enviadas ao Ambiente Autorizador são documentos eletrônicos elaborados no 
+padrão XML e devem ser assinados digitalmente com um certificado digital que contenha o CNPJ 
+do estabelecimento matriz ou o CNPJ do estabelecimento emissor da NFCom objeto do pedido. 
+Os elementos abaixo estão presentes dentro do Certificado do contribuinte tornando desnecessária a 
+sua representação individualizada no arquivo XML. Portanto, o arquivo XML não deve conter os 
+elementos:  
+<X509SubjectName>  
+<X509IssuerSerial>  
+<X509IssuerName>  
+<X509SerialNumber>  
+<X509SKI>  
+ 
+Deve-se evitar o uso das TAGs relacionadas a seguir, pois as informações serão obtidas a partir do 
+Certificado do emitente: 
+<KeyValue> 
+<RSAKeyValue>  
+<Modulus>  
+<Exponent> 
+ 
+O Projeto NFCom utiliza um subconjunto do padrão de assinatura XML definido pelo 
+http://www.w3.org/TR/xmldsig-core/ , que tem o seguinte leiaute: 
+# Campo Ele Pai Tipo Ocor. Tam. Descrição/Observação 
+XS01 Signature Raiz - - - -  
+XS02 SignedInfo G XS01 - 1-1  Grupo da Informação da assinatura 
+XS03 CanonicalizationMethod G XS02 - 1-1  Grupo do Método de Canonicalização 
+XS04 Algorithm A XS03 C 1-1  Atributo Algorithm de CanonicalizationMethod: 
+http://www.w3.org/TR/2001/REC-xml-c14n-
+20010315  
+
+=== PÁGINA 14 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 14 / 59 
+ 
+XS05 SignatureMethod G XS02 - 1-1  Grupo do Método de Assinatura 
+XS06 Algorithm A XS05 C 1-1  Atributo Algorithm de SignedMethod: 
+http://www.w3.org/2000/09/xmldsig#rsa-sha1  
+XS07 Reference G XS02 - 1-1  Grupo  de Reference 
+XS08 URI A XS07 C 1-1  Atributo URI da tag Reference 
+XS10 Transforms G XS07 - 1-1  Grupo do algorithm de Transform 
+XS11 unique_Transf_Alg RC XS10 - 1-1  Regra para o atributo Algorithm do Transform 
+ser único. 
+XS12 Transform G XS10 - 2-2  Grupo de Transform 
+XS13 Algorithm A XS12 C 1-1  Atributos válidos Algorithm do Transform: 
+http://www.w3.org/TR/2001/REC-xml-c14n-
+20010315  
+http://www.w3.org/2000/09/xmldsig#enveloped-
+signature  
+XS14 XPath E XS12 C 0-N  XPath 
+XS15 DigestMethod G XS07 - 1-1  Grupo do Método de DigestMethod 
+XS16 Algorithm A XS15 C 1-1  Atributo Algorithm de DigestMethod: 
+http://www.w3.org/2000/09/xmldsig#sha1  
+XS17 DigestValue E XS07 C 1-1  Digest Value (Hash SHA-1 – Base64) 
+XS18 SignatureValue G XS01 - 1-1  Grupo do Signature Value 
+XS19 KeyInfo G XS01 - 1-1  Grupo do KeyInfo 
+XS20 X509Data G XS19 - 1-1  Grupo X509 
+XS21 X509Certificate E XS20 C 1-1  Certificado Digital x509 em Base64 
+ 
+A assinatura do Contribuinte na NFCom será feita na TAG <infNFCom> identificada pelo atributo 
+Id, cujo conteúdo deverá ser um identificador único (chave de acesso) precedido do literal ‘NFCom’ 
+para a NFCom, conforme leiaute descrito no Anexo I. O identificador único precedido do literal 
+‘#NFCom’ deverá ser informado no atributo URI da TAG <Reference>. Para as demais mensagens 
+a serem assinadas, o processo será o mesmo mantendo sempre um identificador único para o 
+atributo Id na TAG a ser assinada.  
+ 
+Para o processo de assinatura, o contribuinte não deve fornecer a Lista de Certificados Revogados, 
+já que ela será montada e validada no Ambiente Autorizador no momento da conferência da 
+assinatura digital. 
+A assinatura digital do documento eletrônico deverá atender aos seguintes padrões adotados: 
+ Padrão de assinatura:  “XML Digital Signature”, utilizando o formato “Enveloped”  
+(http://www.w3.org/TR/xmldsig-core/ ); 
+ Certificado digital:  Emitido por AC credenciada no ICP-Brasil 
+(http://www.w3.org/2000/09/xmldsig#X509Data ); 
+ Cadeia de Certificação:  EndCertOnly (Incluir na assinatura apenas o certificado do usuário 
+final); 
+ Tipo do certificado:  A1 ou A3 (o uso de HSM é recomendado);  
+ Tamanho da Chave Criptográfica:  Compatível com os certificados A1 e A3 (1024 bits);  
+ Função criptográfica assimétrica:  RSA (http://www.w3.org/2000/09/xmldsig#rsa-sha1 ); 
+
+=== PÁGINA 15 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 15 / 59 
+ 
+ Função de “message digest” : SHA-1 ( http://www.w3.org/2000/09/xmldsig#sha1 ); 
+ Codificação : Base64 ( http://www.w3.org/2000/09/xmldsig#base64 ); 
+ Transformações exigidas : Útil para realizar a canonicalização do XML enviado para realizar a 
+validação correta da Assinatura Digital. São elas: 
+(1) Enveloped ( http://www.w3.org/2000/09/xmldsig#enveloped-signature ) 
+(2) C14N ( http://www.w3.org/TR/2001/REC-xml-c14n-20010315 ) 
+3.2.5 Validação da Assinatura Digital pelo Ambiente Autorizador 
+ 
+Para a validação da assinatura digital, seguem as regras que serão adotadas pelo Ambiente 
+Autorizador: 
+(1) Extrair a chave pública do certificado; 
+(2) Verificar o prazo de validade do certificado utilizado; 
+(3) Montar e validar a cadeia de confiança dos certificados validando também a LCR (Lista 
+de Certificados Revogados) de cada certificado da cadeia; 
+(4) Validar o uso da chave utilizada (Assinatura Digital) de tal forma a aceitar certificados 
+somente do tipo A (não serão aceitos certificados do tipo S); 
+(5) Garantir que o certificado utilizado é de um usuário final e não de uma Autoridade 
+Certificadora; 
+(6) Adotar as regras definidas pelo RFC 3280 para LCRs e cadeia de confiança; 
+(7) Validar a integridade de todas as LCR utilizadas pelo sistema; 
+(8) Prazo de validade de cada LCR utilizada (verificar data inicial e final). 
+A forma de conferência da LCR pode ser feita de 2 (duas) maneiras: On-line ou Download 
+periódico. As assinaturas digitais das mensagens serão verificadas considerando a lista de 
+certificados revogados disponível no momento da conferência da assinatura. 
+3.2.6 Resumo dos Padrões Técnicos 
+ 
+Característica Descrição 
+Web Services Padrão definido pelo WS-I Basic Profile 1.1 ( http://www.ws-i.org/Profiles/BasicProfile-
+1.1-2004-08-24.html ). 
+Meio lógico de comunicação Web Services, disponibilizados pelo AMBIENTE AUTORIZADOR (SEFAZ do 
+Contribuinte ou SEFAZ Virtual) 
+Meio físico de comunicação  Internet 
+Protocolo Internet  TLS versão 1.2, com autenticação mútua através de certificados digitais. 
+Padrão de troca de mensagens  SOAP versão 1.2   
+Padrão da mensagem  XML no padrão Style/Encoding: Document/Literal. 
+Padrão de certificado digital X.509 versão 3, emitido por Autoridade Certificadora credenciada pela Infra-estrutura 
+de Chaves Públicas Brasileira – ICP-Brasil, do tipo A1 ou A3, devendo conter o 
+CNPJ do proprietário do certificado digital. 
+Para assinatura de mensagens, utilizar o certificado digital de um dos 
+estabelecimentos da empresa emissora de NFCom. 
+Para transmissão, utilizar o certificado digital do responsável pela transmissão. 
+
+=== PÁGINA 16 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 16 / 59 
+ 
+Padrão de assinatura digital XML Digital Signature, Enveloped, com certificado digital X.509 versão 3, com chave 
+privada de 1024 bits, com padrões de criptografia assimétrica RSA, algoritmo 
+message digest SHA-1 e utilização das transformações Enveloped e C14N. 
+Validação de assinatura digital Será validada além da integridade e autoria, a cadeia de confiança com a validação 
+das LCRs. 
+Padrões de preenchimento 
+XML Campos não obrigatórios do Schema que não possuam conteúdo terão suas tags 
+suprimidas no arquivo XML. 
+Máscara de números decimais e datas estão definidas no Schema XML. 
+Nos campos numéricos inteiro, não incluir a vírgula ou ponto decimal. 
+Nos campos numéricos com casas decimais, utilizar o “ponto decimal” na separação 
+da parte inteira. 
+3.3 Modelo Operacional 
+ 
+As solicitações de serviços da NFCom seguem o modelo de implementação síncrona processadas 
+imediatamente e o resultado do processamento é obtido em uma única conexão. 
+A seguir, o fluxo simplificado de funcionamento:  
+ 
+ 
+Etapas do processo ideal: 
+ 
+(1) O aplicativo do contribuinte inicia a conexão enviando uma mensagem de solicitação de 
+serviço para o Web Service; 
+(2) O Web Service recebe a mensagem de solicitação de serviço e encaminha ao aplicativo 
+da NFCom que irá processar o serviço solicitado; 
+(3) O aplicativo da NFCom recebe a mensagem de solicitação de serviço e realiza o 
+processamento, devolvendo uma mensagem de resultado do processamento ao Web 
+Service; 
+(4) O Web Service recebe a mensagem de resultado do processamento e o encaminha ao 
+aplicativo do contribuinte; 
+(5) O aplicativo do contribuinte recebe a mensagem de resultado do processamento e, caso 
+não exista outra mensagem, encerra a conexão. 
+ 
+ 
+ 
+Aplicativo 
+Cliente 
+Web Service 
+Processamento 
+de Serviços 
+(1) Solicitação de  serviço 
+ (2) Solicitação de serviço 
+(4) Resultado 
+ (3) Resultado 
+Contribuinte 
+  Secretaria de Fazenda Estadual 
+Serviço de Implementação Síncrona 
+
+=== PÁGINA 17 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 17 / 59 
+ 
+3.4 Padrão de Mensagens dos Web Services 
+3.4.1 Área de dados das mensagens 
+ 
+A informação armazenada na área de dados <Body> da mensagem SOAP é um documento que 
+deve atender o leiaute definido na documentação do Web Service acessado.  
+Para os serviços de recepção, a mensagem deverá ser compactada no padrão GZip, onde o 
+resultado da compactação é convertido para Base64, reduzindo o tamanho da mensagem em 
+aproximadamente 70%, conforme abaixo:  
+<soap12:Body> 
+<NFComDadosMsg                
+   xmlns="http://www.portalfiscal.inf.br/NFCom/wsdl/NFComRecepcao"> string</NFComDadosMsg> 
+</soap12:Body> 
+ 
+Para os demais serviços (Consulta, Recepção Eventos e Status), a mensagem deverá utilizar XML 
+sem compactação:  
+<soap12:Body> 
+<NFComDadosMsg  
+   xmlns="http://www.portalfiscal.inf.br/NFCom/wsdl/NFComRecepcaoEvento"> xml</NFComDadosMsg> 
+</soap12:Body 
+ 
+A área referente ao SOAP Header não deverá ser informada. 
+3.4.2 Validação da estrutura XML das Mensagens dos Web Services 
+ 
+As informações são enviadas ou recebidas dos Web Services através de mensagens no padrão 
+XML definido na documentação de cada Web Service. 
+As alterações de leiaute e da estrutura de dados XML realizadas nas mensagens são controladas 
+através da atribuição de um número de versão para a mensagem. 
+Um Schema XML é uma linguagem que define o conteúdo do documento XML, descrevendo os 
+seus elementos e a sua organização, além de estabelecer regras de preenchimento de conteúdo e 
+de obrigatoriedade de cada elemento ou grupo de informação. 
+A validação da estrutura XML da mensagem é realizada por um analisador sintático (parser) que 
+verifica se a mensagem atende as definições e regras de seu Schema XML. 
+Qualquer divergência da estrutura XML da mensagem em relação ao seu Schema XML provoca 
+um erro de validação do Schema XML. 
+
+=== PÁGINA 18 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 18 / 59 
+ 
+A primeira condição para que a mensagem seja validada com sucesso é que ela seja submetida ao 
+Schema XML correto. 
+Assim, o aplicativo do contribuinte deve estar preparado para gerar as mensagens no leiaute em 
+vigor, devendo ainda informar a versão do leiaute da estrutura XML da mensagem na TAG 
+correspondente em cada mensagem.  
+<NFCom xmlns="http://www.portalfiscal.inf.br/NFCom"> 
+    <infNFCom Id="NFCom43081808467115000100620010757245731000000010" versao="1.00"> 
+     …. 
+   </infNFCom> 
+</NFCom> 
+3.4.3 Schemas XML das Mensagens dos Web Services 
+ 
+Toda mudança de leiaute das mensagens dos Web Services implica na atualização do seu 
+respectivo Schema XML. 
+A identificação da versão dos Schemas será realizada com o acréscimo do número da versão no 
+nome do arquivo precedida da literal ‘_v’, como segue: 
+NFCom_v1.00.xsd (Schema XML da NFCom, versão 1.00); 
+tiposGeral_v1.00.xsd (Schema XML dos tipos da NFCom, versão 1.00). 
+ 
+A maioria dos Schemas XML da NFCom utilizam as definições de tipos básicos ou tipos complexos 
+que estão definidos em outros Schemas XML (ex.: tiposGeralNFCom_v1.00.xsd, etc.), nestes 
+casos, a modificação de versão do Schema básico será repercutida no Schema principal.  
+Por exemplo, o tipo numérico de 15 posições com 2 decimais é definido no Schema 
+tiposGeralNFCom_v1.00.xsd, caso ocorra alguma modificação na definição deste tipo, todos os 
+Schemas que utilizam este tipo básico devem ter a sua versão atualizada e as declarações “import” 
+ou “include” devem ser atualizadas com o nome do Schema básico atualizado. 
+As modificações de leiaute das mensagens dos Web Services podem ser causadas por 
+necessidades técnicas ou em razão da modificação de alguma legislação. As modificações 
+decorrentes de alteração da legislação deverão ser implementadas nos prazos previstos na norma 
+que introduziu a alteração. As modificações de ordem técnica serão divulgadas pela Coordenação 
+Técnica do ENCAT e poderão ocorrer sempre que se fizerem necessárias. 
+
+=== PÁGINA 19 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 19 / 59 
+ 
+3.5 Versão dos Schemas XML 
+3.5.1 Liberação das versões dos schemas para a NFCom 
+ 
+Os schemas válidos para a NFCom serão disponibilizados no sítio nacional do Projeto ( dfe-
+portal.svrs.rs.gov.br/NFCom ), e serão liberados após autorização da equipe de Gestão do Projeto 
+formada pelos Líderes dos Projetos nos Estados e representante das Empresas. 
+A cada nova liberação de schema será disponibilizado um arquivo compactado contendo o 
+conjunto de schemas a serem utilizados pelas empresas para a geração dos arquivos XML. Este 
+arquivo será denominado “Pacote de Liberação” e terá a mesma numeração da versão do Manual 
+de Orientações que lhe é compatível. Os pacotes de liberação serão identificados pelas letras 
+“PL_NFCom”, seguida do número da versão do Manual de Orientações correspondente. 
+Exemplificando: O pacote PL_NFCom_1.00.zip representa o “Pacote de Liberação” de schemas da 
+NFCom compatíveis com o Manual de Orientações do Contribuinte – versão 1.00. 
+Os schemas XML das mensagens XML são identificados pelo seu nome, seguido da versão do 
+respectivo schema. 
+Assim, para o schema XML de “NFCom”, corresponderá um arquivo com a extensão “.xsd”, que 
+terá o nome de “NFCom _v9.99.xsd ”, onde v9.99, corresponde a versão do respectivo schema. 
+Para identificar quais os schemas que sofreram alteração em um determinado pacote liberado, 
+deve-se comparar o número da versão do schema deste pacote com o do pacote anterior. 
+3.5.2 Correção de Pacote de Liberação 
+ 
+Em alguma situação pode surgir a necessidade de correção de um Schema XML por um erro de 
+implementação de regra de validação, obrigatoriedade de campo, nome de tag divergente do 
+definido no leiaute da mensagem, que não modifica a estrutura do Schema XML e nem exige a 
+alteração dos aplicativos da SEFAZ ou dos contribuintes. 
+Nesta situação, divulgaremos um novo pacote de liberação com o Schema XML corrigido, sem 
+modificar o número da versão do PL para manter a compatibilidade com o Manual de Orientações 
+do Contribuinte vigente. 
+A identificação dos pacotes mais recentes se dará com o acréscimo de letras minúscula do 
+alfabeto, como por exemplo: NFCom_PL_1.00a.ZIP, indicando que se trata da primeira versão 
+corrigida do NFCom_PL_1.00.ZIP. 
+
+=== PÁGINA 20 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 20 / 59 
+ 
+3.5.3 Divulgação de novos Pacotes de Liberação 
+ 
+A divulgação de novos pacotes de liberação ou atualizações de pacote de liberação será realizada 
+através da publicação de Notas Técnicas no Portal Nacional da NFCom com as informações 
+necessárias para a implementação dos novos pacotes de liberação. 
+3.5.4 Controle de Versão 
+ 
+O controle de versão de cada um dos schemas válidos da NFCom compreende uma definição 
+nacional sobre: 
+Qual a versão vigente (versão mais atualizada)? 
+Quais são as versões anteriores ainda suportadas por todas as SEFAZ? 
+ 
+Este controle de versão permite a adaptação dos sistemas de informática das empresas 
+participantes do Projeto em diferentes datas. Ou seja, algumas empresas poderão estar com uma 
+versão de leiaute mais atualizada, enquanto outras empresas poderão ainda estar operando com 
+mensagens em um leiaute anterior. 
+Não estão previstas mudanças frequentes de leiaute de mensagens e as empresas deverão ter um 
+prazo razoável para implementar as mudanças necessárias, conforme acordo operacional a ser 
+estabelecido. 
+Mensagens recebidas com uma versão de leiaute não suportada serão rejeitadas com uma 
+mensagem de erro específica na versão do leiaute de resposta mais recente em uso. 
+3.6 Sistema de Registro de Eventos 
+ 
+O Sistema de Registro de Eventos da NFCom – SRE é o modelo genérico que permite o registro 
+de evento de interesse da NFCom originado a partir do próprio contribuinte ou da administração 
+tributária. 
+Um evento é o registro de um fato relacionado com o documento fiscal eletrônico, esse evento 
+pode ou não modificar a situação do documento (por exemplo: cancelamento) ou até mesmo 
+substituí-lo por outro (por exemplo: substituição). 
+O serviço para registro de eventos será disponibilizado pelo Ambiente Autorizador através de Web 
+Service de processamento síncrono e será propagado para os demais órgãos interessados pelo 
+mecanismo de compartilhamento de documentos fiscais eletrônicos. As mensagens de evento 
+
+=== PÁGINA 21 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 21 / 59 
+ 
+utilizarão o padrão XML já definido para o projeto NFCom contendo a assinatura digital do emissor 
+do evento (seja ele contribuinte ou fisco). 
+O registro do evento requer a existência da NFCom vinculada no Ambiente Autorizador, contudo 
+alguns tipos de eventos poderão ser registrados sem que exista a NFCom na base de dados do 
+autorizador em conformidade com as regras de negócio estabelecidas para este tipo de evento. 
+O modelo de mensagem do evento deverá ter um conjunto mínimo de informações comuns, a 
+saber: 
+ Identificação do autor da mensagem; 
+ Identificação do evento;  
+ Identificação da NFCom vinculada; 
+ Informações específicas do evento; 
+ Assinatura digital da mensagem; 
+ 
+O Web Service será único com a funcionalidade de tratar eventos de forma genérica para facilitar a 
+criação de novos eventos sem a necessidade de criação de novos serviços e com poucas 
+alterações na aplicação de Registro de Eventos do Ambiente Autorizador. 
+O leiaute da mensagem de Registro de Evento seguirá o modelo adotado para o documento 
+NFCom, contendo uma parte genérica (comum a todos os tipos de evento) e uma parte específica 
+onde será inserido o XML correspondente a cada tipo de evento em uma tag do tipo any. 
+As regras de validação referentes à parte genérica dos eventos estarão descritas no item 5 deste 
+manual. 
+As validações específicas de cada tipo de evento estarão descritas no item 6 deste Manual, 
+originando um novo subitem para cada tipo de evento especificado. 
+O Pacote de Liberação de schemas da NFCom deverá conter o leiaute da parte genérica do 
+Registro de Eventos e um schema para cada leiaute específico dos eventos definidos neste 
+manual. 
+3.6.1 Relação dos Tipos de Evento 
+ 
+Os eventos identificados abaixo serão construídos gradativamente pelo ambiente autorizador, 
+assim como novos eventos poderão ser identificados e acrescentados nesta tabela em futuras 
+versões deste MOC. 
+
+=== PÁGINA 22 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 22 / 59 
+ 
+Tipo de 
+Evento Descrição Evento Tipo de 
+Autor do Evento Tipo de 
+Meio Informação NFCom deve 
+existir? 
+*** Evento: Empresa Emitente 
+110111 Cancelamento 1-Empresa Emitente 1=via WS Evento Sim 
+*** Evento: Fisco Emitente 
+240140 Autorizada NFCom de Substituição  2-Fisco Emitente 1=via WS Evento Sim 
+240150 Autorizada NFCom de Ajuste 2-Fisco Emitente 1=via WS Evento Sim 
+240151 Cancelada NFCom de Ajuste 2-Fisco Emitente 1=via WS Evento Sim 
+240160 Autorizada NFCom de 
+Cofaturamento 2-Fisco Emitente 1=via WS Evento Sim 
+240161 Cancelada NFCom de 
+Cofaturamento 2-Fisco Emitente 1=via WS Evento Sim 
+240162 Substituída NFCom de 
+Cofaturamento 2-Fisco Emitente 1=via WS Evento Sim 
+240170 Liberação Prazo Cancelamento 2-Fisco Emitente 1=via WS Evento; 
+2=via Extranet NFCom Sim 
+3.6.2 Eventos de Marcação 
+ 
+Serão criados eventos de marcação de NFCom para os casos em que um documento referenciar 
+outro, por exemplo: Substituição e Nota de Ajuste de NFCom. 
+Esses eventos serão gerados automaticamente pelo Fisco no momento da autorização dos 
+documentos e serão assinados digitalmente com certificado digital da Secretaria de Fazenda 
+autorizadora da NFCom que fará a marcação. 
+Os eventos gerados nas NFCom referenciados deverão constar da consulta pública destes 
+documentos. 
+3.7 Data e hora de emissão e outros horários 
+ 
+Todos os campos que representam Data e Hora no leiaute das mensagens da NFCom seguem o 
+formato UTC completo com a informação do TimeZone. Este tipo de representação de dados é 
+tecnicamente adequado para a representação do horário para um País com dimensões 
+continentais como o Brasil.  
+Serão aceitos os horários de qualquer região do mundo (faixa de horário UTC de -11 a +12) e não 
+apenas as faixas de horário do Brasil.  
+Exemplo: no formato UTC para os campos de Data-Hora, "TZD" pode ser -02:00 (Fernando de 
+Noronha), -03:00 (Brasília) ou -04:00 (Manaus), no horário de verão serão -01:00, -02:00 e -03:00. 
+Exemplo: "2010-08-19T13:00:15-03:00". 
+
+=== PÁGINA 23 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 23 / 59 
+ 
+3.8 SEFAZ virtual 
+ 
+A Secretaria de Fazenda Estadual pode optar por não desenvolver sistema próprio de autorização 
+da NFCom para os contribuintes de sua circunscrição. Neste sentido, os serviços de autorização de 
+emissão da NFCom serão supridos por uma SEFAZ VIRTUAL, mediante Protocolo de Cooperação 
+assinado entre as SEFAZ. 
+Os serviços da SEFAZ VIRTUAL compreendem os Web Services descritos no Modelo Conceitual 
+da Arquitetura de Comunicação, conforme consta no item 3.1 do Manual de Orientações do 
+Contribuinte. 
+O credenciamento de contribuintes bem como a autorização de uso dos serviços de uma 
+determinada SEFAZ VIRTUAL é responsabilidade da SEFAZ de circunscrição daqueles 
+contribuintes. 
+Para os sistemas das Empresas será totalmente transparente se os serviços provêm da SEFAZ 
+VIRTUAL ou de um sistema de autorização da própria SEFAZ de circunscrição do contribuinte. A 
+única mudança visível é o endereço dos Web Services em que estão disponíveis os serviços. 
+ 
+ 
+  
+
+=== PÁGINA 24 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 24 / 59 
+ 
+4 Web Services 
+Os Web Services disponibilizam os serviços que serão utilizados pelos aplicativos dos 
+contribuintes. O mecanismo de utilização dos Web Services segue as seguintes premissas: 
+a) Será disponibilizado um Web Service por serviço, existindo um método para cada tipo de 
+serviço; 
+b) O envio da solicitação e a obtenção do retorno serão realizados na mesma conexão 
+através de um único método. 
+c) As URLs dos Web Services encontram-se no Portal Nacional da NFCom (dfe-
+portal.svrs.rs.gov.br/NFCom). Acessando a URL pode ser obtido o WSDL (Web Services 
+Description Language) de cada Web Service. 
+d) O processo de utilização dos Web Services sempre é iniciado pelo contribuinte enviando 
+uma mensagem nos padrões XML e SOAP, através do protocolo TLS com autenticação 
+mútua. 
+e) A ocorrência de qualquer erro na validação dos dados recebidos interrompe o processo 
+com a disponibilização de uma mensagem contendo o código e a descrição do erro. 
+ 
+  
+
+=== PÁGINA 25 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 25 / 59 
+ 
+4.1 Regras de Validação Gerais 
+ 
+Os quadros a seguir representam as regras de validação genéricas para os serviços da NFCom. 
+Os quadros serão relacionados a cada serviço conforme a necessidade, além das regras 
+específicas de cada Web Service. 
+4.1.1 Grupo A: Validação do Certificado de Transmissão (protocolo TLS) 
+# Regra de Validação Aplic. cStat Efeito Mensagem 
+A01 Certificado de Transmissor Inválido: 
+- Certificado de Transmissor inexistente na mensagem 
+- Versão difere "3" 
+- Se informado, Basic Constraint deve ser true (não 
+pode ser Certificado de AC) 
+- KeyUsage não define "Autenticação Cliente" Obrig. 280 Rej. Rejeição: Certificado Transmissor 
+inválido 
+A02 Validade do Certificado (data início e data fim) Obrig. 281 Rej. Rejeição: Certificado Transmissor Data 
+Validade 
+A03 Verificar a Cadeia de Certificação: 
+- Certificado da AC emissora não cadastrado na 
+SEFAZ 
+- Certificado de AC revogado 
+- Certificado não assinado pela AC emissora do 
+Certificado Obrig. 283 Rej. Rejeição: Certificado Transmissor - erro 
+Cadeia de Certificação 
+A04 LCR do Certificado de Transmissor 
+- Falta o endereço da LCR (CRL DistributionPoint) 
+- LCR indisponível 
+- LCR inválida Obrig. 286 Rej. Rejeição: Certificado Transmissor erro 
+no acesso a LCR 
+A05 Certificado do Transmissor revogado Obrig. 284 Rej. Rejeição: Certificado Transmissor 
+revogado 
+A06 Certificado Raiz difere da "ICP-Brasil" Obrig. 285 Rej. Rejeição: Certificado Transmissor difere 
+ICP-Brasil 
+A07 Falta a extensão de CNPJ no Certificado (OtherName - 
+OID=2.16.76.1.3.3 Obrig. 282 Rej. Rejeição: Certificado Transmissor sem 
+CNPJ 
+ 
+As validações de A01, A02, A03, A04 e A05 são realizadas pelo protocolo TLS e não precisam ser 
+implementadas. A validação A06 também pode ser realizada pelo protocolo, mas pode falhar se 
+existirem outros certificados digitais de Autoridade Certificadora Raiz que não sejam “ICP-Brasil” no 
+repositório de certificados digitais do servidor de Web Service da SEFAZ. 
+4.1.2 Grupo B-0: Validação da Compactação da Mensagem 
+ 
+O sistema do autorizador deverá descompactar mensagem da área de Dados. 
+Todas as validações serão aplicadas sobre o XML já descompactado 
+# Regra de Validação Aplic. cStat Efeito Mensagem 
+B00 Verificar compactação da mensagem da área de dados Obrig. 244 Rej. Rejeição: Falha na descompactação da 
+área de dados 
+ 
+ 
+ 
+
+=== PÁGINA 26 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 26 / 59 
+ 
+4.1.3 Grupo B: Validação Inicial da Mensagem no Web Service 
+# Regra de Validação Aplic. cStat Efeito Mensagem 
+B01 Tamanho do XML de Dados superior a 1024 Kbytes Obrig. 214 Rej. Rejeição: Tamanho da mensagem 
+excedeu o limite estabelecido 
+B02 XML de Dados Malformado 
+ Obrig. 243 Rej. Rejeição: XML Mal Formado 
+B03 Verificar se o Serviço de processamento está 
+Paralisado Momentaneamente Obrig. 108 Rej. Serviço Paralisado Momentaneamente 
+(curto prazo) 
+B04 Verificar se o Serviço de processamento está 
+Paralisado sem Previsão Obrig. 109 Rej. Serviço Paralisado sem Previsão 
+ 
+A mensagem será descartada se o tamanho exceder o limite previsto (1024 KB) A aplicação do 
+contribuinte não poderá permitir a geração de mensagem com tamanho superior a 1024 KB. Caso 
+isto ocorra, a conexão poderá ser interrompida sem mensagem de erro se o controle do tamanho 
+da mensagem for implementado por configurações do ambiente de rede da SEFAZ (ex.: controle 
+no firewall). No caso de o controle de tamanho ser implementado por aplicativo teremos a 
+devolução da mensagem de erro 214. 
+ 
+O Ambiente Autorizador que mantêm o Web Service disponível, mesmo quando o serviço estiver 
+paralisado, deverá implementar as verificações 108 e 109. Estas validações poderão ser 
+dispensadas se o Web Service não ficar disponível quando o serviço estiver paralisado. 
+4.1.4 Grupo C: Validação da área de dados da mensagem 
+ 
+# Regra de Validação Aplic. cStat Efeito Mensagem 
+C01 Verificar Schema XML da Área de Dados  
+ Obrig. 215 
+ Rej. Rejeição: Falha no schema XML 
+ 
+C02 Verificar a existência de qualquer namespace diverso 
+do namespace padrão do projeto 
+(http://www.portalfiscal.inf.br/nfcom) Obrig. 598 Rej. Rejeição: Usar somente o namespace 
+padrão da NFCom 
+C03 Verificar a existência de caracteres de edição no início 
+ou fim da mensagem ou entre as tags Obrig. 599 Rej. Rejeição: Não é permitida a presença de 
+caracteres de edição no início/fim da 
+mensagem ou entre as tags da 
+mensagem 
+C04 Verificar o uso de prefixo no namespace Obrig. 404  Rej. Rejeição: Uso de prefixo de namespace 
+não permitido 
+C05 Verificar se XML utiliza codificação diferente de UTF-8 Obrig. 402  Rej. Rejeição: XML da área de dados com 
+codificação diferente de UTF-8 
+C06 Verificar se a versão do XML é suportada 
+ Obrig. 239  Rej. Rejeição: Versão informada para a 
+NFCom não suportada 
+ 
+4.1.5 Grupo D: Validações do Certificado de Assinatura Digital 
+ 
+# Regra de Validação Aplic. cStat Efeito Mensagem 
+D01 Certificado de Assinatura Inválido: 
+- Certificado de Assinatura inexistente na mensagem  
+- Versão difere “3” 
+- Basic Constraint = true (não pode ser Certificado de 
+AC) 
+- KeyUsage não define “Autenticação Cliente” Obrig. 290 Rej. Rejeição: Certificado Assinatura inválido 
+
+=== PÁGINA 27 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 27 / 59 
+ 
+D02 Validade do Certificado (data início e data fim) Obrig. 291 Rej. Rejeição: Certificado Assinatura Data 
+Validade 
+D03 Falta a extensão de CNPJ no Certificado 
+(OtherName – OID=2.16.76.1.3.3) Obrig. 292 Rej. Rejeição: Certificado Assinatura sem 
+CNPJ 
+D04 Verificar a Cadeia de Certificação: 
+- Certificado da AC emissora não cadastrado na 
+SEFAZ 
+- Certificado de AC revogado 
+- Certificado não assinado pela AC emissora do 
+Certificado Obrig. 293 Rej. Rejeição: Certificado Assinatura - erro 
+Cadeia de Certificação 
+D05 LCR do Certificado de Assinatura 
+- Falta o endereço da LCR (CRL DistributionPoint) 
+- Erro no acesso à LCR Obrig. 296 Rej. Rejeição: Certificado Assinatura erro no 
+acesso a LCR 
+D06 Certificado de Assinatura revogado Obrig. 294 Rej. Rejeição: Certificado Assinatura 
+revogado 
+D07 Certificado Raiz difere da “ICP-Brasil” Obrig. 295 Rej 
+. Rejeição: Certificado Assinatura difere 
+ICP-Brasil 
+4.1.6 Grupo E: Validações da Assinatura Digital 
+# Regra de Validação Aplic. cStat Efeito Mensagem 
+E01 Assinatura difere do padrão do Projeto: 
+- Não assinado o atributo “ID” (falta “Reference URI” 
+na assinatura) 
+(*validado também pelo Schema) 
+ - Faltam os “Transform Algorithm” previstos na 
+assinatura (“C14N” e “Enveloped”) 
+Estas validações são implementadas pelo Schema 
+XML da Signature  Obrig. 298 Rej. Rejeição: Assinatura difere do padrão do 
+Projeto 
+E02 Valor da assinatura (SignatureValue) difere do valor 
+calculado Obrig. 297 Rej. Rejeição: Assinatura difere do calculado 
+E03 CNPJ-Base do Emitente difere do CNPJ-Base do 
+Certificado Digital Obrig. 213 Rej. Rejeição: CNPJ-Base do Emitente difere 
+do CNPJ-Base do Certificado Digital 
+ 
+  
+
+=== PÁGINA 28 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 28 / 59 
+ 
+4.2 Serviço de Recepção NFCom  
+ 
+O Serviço de Recepção de NFCom é o serviço oferecido pelos Portais das Secretarias da Fazenda 
+dos Estados para recepção das NFCom emitidos pelos contribuintes credenciados em sua unidade 
+federada. 
+A forma de processamento do serviço de recepção de NFCom é síncrona sem a formação de lotes. 
+O contribuinte deve transmitir uma NFCom através do Web Service de recepção de NFCom e 
+receberá o resultado do processamento na mesma conexão. 
+Função: serviço destinado à recepção de mensagens de envio de NFCom. 
+ 
+Processo : síncrono. 
+ 
+Nome Serviço: NFComRecepcao 
+ 
+Método: nfcomRecepcao 
+ 
+Parâmetro da Mensagem da área de dados: Compactada utilizando GZip (Base64) 
+ 
+4.2.1 Leiaute Mensagem de Entrada 
+ 
+Entrada: Estrutura XML da nota fiscal fatura de serviço de comunicação eletrônica está definida no 
+documento Anexo I: Manual de Orientações do Contribuinte – Leiaute e Regras de Validação.  
+ 
+Schema XML: NFCom_v9.99.xsd 
+4.2.2 Leiaute Mensagem de Retorno 
+ 
+Retorno: Estrutura XML com a mensagem do resultado do envio da NFCom 
+Schema XML: retNFCom_v9.99.xsd 
+# Campo Ele Pai Tipo Ocor. Tam. Descrição/Observação 
+BR01 retNFCom Raiz - - - - TAG raiz da Resposta 
+BR02 versao A BR01 N 1-1 2v2 Versão do leiaute 
+BR03 tpAmb E BR01 N 1-1 1 Identificação do Ambiente: 
+1 – Produção / 2 - Homologação 
+BR04 cUF E BR01 N 1-1 2 Código da UF que atendeu à solicitação. 
+BR05 verAplic E BR01 C 1-1 1-20 Versão do Aplicativo que recebeu a NFCom. 
+BR06 cStat E BR01 N 1-1 3 Código do status da resposta 
+BR07 xMotivo E BR01 C 1-1 1-255 Descrição literal do status da resposta 
+BR08 protNFCom E BR01 G 0-1 XML Resposta ao processamento da NFCom 
+        
+ 
+ 
+ 
+ 
+ 
+ 
+
+=== PÁGINA 29 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 29 / 59 
+ 
+4.2.3 Leiaute de NFCom processada 
+ 
+# Campo Ele Pai Tipo Ocor. Tam. Descrição/Observação 
+PR01 protNFCom Raiz - - - - TAG raiz da resposta processamento 
+PR02 versao A PR01 N 1-1 2v2 Versão do leiaute 
+PR03 infProt G PR01 - 1-1 - Informações do protocolo de resposta 
+PR04 Id A PR03 C 0-1 - Identificador da TAG a ser assinada, somente precisa ser 
+informado se a UF assinar a resposta. 
+Em caso de assinatura da resposta pela SEFAZ preencher 
+o campo com o Nro do Protocolo, precedido com o literal 
+“ID” 
+PR05 tpAmb E PR03 N 1-1 1 Identificação do Ambiente: 
+1 – Produção / 2 - Homologação 
+PR06 verAplic E PR03 C 1-1 1-20 Versão do Aplicativo que recebeu a NFCom. 
+PR07 chNFCom E PR03 N 1-1 44 Chave de acesso da NFCom 
+PR08 dhRecbto E PR03 D 1-1 - Data e Hora do Processamento 
+Formato = AAAA-MM-DDTHH:MM:SS TZD 
+Preenchido com data e hora da gravação da NFCom no 
+Banco de Dados. 
+Em caso de Rejeição, com data e hora do recebimento do 
+Arquivo de NFCom enviado. 
+PR09 nProt E PR03 N 0-1 16 Número do protocolo de autorização da NFCom 
+PR10 digVal E PR03 C 0-1 28 Digest Value da NFCom processada, utilizada para 
+conferir a integridade com a NFCom original 
+PR11 cStat E PR03 N 1-1 3 Código do status da resposta para a NFCom 
+PR12 xMotivo E PR03 C 1-1 1-255 Descrição literal do status da resposta para a NFCom 
+PR13 infFisco G PR01 - 0-1 - Grupo reservado para envio de mensagem do Fisco 
+para o contribuinte 
+PR14 cMsg E PR13 N 1-1 3 Código de status da mensagem do fisco 
+PR15 xMsg E PR13 C 1-1 1-255 Mensagem do Fisco para o contribuinte 
+PR16 Signature G PR01 XML 0-1 - Assinatura XML do grupo identificado pelo atributo “ID” 
+A decisão de assinar a mensagem fica a critério da UF 
+interessada.  
+4.2.4 Regras de Validação Básicas do Serviço 
+ 
+Deverão ser aplicadas as validações gerais conforme quadro abaixo: 
+ 
+Grupo Descrição  
+A Validação do Certificado de Transmissão (protocolo TLS)  
+B-0 Validação da Compactação da Mensagem  
+B Validação Inicial da Mensagem no Web Service  
+C Validação da Área de Dados da mensagem  
+4.2.5 Validação das regras de negócio da NFCom 
+ 
+As regras de negócio que serão aplicadas a NFCom estão descritas Grupo G  constante do Anexo 
+I: Manual de Orientações do Contribuinte – Leiaute e Regras de Validação. 
+ 
+ 
+
+=== PÁGINA 30 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 30 / 59 
+ 
+4.2.6 Final do Processamento da NFCom 
+ 
+A validação da NFCom poderá resultar em: 
+ Rejeição  – a NFCom será descartada, não sendo armazenada no Banco de Dados 
+podendo ser corrigida e novamente transmitida; 
+ Autorização de uso  – a NFCom será armazenada no Banco de Dados; 
+Ou seja: 
+ 
+Validação Consequência 
+De forma 
+da NFCom Situação da 
+NFCom Para o contribuinte Banco de Dados 
+Inválida Rejeição Corrigir NFCom Não gravar 
+Válida Autorização 
+de uso Autorizada Gravar 
+ 
+Para cada NFCom será atribuído um número de protocolo do Ambiente Autorizador. 
+  
+
+=== PÁGINA 31 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 31 / 59 
+ 
+4.3 Serviço de Consulta Situação da NFCom 
+ 
+Função: serviço destinado ao atendimento de solicitações de consulta da situação atual da NFCom 
+na Base de Dados do Ambiente Autorizador. 
+ 
+Processo : síncrono. 
+ 
+Nome Serviço: NFComConsulta 
+ 
+Método: nfcomConsultaNF 
+ 
+Parâmetro da Mensagem da área de dados: XML sem compactação 
+4.3.1 Leiaute Mensagem de Entrada 
+ 
+Entrada: Estrutura XML contendo a consulta por chave de acesso da NFCom  
+Schema XML: consSitNFCom_v9.99.xsd 
+# Campo Ele Pai Tipo Ocor. Tam. Descrição/Observação 
+DP01 consSitNFCom Raiz - - - - TAG raiz  
+DP02 versao A DP01 N 1-1 2v2 Versão do leiaute 
+DP03 tpAmb E DP01 N 1-1 1 Identificação do Ambiente: 
+1 – Produção / 2 - Homologação 
+DP04 xServ E DP01 C 1-1 9 Serviço solicitado: ‘CONSULTAR’ 
+DP05 chNFCom E DP01 N 1-1 44 Chave de acesso da NFCom 
+4.3.2 Leiaute Mensagem de Retorno 
+ 
+Retorno: Estrutura XML com o resultado da consulta situação. 
+Schema XML: retConsSitNFCom_v9.99.xsd 
+# Campo Ele Pai Tipo Ocor. Tam. Descrição/Observação 
+DR01 retConsSitNFCom Raiz - - - - TAG raiz da Resposta 
+DR02 versao A DR01 N 1-1 2v2 Versão do leiaute 
+DR03 tpAmb E DR01 N 1-1 1 Identificação do Ambiente: 
+1 – Produção / 2 - Homologação 
+DR04 verAplic E DR01 C 1-1 1-20 Versão do Aplicativo que processou a consulta 
+DR05 cStat E DR01 N 1-1 3 Código do status da resposta 
+DR06 xMotivo E DR01 C 1-1 1-
+255 Descrição literal do status da resposta 
+DR07 cUF E DR01 N 1-1 2 Código da UF que atendeu à solicitação 
+DR08 protNFCom G DR01 XML 0-1 - Protocolo de autorização de uso da NFCom 
+DR09 procEventoNFCom G DR01 XML 0-N - Informações dos eventos e respectivo protocolo de 
+registro de evento. 
+4.3.3 Descrição do Processo de Web Service 
+ 
+Este método será responsável por receber as solicitações referentes à consulta de situação de 
+NFCom enviados para o Ambiente Autorizador. Seu acesso é permitido apenas pela chave única 
+de identificação da NFCom. 
+
+=== PÁGINA 32 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 32 / 59 
+ 
+O aplicativo do contribuinte envia a solicitação para o Web Service do Ambiente Autorizador. Ao 
+receber a solicitação a aplicação do Ambiente Autorizador processará a solicitação de consulta, 
+validando a Chave de Acesso da NFCom, e retornará mensagem contendo a situação atual da 
+NFCom na Base de Dados, o respectivo Protocolo (mensagem de Autorização de uso) e os 
+eventos associados à NFCom (informações do evento e protocolo de registro de evento). 
+O processamento da requisição das consultas deste Web Service será limitado no período de 
+consulta para 180 dias da data de emissão da NFCom.  
+Deverão ser realizadas as validações e procedimentos que seguem: 
+4.3.4 Regras de Validação Básicas do Serviço 
+ 
+Deverão ser aplicadas as validações gerais conforme quadro abaixo: 
+Grupo Descrição  
+A Validação do Certificado de Transmissão (protocolo TLS)  
+B Validação Inicial da Mensagem no Web Service  
+C Validação da Área de Dados da mensagem  
+4.3.5 Validação das Regras de Negócio da Consulta Situação 
+ 
+# Regra de Validação Aplic cStat. Efeito Mensagem 
+I01 Tipo do ambiente informado difere do ambiente do 
+Web Service Obrig. 252 Rej. Rejeição: Ambiente informado diverge do 
+Ambiente de recebimento 
+I02 UF da chave de acesso difere da UF do Web 
+Service Obrig. 226 Rej. Rejeição: Código da UF do Emitente diverge 
+da UF autorizadora 
+I03 Verificar se o ano – mês da chave de acesso está 
+com atraso superior a 6 meses em relação ao ano – 
+mês atual Obrig 478 Rej. Rejeição: Consulta a uma Chave de Acesso 
+muito antiga 
+I04 - Validar chave de acesso  
+Retornar motivo da rejeição da Chave de Acesso: 
+CNPJ zerado ou inválido, Ano < 2021 ou maior que 
+atual, Mês inválido (0 ou > 12), Modelo diferente de 
+62, Número zerado, Tipo de emissão inválido, Site 
+de Autorização inválido, UF inválida ou DV inválido) 
+[Motivo: XXXXXXXXXXXX] Obrig. 236 Rej. Rejeição: Chave de Acesso inválida 
+[Motivo: XXXXXXXXX] 
+I05 Site de autorização da chave de acesso da NFCOM 
+difere do Site de Recebimento 
+ 
+Observação : O número do Site só deve ser 
+diferente de zero para ambientes de autorização em 
+múltiplos Sites (a relação do número identificador 
+de cada Site deverá ser disponibilizada pelo 
+Autorizador) Obrig. 418 Rej. Rejeição: Site de autorização inválido 
+I06 Acesso BD NFCom (Chave: CNPJ Emit, Modelo, 
+Série, Nro): 
+- Verificar se NFCom não existe Obrig. 217 Rej. Rejeição: NFCom não consta na base de 
+dados da SEFAZ 
+I07 Verificar se campo “Código Numérico” informado na 
+Chave de Acesso é diferente do existente no BD Obrig. 216 Rej. Rejeição: Chave de Acesso difere da 
+cadastrada 
+I08 Chave de Acesso difere da existente em BD 
+(opcionalmente a descrição do erro, campo 
+xMotivo, tem concatenada a Chave de Acesso, 
+quando o autor da consulta for o emissor) Obrig. 600 Rej. Rejeição: Chave de Acesso difere da existente 
+em BD 
+
+=== PÁGINA 33 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 33 / 59 
+ 
+4.3.6 Final do Processamento  
+ 
+No processamento do pedido de consulta situação de NFCom pode resultar em uma mensagem de 
+erro, caso a NFCom não seja localizado. Ou, caso localizado, retornar à situação atual da NFCom 
+consultado, retornando o cStat com um dos valores, 100 (“Autorizado o Uso da NFCom”), 101 
+(“Cancelamento de NFCom homologado”), 102 (“Substituição da NFCom homologado), 150 
+(“Autorizado o Uso da NFCom, autorização fora de prazo”) e o respectivo protocolo de autorização 
+de uso e registro de eventos. 
+  
+
+=== PÁGINA 34 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 34 / 59 
+ 
+4.4 Serviço de Consulta Status do Serviço de Autorização 
+ 
+Função: serviço destinado à consulta do status do serviço prestado pelo Ambiente Autorizador. 
+ 
+Processo : síncrono. 
+ 
+Nome Serviço: NFComStatusServico 
+ 
+Método: nfcomStatusServicoNF 
+ 
+Parâmetro da Mensagem da área de dados: XML sem compactação 
+4.4.1 Leiaute Mensagem de Entrada 
+ 
+Entrada: Estrutura XML contendo a consulta do status do serviço  
+Schema XML: consStatServNFCom_v9.99.xsd 
+# Campo Ele Pai Tipo Ocor. Tam. Descrição/Observação 
+EP01 consStatServNFCom Raiz - - - - TAG raiz  
+EP02 versao A EP01 N 1-1 2v2 Versão do leiaute 
+EP03 tpAmb E EP01 N 1-1 1 Identificação do Ambiente: 
+1 – Produção / 2 - Homologação 
+EP04 xServ E EP01 C 1-1 6 Serviço solicitado: ‘STATUS’ 
+4.4.2 Leiaute Mensagem de Retorno 
+ 
+Retorno: Estrutura XML com o resultado da consulta status serviço. 
+Schema XML: retConsStatServNFCom_v9.99.xsd 
+# Campo Ele Pai Tipo Ocor. Tam. Descrição/Observação 
+ER01 retConsStatServNFCom Raiz - - - - TAG raiz da Resposta 
+ER02 versao A ER01 N 1-1 2v2 Versão do leiaute 
+ER03 tpAmb E ER01 N 1-1 1 Identificação do Ambiente: 
+1 – Produção / 2 - Homologação 
+ER04 verAplic E ER01 C 1-1 1-20 Versão do Aplicativo que processou a consulta 
+ER05 cStat E ER01 N 1-1 3 Código do status da resposta 
+ER06 xMotivo E ER01 C 1-1 1-
+255 Descrição literal do status da resposta 
+ER07 cUF E ER01 N 1-1 2 Código da UF que atendeu à solicitação 
+ER08 dhRecbto E ER01 D 1-1 - Data e hora de recebimento do pedido 
+Formato = AAAA-MM-DDTHH:MM:SS TZD 
+ER09 tMed E ER01 N 0-1 1-4 Tempo médio de resposta do serviço (em 
+segundos) dos últimos 5 minutos 
+ER10 dhRetorno E ER01 D 0-1 - Preencher com data e hora previstas para o 
+retorno do Web Service, no formato AAA-MM-
+DDTHH:MM:SS  
+ER11 xObs E ER01 C 0-1 1-
+255 Informações adicionais ao contribuinte 
+4.4.3 Descrição do Processo de Web Service 
+ 
+Este método será responsável por receber as solicitações referentes à consulta do status do 
+serviço do Ambiente Autorizador. 
+
+=== PÁGINA 35 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 35 / 59 
+ 
+O aplicativo do contribuinte envia a solicitação para o Web Service do Ambiente Autorizador. Ao 
+receber a solicitação a aplicação do Ambiente Autorizador processará a solicitação de consulta, e 
+retornará mensagem contendo o status do serviço. 
+A empresa que construir aplicativo que se mantenha em permanente "loop" de consulta a este Web 
+Service, deverá aguardar um tempo mínimo de 3 minutos entre uma consulta e outra, evitando 
+sobrecarga desnecessária dos servidores do Ambiente Autorizador. 
+Deverão ser realizadas as validações e procedimentos que seguem: 
+4.4.4 Regras de Validação Básicas do Serviço 
+ 
+Deverão ser aplicadas as validações gerais conforme quadro abaixo: 
+Grupo Descrição  
+A Validação do Certificado de Transmissão (protocolo TLS)  
+B Validação Inicial da Mensagem no Web Service  
+C Validação da Área de Dados da mensagem  
+4.4.5 Validação das Regras de Negócio da Consulta Status Serviço 
+ 
+# Regra de Validação Aplic cStat. Efeito Mensagem 
+J01 Tipo do ambiente informado difere do ambiente do 
+Web Service Obrig
+. 252 Rej. Rejeição: Ambiente informado diverge do 
+Ambiente de recebimento 
+J02 Verifica se o Servidor de Processamento está 
+Paralisado Momentaneamente Obrig
+. 108 - Serviço Paralisado Momentaneamente 
+(curto prazo) 
+J03 Verifica se o Servidor de Processamento está 
+Paralisado sem Previsão Obrig
+. 109 - Serviço Paralisado sem Previsão 
+4.4.6 Final do Processamento  
+ 
+O processamento do pedido de consulta de status de Serviço pode resultar em uma mensagem de 
+erro ou retornar à situação atual do Servidor de Processamento, códigos de situação 107 (“Serviço 
+em Operação”), 108 (“Serviço Paralisado Momentaneamente”) e 109 (“Serviço Paralisado sem 
+Previsão”). 
+ A critério da UF o campo xObs pode ser utilizado para fornecer maiores informações ao 
+contribuinte, como por exemplo: “manutenção programada”, “modificação de versão do aplicativo”, 
+“previsão de retorno”, etc. 
+  
+
+=== PÁGINA 36 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 36 / 59 
+ 
+4.5 Serviço de Consulta Cadastro (NFeConsultaCadastro) 
+ 
+Função: Serviço para consultar o cadastro de contribuintes do ICMS da unidade federada. 
+Processo : síncrono. 
+Método: consultaCadastro 
+ 
+Esse Web Service oferece a consulta pública do cadastro de contribuintes do ICMS de uma 
+unidade federada. 
+Qualquer UF poderá oferecer o Web Service, sendo obrigatório para as UFs que autorizam a 
+emissão de qualquer espécie de Documento Fiscal eletrônico - DF-e. 
+Apenas as empresas autorizadas a emitir Documentos Fiscais eletrônicos utilizarão esse serviço. A 
+UF que oferecer o Web Service verificará se o CNPJ da empresa solicitante consta no cadastro 
+nacional de emissores de Documentos Fiscais eletrônicos - DF-e. 
+A identificação da empresa solicitante do serviço será realizada através do CNPJ contido na 
+extensão otherName – OID=2.16.76.1.3.3 do certificado digital utilizado na conexão TLS.  
+Importante ressaltar que esse Web Service não tem a mesma disponibilidade dos demais Web 
+Services da NFCom, em razão disto, sugere-se que não se implemente esse serviço dentro do 
+fluxo normal de emissão da NFCom e sim como um serviço alternativo. 
+O aplicativo do contribuinte envia a solicitação para o Web Service da Secretaria de Fazenda 
+Estadual. Ao recebê-la, a aplicação do Portal da Secretaria de Fazenda Estadual processará a 
+solicitação de consulta, validando o argumento de pesquisa informado (CNPJ ou CPF ou IE), e 
+retornará mensagem contendo a situação cadastral atual do contribuinte no cadastro de 
+contribuintes do ICMS.  
+4.5.1 Onde obter as Definições deste Web Service 
+ 
+As definições do Web Service de Consulta Cadastro encontram-se centralizadas no manual da 
+Nota Fiscal Eletrônica. Para informações mais detalhadas, consultar o Manual de Orientações do 
+Contribuinte da NF-e, disponível em http://www.nfe.fazenda.gov.br . 
+4.5.2 Onde obter os Schemas XML deste Web Service 
+ 
+Os schemas XML utilizados pelo Web Service de Consulta Cadastro encontram-se disponíveis no 
+endereço http://www.nfe.fazenda.gov.br . 
+ 
+
+=== PÁGINA 37 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 37 / 59 
+ 
+5 Sistema de Registro de Eventos (Parte Geral) 
+Função: serviço destinado à recepção de mensagem de evento de NFCom. 
+ 
+Processo : síncrono. 
+ 
+Nome Serviço: NFComRecepcaoEvento 
+ 
+Método: nfcomRecepcaoEvento 
+ 
+Parâmetro da Mensagem da área de dados: XML sem compactação 
+5.1.1 Leiaute Mensagem de Entrada 
+ 
+Entrada: Estrutura XML contendo a consulta do status do serviço  
+Schema XML: eventoNFCom_v9.99.xsd 
+# Campo Ele Pai Tipo Ocor. Tam. Descrição/Observação 
+FP01 eventoNFCom Raiz - - - - TAG raiz  
+FP02 versao A FP01 N 1-1 2v2 Versão do leiaute 
+FP03 infEvento G FP01 - 1-1  Grupo de informações do registro de eventos 
+FP04 Id ID FP03 C 1-1 55 Identificador da TAG a ser assinada, a regra de 
+formação do Id é: 
+“ID” + tpEvento+ chave da NFCom+ nSeqEvento 
+FP05 cOrgao E FP03 N 1-1 2 Código do órgão de recepção do Evento. Utilizar a 
+Tabela do IBGE estendida 
+FP06 tpAmb E FP03 N 1-1 1 Identificação do Ambiente: 
+1 – Produção 2 – Homologação 
+FP07 CNPJ E FP03 N 1-1 14 Informar o CNPJ do autor do Evento 
+FP08 chNFCom E FP03 N 1-1 44 Chave de Acesso da NFCom vinculada ao Evento 
+FP09 dhEvento E FP03 D 1-1 - Data e Hora do Evento  
+Formato = AAAA-MM-DDTHH:MM:SS TZD. 
+FP10 tpEvento E FP03 N 1-1 6 Tipo do Evento (ver tabela de tipos de evento) 
+FP11 nSeqEvento E FP03 N 1-1 1-3 Sequencial do evento para o mesmo tipo de 
+evento.  Para maioria dos eventos será 1, nos 
+casos em que possa existir mais de um evento o 
+autor do evento deve numerar de forma 
+sequencial. 
+FP12 detEvento G FP03 - 1-1 - Informações do evento específico. 
+FP13 versaoEvento A FP12 N 1-1 2v2 Versão do leiaute específico do evento. 
+FP14 any E FP12 XML 1-1 - XML do evento 
+Insira neste local o XML específico do tipo de 
+evento (cancelamento)  
+FP15 Signature G FP01 XML 1-1 - Assinatura XML do grupo identificado pelo atributo 
+“Id” 
+ 
+  
+
+=== PÁGINA 38 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 38 / 59 
+ 
+5.1.2 Leiaute Mensagem de Retorno 
+ 
+Retorno: Estrutura XML com o resultado do pedido de evento. 
+Schema XML: retEventoNFCom_v9.99.xsd 
+# Campo Ele Pai Tipo Ocor. Tam. Descrição/Observação 
+FR01 retEventoNFCom Raiz - - - - TAG raiz do Resultado do Envio do Evento 
+FR02 versao A FR01 N 1-1 1-4 Versão do leiaute 
+FR03 infEvento G FR01  1-1  Grupo de informações do registro do Evento 
+FR04 Id ID FR03 C 0-1 18 Identificador da TAG a ser assinada, somente 
+deve ser informado se o órgão de registro 
+assinar a resposta. 
+Em caso de assinatura da resposta pelo órgão 
+de registro, preencher com o número do 
+protocolo, precedido pela literal “ID” 
+FR05 tpAmb E FR03 N 1-1 1 Identificação do Ambiente: 
+1 – Produção / 2 – Homologação 
+FR06 verAplic E FR03 C 1-1 1-20 Versão da aplicação que registrou o Evento, 
+utilizar literal que permita a identificação do 
+órgão, como a sigla da UF ou do órgão. 
+FR07 cOrgao E FR03 N 1-1 2 Código da UF que registrou o Evento.  
+FR08 cStat E FR03 N 1-1 3 Código do status da resposta  
+FR09 xMotivo E FR03 C 1-1 1-255 Descrição do status da resposta  
+Os campos a seguir são obrigatórios no caso de homologação do evento cStat=135, 134 ou cStat=136. 
+Os campos de dhRegEvento e nProt não serão preenchidos em caso de erro 
+FR10 chNFCom E FR03 N 0-1 44 Chave de Acesso da NFCom vinculada ao evento 
+FR11 tpEvento  E FR03 N 0-1  6 Código do Tipo do Evento  
+FR12 xEvento E FR03 C 0-1 5-60 Descrição do Evento  
+FR13 nSeqEvento E FR03 N 0-1 1-3 Sequencial do evento para o mesmo tipo de evento.  
+Para maioria dos eventos será 1, nos casos em que 
+possa existir mais de um evento o autor do evento 
+deve numerar de forma sequencial.  
+FR14 dhRegEvento E FR03 D 0-1  Data e Hora do Evento Formato = AAAA-MM-
+DDTHH:MM:SS TZD 
+FR15 nProt E FR15 N 0-1 16 Número do protocolo de registro do evento  
+FR16 Signature G FR01 XML 0-1  Assinatura Digital do documento XML, a assinatura 
+deverá ser aplicada no elemento infEvento. A 
+decisão de assinar a mensagem fica a critério do 
+Ambiente Autorizador  
+5.1.3 Descrição do Processo de Web Service 
+ 
+Este método é responsável por receber as solicitações referentes ao registro de eventos de 
+NFCom. Ao receber a solicitação do transmissor, a aplicação do Ambiente Autorizador realiza o 
+processamento da solicitação e devolve o resultado do processamento para o aplicativo do mesmo.  
+O WS de Eventos é acionado pelo interessado (emissor ou órgão público) que deve enviar 
+mensagem de registro de evento. 
+Deverão ser realizadas as validações e procedimentos que seguem: 
+ 
+
+=== PÁGINA 39 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 39 / 59 
+ 
+5.1.4 Regras de Validação Básicas do Serviço 
+ 
+Deverão ser aplicadas as validações gerais conforme quadro abaixo: 
+Grupo Descrição  
+A Validação do Certificado de Transmissão (protocolo TLS)  
+B Validação Inicial da Mensagem no Web Service  
+C Validação da Área de Dados da mensagem  
+D Validações do Certificado de Assinatura  
+E Validações da Assinatura Digital  
+5.1.5 Validação das Regras de Negócio do Serviço de Registro de Eventos 
+# Regra de Validação Aplic. cStat Efeito Mensagem 
+K01 Tipo do ambiente informado difere do ambiente 
+do Web Service Obrig. 252 Rej. Rejeição: Ambiente informado diverge do 
+Ambiente de recebimento 
+K02 Verificar se o código do órgão de recepção do 
+Evento diverge do solicitado Obrig. 226 Rej. Rejeição: Código da UF do Emitente diverge da 
+UF autorizadora 
+K03 Validar CNPJ do autor do evento (DV ou zeros)  
+ Obrig. 627 Rej. Rejeição: CNPJ do autor do evento inválido 
+K04 Validar se atributo Id corresponde à 
+concatenação dos campos evento (“ID” + 
+tpEvento + chNFCom + nSeqEvento) Obrig. 628 Rej. Rejeição: Erro Atributo ID do evento não 
+corresponde à concatenação dos campos (“ID” 
++ tpEvento + chNFCom + nSeqEvento) 
+K05 Verificar se o tpEvento é válido Obrig. 629 Rej. Rejeição: O tpEvento informado inválido 
+K06 Verificar Schema da parte específica do Evento 
+OBS: Utilizar o tpEvento + o atributo 
+versaoEvento para identificar qual schema deve 
+ser validado. Obrig. 630 Rej. Rejeição: Falha no Schema XML específico 
+para o evento 
+K07 - Validar chave de acesso da NFCom  
+Retornar motivo da rejeição da Chave de 
+Acesso: CNPJ zerado ou inválido, Ano < 2021 
+ou maior que atual, Mês inválido (0 ou > 12), 
+Modelo diferente de 62, Número zerado, Tipo de 
+emissão inválido, UF inválida ou DV inválido) 
+[Motivo: XXXXXXXXXXXX] Obrig. 236 Rej. Rejeição: Chave de Acesso inválida 
+[Motivo: XXXXXXXXX] 
+K08 Site de autorização da chave de acesso da 
+NFCOM difere do Site de Recebimento Obrig. 418 Rej. Rejeição: Site de autorização inválido 
+K09 Verificar duplicidade do evento (cOrgao + 
+tpEvento + chNFCom + nSeqEvento) Obrig. 631 Rej. Rejeição: Duplicidade de evento 
+ [nProt:999999999999999][ dhRegEvento: AAAA-
+MM-DDTHH:MM:SS TZD] 
+K10 Se evento do emissor verificar se CNPJ do 
+Autor diferente do CNPJ da chave de acesso da 
+NFCom Obrig. 632 Rej. Rejeição: O autor do evento diverge do emissor 
+da NFCom 
+K11 Se evento do Fisco/Outros órgãos, verificar se 
+CNPJ do Autor consta da tabela de órgãos 
+autorizados a gerar evento. Obrig. 633 Rej. Rejeição: O autor do evento não é um órgão 
+autorizado a gerar o evento 
+K12 Se evento exige NFCom: 
+Acesso BD NFCom (Chave: CNPJ Emit, 
+Modelo, Série, Nº):  
+- Verificar se NFCom não existe 
+Observação : Esta validação leva em 
+consideração o ambiente de autorização do DF-
+e (nSiteAutoriz) Obrig. 217 Rej. Rejeição: NFCom não consta na base de dados 
+da SEFAZ 
+K13 Se existir a NFCom: (Independente do evento 
+exigir) 
+Verificar se a Chave de Acesso difere da 
+existente em BD (opcionalmente a descrição do 
+erro, campo xMotivo, tem concatenada a Chave 
+de Acesso) Obrig. 600 Rej. Rejeição: Chave de Acesso difere da existente 
+em BD 
+K14 Data do evento não pode ser menor que a data 
+de emissão da NFCom, se existir. 
+A SEFAZ deve tolerar uma diferença máxima de Obrig. 634 Rej. Rejeição: A data do evento não pode ser menor 
+que a data de emissão da NFCom 
+
+=== PÁGINA 40 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 40 / 59 
+ 
+5 minutos em função da sincronização de 
+horário de servidores. 
+K15 Data do evento não pode ser menor que a data 
+de autorização da NFCom, se existir 
+A SEFAZ deve tolerar uma diferença máxima de 
+5 minutos em função da sincronização de 
+horário de servidores. Obrig. 637 Rej. Rejeição: A data do evento não pode ser menor 
+que a data de autorização da NFCom 
+K16 Data do evento não pode ser maior que a data 
+de processamento.  
+A SEFAZ deve tolerar uma diferença máxima de 
+5 minutos em função da sincronização de 
+horário de servidores. Obrig. 635 Rej. Rejeição: A data do evento não pode ser maior 
+que a data do processamento 
+5.1.6 Processamento das validações específicas de cada evento 
+ 
+Serão definidas no item 6 deste Manual correspondentes a cada evento. 
+5.1.7 Final do Processamento do Evento 
+ 
+O processamento do evento pode resultar em: 
+ Rejeição  – o Evento será descartado, com retorno do código do status do motivo da 
+rejeição; 
+ Recebido pelo Sistema de Registro de Eventos, com vinculação do evento na 
+respetiva NFCom , o Evento será armazenado no repositório do Sistema de Registro de 
+Eventos com a vinculação do Evento na respectiva NFCom (cStat=135); 
+ Recebido pelo Sistema de Registro de Eventos – vinculação do evento à respectiva 
+NFCom prejudicado – o Evento será armazenado no repositório do Sistema de Registro de 
+Eventos, a vinculação do evento à respectiva NFCom fica prejudicada face a inexistência da 
+NFCom no momento do recebimento do Evento (cStat=136); 
+ Recebido pelo Sistema de Registro de Eventos, com vinculação do evento na respectiva 
+NFCom com situação diferente de Autorizada , o Evento será armazenado no repositório do 
+Sistema de Registro de Eventos com a vinculação do Evento na respectiva NFCom retornando 
+um alerta com a situação de NFCom (cStat=134) ; 
+ 
+O Ambiente Autorizador deverá compartilhar os eventos autorizados no Sistema de Registro de 
+Eventos com os órgãos interessados. 
+ 
+ 
+ 
+
+=== PÁGINA 41 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 41 / 59 
+ 
+6 Sistema de Registro de Eventos (Parte Específica) 
+6.1 Evento de Cancelamento 
+ 
+Função: evento destinado ao atendimento de solicitações de cancelamento de NFCom. 
+ 
+Autor do Evento : O autor do evento é o emissor da NFCom. A mensagem XML do evento será 
+assinada com o certificado digital que tenha o CNPJ base do Emissor da NFCom. 
+ 
+Código do Tipo de Evento: 110111 
+ 
+Schema XML: evCancNFCom_v9.99.xsd 
+ 
+# Campo Ele Pai Tipo Ocor. Tam. Descrição/Observação 
+GP01 evCancNFCom G - - - - TAG raiz  
+GP02 descEvento E GP01 C 1-1 12 Descrição do Evento: ‘Cancelamento’ 
+GP03 nProt E GP01 N 1-1 16 Informar o número do protocolo de autorização da 
+NFCom a ser cancelada 
+GP04 xJust E GP01 C 1-1 1-
+255 Informar a justificativa do cancelamento 
+6.1.1 Validação das Regras Específicas do Evento 
+# Regra de Validação Aplic. cStat Efeito Mensagem 
+L01 Verificar se a UF da Chave de Acesso difere da 
+UF do Web Service Obrig. 249 Rej. Rejeição: UF da Chave de Acesso diverge da 
+UF autorizadora 
+L02 Verificar se o nSeqEvento é maior que o valor 
+permitido (=1) Obrig. 636 Rej. Rejeição: O número sequencial do evento é 
+maior que o permitido 
+L03 Emitente deve estar habilitado na base de 
+dados para emissão da NFCom Obrig. 203 Rej. Rejeição: Emissor não habilitado para emissão 
+da NFCom 
+L04 Verificar Situação Fiscal irregular do Emitente Obrig. 240 Rej. Rejeição: Cancelamento - Irregularidade Fiscal 
+do Emitente 
+L05 Verificar se NFCom já está cancelada. Obrig. 218 Rej. Rejeição: NFCom já está cancelada na base de 
+dados da SEFAZ. 
+[nProt:999999999999999][dhCanc:  AAAA-MM-
+DDTHH:MM:SS TZD]. 
+L06 Verificar se NFCom já está substituída Obrig. 224 Rej. Rejeição: NFCom já está substituída na base de 
+dados da SEFAZ. 
+[nProt:999999999999999][dhSubst: AAAA-MM-
+DDTHH:MM:SS TZD]. 
+L07 Rejeitar se o Tipo da NFCom = 3 (Substituição) 
+(tag: finNFCom) Obrig. 524 Rej. Rejeição: NFCom de substituição não pode ser 
+cancelada 
+L08 Verificar se a NFCom está referenciada por uma 
+NFCom de Ajuste em situação Autorizada 
+ 
+Observação : Se a NFCom de Ajuste estiver 
+cancelada o bloqueio é desfeito por um evento 
+gerado pelo Fisco. Obrig. 525 Rej. Rejeição: NFCom está associada a uma NFCom 
+de Ajuste em situação autorizada 
+L09 Verificar se a NFCom está referenciada por uma 
+NFCom com tipo de faturamento Cofaturamento 
+em Situação Autorizada emitida pela operadora 
+de Longa Distância 
+ 
+Observação : Se a NFCom da operadora de 
+Longa Distância estiver cancelada ou 
+substituída o bloqueio será desfeito por eventos 
+gerados pelo Fisco. Obrig. 526 Rej. Rejeição: NFCom está associada a uma NFCom 
+de Cofaturamento em situação autorizada 
+
+=== PÁGINA 42 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 42 / 59 
+ 
+L10 Verificar se número do Protocolo informado 
+difere do número do Protocolo da NFCom Obrig. 222 Rej. Rejeição: Protocolo de Autorização de Uso 
+difere do cadastrado 
+L11 Verificar se a NFCom foi autorizada até 120 
+horas do mês anterior 
+ 
+Observação : Na comparação dos horários 
+acima, aceitar uma tolerância de 5 minutos, 
+devido ao sincronismo de horário entre servidor 
+da Empresa e o servidor da SEFAZ 
+Autorizadora Obrig. 220 Rej. Rejeição: Vedado cancelamento de NFCom 
+com data/hora de autorização anterior ao prazo 
+permitido 
+ 
+O Fisco poderá liberar o cancelamento fora de prazo através do evento de Manifestação do Fisco 
+do tipo “Liberação do Prazo de Cancelamento” 
+6.1.2 Eventos de marcação originados no Cancelamento da NFCom 
+ 
+Quando as NFCom de tipos Ajuste (finNFCom=4) e NFCom com tipo de faturamento 
+Cofaturamento (tpFat=2) são canceladas, provocam a geração automática de eventos de marcação 
+do fisco na NFCom que estiverem associadas. 
+ 
+ Evento Cancelada NFCom de Ajuste: será registrado em cada NFCom anterior relacionada 
+no atributo chNFComAnt (grupo: det) de uma NFCom de Ajuste (finNFCom=4) que receber 
+o evento de cancelamento. Esse evento libera as NFCom ajustadas anteriormente a 
+receberem eventos de cancelamento, por exemplo. 
+ Evento Cancelada NFCom de Cofaturamento: será registrado na NFCom da operadora 
+local que estiver referenciada na tag chNFComLocal (grupo: gCofat) quando uma NFCom 
+com tipo de faturamento Cofaturamento (tpFat=2) receber um evento de cancelamento. 
+Esse evento libera a NFCom da operadora local para receber evento de cancelamento, 
+substituição etc.; 
+6.1.3 Final do Processamento 
+ 
+Se o evento de cancelamento for homologado, a situação da NFCom para efeito de 
+consulta situação passará para “101 – Cancelamento homologado ” 
+  
+
+=== PÁGINA 43 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 43 / 59 
+ 
+7 Web Services – Informações Adicionais 
+7.1 Ambiente de Homologação / Produção 
+ 
+O Ambiente Autorizador Nacional deverá manter dois ambientes para recepção de NFCom. O 
+ambiente de homologação é específico para a realização de testes e integração das aplicações do 
+contribuinte durante a fase de implementação e adequação do sistema de emissão de NFCom do 
+contribuinte. 
+A emissão de NFCom no ambiente de produção fica condicionada à prévia aprovação das equipes 
+de TI e de negócios da própria empresa, que deverá avaliar a adequação, comportamento e 
+performance de seu sistema de emissão de NFCom no ambiente de homologação. Uma vez 
+aprovados os testes em homologação, pode o contribuinte habilitar-se ao ambiente de produção. 
+7.1.1 Sobre as condições de teste para as empresas 
+ 
+O ambiente de homologação deve ser usado para que as empresas possam efetuar os testes 
+necessários nas suas aplicações, antes de passar a consumir os serviços no ambiente de 
+produção. 
+Em relação à massa de dados para que os testes possam ser efetuados, lembramos que podem 
+ser geradas NFCom no ambiente de homologação à critério da empresa (NFCom sem valor fiscal).  
+Testes no ambiente de produção, quando liberado este ambiente, por falha da aplicação da 
+empresa podem disparar os mecanismos de controle de uso indevido, causando bloqueios 
+administrativos na utilização dos serviços. 
+7.2 Tratamento de caracteres especiais no texto de XML 
+ 
+Todos os textos de um documento XML passam por uma análise do “parser” específico da 
+linguagem. Alguns caracteres afetam o funcionamento deste “parser”, não podendo aparecer no 
+texto de uma forma não controlada. 
+Os caracteres que afetam o “parser” são: 
+ (Sinal de maior), 
+ < (Sinal de menor), 
+ & (e-comercial), 
+ “ (aspas), 
+ ‘ (sinal de apóstrofe). 
+
+=== PÁGINA 44 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 44 / 59 
+ 
+Alguns destes caracteres podem aparecer especialmente nos campos de Razão Social, Endereço 
+e Informação Adicional. Para resolver o problema, é recomendável o uso de uma sequência de 
+“escape” em substituição ao respectivo caractere. 
+Ex. a denominação: DIAS & DIAS LTDA deve ser informada como: DIAS &amp; DIAS LTDA no 
+XML para não afetar o funcionamento do "parser". 
+Caractere  Sequência de escape  
+< &lt; 
+> &gt; 
+& &amp; 
+" &quot; 
+' &#39; 
+7.3 Cálculo do dígito verificador da chave de acesso da NFCom 
+ 
+O dígito verificador da chave de acesso da NFCom é baseado em um cálculo do módulo 11. O 
+módulo 11 de um número é calculado multiplicando-se cada algarismo pela sequência de 
+multiplicadores 2,3,4,5,6,7,8,9,2,3, ... posicionados da direita para a esquerda. 
+A somatória dos resultados das ponderações dos algarismos é dividida por 11 e o DV (dígito 
+verificador) será a diferença entre o divisor (11) e o resto da divisão: 
+DV = 11 - (resto da divisão) 
+Quando o resto da divisão for 0 (zero) ou 1 (um), o DV deverá ser igual a 0 (zero).  
+Exemplo: consideremos que a chave de acesso tem a seguinte sequência de caracteres: 
+ 
+Somatória das ponderações = 644 
+Dividindo a somatória das ponderações por 11 teremos, 644 /11 = 58 restando 6. 
+Como o dígito verificador DV = 11 - (resto da divisão), portando 11 - 6 = 5 
+Neste caso o DV da chave de acesso da NFCom é igual a " 5", valor este que deverá compor a 
+chave de acesso totalizando a uma sequência de 44 caracteres. 
+ 
+ A CHAVE DE ACESSO 5206043300991100250655012000000780026730161
+B PESOS 4 3 2 9 8 7 6 5 4 3 2 9 8 7 6 5 4 3 2 9 8 7 6 5 4 3 2 9 8 7 6 5 4 3 2 9 8 7 6 5 4 3 2
+C PONDERAÇÃO (A*B) 20 6 0 54 0 28 18 15 0 0 18 81 8 7 0 0 8 15 0 54 40 35 0 5 8 0 0 0 0 0 0 35 32 0 0 18 48 49 18 0 4 18 2
+
+=== PÁGINA 45 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 45 / 59 
+ 
+7.4 Número do protocolo 
+ 
+O número do protocolo é gerado pelo Ambiente Autorizador para identificar univocamente as 
+transações realizadas de autorização de uso e registro de eventos da NFCom.  
+A regra de formação do número do protocolo é: 
+9 9 9 9 9 9 9 9 9 9 9 9 9 9 9 9 
+Tipo de 
+Autorizador  Código 
+da UF Ano Identificação 
+Site 
+Autorizador Sequencial de 10 posições 
+ 1 posição com o Tipo de Autorizador (1 = SEFAZ Autorizadora; 2=Autorizado em Site 
+Alternativo do Autorizador;  3 = SEFAZ Virtual RS); 
+ 2 posições para o código da UF do IBGE; 
+ 2 posições para o ano; 
+ 1 posição para o número do Site que autorizou a NFCOM (0 para apenas um site) 
+ 10 posições numéricas sequenciais no ano. 
+ 
+A geração do número de protocolo deverá ser única, sendo utilizada por todos os Web Services  
+que precisam atribuir um número de protocolo para o resultado do processamento. 
+Juntamente ao protocolo, no DANFE-COM aparecerá a data (DD/MM/AAAA) e hora (hh:mm:ss).  
+O protocolo iniciado em 2 ocorrerá somente quando o ambiente de autorização possuir um site 
+alternativo para situações de contingência e seguirá numeração sequencial própria enquanto estiver em 
+utilização de forma transparente para a empresa emitente. 
+O projeto utiliza a codificação da UF definida pelo IBGE: 
+Região Norte Região Nordeste Região Sudeste Região Sul Região Centro-Oeste 
+11-Rondônia 
+12-Acre 
+13-Amazonas 
+14-Roraima 
+15-Pará 
+16-Amapá 
+17-Tocantins 21-Maranhão 
+22-Piauí 
+23-Ceará 
+24-Rio Grande do Norte 
+25-Paraíba 
+26-Pernambuco 
+27-Alagoas 
+28-Sergipe 
+29-Bahia 31-Minas Gerais 
+32-Espírito Santo 
+33-Rio de Janeiro 
+35-São Paulo 
+ 41-Paraná 
+42-Santa Catarina 
+43-Rio Grande do Sul 50-Mato Grosso do Sul 
+51-Mato Grosso 
+52-Goiás 
+53-Distrito Federal 
+ 
+7.5 Tempo médio de resposta 
+ 
+O tempo médio de resposta é um indicador que mede a performance do serviço de processamento 
+nos últimos 5 minutos. 
+O tempo médio de processamento de uma NFCom é obtido pela divisão do tempo decorrido entre 
+o recebimento da mensagem e o momento de armazenamento da mensagem de processamento 
+do arquivo. 
+
+=== PÁGINA 46 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 46 / 59 
+ 
+O tempo médio de resposta é a média dos tempos médios de processamento de uma NFCom dos 
+últimos 5 minutos. 
+Caso o tempo médio de resposta fique abaixo de 1 (um) segundo o tempo será informado como 1 
+segundo. As frações de segundos serão arredondados para cima. 
+7.6 Relação de CFOP válidos para NFCom 
+ 
+CFOP Descrição  
+1.205 Anulação de valor relativo à prestação de serviço de comunicação  
+5.301 Prestação de serviço de comunicação para execução de serviço da mesma natureza  
+5.302 Prestação de serviço de comunicação a estabelecimento industrial  
+5.303 Prestação de serviço de comunicação a estabelecimento comercial  
+5.304 Prestação de serviço de comunicação a estabelecimento de prestador de serviço de transporte  
+5.305 Prestação de serviço de comunicação a estabelecimento de geradora ou de distribuidora de 
+energia elétrica  
+5.306 Prestação de serviço de comunicação a estabelecimento de produtor rural  
+5.307 Prestação de serviço de comunicação a não contribuinte  
+5.933 Prestação de serviço tributado pelo ISSQN  
+6.301 Prestação de serviço de comunicação para execução de serviço da mesma natureza  
+6.302 Prestação de serviço de comunicação a estabelecimento industrial  
+6.303 Prestação de serviço de comunicação a estabelecimento comercial  
+6.304 Prestação de serviço de comunicação a estabelecimento de prestador de serviço de transporte  
+6.305 Prestação de serviço de comunicação a estabelecimento de geradora ou de distribuidora de 
+energia elétrica  
+6.306 Prestação de serviço de comunicação a estabelecimento de produtor rural  
+6.307 Prestação de serviço de comunicação a não contribuinte  
+7.301 Prestação de serviço de comunicação para execução de serviço da mesma natureza  
+7.7 Classificação de Produtos 
+ 
+A tabela de classificação de produtos utilizada para validar o valor do campo cClass nos itens da 
+NFCom determina diversas validações que são aplicadas na autorização da NFCom, além de 
+determinar a natureza do valor do item na totalização da nota, uma vez que alguns tipos de 
+produtos podem entrar deduzindo do valor total. 
+Códigos que iniciarem pelo dígito 5 devem deduzir do valor total da nota, enquanto os demais 
+códigos, iniciados por zero, serão itens somados no total da nota.  
+A tabela atualizada está disponível no portal nacional da NFCom ( http://dfe-
+portal.svrs.rs.gov.br/NFCom ). 
+ 
+
+=== PÁGINA 47 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 47 / 59 
+ 
+8 Uso Indevido 
+A análise do comportamento atual das aplicações das empresas (“aplicação cliente”) permite 
+identificar algumas situações de “uso indevido” nos ambientes autorizadores. 
+Como exemplo maior do mau uso do ambiente, ressalta-se a falta de controle de algumas 
+aplicações que entram em “loop”, consumindo recursos de forma indevida, sobrecarregando 
+principalmente o canal de comunicação com a Internet. 
+Para evitar esses problemas serão mantidos controles para identificar as situações de uso indevido 
+de sucessivas tentativas de busca de registros já disponibilizados anteriormente. 
+As novas tentativas serão rejeitadas com o erro “678–Rejeição: Consumo Indevido”. 
+8.1 Erros e problemas comuns  
+ 
+O erro e problema mais comum encontrado nos ambientes de autorização é o envio repetido (em 
+looping) de requisições para os Web Services dos sistemas autorizadores de documentos fiscais 
+eletrônicos. Normalmente isso ocorre devido algum erro na aplicação do emissor de documentos 
+fiscais eletrônicos ou má utilização do usuário. 
+Após o envio de uma requisição para o sistema autorizador, essa requisição pode ser autorizada 
+ou rejeitada. Caso ela seja rejeitada, o usuário do sistema deverá verificar o motivo da rejeição e 
+corrigi-la, se assim desejar, ou caso a rejeição seja indevida (o sistema autorizador rejeitou de 
+forma equivocada) deverá entrar em contato com a SEFAZ autorizadora.  
+Seguem alguns exemplos de “Consumo Indevido” que podem ocorrer nos Web Services: 
+Web Service  Aplicação com erro/problema 
+Registro de Evento da 
+NFCom Aplicação da empresa em “looping” enviando o mesmo Pedido Evento (exemplo: 
+cancelamento), que sempre é rejeitado. 
+Usuário do sistema fica enviando manualmente o mesmo evento (efeito pica-pau). 
+Consulta Situação da 
+NFCom (Consulta 
+Protocolo) Algumas empresas utilizam esta consulta para verificar a disponibilidade dos serviços da 
+SEFAZ Autorizadora, consultando a mesma Chave de Acesso, em “looping”.  
+Usuário do sistema fica enviando manualmente o mesmo pedido de consulta da NFCom 
+durante meses (efeito pica-pau). 
+Consulta Status Serviço Aplicação em “loop” consumindo o Web Service em uma frequência maior do que a 
+prevista. 
+ 
+ 
+ 
+ 
+
+=== PÁGINA 48 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 48 / 59 
+ 
+8.2 Regras de Validação de Consumo Indevido 
+ 
+Autorização de NFCom 
+# Regra de Validação Crítica Msg Efeito 
+CI01 NFCom enviada com mais de 30* rejeições iguais:  
+- Contribuinte ficará com o WS de autorização recebendo a rejeição 678 por até 1 
+(uma) * hora para todas as requisições.  
+Observação 1:  Caso após o tempo de 1 (uma) * hora o contribuinte envie 
+novamente a mesma NFCom e tenha a mesma rejeição, ele poderá voltar a receber 
+a rejeição 678 por até 1 (uma) * hora, e isso se repetirá até ele parar de enviar a 
+NFCom com a mesma rejeição.  
+Observação 2:  A verificação do contribuinte para receber a rejeição 678 poderá ser 
+feita em tempo de conexão pela identificação do CNPJ do certificado digital de 
+transmissão mais o endereço IP (CNPJ + IP) ou pela identificação do CNPJ do 
+emitente.  
+Observação 3:  A critério da UF, após 50* bloqueios o contribuinte poderá receber a 
+rejeição 678 permanentemente, até entrar em contato com a UF autorizadora.   
+ 
+(*) Critérios preferenciais, parametrizáveis por ambiente autorizador. Facult.. 678 Rej. 
+Consulta Situação 
+CI03 NFCom consultada mais de 10* vezes em 1 (uma) * hora:  
+- Contribuinte ficará com o WS de Consulta Protocolo recebendo a rejeição 678 por 
+até 1 (uma) * hora para todas as requisições.  
+Observação 1:  Após o tempo de 1 (uma) * hora o contribuinte poderá fazer 
+novamente mais 10* consultas da mesma chave de acesso.  
+Observação 2:  A verificação do contribuinte para receber a rejeição 678 poderá ser 
+feita em tempo de conexão pela identificação do CNPJ do certificado digital de 
+transmissão mais o endereço IP (CNPJ + IP) ou pela identificação do CNPJ do 
+emitente.  
+ 
+(*) Critérios preferenciais, parametrizáveis por ambiente autorizador. Facult. 678 Rej. 
+Registro de Eventos 
+CI04 Evento enviado com mais de 20 * rejeições iguais:  
+- Contribuinte ficará com o WS de Eventos recebendo a rejeição 678 por até 1 (uma) 
+* hora para todas as requisições.  
+Observação 1:  Caso após o tempo de 1 (uma) * hora o contribuinte envie 
+novamente o mesmo Evento e tenha a mesma rejeição, ele poderá voltar a receber 
+a rejeição 678 por até 1 (uma) * hora, e isso se repetirá até ele parar de enviar o 
+Evento com a mesma rejeição.  
+Observação 2:  A verificação do contribuinte para receber a rejeição 678 poderá ser 
+feita em tempo de conexão pela identificação do CNPJ do certificado digital de 
+transmissão mais o endereço IP (CNPJ + IP) ou pela identificação do CNPJ do 
+autor.  
+Observação 3:  A critério da UF, após 50* bloqueios o contribuinte poderá receber a 
+rejeição 678 permanentemente, até entrar em contato com a UF autorizadora.  
+ 
+(*) Critérios preferenciais, parametrizáveis por ambiente autorizador.  Facult. 678 Rej. 
+Outros Serviços 
+CI05 Se for verificado algum tipo de envio em looping (mais de 60* envios repetidos) no 
+período de 5 minutos em outro Web Service que gere erro ou onere o sistema 
+autorizador: 
+- Contribuinte ficará com o Web Service recebendo a rejeição 678 por até 1 (uma) * 
+hora para todas as requisições.  
+Observação 1: A verificação do contribuinte para receber a rejeição 678 poderá ser 
+feita em tempo de conexão pela identificação do CNPJ do certificado digital de 
+transmissão mais o endereço IP (CNPJ + IP) ou pela identificação do CNPJ do 
+emitente (emit/CNPJ).  
+ 
+(*) Critérios preferenciais, parametrizáveis por ambiente autorizador. Facult. 678 Rej. 
+* A parametrização dos valores definidos como referência para a rejeição 678 poderão ser alterados a qualquer tempo, a critério do 
+sistema autorizador, de acordo com o comportamento identificado no sistema. 
+
+=== PÁGINA 49 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 49 / 59 
+ 
+9 QR Code 
+O QR Code é um código de barras bidimensional que foi criado em 1994 pela empresa japonesa 
+Denso-Wave. QR significa "quick response" devido à capacidade de ser interpretado rapidamente. 
+Esse tipo de codificação permite que possa ser armazenada uma quantidade significativa de 
+caracteres: 
+Numéricos: 7.089 
+Alfanumérico:  4.296 
+Binário (8 bits):  2.953 
+O QR Code a ser impresso na NFCom seguirá o padrão internacional ISO/IEC 18004.
+ 
+Padrão da imagem do QR Code – Fonte: Wikipédia 
+ 
+O QR Code deverá existir no DANFE-COM relativo à emissão em operação normal ou em 
+contingência, seja ele impresso ou virtual (DANFE-COM em meio eletrônico).  
+A impressão do QR Code no DANFE-COM tem a finalidade de facilitar a consulta dos dados do 
+documento fiscal eletrônico pelos destinatários, mediante leitura com o uso de aplicativo leitor de 
+QR Code, instalado em smartphones ou tablets. Atualmente existem no mercado, inúmeros 
+aplicativos gratuitos para smartphones que possibilitam a leitura de QR Code.  
+Esta tecnologia tem sido amplamente difundida e é de crescente utilização como forma de 
+comunicação. 
+ 
+Processo de leitura do QR Code (adaptado) 
+
+
+=== PÁGINA 50 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 50 / 59 
+ 
+9.1 Licença 
+ 
+O uso do código QR é livre, sendo definido e publicado como um padrão ISO. Os direitos de 
+patente pertencem a Denso Wave, mas a empresa escolheu não os exercer, sendo que o termo 
+QR Code  é uma marca registrada da Denso WaveIncorporated. 
+9.2 Imagem do QR Code para NFCom 
+ 
+A imagem do QR Code, que será impressa no DANFE-COM conterá uma URL composta com as 
+seguintes informações: 
+9.2.1 Para NFCom com tipo de emissão Normal: 
+ 
+1ª parte - Endereço do site da Secretaria da Fazenda de localização do emitente da NFCom, 
+seguido do caractere “?”; exemplo: http://dfe-portal.svrs.rs.gov.br/NFCom/QRCode  
+Os endereços de consulta a serem utilizados no QR Code para as Unidades Federadas 
+participantes do Projeto NFCom em ambiente de produção e ambiente de homologação estão 
+disponíveis no Portal Nacional da NFCom (http://dfe-portal.svrs.rs.gov.br/NFCom). 
+Observação: a critério da Unidade Federada poderá ser utilizado o mesmo endereço para consulta 
+no ambiente de produção e ambiente de homologação. Neste caso, a distinção entre os ambientes 
+de consulta será feita diretamente pela aplicação da UF, a partir do conteúdo do parâmetro de 
+identificação do ambiente (tpAmb), constante do QR Code. 
+2ª parte – Parâmetros para consultar a chave de acesso da NFCom separados pelo caractere “&”; 
+ chNFCom: chave de acesso da NFCom (44 caracteres) 
+ tpAmb: Identificação do ambiente (1 – Produção; 2 – Homologação)  
+ 
+Exemplo: 
+http://dfe-portal.svrs.rs.gov.br/NFCom/QRCode?chNFCom=43081808467115000100620010757245731000000010&tpAmb=1 
+9.2.2 Para NFCom com tipo de emissão Contingência Off-line: 
+ 
+Documentos emitidos em contingência off-line demandam um conjunto de informações adicionais 
+às informadas na NFCom normal para garantia de autoria do documento fiscal que pode não ter 
+sido transmitido para a base da secretaria da fazenda. Neste caso, o QR Code deverá conter: 
+ 
+
+=== PÁGINA 51 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 51 / 59 
+ 
+1ª parte - URL para acessar a NFCom, seguido do caractere “?” 
+2ª parte - parâmetros chNFCom e tpAmb da mesma forma como na forma de emissão normal 
+separados pelo caractere “&”; 
+3ª parte – sign assinatura digital no padrão RSA SHA-1 (Base64) do valor do parâmetro chNFCom 
+(chave de acesso com 44 caracteres) a partir do certificado digital que assina a NFCom, este 
+parâmetro deve ser adicionado aos demais usando um caractere “&” como separador.  
+1ª parte: URL http://dfe-portal.svrs.rs.gov.br/NFCom/QRCode 
+2ª parte : parâmetros chNFCom=43081808467115000100620010757245731000000010&tpAmb=1 
+3ª parte: assinatura &sign=ZZSKiypy7fkg22MUv6TUh71EI+wLYWr/fUHJy3PyWnL7d5mzEqtxu6bVbhE7AeNiDTirh1u9
+gVfC2Hw+Lsno2XNL5FRUc5NcuMTT2hA6E9HYC9gryvtWAIgiCZUNG5cWWLCh0G62QdnNe8iSr
+lSooQu9Z5g1vbGaTFMxaugzzvo= 
+ 
+Gerar o QR Code com as concatenações das três partes (URL + parâmetros + assinatura): 
+ 
+9.3 Configurações para QR Code 
+ 
+O QR Code permite algumas configurações adicionais conforme descrito a seguir: 
+9.3.1 Capacidade de armazenamento 
+ 
+As configurações para capacidade de armazenamento de caracteres do QR Code: 
+1 - Numérica - máx. 7089 caracteres 
+2 - Alfanumérica - máx. 4296 caracteres 
+3 - Binário (8 bits) - máx. 2953 bytes 
+4 - Kanji/Kana - máx. 1817 caracteres 
+Fonte: http://en.wikipedia.org/wiki/QR_code  
+
+
+=== PÁGINA 52 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 52 / 59 
+ 
+9.3.2 Capacidade de correção de erros 
+ 
+Seguem as configurações para correções de erros do QR Code: 
+ Nível L (Low) 7% das palavras do código podem ser recuperadas; 
+ Nível M (Medium) 15% das palavras de código podem ser restauradas; 
+ Nível Q (Quartil) 25% das palavras de código podem ser restauradas; 
+ Nível H (High) 30% das palavras de código podem ser restauradas. 
+Fonte: http://en.wikipedia.org/wiki/QR_code  
+Para o QR Code do DANFE-COM será utilizado Nível M. 
+9.3.3 Tipo de caracteres 
+ 
+Existem dois padrões de caracteres que podem ser configurados na geração do QR Code, 
+conforme visto abaixo: 
+1 – ISSO-8859-1 
+2 – UTF-8  
+Fonte: http://en.wikipedia.org/wiki/QR_code  
+Para o QR Code do DANFE-COM será utilizada a opção 2 – UTF-8. 
+9.4 URL da Consulta da NFCom via QR Code no XML 
+ 
+A URL da Consulta da NFCom via QR Code deve constar do arquivo da NFCom (XML) em 
+infNFComSupl/qrCodNFCom (Informações Suplementares da NFCom). 
+  
+
+=== PÁGINA 53 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 53 / 59 
+ 
+10 Consulta Pública NFCom 
+Para que o usuário possa verificar a validade e autenticidade da NFCom, a UF do contribuinte 
+emitente deverá disponibilizar o serviço de consulta pública de NFCom. 
+Esta consulta poderá ser efetuada pelo usuário do serviço de duas formas: pela digitação em 
+página web dos 44 caracteres numéricos da chave de acesso constantes impressos no DANFE-
+COM ou consulta via leitura do QR Code impresso ou disponibilizado em meio eletrônico, utilizando 
+aplicativos gratuitos de leitura de QR Code, disponíveis em dispositivos móveis como smartphones 
+e tablets. 
+10.1 Consulta Pública de NFCom via Digitação de Chave de Acesso 
+ 
+O endereço que deve estar impresso no DANFE-COM destinado à consulta utilizando a chave de 
+acesso, está indicado por cada Unidade Federada, e consta do Portal Nacional NFCom (http://dfe-
+portal.svrs.rs.gov.br/NFCom).  
+Nesta hipótese o usuário deverá acessá-los pela internet e digitar a chave de acesso composta por 
+44 caracteres numéricos. 
+Como resultado da consulta pública, deverá ser apresentado ao usuário na tela a NFCom completa 
+com navegação em abas.  
+10.2 Consulta Pública de NFCom via QR Code 
+ 
+A aplicação de consulta pública de NFCom via QR Code será disponibilizada por cada Unidade 
+Federada e efetuará validações do conteúdo de informações constantes do QR Code versus o 
+conteúdo da respectiva NFCom. 
+Nesta hipótese, o usuário deverá apontar o seu dispositivo móvel (smartphone ou tablet) para a 
+imagem do QR Code gerada na tela ou impressa no DANFE-COM. O leitor de QR Code se 
+encarregará de interpretar a imagem e efetuar a consulta da NFCom da URL recuperada no Portal 
+da SEFAZ da Unidade Federada da emissão do documento. 
+ 
+Figura 7: Process o de leitura do QR Code  
+
+
+=== PÁGINA 54 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 54 / 59 
+ 
+Como resultado da consulta QR Code, deverá ser apresentado ao usuário do serviço na tela do 
+dispositivo móvel a NFCom completa. Nesta tela, haverá a opção de imprimir a NFCom completa 
+ou a visualização do conteúdo em formato de abas. O resultado deve ser idêntico ao resultado 
+utilizando a consulta com digitação em tela. 
+Eventuais divergências encontradas entre as informações da NFCom constantes dos parâmetros 
+do QR Code deverão ser informadas em área de mensagem a ser disponibilizada na tela de 
+resposta da consulta pública sem, todavia, um detalhamento excessivo do erro identificado, que 
+será de pouco interesse e apenas poderá acabar por gerar dúvidas e inseguranças. 
+Assim, será apresentado na tela ao usuário o código do erro e uma mensagem de aviso mais 
+genérica. 
+10.3 Tabela padronizada com os códigos e mensagens na consulta da 
+NFCom 
+ 
+A tabela a seguir relaciona todas as mensagens de validações utilizadas na consulta de NFCom 
+seja por digitação em tela ou via QR Code. Estas mensagens somente serão utilizadas na 
+implementação da consulta pela SEFAZ. 
+10.4 Padronização dos endereços das consultas públicas 
+ 
+Os endereços de consulta pública por chave de acesso e a consulta QR Code das SEFAZ deverão 
+seguir uma padronização visando facilitar seu acesso pelo contribuinte. 
+Os endereços disponibilizados deverão seguir a seguinte estrutura: Relação de mensagens de validações na consulta de NFCom 
+Código Regra de Validação Exibir na Consulta 
+201 Se a Chave de Acesso da NFCom não preenchida ou com 
+menos de 44 caracteres. Problemas no preenchimento da Chave 
+de Acesso da NFCom 
+202 Se dígito verificador da Chave de Acesso da NFCom inválido Problemas na Chave de Acesso da 
+NFCom (dígito verificador inválido) 
+203 Se o modelo constante da Chave de Acesso difere de 62 
+(NFCom) ou CNPJ do emitente constante na Chave de Acesso 
+com dígito verificador inválido ou UF da chave de acesso 
+diferente do código da UF da consulta. Problemas na Chave de Acesso da 
+NFCom (modelo ou CNPJ ou UF inválido) 
+204 Se o parâmetro tpAmb (Identificação do ambiente) não 
+preenchido ou difere de 1 ou 2 no QRCODE. Inconsistência de Informações no QR 
+Code (tipo ambiente) 
+205 Se a forma de emissão for 1 (normal) e a NFCom da chave de 
+acesso não encontrado na base de dados. A NFCom não consta na nossa base de 
+dados 
+206 Se a forma de emissão for 2 (contingência off-line) e a NFCom 
+não for encontrado na base de dados. A NFCom foi emitida em contingência e 
+não consta na nossa base de dados. 
+Volte a consultar após 24h. 
+207 Se NFCom possuir evento de cancelamento. A NFCom foi Cancelada - Documento 
+Inválido – Sem Valor Fiscal 
+208 Se NFCom possuir evento de Substituição. A NFCom foi Substituída - Documento 
+Inválido – Sem Valor Fiscal 
+
+=== PÁGINA 55 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 55 / 59 
+ 
+http(s)://URL_da_SEFAZ/NFCom/consulta 
+http(s)://URL_da_SEFAZ/NFCom/qrcode 
+ 
+A relação de endereços dos serviços de consulta das SEFAZ encontra-se no Portal Nacional da 
+NFCom ( https://dfe-portal.svrs.rs.gov.br/NFCom/Servicos ) 
+ 
+ 
+
+=== PÁGINA 56 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 56 / 59 
+ 
+11 Contingência Off-line para NFCom 
+O modelo operacional atual da NFCom prevê a utilização de “Contingência Off-line”.   
+Nesta modalidade, o contribuinte que estiver com problemas técnicos para autorização da NFCom 
+poderá emiti-lo em contingência off-line, imprimir o DANFE-COM e depois de superado o problema 
+técnico, transmitir o arquivo XML da NFCom para autorização. O prazo estabelecido pelo Fisco, 
+atualmente, é o final do primeiro dia útil subsequente contado a partir de sua emissão. 
+A possibilidade de uso da contingência off-line para NFCom é uma decisão exclusiva da Unidade 
+Federada, que poderá vir a não autorizar esta modalidade de contingência para todos ou 
+determinados contribuintes emissores de NFCom. Para tanto, foi definida regra de validação 
+específica no leiaute possibilitando a implementação desta decisão pela UF. 
+A decisão pela entrada em contingência, bem como a escolha da alternativa de contingência 
+(dentre as aceitas pela UF) é exclusiva do contribuinte, devendo ser utilizada nas situações em que 
+ocorram problemas técnicos de comunicação ou processamento de informações que impeçam a 
+autorização da NFCom em tempo real. Não existe exigência de obtenção, pelo contribuinte, de 
+autorização prévia do Fisco para entrada em contingência.  
+Todavia, alertamos que as NFCom devem ser autorizadas, preferencialmente, em tempo real, 
+antes da ocorrência do fato gerador, e que as alternativas de contingência somente devem ser 
+acionadas em situações extremas, que interfiram de forma significativa na atividade operacional do 
+estabelecimento.   
+Assim, a emissão da NFCom em contingência off-line deve ser tratada como exceção, sendo que a 
+regra deve ser a emissão com autorização em tempo real.  
+Neste sentido é importante esclarecer a emissão batch, realizada dentro da empresa deve ser 
+considerada como Normal caso o processo de faturamento da mesma adotar essa sistemática. 
+A opção pela contingência (tpEmis=2) ocorre quando a transmissão desse faturamento batch ou 
+quando a emissão de nota individualmente falhar por dificuldade técnica do emitente (conexão, 
+internet, hardware) ou do ambiente de autorização, as demais emissões devem ser consideradas 
+normais (tpEmis=1 no arquivo XML). 
+O Fisco poderá solicitar esclarecimentos, e até mesmo restringir ao contribuinte a utilização da 
+modalidade de contingência off-line, caso seja identificado que o emissor da NFCom utiliza a 
+
+=== PÁGINA 57 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 57 / 59 
+ 
+contingência em demasia e sem justificativa aceitável, quando comparado a outros contribuintes 
+em situação similar.  
+É importante ressaltar ainda que a utilização de contingência off-line deve se restringir às situações 
+de efetiva impossibilidade de autorização da NFCom, haja vista que pode vir a representar custos e 
+riscos adicionais ao contribuinte, em especial, pelos seguintes aspectos:  
+ As NFCom emitidas em contingência off-line deverão ser posteriormente encaminhados 
+para autorização, podendo virem a serem rejeitados, gerando possíveis retrabalhos e 
+problemas junto ao usuário do serviço, uma vez que a fatura já foi entregue ao cliente;   
+ As NFCom emitidos em contingência off-line estarão disponíveis para consulta pública pelos 
+usuários no site da SEFAZ ou via consulta QR Code apenas em momento posterior, quando 
+forem autorizadas, havendo risco de reclamações ou denúncias de usuários por não 
+localizarem a sua NFCom na consulta realizada imediatamente após receberem a fatura;   
+ Na utilização de contingência off-line, o contribuinte assume o risco de perda da informação 
+das NFCom emitidos em contingência, até que os mesmos constem da base de dados do 
+Fisco. Na autorização online da NFCom a informação já está segura na base de dados do 
+Fisco; 
+11.1 Detalhes técnicos da Contingência Off-line 
+ 
+Ao emitir uma NFCom em contingência, algumas modificações deverão ser realizadas no arquivo 
+XML, caracterizando esse tipo de emissão. 
+A primeira providência é selecionar a forma de emissão correta no campo tpEmis com a opção 
+Contingência off-line (2). 
+Na escolha de contingência off-line da NFCom (tpEmis = 2) não é necessária a adoção de série 
+específica ou a utilização de papel especial. Todavia, deve ser observado o prazo de envio para 
+autorização da NFCom até o final do primeiro dia útil subsequente contado a partir de sua emissão 
+em contingência. 
+O emitente deverá preencher, obrigatoriamente, os campos de Data e Hora da entrada em 
+contingência (dhCont) e de Justificativa da entrada em contingência (xJust) que, todavia, não serão 
+impressos no DANFE-COM.   
+
+=== PÁGINA 58 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00a   
+ 
+ 
+Página 58 / 59 
+ 
+Outro ponto importante é a recomendação de que se avance um número na sequência da 
+numeração quando da entrada em contingência a fim de evitar que a NFCom emitida em 
+contingência seja posteriormente rejeitada por duplicidade.  
+Também cabe alertar que, superado o problema técnico, na transmissão da NFCom emitida em 
+contingência, deve-se manter a mesma chave de acesso, inclusive com a manutenção do mesmo 
+código numérico original (campo cNF). 
+O DANFE-COM da NFCom emitida em contingência deverá conter a informação impressa 
+“EMITIDA EM CONTINGÊNCIA”. 
+Além disso, o QR Code impresso no DANFE-COM da NFCom emitida em contingência conterá o 
+parâmetro sign assinando a chave de acesso com o certificado digital que efetuou a assinatura da 
+NFCom. Isto possibilita que na consulta via QR Code, pelo usuário, a SEFAZ retorne a informação 
+de que se trata de emissão em contingência e o prazo máximo para o documento fiscal eletrônico 
+constar da base de dados do Fisco, além de garantir a autoria do emitente da NFCom pelo 
+certificado digital.  
+11.2 Resumo das ações para entrada em contingência 
+ 
+ Alterar XML da NFCom com tpEmis = 2 (Contingência Off-line); 
+ Preencher campos dhCont e xJust (Data e justificativa da entrada em contingência); 
+ Gerar nova chave de acesso com o tpEmis = 2, mantendo o mesmo cNF; 
+ Gerar o QR Code do DANFE-COM adicionando parâmetro sign (conforme especificado no 
+item 9.2.2); 
+ Emitir o DANFE-COM com a mensagem “EMITIDA EM CONTINGÊNCIA”; 
+ Transmitir o arquivo assim que superada a dificuldade técnica que demandou a 
+contingência; 
+  
+
+=== PÁGINA 59 ===
+
+Projeto 
+Nota Fiscal Fatura de Serviço de Comunicação Eletrônica  
+MOC 1.00  
+ 
+ 
+Página 59 / 59 
+ 
+12 WS disponíveis 
+Os endereços dos Web Services disponíveis podem ser obtidos no sítio nacional do projeto no 
+endereço https://dfe-portal.svrs.rs.gov.br/NFCom 
+Obtenção do WSDL: 
+A documentação do WSDL pode ser obtida na internet acessando o endereço do Web Service 
+desejado. 
+Exemplificando, para obter o WSDL de cada um dos Web Service acione o navegador Web (Internet 
+Explorer, por exemplo) e digite o endereço desejado seguido do literal ‘?WSDL’. 
+ 
+ 
+ 

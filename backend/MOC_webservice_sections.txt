@@ -1,0 +1,99 @@
+=== SEÇÕES RELACIONADAS A WEBSERVICE ===
+
+
+
+================================================================================
+SEÇÃO: Web Service
+================================================================================
+
+3.4 Padrão de Mensagens dos Web Services ........................................................................ 17  
+3.4.1 Área de dados das mensagens ................................................................................................. 17  
+
+================================================================================
+SEÇÃO: Webservice
+================================================================================
+
+1.00a 02/2023 Atualização com a NT 2022.001 e simplificação dos Webservices 
+ 
+  
+
+=== PÁGINA 6 ===
+
+Projeto 
+
+================================================================================
+SEÇÃO: Transmissão
+================================================================================
+
+4.1.1 Grupo A: Validação do Certificado de Transmissão (protocolo TLS)........................................ 25  
+4.1.2 Grupo B-0: Validação da Compactação da Mensagem ............................................................ 25  
+
+================================================================================
+SEÇÃO: Comunicação
+================================================================================
+
+Comunicação Eletrônica  
+ 
+Manual de Orientação do Contribuinte 
+
+================================================================================
+SEÇÃO: Protocolo
+================================================================================
+
+4.1.1 Grupo A: Validação do Certificado de Transmissão (protocolo TLS)........................................ 25  
+4.1.2 Grupo B-0: Validação da Compactação da Mensagem ............................................................ 25  
+
+================================================================================
+SEÇÃO: Segurança
+================================================================================
+
+será de pouco interesse e apenas poderá acabar por gerar dúvidas e inseguranças. 
+Assim, será apresentado na tela ao usuário o código do erro e uma mensagem de aviso mais 
+genérica. 
+10.3 Tabela padronizada com os códigos e mensagens na consulta da 
+NFCom 
+ 
+A tabela a seguir relaciona todas as mensagens de validações utilizadas na consulta de NFCom 
+seja por digitação em tela ou via QR Code. Estas mensagens somente serão utilizadas na 
+implementação da consulta pela SEFAZ. 
+10.4 Padronização dos endereços das consultas públicas 
+ 
+Os endereços de consulta pública por chave de acesso e a consulta QR Code das SEFAZ deverão 
+seguir uma padronização visando facilitar seu acesso pelo contribuinte. 
+Os endereços disponibilizados deverão seguir a seguinte estrutura: Relação de mensagens de validações na consulta de NFCom 
+Código Regra de Validação Exibir na Consulta 
+201 Se a Chave de Acesso da NFCom não preenchida ou com 
+menos de 44 caracteres. Problemas no preenchimento da Chave 
+de Acesso da NFCom 
+202 Se dígito verificador da Chave de Acesso da NFCom inválido Problemas na Chave de Acesso da 
+NFCom (dígito verificador inválido) 
+203 Se o modelo constante da Chave de Acesso difere de 62 
+(NFCom) ou CNPJ do emitente constante na Chave de Acesso 
+com dígito verificador inválido ou UF da chave de acesso 
+diferente do código da UF da consulta. Problemas na Chave de Acesso da 
+NFCom (modelo ou CNPJ ou UF inválido) 
+204 Se o parâmetro tpAmb (Identificação do ambiente) não 
+preenchido ou difere de 1 ou 2 no QRCODE. Inconsistência de Informações no QR 
+Code (tipo ambiente) 
+205 Se a forma de emissão for 1 (normal) e a NFCom da chave de 
+acesso não encontrado na base de dados. A NFCom não consta na nossa base de 
+dados 
+206 Se a forma de emissão for 2 (contingência off-line) e a NFCom 
+não for encontrado na base de dados. A NFCom foi emitida em contingência e 
+não consta na nossa base de dados. 
+Volte a consultar após 24h. 
+207 Se NFCom possuir evento de cancelamento. A NFCom f
+
+================================================================================
+SEÇÃO: Padrões Técnicos
+================================================================================
+
+Padrões Técnicos de Comunicação da NFCom  
+ 
+Versão 1.00a - janeiro 2023  
+ 
+
+
+=== PÁGINA 2 ===
+
+Projeto 

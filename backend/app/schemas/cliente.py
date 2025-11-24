@@ -1,0 +1,278 @@
+from pydantic import BaseModel, Field, validator, root_validator
+from typing import Optional, List
+from datetime import datetime
+import re
+
+from .empresa import EmpresaResponse
+from app.models.models import TipoPessoa, IndicadorIEDest
+
+# Schemas para Endereço do Cliente (EmpresaClienteEndereco)
+
+class ClienteEnderecoBase(BaseModel):
+    descricao: Optional[str] = Field(None, max_length=100)
+    endereco: str = Field(..., max_length=255)
+    numero: str = Field(..., max_length=20)
+    complemento: Optional[str] = Field(None, max_length=100)
+    bairro: str = Field(..., max_length=100)
+    municipio: str = Field(..., max_length=100)
+    uf: str = Field(..., max_length=2)
+    cep: str = Field(..., max_length=9)
+    codigo_ibge: Optional[str] = Field(None, max_length=7)
+    is_principal: bool = True
+
+    def format_cep(cls, v):
+        if v:
+            cep_clean = re.sub(r'[^0-9]', '', v)
+            if len(cep_clean) != 8:
+                raise ValueError('CEP deve ter 8 dígitos')
+            return cep_clean
+        return v
+
+    def validate_codigo_ibge(cls, v, values):
+        if v:
+            from app.core.validators import validate_codigo_ibge
+            uf = values.get('uf')
+            if uf and not validate_codigo_ibge(v, uf):
+                raise ValueError('Código IBGE inválido ou incompatível com a UF')
+        return v
+
+# Schemas para Cliente
+
+class ClienteBase(BaseModel):
+    nome_razao_social: str = Field(..., max_length=255)
+    cpf_cnpj: str = Field(..., max_length=18)
+    tipo_pessoa: TipoPessoa
+    ind_ie_dest: IndicadorIEDest = Field(..., description="Indicador de Inscrição Estadual do Destinatário")
+    inscricao_estadual: Optional[str] = Field(None, max_length=20)
+    email: Optional[str] = Field(None, max_length=255)
+    telefone: Optional[str] = Field(None, max_length=20)
+
+    def format_cpf_cnpj(cls, v):
+        if v:
+            cpf_cnpj_clean = re.sub(r'[^0-9]', '', v)
+            return cpf_cnpj_clean
+        return v
+
+class ClienteCreate(ClienteBase):
+    enderecos: List[ClienteEnderecoBase] = []
+
+    def clean_and_upper_name(cls, v):
+        """Remover espaços duplos, strip e converter nome/razão social para maiúsculas."""
+        if isinstance(v, str):
+            from app.core.validators import clean_string
+            cleaned = clean_string(v)
+            return cleaned.upper()
+        return v
+
+    def clean_string_fields(cls, v):
+        if isinstance(v, str):
+            from app.core.validators import clean_string
+            return clean_string(v)
+        return v
+
+    def validate_and_format_telefone(cls, v):
+        """Remove caracteres não numéricos e valida comprimento mínimo para telefone."""
+        if not v:
+            return v
+        import re
+        telefone_clean = re.sub(r'[^0-9]', '', v)
+        if len(telefone_clean) < 8:
+            raise ValueError('Telefone inválido')
+        return telefone_clean
+
+    def validate_cpf_cnpj(cls, v):
+        if not v:
+            raise ValueError('CPF/CNPJ é obrigatório')
+        from app.core.validators import clean_string
+        v = clean_string(v)
+        cpf_cnpj_clean = re.sub(r'[^0-9]', '', v)
+
+        if len(cpf_cnpj_clean) not in [11, 14]:
+            raise ValueError('CPF deve ter 11 dígitos ou CNPJ deve ter 14 dígitos')
+
+        if len(cpf_cnpj_clean) == 11:
+            if not cls._validate_cpf(cpf_cnpj_clean):
+                raise ValueError('CPF inválido')
+        elif len(cpf_cnpj_clean) == 14:
+            from app.core.validators import validate_cnpj
+            if not validate_cnpj(cpf_cnpj_clean):
+                raise ValueError('CNPJ inválido')
+
+        return cpf_cnpj_clean
+
+    def validate_tipo_pessoa(cls, v, values):
+        cpf_cnpj = values.get('cpf_cnpj')
+        if cpf_cnpj:
+            cpf_cnpj_clean = re.sub(r'[^0-9]', '', cpf_cnpj)
+            if len(cpf_cnpj_clean) == 11 and v != TipoPessoa.FISICA:
+                raise ValueError('Para CPF, tipo pessoa deve ser Física')
+            elif len(cpf_cnpj_clean) == 14 and v != TipoPessoa.JURIDICA:
+                raise ValueError('Para CNPJ, tipo pessoa deve ser Jurídica')
+        return v
+
+    def check_inscricao_estadual_logic(cls, v, values):
+        """Valida a Inscrição Estadual com base no Indicador de IE (ind_ie_dest)."""
+        ind_ie = values.get('ind_ie_dest')
+        uf = None
+        
+        # Pega a UF do primeiro endereço para validar a regra do 'ISENTO'
+        enderecos = values.get('enderecos')
+        if enderecos and len(enderecos) > 0:
+            first = enderecos[0]
+            try:
+                uf = first.uf if hasattr(first, 'uf') else first.get('uf')
+            except Exception:
+                uf = None
+
+        # Regra G27: Não Contribuinte
+        if ind_ie == IndicadorIEDest.NAO_CONTRIBUINTE:
+            if v:
+                raise ValueError("Inscrição Estadual não deve ser preenchida para 'Não Contribuinte'.")
+            return None
+
+        # Regra G26: Contribuinte Isento
+        if ind_ie == IndicadorIEDest.CONTRIBUINTE_ISENTO:
+            if not v or v.upper() != 'ISENTO':
+                raise ValueError("Inscrição Estadual deve ser 'ISENTO' para 'Contribuinte Isento'.")
+            
+            from app.core.validators import validate_inscricao_estadual
+            if not validate_inscricao_estadual(v, uf):
+                 raise ValueError(f"A UF '{uf}' não permite Inscrição Estadual 'ISENTO'.")
+            return 'ISENTO'
+
+        # Regra G25: Contribuinte ICMS
+        if ind_ie == IndicadorIEDest.CONTRIBUINTE_ICMS:
+            if not v or v.upper() == 'ISENTO':
+                raise ValueError("Inscrição Estadual é obrigatória e não pode ser 'ISENTO' para 'Contribuinte ICMS'.")
+            
+            from app.core.validators import validate_inscricao_estadual
+            if not validate_inscricao_estadual(v, uf):
+                raise ValueError(f"Inscrição Estadual '{v}' inválida para a UF '{uf}'.")
+            return v
+        
+        return v
+
+    def validate_email(cls, v):
+        if v:
+            if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', v):
+                raise ValueError('Email inválido')
+        return v
+
+    def validate_enderecos(cls, v, values):
+        """Para NFCom, pessoa jurídica deve ter pelo menos um endereço completo"""
+        tipo_pessoa = values.get('tipo_pessoa')
+        if tipo_pessoa == TipoPessoa.JURIDICA and len(v) == 0:
+            raise ValueError('Pessoa jurídica deve ter pelo menos um endereço cadastrado')
+        
+        from app.core.validators import validate_codigo_ibge
+        for addr in v:
+            try:
+                codigo = addr.codigo_ibge if hasattr(addr, 'codigo_ibge') else addr.get('codigo_ibge')
+                uf = addr.uf if hasattr(addr, 'uf') else addr.get('uf')
+            except Exception:
+                codigo = None
+                uf = None
+            
+            if codigo and uf:
+                if not validate_codigo_ibge(codigo, uf):
+                    raise ValueError(f"Código IBGE '{codigo}' inválido para a UF '{uf}' em um dos endereços.")
+        return v
+
+    def _validate_cpf(cpf):
+        """Validação básica de CPF"""
+        if len(cpf) != 11 or cpf == cpf[0] * 11:
+            return False
+        soma = sum(int(cpf[i]) * (10 - i) for i in range(9))
+        resto = (soma * 10) % 11
+        if resto == 10: resto = 0
+        if resto != int(cpf[9]): return False
+        soma = sum(int(cpf[i]) * (11 - i) for i in range(10))
+        resto = (soma * 10) % 11
+        if resto == 10: resto = 0
+        if resto != int(cpf[10]): return False
+        return True
+
+class ClienteUpdate(BaseModel):
+    nome_razao_social: Optional[str] = Field(None, max_length=255)
+    cpf_cnpj: Optional[str] = Field(None, max_length=18)
+    tipo_pessoa: Optional[TipoPessoa] = None
+    ind_ie_dest: Optional[IndicadorIEDest] = None
+    inscricao_estadual: Optional[str] = Field(None, max_length=20)
+    email: Optional[str] = Field(None, max_length=255)
+    telefone: Optional[str] = Field(None, max_length=20)
+    is_active: Optional[bool] = None
+
+    def clean_string_fields(cls, v):
+        if isinstance(v, str):
+            from app.core.validators import clean_string
+            return clean_string(v)
+        return v
+
+    def validate_email(cls, v):
+        if v:
+            if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', v):
+                raise ValueError('Email inválido')
+        return v
+
+# NEW Schemas for the "new model"
+class EmpresaClienteEnderecoResponse(ClienteEnderecoBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+class EmpresaClienteResponse(BaseModel):
+    id: int
+    empresa_id: int
+    enderecos: List[EmpresaClienteEnderecoResponse] = []
+    class Config:
+        from_attributes = True
+
+
+class ClienteResponse(ClienteBase):
+    id: int
+    empresa_id: int
+    ind_ie_dest: str  # Alterado de IndicadorIEDest para str para evitar problemas de serialização
+    is_active: Optional[bool] = True  # Opcional para suportar clientes sem esse campo
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    
+    # This will be populated from the legacy relationship, but we will overwrite it
+    enderecos: List[EmpresaClienteEnderecoResponse] = []
+    
+    # This will be populated from the NEW relationship and then used by the validator
+    empresa_associations: List[EmpresaClienteResponse] = Field([])
+
+    @validator('ind_ie_dest', pre=True)
+    def convert_ind_ie_dest_to_value(cls, v):
+        if hasattr(v, 'value'):
+            return v.value
+        return str(v)
+
+    @validator('enderecos', always=True)
+    def use_new_address_model_if_available(cls, v, values):
+        # v is the value from the legacy 'enderecos' relationship
+        # values contains the other model fields, including 'empresa_associations'
+        
+        # If legacy addresses exist, use them (for backward compatibility)
+        if v:
+            return v
+
+        # Otherwise, populate from the new association model
+        if 'empresa_associations' in values:
+            all_enderecos = []
+            for assoc in values['empresa_associations']:
+                all_enderecos.extend(assoc.enderecos)
+            return all_enderecos
+            
+        return v
+
+    class Config:
+        from_attributes = True
+
+
+class ClienteListResponse(BaseModel):
+    total: int
+    clientes: List[ClienteResponse]
+
+    class Config:
+        from_attributes = True

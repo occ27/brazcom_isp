@@ -1,0 +1,19 @@
+[
+  { "code": "1205", "description": "Anulação de valor relativo à prestação de serviço de comunicação (CFOP de Entrada/Ajuste)" },
+  { "code": "5301", "description": "Prestação de serviço de comunicação para execução de serviço da mesma natureza" },
+  { "code": "5302", "description": "Prestação de serviço de comunicação a estabelecimento industrial" },
+  { "code": "5303", "description": "Prestação de serviço de comunicação a estabelecimento comercial" },
+  { "code": "5304", "description": "Prestação de serviço de comunicação a estabelecimento de prestador de serviço de transporte" },
+  { "code": "5305", "description": "Prestação de serviço de comunicação a estabelecimento de geradora ou de distribuidora de energia elétrica" },
+  { "code": "5306", "description": "Prestação de serviço de comunicação a estabelecimento de produtor rural" },
+  { "code": "5307", "description": "Prestação de serviço de comunicação a não contribuinte (consumidor final/PF)" },
+  { "code": "5933", "description": "Prestação de serviço tributado pelo Imposto Sobre Serviços de Qualquer Natureza (ISSQN)" },
+  { "code": "6301", "description": "Prestação de serviço de comunicação para execução de serviço da mesma natureza (Interestadual)" },
+  { "code": "6302", "description": "Prestação de serviço de comunicação a estabelecimento industrial (Interestadual)" },
+  { "code": "6303", "description": "Prestação de serviço de comunicação a estabelecimento comercial (Interestadual)" },
+  { "code": "6304", "description": "Prestação de serviço de comunicação a estabelecimento de prestador de serviço de transporte (Interestadual)" },
+  { "code": "6305", "description": "Prestação de serviço de comunicação a estabelecimento de geradora ou de distribuidora de energia elétrica (Interestadual)" },
+  { "code": "6306", "description": "Prestação de serviço de comunicação a estabelecimento de produtor rural (Interestadual)" },
+  { "code": "6307", "description": "Prestação de serviço de comunicação a não contribuinte (Interestadual)" },
+  { "code": "7301", "description": "Prestação de serviço de comunicação para execução de serviço da mesma natureza (Exportação)" }
+]

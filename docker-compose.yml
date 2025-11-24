@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # Serviço do Banco de Dados MySQL
+  db:
+    image: mysql:8.0
+    container_name: brazcom_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    ports:
+      # Porta de produção: 3315 (host) -> 3306 (container)
+      - "3315:3306"
+    volumes:
+      - brazcom_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-P", "3306", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - brazcom_network
+
+  # Serviço do Backend (API FastAPI)
+  backend:
+    build: ./backend
+    container_name: brazcom_backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend:/app
+      # Monta o diretório de certificados do host para dentro do container
+      # Usa a variável CERTIFICATES_DIR definida no .env na raiz
+      - "${CERTIFICATES_DIR:-/etc/ssl/nfcom}:/etc/ssl/nfcom:rw"
+    ports:
+      # Porta de produção: 8015 (host) -> 8000 (container)
+      - "8015:8000"
+    depends_on:
+      - db
+    networks:
+      - brazcom_network
+    environment:
+      # Sobrescreve configurações para ambiente Docker
+      - DATABASE_URL=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
+      - CERTIFICATES_DIR=/etc/ssl/nfcom
+
+  # Serviço do Frontend (React)
+  frontend:
+    build: ./frontend
+    container_name: brazcom_frontend
+    restart: unless-stopped
+    environment:
+      # Em produção com proxy reverso (Apache/Nginx), usa caminho relativo
+      # O Apache em nfcom.holeshot.com.br faz proxy de /api para o backend
+      - REACT_APP_API_BASE_URL=/api
+    ports:
+      # Porta de produção: 3015 (host) -> 3000 (container)
+      - "3015:3000"
+    networks:
+      - brazcom_network
+
+networks:
+  brazcom_network:
+    driver: bridge
+
+volumes:
+  brazcom_db_data:
+    driver: local

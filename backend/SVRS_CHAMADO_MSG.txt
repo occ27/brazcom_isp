@@ -1,0 +1,33 @@
+Assunto: Diagnóstico NFCom — Rejeição cStat=599 (caracteres de edição) — PDF de evidências anexado
+
+Prezados,
+
+Estamos enfrentando rejeição cStat=599 ("Rejeição: Não é permitida a presença de caracteres de edição no início/fim da mensagem ou entre as tags da mensagem") ao transmitir NFCom para o ambiente de homologação SVRS (empresa_id=12, nfcom_id=14).
+
+Anexo principal: diagnostics_nfcom_14.pdf
+- O PDF contém:
+  - Relatório de canonicalização (inclusive/exclusive C14N, hashes SHA256)
+  - Hexdumps dos arquivos XML assinados e decodificados (±200 bytes ao redor do offset 257)
+  - Trechos dos arquivos XML e SOAP transmitidos
+  - Resumo dos testes realizados e respostas recebidas
+
+Resumo dos testes realizados:
+- Geramos e assinamos o XML conforme XSD, garantindo CanonicalizationMethod inclusivo.
+- Enviamos o XML assinado via SOAP, compactado com gzip (mtime=0) e codificado em base64, usando certificado digital válido.
+- Reenviamos o mesmo XML assinado (arquivo temp_signed_nfcom_latest.xml) no envelope SOAP (arquivo soap_signed_exact.xml), e também testamos variantes de compressão.
+- Todas as tentativas retornaram cStat=599.
+- O PDF anexo mostra a diferença detectada entre o XML assinado e o XML decodificado do payload (campo <dhEmi>), além dos hexdumps e hashes para facilitar análise.
+
+Solicitação:
+1. Poderiam informar o offset/byte exato e o valor/tipo de caractere que o validador SVRS considera como "caractere de edição" nos arquivos enviados?
+2. Existe alguma validação adicional sobre o header do gzip, envelope SOAP ou Content-Type que possa causar essa rejeição?
+3. Caso necessário, podemos enviar os arquivos originais (XML, SOAP, ZIP) em formato aceito pelo portal ou por e-mail.
+
+Agradecemos o suporte e aguardamos retorno com o diagnóstico detalhado.
+
+Atenciosamente,
+Orlando Carlos do Carmo
+(43)99982-0082
+
+
+Protocolo do atendimento por telefone: 1725526
