@@ -67,7 +67,18 @@ const Contracts: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [openForm, setOpenForm] = useState(false);
   const [editing, setEditing] = useState<Contrato | null>(null);
-  const [form, setForm] = useState<Partial<Contrato>>({ quantidade: 1, periodicidade: 'MENSAL', valor_unitario: 0, auto_emit: true, is_active: true });
+  const [form, setForm] = useState<Partial<Contrato>>({
+    quantidade: 1,
+    periodicidade: 'MENSAL',
+    valor_unitario: 0,
+    auto_emit: true,
+    is_active: true,
+    status: 'ATIVO',
+    periodo_carencia: 0,
+    multa_atraso_percentual: 0.0,
+    taxa_instalacao: 0.0,
+    taxa_instalacao_paga: false
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
   
@@ -435,6 +446,7 @@ const Contracts: React.FC = () => {
             <TableCell sx={{ fontWeight: 600 }}>Dia Emissão</TableCell>
             <TableCell sx={{ fontWeight: 600 }}>Dia Venc.</TableCell>
             <TableCell sx={{ fontWeight: 600 }}>Valor Unitário</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>Status ISP</TableCell>
             <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
             <TableCell sx={{ fontWeight: 600, width: 120 }}>Ações</TableCell>
           </TableRow>
@@ -483,6 +495,32 @@ const Contracts: React.FC = () => {
                     </>
                   )}
                   {c.auto_emit && <Chip label="Auto" color="info" size="small" />}
+                </Box>
+              </TableCell>
+              <TableCell>
+                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {c.status && (
+                    <Chip 
+                      label={c.status === 'ATIVO' ? 'Ativo' : 
+                             c.status === 'SUSPENSO' ? 'Suspenso' : 
+                             c.status === 'CANCELADO' ? 'Cancelado' : 
+                             c.status === 'PENDENTE_INSTALACAO' ? 'Pendente Instalação' : c.status} 
+                      color={c.status === 'ATIVO' ? 'success' : 
+                             c.status === 'SUSPENSO' ? 'warning' : 
+                             c.status === 'CANCELADO' ? 'error' : 
+                             c.status === 'PENDENTE_INSTALACAO' ? 'info' : 'default'} 
+                      size="small" 
+                      variant="outlined" 
+                    />
+                  )}
+                  {c.taxa_instalacao && c.taxa_instalacao > 0 && (
+                    <Chip 
+                      label={c.taxa_instalacao_paga ? 'Instalação Paga' : 'Taxa Pendente'} 
+                      color={c.taxa_instalacao_paga ? 'success' : 'warning'} 
+                      size="small" 
+                      variant="outlined" 
+                    />
+                  )}
                 </Box>
               </TableCell>
               <TableCell>
@@ -600,7 +638,7 @@ const Contracts: React.FC = () => {
       }
     } else {
       setEditing(null);
-      setForm({ quantidade: 1, periodicidade: 'MENSAL', valor_unitario: 0, auto_emit: true, is_active: true, dia_emissao: 1 });
+      setForm({ quantidade: 1, periodicidade: 'MENSAL', valor_unitario: 0, auto_emit: true, is_active: true, dia_emissao: 1, status: 'ATIVO', periodo_carencia: 0, multa_atraso_percentual: 0.0, taxa_instalacao: 0.0, taxa_instalacao_paga: false, sla_garantido: undefined, velocidade_garantida: '', subscription_id: undefined });
       // Reset input values and prefetch the first 10 clients and services
       setClientSearch('');
       setServicoSearch('');
@@ -911,7 +949,31 @@ const Contracts: React.FC = () => {
                       options={clients}
                       getOptionLabel={(option) => `${option.nome_razao_social} (${clientService.formatCpfCnpj(option.cpf_cnpj)})`}
                       value={clients.find(cl => cl.id === form.cliente_id) || null}
-                      onChange={(_, value) => handleInputChange('cliente_id', value?.id || undefined)}
+                      onChange={async (_, value) => {
+                        handleInputChange('cliente_id', value?.id || undefined);
+                        
+                        // Preencher automaticamente o endereço de instalação com o primeiro endereço do cliente
+                        // apenas se o campo estiver vazio
+                        if (value && activeCompany && !form.endereco_instalacao) {
+                          try {
+                            const clientDetails = await clientService.getClientById(value.id, activeCompany.id);
+                            if (clientDetails.enderecos && clientDetails.enderecos.length > 0) {
+                              // Pegar o primeiro endereço (ou o principal se existir)
+                              const enderecoPrincipal = clientDetails.enderecos.find(e => e.is_principal) || clientDetails.enderecos[0];
+                              
+                              // Formatar o endereço completo
+                              const enderecoCompleto = `${enderecoPrincipal.endereco}, ${enderecoPrincipal.numero}${enderecoPrincipal.complemento ? ', ' + enderecoPrincipal.complemento : ''} - ${enderecoPrincipal.bairro}, ${enderecoPrincipal.municipio}/${enderecoPrincipal.uf}, CEP: ${enderecoPrincipal.cep}`;
+                              
+                              handleInputChange('endereco_instalacao', enderecoCompleto);
+                            }
+                          } catch (error) {
+                            console.error('Erro ao buscar endereços do cliente:', error);
+                          }
+                        } else if (!value) {
+                          // Limpar o endereço se nenhum cliente foi selecionado
+                          handleInputChange('endereco_instalacao', '');
+                        }
+                      }}
                       inputValue={clientSearch}
                       onInputChange={(_, value, reason) => {
                         setClientSearch(value);
@@ -1085,6 +1147,175 @@ const Contracts: React.FC = () => {
                         <MenuItem value="false">Inativo</MenuItem>
                       </Select>
                     </FormControl>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-teal-50 to-cyan-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-teal-100">
+                  <h3 className="text-lg sm:text-xl font-bold text-teal-800 mb-1 sm:mb-2 flex items-center">
+                    <span className="mr-2 text-base sm:text-lg">🏢</span>
+                    <span className="text-sm sm:text-base">Status do Contrato (ISP)</span>
+                  </h3>
+                  <p className="text-xs sm:text-sm text-teal-600 hidden sm:block">
+                    Status específico para contratos de internet.
+                  </p>
+                  <div className="mt-3 sm:mt-4">
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Status do Contrato</InputLabel>
+                      <Select
+                        value={form.status || 'ATIVO'}
+                        label="Status do Contrato"
+                        onChange={(e: SelectChangeEvent) => handleInputChange('status', e.target.value)}
+                      >
+                        <MenuItem value="ATIVO">Ativo</MenuItem>
+                        <MenuItem value="SUSPENSO">Suspenso</MenuItem>
+                        <MenuItem value="CANCELADO">Cancelado</MenuItem>
+                        <MenuItem value="PENDENTE_INSTALACAO">Pendente de Instalação</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-emerald-50 to-green-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-emerald-100">
+                  <h3 className="text-lg sm:text-xl font-bold text-emerald-800 mb-1 sm:mb-2 flex items-center">
+                    <span className="mr-2 text-base sm:text-lg">📍</span>
+                    <span className="text-sm sm:text-base">Informações de Instalação</span>
+                  </h3>
+                  <p className="text-xs sm:text-sm text-emerald-600 hidden sm:block">
+                    Dados específicos da instalação do serviço de internet.
+                  </p>
+                  <div className="mt-3 sm:mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <TextField
+                      label="Endereço de Instalação"
+                      value={form.endereco_instalacao || ''}
+                      onChange={e => handleInputChange('endereco_instalacao', e.target.value)}
+                      fullWidth
+                      size="small"
+                      multiline
+                      rows={2}
+                      helperText="Endereço onde o serviço será instalado"
+                    />
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Tipo de Conexão</InputLabel>
+                      <Select
+                        value={form.tipo_conexao || ''}
+                        label="Tipo de Conexão"
+                        onChange={(e: SelectChangeEvent) => handleInputChange('tipo_conexao', e.target.value)}
+                      >
+                        <MenuItem value="FIBRA">Fibra Óptica</MenuItem>
+                        <MenuItem value="RADIO">Rádio</MenuItem>
+                        <MenuItem value="CABO">Cabo</MenuItem>
+                        <MenuItem value="SATELITE">Satélite</MenuItem>
+                        <MenuItem value="ADSL">ADSL</MenuItem>
+                        <MenuItem value="OUTRO">Outro</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <TextField
+                      label="Coordenadas GPS"
+                      value={form.coordenadas_gps || ''}
+                      onChange={e => handleInputChange('coordenadas_gps', e.target.value)}
+                      fullWidth
+                      size="small"
+                      placeholder="latitude,longitude"
+                      helperText="Ex: -23.550520,-46.633308"
+                    />
+                    <TextField
+                      label="Data de Instalação"
+                      type="date"
+                      value={form.data_instalacao || ''}
+                      onChange={e => handleInputChange('data_instalacao', e.target.value)}
+                      fullWidth
+                      size="small"
+                      InputLabelProps={{ shrink: true }}
+                    />
+                    <TextField
+                      label="Responsável Técnico"
+                      value={form.responsavel_tecnico || ''}
+                      onChange={e => handleInputChange('responsavel_tecnico', e.target.value)}
+                      fullWidth
+                      size="small"
+                      helperText="Nome do técnico responsável pela instalação"
+                    />
+                    <TextField
+                      label="Velocidade Garantida"
+                      value={form.velocidade_garantida || ''}
+                      onChange={e => handleInputChange('velocidade_garantida', e.target.value)}
+                      fullWidth
+                      size="small"
+                      placeholder="Ex: 10M/10M"
+                      helperText="Velocidade de download/upload garantida"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-rose-50 to-pink-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-rose-100">
+                  <h3 className="text-lg sm:text-xl font-bold text-rose-800 mb-1 sm:mb-2 flex items-center">
+                    <span className="mr-2 text-base sm:text-lg">💰</span>
+                    <span className="text-sm sm:text-base">Cobrança e SLA</span>
+                  </h3>
+                  <p className="text-xs sm:text-sm text-rose-600 hidden sm:block">
+                    Configurações de cobrança e qualidade do serviço.
+                  </p>
+                  <div className="mt-3 sm:mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <TextField
+                      label="Período de Carência (dias)"
+                      type="number"
+                      value={form.periodo_carencia || 0}
+                      onChange={e => handleInputChange('periodo_carencia', parseInt(e.target.value || '0'))}
+                      fullWidth
+                      size="small"
+                      inputProps={{ min: 0 }}
+                      helperText="Dias de tolerância após vencimento"
+                    />
+                    <TextField
+                      label="Multa por Atraso (%)"
+                      type="number"
+                      value={form.multa_atraso_percentual || 0}
+                      onChange={e => handleInputChange('multa_atraso_percentual', parseFloat(e.target.value || '0'))}
+                      fullWidth
+                      size="small"
+                      inputProps={{ min: 0, max: 100, step: 0.01 }}
+                      helperText="Percentual de multa sobre valor devido"
+                    />
+                    <TextField
+                      label="Taxa de Instalação (R$)"
+                      type="number"
+                      value={form.taxa_instalacao || 0}
+                      onChange={e => handleInputChange('taxa_instalacao', parseFloat(e.target.value || '0'))}
+                      fullWidth
+                      size="small"
+                      inputProps={{ min: 0, step: 0.01 }}
+                      helperText="Taxa única cobrada na instalação"
+                    />
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Taxa de Instalação Paga</InputLabel>
+                      <Select
+                        value={form.taxa_instalacao_paga ? 'true' : 'false'}
+                        label="Taxa de Instalação Paga"
+                        onChange={(e: SelectChangeEvent) => handleInputChange('taxa_instalacao_paga', e.target.value === 'true')}
+                      >
+                        <MenuItem value="false">Não</MenuItem>
+                        <MenuItem value="true">Sim</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <TextField
+                      label="SLA Garantido (%)"
+                      type="number"
+                      value={form.sla_garantido || ''}
+                      onChange={e => handleInputChange('sla_garantido', e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                      fullWidth
+                      size="small"
+                      inputProps={{ min: 0, max: 100, step: 0.01 }}
+                      helperText="SLA de disponibilidade garantido"
+                    />
+                    <TextField
+                      label="Subscription ID"
+                      value={form.subscription_id || ''}
+                      onChange={e => handleInputChange('subscription_id', e.target.value === '' ? undefined : parseInt(e.target.value))}
+                      fullWidth
+                      size="small"
+                      type="number"
+                      helperText="ID da subscription relacionada (opcional)"
+                    />
                   </div>
                 </div>
               </div>

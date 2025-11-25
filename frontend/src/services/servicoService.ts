@@ -3,6 +3,7 @@ import api from './authService';
 export interface Servico {
   id: number;
   empresa_id?: number;
+  tipo: string;  // 'SERVICO' ou 'PLANO_INTERNET'
   cClass?: string;
   codigo?: string;
   descricao: string;
@@ -13,6 +14,15 @@ export interface Servico {
   base_calculo_icms_default?: number;
   aliquota_icms_default?: number;
   ativo?: boolean;
+  upload_speed?: number;
+  download_speed?: number;
+  max_limit?: string;
+  fidelity_months?: number;
+  billing_cycle?: string;
+  notes?: string;
+  promotional_price?: number;
+  promotional_months?: number;
+  promotional_active?: boolean;
 }
 
 const getServicosByEmpresa = async (empresaId: number, signal?: AbortSignal): Promise<Servico[]> => {

@@ -5,6 +5,25 @@ from app.core.database import Base
 import enum
 from .servico_model import Servico
 
+
+class StatusContrato(str, enum.Enum):
+    """Status possíveis para um contrato de serviço."""
+    ATIVO = "ATIVO"
+    SUSPENSO = "SUSPENSO"
+    CANCELADO = "CANCELADO"
+    PENDENTE_INSTALACAO = "PENDENTE_INSTALACAO"
+
+
+class TipoConexao(str, enum.Enum):
+    """Tipos de conexão disponíveis para ISPs."""
+    FIBRA = "FIBRA"
+    RADIO = "RADIO"
+    CABO = "CABO"
+    SATELITE = "SATELITE"
+    ADSL = "ADSL"
+    OUTRO = "OUTRO"
+
+
 class Usuario(Base):
     """Modelo de Usuário do sistema."""
     __tablename__ = "users"
@@ -21,7 +40,6 @@ class Usuario(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     empresas = relationship("UsuarioEmpresa", back_populates="usuario")
-
 
 class PasswordResetToken(Base):
     """Token/código de redefinição de senha enviado por email."""
@@ -89,6 +107,7 @@ class Empresa(Base):
     routers = relationship("Router", back_populates="empresa", cascade="all, delete-orphan")
     radius_servers = relationship("RadiusServer", back_populates="empresa", cascade="all, delete-orphan")
     radius_users = relationship("RadiusUser", back_populates="empresa", cascade="all, delete-orphan")
+    ip_classes = relationship("IPClass", back_populates="empresa", cascade="all, delete-orphan")
     # Especifica explicitamente que esta relação usa a coluna user_id como FK
     usuario_criador = relationship(
         "Usuario",
@@ -123,7 +142,6 @@ class EmpresaCliente(Base):
     cliente = relationship("Cliente", back_populates="empresa_associations")
     created_by = relationship("Usuario")
     enderecos = relationship("EmpresaClienteEndereco", back_populates="empresa_cliente", cascade="all, delete-orphan")
-
 
 class EmpresaClienteEndereco(Base):
     """Endereços vinculados à associação EmpresaCliente (permitir endereços distintos por empresa)."""
@@ -259,7 +277,6 @@ class NFCom(Base):
     email_sent_at = Column(DateTime(timezone=True))
     email_error = Column(Text)
 
-
 class NFComEmailJob(Base):
     __tablename__ = 'nfcom_email_jobs'
     id = Column(Integer, primary_key=True, index=True)
@@ -271,7 +288,6 @@ class NFComEmailJob(Base):
     successes = Column(Integer, nullable=False, default=0)
     failures = Column(Integer, nullable=False, default=0)
     status = Column(String(30), nullable=False, server_default='pending')
-
 
 class NFComEmailStatus(Base):
     __tablename__ = 'nfcom_email_statuses'
@@ -316,7 +332,6 @@ class NFComItem(Base):
     nfcom = relationship("NFCom", back_populates="itens")
     servico = relationship("Servico")
 
-
 class ServicoContratado(Base):
     """Serviços contratados por um cliente (para emissão recorrente/por contrato)."""
     __tablename__ = "servicos_contratados"
@@ -331,20 +346,43 @@ class ServicoContratado(Base):
     d_contrato_ini = Column(Date, nullable=True)
     d_contrato_fim = Column(Date, nullable=True)
 
+    # Status do contrato (específico para ISPs)
+    status = Column(SQLAlchemyEnum(StatusContrato), nullable=False, server_default=StatusContrato.ATIVO.value)
+
+    # Informações de instalação (específicas para ISPs)
+    endereco_instalacao = Column(Text, nullable=True)  # Endereço onde o serviço é instalado (pode ser diferente do endereço do cliente)
+    tipo_conexao = Column(SQLAlchemyEnum(TipoConexao), nullable=True)
+    coordenadas_gps = Column(String(50), nullable=True)  # Latitude,Longitude para mapeamento
+    data_instalacao = Column(Date, nullable=True)  # Quando foi instalado fisicamente
+    responsavel_tecnico = Column(String(100), nullable=True)  # Nome do técnico responsável
+
     # Emissão e cobrança
-    periodicidade = Column(String(20), nullable=False, server_default='MENSAL')  # Ex: MENSAL, UNICA
+    periodicidade = Column(String(20), nullable=False, server_default='MENSAL')  # Ex: MENSAL, BIMESTRAL, TRIMESTRAL, SEMESTRAL, ANUAL
     dia_emissao = Column(Integer, nullable=False)  # Dia do mês para emissão (1-28/30/31 conforme contrato)
     quantidade = Column(Float, nullable=False, default=1.0)
     valor_unitario = Column(Float, nullable=False)
     valor_total = Column(Float, nullable=True)
     # Novo campo: dia do mês para vencimento (1-31). Preferido para geração de faturas automáticas.
     dia_vencimento = Column(Integer, nullable=True)
+    periodo_carencia = Column(Integer, nullable=True, default=0)  # Dias de carência após vencimento
+    multa_atraso_percentual = Column(Float, nullable=True, default=0.0)  # % de multa por atraso
+
+    # Taxas adicionais (comuns em ISPs)
+    taxa_instalacao = Column(Float, nullable=True, default=0.0)  # Taxa única de instalação
+    taxa_instalacao_paga = Column(Boolean, nullable=True, default=False)  # Se já foi cobrada
+
+    # SLA e qualidade (específicos para ISPs)
+    sla_garantido = Column(Float, nullable=True)  # SLA garantido em % (ex: 99.9)
+    velocidade_garantida = Column(String(50), nullable=True)  # Velocidade garantida (ex: "10M/10M")
 
     # Controles de emissão automática
     auto_emit = Column(Boolean, default=True)
     is_active = Column(Boolean, default=True)
     last_emission = Column(DateTime(timezone=True), nullable=True)
     next_emission = Column(DateTime(timezone=True), nullable=True)
+
+    # Relacionamento com subscription ativa (provisionamento)
+    subscription_id = Column(Integer, ForeignKey("subscriptions.id"), nullable=True)  # Link com ativação atual
 
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -353,6 +391,7 @@ class ServicoContratado(Base):
     empresa = relationship("Empresa", back_populates="servicos_contratados")
     cliente = relationship("Cliente", back_populates="servicos_contratados")
     servico = relationship("Servico")
+    subscription = relationship("Subscription")
 
 class NFComFatura(Base):
     """Modelo de Fatura/Cobrança da NFCom."""
@@ -367,7 +406,6 @@ class NFComFatura(Base):
     codigo_barras = Column(String(48), nullable=True)  # Linha digitável do código de barras (1-48 dígitos)
     
     nfcom = relationship("NFCom", back_populates="faturas")
-
 
 # Imports tardios para resolver dependências circulares
 from .network import Router

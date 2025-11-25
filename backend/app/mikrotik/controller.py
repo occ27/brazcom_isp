@@ -165,3 +165,156 @@ class MikrotikController:
             return True
         else:
             return resource.add(**data)
+
+    def get_interfaces(self):
+        """Busca todas as interfaces do router (/interface)."""
+        self.connect()
+        resource = self._api.get_resource('interface')
+        return resource.get()
+
+    def get_interface_by_name(self, name: str):
+        """Busca uma interface específica por nome."""
+        self.connect()
+        resource = self._api.get_resource('interface')
+        interfaces = resource.get(name=name)
+        return interfaces[0] if interfaces else None
+
+    def get_ip_addresses(self):
+        """Busca todos os endereços IP configurados (/ip/address)."""
+        self.connect()
+        resource = self._api.get_resource('ip/address')
+        return resource.get()
+
+    def add_ip_address(self, address: str, interface: str, comment: Optional[str] = None):
+        """Adiciona um endereço IP a uma interface (/ip/address)."""
+        self.connect()
+        resource = self._api.get_resource('ip/address')
+        data = {'address': address, 'interface': interface}
+        if comment:
+            data['comment'] = comment
+        return resource.add(**data)
+
+    def remove_ip_address(self, address: str, interface: Optional[str] = None):
+        """Remove um endereço IP de uma interface."""
+        self.connect()
+        resource = self._api.get_resource('ip/address')
+
+        # Busca a entrada
+        if interface:
+            entries = resource.get(address=address, interface=interface)
+        else:
+            entries = resource.get(address=address)
+
+        removed = 0
+        for entry in entries:
+            entry_id = entry.get('.id') or entry.get('id')
+            if entry_id:
+                try:
+                    resource.remove(id=entry_id)
+                    removed += 1
+                except Exception as e:
+                    print(f"Erro ao remover endereço IP {address}: {e}")
+
+        return removed
+
+    def set_ip_address(self, address: str, interface: str, comment: Optional[str] = None):
+        """Define um endereço IP em uma interface, removendo entradas antigas se necessário."""
+        self.connect()
+
+        # Remove endereços existentes nesta interface (exceto o que estamos configurando)
+        existing = self.get_ip_addresses()
+        for entry in existing:
+            if entry.get('interface') == interface and entry.get('address') != address:
+                try:
+                    self.remove_ip_address(entry['address'], interface)
+                except Exception:
+                    pass
+
+        # Verifica se o endereço já existe
+        existing_address = [e for e in existing if e.get('address') == address and e.get('interface') == interface]
+
+        if existing_address:
+            # Atualiza comentário se necessário
+            if comment and existing_address[0].get('comment') != comment:
+                resource = self._api.get_resource('ip/address')
+                resource.update(id=existing_address[0]['.id'], comment=comment)
+            return existing_address[0]
+        else:
+            # Adiciona novo endereço
+            return self.add_ip_address(address, interface, comment)
+
+    def get_dhcp_servers(self):
+        """Busca servidores DHCP configurados (/ip/dhcp-server)."""
+        self.connect()
+        resource = self._api.get_resource('ip/dhcp-server')
+        return resource.get()
+
+    def add_dhcp_server(self, name: str, interface: str, address_pool: str, disabled: bool = False):
+        """Adiciona um servidor DHCP."""
+        self.connect()
+        resource = self._api.get_resource('ip/dhcp-server')
+        data = {
+            'name': name,
+            'interface': interface,
+            'address-pool': address_pool,
+            'disabled': 'yes' if disabled else 'no'
+        }
+        return resource.add(**data)
+
+    def get_dhcp_pools(self):
+        """Busca pools de endereços DHCP (/ip/pool)."""
+        self.connect()
+        resource = self._api.get_resource('ip/pool')
+        return resource.get()
+
+    def add_dhcp_pool(self, name: str, ranges: str):
+        """Adiciona um pool de endereços DHCP."""
+        self.connect()
+        resource = self._api.get_resource('ip/pool')
+        data = {'name': name, 'ranges': ranges}
+        return resource.add(**data)
+
+    def get_dns_servers(self):
+        """Busca configuração de DNS (/ip/dns)."""
+        self.connect()
+        resource = self._api.get_resource('ip/dns')
+        return resource.get()
+
+    def set_dns_servers(self, servers: list, allow_remote_requests: bool = True):
+        """Configura servidores DNS."""
+        self.connect()
+        resource = self._api.get_resource('ip/dns')
+
+        # Converte lista para string separada por vírgulas
+        servers_str = ','.join(servers)
+
+        data = {
+            'servers': servers_str,
+            'allow-remote-requests': 'yes' if allow_remote_requests else 'no'
+        }
+
+        # Para DNS, usar set diretamente (não há entradas múltiplas)
+        return resource.set(**data)
+
+    def set_default_route(self, gateway: str, comment: Optional[str] = None):
+        """Configura rota padrão (default route)."""
+        self.connect()
+        resource = self._api.get_resource('ip/route')
+
+        # Remove rotas padrão existentes (dst-address=0.0.0.0/0)
+        existing = resource.get(dst_address='0.0.0.0/0')
+        for route in existing:
+            try:
+                resource.remove(id=route['.id'])
+            except Exception:
+                pass
+
+        # Adiciona nova rota padrão
+        data = {
+            'dst-address': '0.0.0.0/0',
+            'gateway': gateway
+        }
+        if comment:
+            data['comment'] = comment
+
+        return resource.add(**data)

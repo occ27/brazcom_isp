@@ -16,6 +16,8 @@ import Contracts from './pages/Contracts';
 import Users from './pages/Users';
 import Reports from './pages/Reports';
 import Routers from './pages/Routers';
+import RouterInterfaces from './pages/RouterInterfaces';
+import IPClasses from './pages/IPClasses';
 import AuthenticatedLayout from './components/AuthenticatedLayout';
 import { PageType } from './types';
 
@@ -110,6 +112,7 @@ const AuthenticatedApp: React.FC<{ children: React.ReactNode }> = ({ children })
     if (path.startsWith('/users')) return 'users';
     if (path === '/reports') return 'reports';
     if (path === '/routers') return 'routers';
+    if (path === '/ip-classes') return 'ip-classes';
     if (path === '/profile') return 'profile';
     return 'dashboard';
   };
@@ -124,6 +127,7 @@ const AuthenticatedApp: React.FC<{ children: React.ReactNode }> = ({ children })
     else if (page === 'users') navigate('/users');
     else if (page === 'reports') navigate('/reports');
     else if (page === 'routers') navigate('/routers');
+    else if (page === 'ip-classes') navigate('/ip-classes');
     else if (page === 'profile') navigate('/profile');
   };
 
@@ -243,6 +247,26 @@ const AppContent: React.FC = () => {
           <ProtectedRoute>
             <AuthenticatedApp>
               <Routers />
+            </AuthenticatedApp>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/routers/:routerId/interfaces"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedApp>
+              <RouterInterfaces />
+            </AuthenticatedApp>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/ip-classes"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedApp>
+              <IPClasses />
             </AuthenticatedApp>
           </ProtectedRoute>
         }

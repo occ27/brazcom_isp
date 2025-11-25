@@ -2015,7 +2015,24 @@ def bulk_emit_nfcom_from_contracts(db: Session, contract_ids: list, empresa_id: 
                     db.add(db_nf)
                     db.flush()
 
-                    # Cria um item único baseado no serviço contratado
+                    # Verifica se há taxa de instalação pendente para incluir na NFCom
+                    taxa_instalacao = getattr(contrato, 'taxa_instalacao', 0) or 0
+                    taxa_paga = getattr(contrato, 'taxa_instalacao_paga', False) or False
+
+                    # Calcula valor total incluindo taxa de instalação se aplicável
+                    valor_total_plano = valor_total
+                    valor_total_com_taxa = valor_total
+
+                    if taxa_instalacao > 0 and not taxa_paga:
+                        valor_total_com_taxa = valor_total + taxa_instalacao
+                        # Atualiza o valor total da NFCom para incluir a taxa
+                        valor_total = valor_total_com_taxa
+                        db_nf.valor_total = valor_total
+
+                    # Cria itens da NFCom (plano + taxa de instalação se aplicável)
+                    itens_criados = []
+
+                    # Item 1: Plano de assinatura (sempre presente)
                     serv = None
                     try:
                         serv = db.query(models.Servico).filter(models.Servico.id == contrato.servico_id).first()
@@ -2031,7 +2048,7 @@ def bulk_emit_nfcom_from_contracts(db: Session, contract_ids: list, empresa_id: 
 
                     final_vu = contrato_vu if contrato_vu and contrato_vu > 0 else serv_vu
 
-                    item = models.NFComItem(
+                    item_plano = models.NFComItem(
                         nfcom_id=db_nf.id,
                         servico_id=getattr(contrato, 'servico_id', None),
                         cClass=getattr(serv, 'cClass', '') if serv is not None else '',
@@ -2051,9 +2068,45 @@ def bulk_emit_nfcom_from_contracts(db: Session, contract_ids: list, empresa_id: 
                         aliquota_pis=(getattr(contrato, 'servico_aliquota_pis_default', None) if getattr(contrato, 'servico_aliquota_pis_default', None) is not None else getattr(serv, 'aliquota_pis_default', None)) or 0,
                         base_calculo_cofins=(getattr(contrato, 'servico_base_calculo_cofins_default', None) if getattr(contrato, 'servico_base_calculo_cofins_default', None) is not None else getattr(serv, 'base_calculo_cofins_default', None)) or 0,
                         aliquota_cofins=(getattr(contrato, 'servico_aliquota_cofins_default', None) if getattr(contrato, 'servico_aliquota_cofins_default', None) is not None else getattr(serv, 'aliquota_cofins_default', None)) or 0,
-                        valor_total=valor_total
+                        valor_total=valor_total_plano
                     )
-                    db.add(item)
+                    db.add(item_plano)
+                    itens_criados.append(item_plano)
+
+                    # Item 2: Taxa de instalação (se aplicável)
+                    if taxa_instalacao > 0 and not taxa_paga:
+                        # Cria um serviço específico para taxa de instalação ou usa um genérico
+                        # Aqui assumimos que existe um serviço padrão para "Taxa de Instalação"
+                        # ou podemos criar um item genérico
+                        item_taxa = models.NFComItem(
+                            nfcom_id=db_nf.id,
+                            servico_id=None,  # Taxa não está ligada a um serviço específico
+                            cClass='010101',  # Código genérico para serviços - pode ser configurado
+                            codigo_servico='TAXA_INSTALACAO',
+                            descricao_servico='Taxa de Instalação de Serviço de Telecomunicações',
+                            quantidade=1,
+                            unidade_medida='UN',
+                            valor_unitario=taxa_instalacao,
+                            valor_desconto=0,
+                            valor_outros=0,
+                            # Campos fiscais específicos para taxa de instalação
+                            # Estes podem ser diferentes do plano de assinatura
+                            cfop='5307',  # CFOP específico para serviços de instalação
+                            ncm='',  # Taxa de instalação geralmente não tem NCM
+                            base_calculo_icms=taxa_instalacao,  # Base de cálculo = valor da taxa
+                            aliquota_icms=18.0,  # Alíquota padrão - pode ser configurada
+                            base_calculo_pis=taxa_instalacao,
+                            aliquota_pis=0.65,  # PIS para serviços
+                            base_calculo_cofins=taxa_instalacao,
+                            aliquota_cofins=3.0,  # COFINS para serviços
+                            valor_total=taxa_instalacao
+                        )
+                        db.add(item_taxa)
+                        itens_criados.append(item_taxa)
+
+                        # Marca a taxa como paga no contrato
+                        contrato.taxa_instalacao_paga = True
+                        db.add(contrato)
 
 
                     # Cria fatura se houver vencimento/valor

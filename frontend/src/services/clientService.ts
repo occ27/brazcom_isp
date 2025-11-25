@@ -24,12 +24,27 @@ export interface ClientCreate {
   enderecos?: ClienteEnderecoCreate[];
 }
 
+export interface ClienteEnderecoResponse {
+  id: number;
+  descricao?: string;
+  endereco: string;
+  numero: string;
+  complemento?: string;
+  bairro: string;
+  municipio: string;
+  uf: string;
+  cep: string;
+  codigo_ibge?: string;
+  is_principal?: boolean;
+}
+
 export interface ClientResponse extends ClientCreate {
   id: number;
   empresa_id: number;
   is_active: boolean;
   created_at: string;
   updated_at?: string;
+  enderecos?: ClienteEnderecoResponse[];
 }
 
 export interface ClientListResponse {

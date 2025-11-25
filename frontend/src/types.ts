@@ -9,6 +9,7 @@ export type PageType =
   | 'reports'
   | 'users'
   | 'routers'
+  | 'ip-classes'
   | 'settings';
 
 export interface User {
@@ -115,4 +116,51 @@ export interface Router {
   created_at: string;
   updated_at?: string;
   empresa?: Company;
+  interfaces?: RouterInterface[];
+}
+
+export interface RouterInterface {
+  id: number;
+  router_id: number;
+  nome: string;
+  tipo: string;
+  mac_address?: string;
+  comentario?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+  enderecos_ip?: InterfaceIPAddress[];
+  ip_classes?: IPClass[];
+}
+
+export interface InterfaceIPAddress {
+  id: number;
+  interface_id: number;
+  endereco_ip: string;
+  comentario?: string;
+  is_primary: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface IPClass {
+  id: number;
+  empresa_id: number;
+  nome: string;
+  rede: string;
+  gateway?: string;
+  dns1?: string;
+  dns2?: string;
+  created_at: string;
+  updated_at?: string;
+  interfaces?: RouterInterface[];
+}
+
+export interface InterfaceIPClassAssignment {
+  id: number;
+  interface_id: number;
+  ip_class_id: number;
+  assigned_at: string;
+  applied_configs?: string[];
+  application_status?: string;
 }

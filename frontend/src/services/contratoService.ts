@@ -17,6 +17,22 @@ export interface Contrato {
   valor_total?: number;
   auto_emit?: boolean;
   is_active?: boolean;
+
+  // Novos campos específicos para ISPs
+  status?: 'ATIVO' | 'SUSPENSO' | 'CANCELADO' | 'PENDENTE_INSTALACAO';
+  endereco_instalacao?: string;
+  tipo_conexao?: 'FIBRA' | 'RADIO' | 'CABO' | 'SATELITE' | 'ADSL' | 'OUTRO';
+  coordenadas_gps?: string;
+  data_instalacao?: string;
+  responsavel_tecnico?: string;
+  periodo_carencia?: number;
+  multa_atraso_percentual?: number;
+  taxa_instalacao?: number;
+  taxa_instalacao_paga?: boolean;
+  sla_garantido?: number;
+  velocidade_garantida?: string;
+  subscription_id?: number;
+
   // Related data
   cliente_nome?: string;
   cliente_razao_social?: string;

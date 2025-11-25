@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Typography,
   Box,
@@ -34,6 +35,7 @@ import {
   TrashIcon,
   ServerIcon
 } from '@heroicons/react/24/outline';
+import { SettingsEthernet as InterfaceIcon } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
 import { routerService, RouterCreate, RouterUpdate } from '../services/routerService';
@@ -43,6 +45,7 @@ import { Router } from '../types';
 const Routers: React.FC = () => {
   const { user } = useAuth();
   const { activeCompany } = useCompany();
+  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [routers, setRouters] = useState<Router[]>([]);
@@ -298,6 +301,14 @@ const Routers: React.FC = () => {
                     />
                   </TableCell>
                   <TableCell>
+                    <IconButton
+                      size="small"
+                      onClick={() => navigate(`/routers/${router.id}/interfaces`)}
+                      title="Gerenciar Interfaces"
+                      color="primary"
+                    >
+                      <InterfaceIcon />
+                    </IconButton>
                     <IconButton
                       size="small"
                       onClick={() => handleOpenDialog(router)}

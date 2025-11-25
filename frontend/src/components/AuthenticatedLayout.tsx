@@ -73,6 +73,7 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
         { label: 'Empresas', icon: BuildingOfficeIcon, path: 'companies' as PageType, group: 'cadastros' },
         { label: 'Usuários', icon: UserIcon, path: 'users' as PageType, group: 'administracao' },
         { label: 'Routers', icon: HomeIcon, path: 'routers' as PageType, group: 'administracao' },
+        { label: 'Classes IP', icon: ServerIcon, path: 'ip-classes' as PageType, group: 'administracao' },
       ]
     },
     {

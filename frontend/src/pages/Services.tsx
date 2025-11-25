@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { Box, Paper, Typography, Button, IconButton, TextField, CircularProgress, Chip, Snackbar, Alert, useMediaQuery, useTheme, MenuItem, FormControl, InputLabel, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination, Card, CardContent, Divider, Pagination, SelectChangeEvent, InputAdornment, Autocomplete } from '@mui/material';
+import { Box, Paper, Typography, Button, IconButton, TextField, CircularProgress, Chip, Snackbar, Alert, useMediaQuery, useTheme, MenuItem, FormControl, InputLabel, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination, Card, CardContent, Divider, Pagination, SelectChangeEvent, InputAdornment, Autocomplete, Tabs, Tab, FormControlLabel, Checkbox } from '@mui/material';
 import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import cclassList from '../data/cclass.json';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -10,6 +10,7 @@ import servicoService, { Servico, ServicoListResponse } from '../services/servic
 import { stringifyError } from '../utils/error';
 
 interface ServicoCreate {
+  tipo: string;
   codigo: string;
   descricao: string;
   cClass?: string;
@@ -21,6 +22,15 @@ interface ServicoCreate {
   aliquota_icms_default?: number;
   valor_desconto_default?: number;
   valor_outros_default?: number;
+  upload_speed?: number;
+  download_speed?: number;
+  max_limit?: string;
+  fidelity_months?: number;
+  billing_cycle?: string;
+  notes?: string;
+  promotional_price?: number;
+  promotional_months?: number;
+  promotional_active?: boolean;
 }
 
 const Servicos: React.FC = () => {
@@ -40,9 +50,10 @@ const Servicos: React.FC = () => {
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
 
-  const [formData, setFormData] = useState<ServicoCreate>({ codigo: '', descricao: '', cClass: '', unidade_medida: 'UN', valor_unitario: 0, cfop: '', ncm: '', base_calculo_icms_default: 0, aliquota_icms_default: 0, valor_desconto_default: 0, valor_outros_default: 0 });
+  const [formData, setFormData] = useState<ServicoCreate>({ tipo: 'SERVICO', codigo: '', descricao: '', cClass: '', unidade_medida: 'UN', valor_unitario: 0, cfop: '', ncm: '', base_calculo_icms_default: 0, aliquota_icms_default: 0, valor_desconto_default: 0, valor_outros_default: 0, upload_speed: 0, download_speed: 0, max_limit: '', fidelity_months: 0, billing_cycle: 'MENSAL', notes: '', promotional_price: 0, promotional_months: 0, promotional_active: false });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
+  const [tabValue, setTabValue] = useState(0);
 
   const loadServicos = useCallback(async () => {
     if (!activeCompany) return;
@@ -151,6 +162,7 @@ const Servicos: React.FC = () => {
       <Table stickyHeader>
         <TableHead>
           <TableRow>
+            <TableCell sx={{ fontWeight: 600 }}>Tipo</TableCell>
             <TableCell sx={{ fontWeight: 600 }}>Código</TableCell>
             <TableCell sx={{ fontWeight: 600 }}>Descrição</TableCell>
             <TableCell sx={{ fontWeight: 600 }}>Valor Unitário</TableCell>
@@ -164,6 +176,7 @@ const Servicos: React.FC = () => {
         <TableBody>
           {paginatedServicos.map((s) => (
             <TableRow key={s.id} hover>
+              <TableCell>{s.tipo === 'PLANO_INTERNET' ? 'Plano Internet' : 'Serviço'}</TableCell>
               <TableCell>{s.codigo || '-'}</TableCell>
               <TableCell sx={{ maxWidth: 300 }}>
                 <Typography sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -240,6 +253,7 @@ const Servicos: React.FC = () => {
     if (servico) {
       setEditingServico(servico);
       setFormData({
+        tipo: servico.tipo || 'SERVICO',
         codigo: servico.codigo || '',
         descricao: servico.descricao || '',
         cClass: (servico as any).cClass || '',
@@ -251,13 +265,23 @@ const Servicos: React.FC = () => {
         aliquota_icms_default: servico.aliquota_icms_default ?? 0,
         valor_desconto_default: (servico as any).valor_desconto_default ?? 0,
         valor_outros_default: (servico as any).valor_outros_default ?? 0,
+        upload_speed: (servico as any).upload_speed ?? 0,
+        download_speed: (servico as any).download_speed ?? 0,
+        max_limit: (servico as any).max_limit || '',
+        fidelity_months: (servico as any).fidelity_months ?? 0,
+        billing_cycle: (servico as any).billing_cycle || 'MENSAL',
+        notes: (servico as any).notes || '',
+        promotional_price: (servico as any).promotional_price ?? 0,
+        promotional_months: (servico as any).promotional_months ?? 0,
+        promotional_active: (servico as any).promotional_active ?? false,
       });
     } else {
       setEditingServico(null);
-      setFormData({ codigo: '', descricao: '', cClass: '', unidade_medida: 'UN', valor_unitario: 0, cfop: '', ncm: '', base_calculo_icms_default: 0, aliquota_icms_default: 0, valor_desconto_default: 0, valor_outros_default: 0 });
+      setFormData({ tipo: 'SERVICO', codigo: '', descricao: '', cClass: '', unidade_medida: 'UN', valor_unitario: 0, cfop: '', ncm: '', base_calculo_icms_default: 0, aliquota_icms_default: 0, valor_desconto_default: 0, valor_outros_default: 0, upload_speed: 0, download_speed: 0, max_limit: '', fidelity_months: 0, billing_cycle: 'MENSAL', notes: '', promotional_price: 0, promotional_months: 0, promotional_active: false });
     }
     setErrors({});
     setOpen(true);
+    setTabValue(0);
   };
 
   const handleClose = () => setOpen(false);
@@ -271,6 +295,34 @@ const Servicos: React.FC = () => {
     if (!activeCompany) return;
     // Validation logic here...
     const newErrors: Record<string, string> = {};
+    
+    // Campos obrigatórios
+    if (!formData.codigo.trim()) {
+      newErrors.codigo = 'Código é obrigatório.';
+    }
+    if (!formData.descricao.trim()) {
+      newErrors.descricao = 'Descrição é obrigatória.';
+    }
+    if (!formData.unidade_medida.trim()) {
+      newErrors.unidade_medida = 'Unidade de medida é obrigatória.';
+    }
+    if (!formData.cClass) {
+      newErrors.cClass = 'Código de classificação é obrigatório.';
+    }
+    if (!formData.cfop) {
+      newErrors.cfop = 'CFOP é obrigatório.';
+    }
+    
+    // Validação de promoção
+    if (formData.promotional_active) {
+      if (!formData.promotional_price || formData.promotional_price <= 0) {
+        newErrors.promotional_price = 'Preço promocional deve ser maior que zero.';
+      }
+      if (!formData.promotional_months || formData.promotional_months <= 0) {
+        newErrors.promotional_months = 'Meses promocionais deve ser maior que zero.';
+      }
+    }
+    
     // NCM: if provided, must be 8 numeric digits (standard NCM format)
     if (formData.ncm && !/^\d{8}$/.test(formData.ncm)) {
       newErrors.ncm = 'NCM inválido. Deve conter 8 dígitos numéricos.';
@@ -282,6 +334,21 @@ const Servicos: React.FC = () => {
     }
     if (Object.keys(newErrors).length) {
       setErrors(newErrors);
+      
+      // Navegar para a aba com erro
+      const errorFields = Object.keys(newErrors);
+      const geralFields = ['tipo', 'codigo', 'descricao', 'unidade_medida', 'valor_unitario'];
+      const fiscalFields = ['cClass', 'cfop', 'ncm', 'base_calculo_icms_default', 'aliquota_icms_default', 'valor_desconto_default', 'valor_outros_default'];
+      const planoFields = ['upload_speed', 'download_speed', 'max_limit', 'fidelity_months', 'billing_cycle', 'notes', 'promotional_price', 'promotional_months', 'promotional_active'];
+      
+      if (errorFields.some(field => geralFields.includes(field))) {
+        setTabValue(0);
+      } else if (errorFields.some(field => fiscalFields.includes(field))) {
+        setTabValue(1);
+      } else if (errorFields.some(field => planoFields.includes(field))) {
+        setTabValue(2);
+      }
+      
       return;
     }
     try {
@@ -383,39 +450,88 @@ const Servicos: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
           {/* dialog container: limit height and make content scrollable */}
-          <div role="dialog" aria-modal="true" className="relative bg-white rounded-lg shadow-xl w-full max-w-lg flex flex-col overflow-hidden mx-2 sm:mx-0" style={{ maxHeight: '90vh' }}>
+          <div role="dialog" aria-modal="true" className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl flex flex-col overflow-hidden mx-2 sm:mx-0" style={{ maxHeight: '90vh' }}>
             <div className="p-6 border-b flex-shrink-0">
               <Typography variant="h6">{editingServico ? 'Editar Serviço' : 'Novo Serviço'}</Typography>
             </div>
-            {/* content: scroll when exceeds available space */}
-            <div className="p-6 space-y-4 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 180px)' }}>
-              <TextField label="Código" value={formData.codigo} onChange={e => handleInputChange('codigo', e.target.value)} fullWidth error={!!errors.codigo} helperText={errors.codigo} />
-              <TextField label="Descrição" value={formData.descricao} onChange={e => handleInputChange('descricao', e.target.value)} fullWidth error={!!errors.descricao} helperText={errors.descricao} />
-              {/* Grouped autocomplete: show groups (3-digit) with expand/collapse, user must pick a 7-digit item */}
-              <GroupedCClassAutocomplete
-                cclassList={cclassList as any}
-                value={formData.cClass}
-                onChange={(code: string) => handleInputChange('cClass', code)}
-                error={!!errors.cClass}
-                helperText={errors.cClass}
-              />
-              <TextField label="Unidade de Medida" value={formData.unidade_medida} onChange={e => handleInputChange('unidade_medida', e.target.value)} fullWidth />
-              <TextField label="Valor Unitário" type="number" value={formData.valor_unitario} onChange={e => handleInputChange('valor_unitario', parseFloat(e.target.value) || 0)} fullWidth />
-              <Autocomplete
-                options={cfopList as any}
-                getOptionLabel={(opt: any) => `${opt.code} — ${opt.description}`}
-                value={(cfopList as any).find((c: any) => c.code === (formData.cfop || '').replace('.', '')) || null}
-                onChange={(_, value) => handleInputChange('cfop', value ? value.code : '')}
-                renderInput={(params) => (
-                  <TextField {...params} label="CFOP" fullWidth error={!!errors.cfop} helperText={errors.cfop} />
-                )}
-              />
-              <TextField label="NCM" value={formData.ncm} onChange={e => handleInputChange('ncm', e.target.value)} fullWidth />
-              <TextField label="Base Cálculo ICMS (padrão)" type="number" value={formData.base_calculo_icms_default} onChange={e => handleInputChange('base_calculo_icms_default', parseFloat(e.target.value) || 0)} fullWidth />
-              <TextField label="Alíquota ICMS (%)" type="number" value={formData.aliquota_icms_default} onChange={e => handleInputChange('aliquota_icms_default', parseFloat(e.target.value) || 0)} fullWidth />
-              <TextField label="Valor Desconto (padrão)" type="number" value={formData.valor_desconto_default} onChange={e => handleInputChange('valor_desconto_default', parseFloat(e.target.value) || 0)} fullWidth />
-              <TextField label="Valor Outros (padrão)" type="number" value={formData.valor_outros_default} onChange={e => handleInputChange('valor_outros_default', parseFloat(e.target.value) || 0)} fullWidth />
-            </div>
+            {/* content: tabs for better organization */}
+            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+              <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)} aria-label="servico tabs">
+                <Tab label="Geral" />
+                <Tab label="Fiscal" />
+                {formData.tipo === 'PLANO_INTERNET' && <Tab label="Plano" />}
+              </Tabs>
+            </Box>
+            <Box sx={{ p: 3, overflowY: 'auto', maxHeight: 'calc(90vh - 220px)' }}>
+              {tabValue === 0 && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <FormControl fullWidth>
+                    <InputLabel sx={{ backgroundColor: 'white', padding: '0 4px' }}>Tipo</InputLabel>
+                    <Select value={formData.tipo} onChange={e => handleInputChange('tipo', e.target.value)}>
+                      <MenuItem value="SERVICO">Serviço</MenuItem>
+                      <MenuItem value="PLANO_INTERNET">Plano de Internet</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <TextField label="Código" value={formData.codigo} onChange={e => handleInputChange('codigo', e.target.value)} fullWidth error={!!errors.codigo} helperText={errors.codigo} />
+                  <TextField label="Descrição" value={formData.descricao} onChange={e => handleInputChange('descricao', e.target.value)} fullWidth error={!!errors.descricao} helperText={errors.descricao} />
+                  <TextField label="Unidade de Medida" value={formData.unidade_medida} onChange={e => handleInputChange('unidade_medida', e.target.value)} fullWidth error={!!errors.unidade_medida} helperText={errors.unidade_medida} />
+                  <TextField label="Valor Unitário" type="number" value={formData.valor_unitario} onChange={e => handleInputChange('valor_unitario', parseFloat(e.target.value) || 0)} fullWidth />
+                </Box>
+              )}
+              {tabValue === 1 && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <GroupedCClassAutocomplete
+                    cclassList={cclassList as any}
+                    value={formData.cClass}
+                    onChange={(code: string) => handleInputChange('cClass', code)}
+                    error={!!errors.cClass}
+                    helperText={errors.cClass}
+                  />
+                  <Autocomplete
+                    options={cfopList as any}
+                    getOptionLabel={(opt: any) => `${opt.code} — ${opt.description}`}
+                    value={(cfopList as any).find((c: any) => c.code === (formData.cfop || '').replace('.', '')) || null}
+                    onChange={(_, value) => handleInputChange('cfop', value ? value.code : '')}
+                    renderInput={(params) => (
+                      <TextField {...params} label="CFOP" fullWidth error={!!errors.cfop} helperText={errors.cfop} />
+                    )}
+                  />
+                  <TextField label="NCM" value={formData.ncm} onChange={e => handleInputChange('ncm', e.target.value)} fullWidth />
+                  <TextField label="Base Cálculo ICMS (padrão)" type="number" value={formData.base_calculo_icms_default} onChange={e => handleInputChange('base_calculo_icms_default', parseFloat(e.target.value) || 0)} fullWidth />
+                  <TextField label="Alíquota ICMS (%)" type="number" value={formData.aliquota_icms_default} onChange={e => handleInputChange('aliquota_icms_default', parseFloat(e.target.value) || 0)} fullWidth />
+                  <TextField label="Valor Desconto (padrão)" type="number" value={formData.valor_desconto_default} onChange={e => handleInputChange('valor_desconto_default', parseFloat(e.target.value) || 0)} fullWidth />
+                  <TextField label="Valor Outros (padrão)" type="number" value={formData.valor_outros_default} onChange={e => handleInputChange('valor_outros_default', parseFloat(e.target.value) || 0)} fullWidth />
+                </Box>
+              )}
+              {tabValue === 2 && formData.tipo === 'PLANO_INTERNET' && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <TextField label="Velocidade de Upload (Mbps)" type="number" value={formData.upload_speed} onChange={e => handleInputChange('upload_speed', parseFloat(e.target.value) || 0)} fullWidth />
+                  <TextField label="Velocidade de Download (Mbps)" type="number" value={formData.download_speed} onChange={e => handleInputChange('download_speed', parseFloat(e.target.value) || 0)} fullWidth />
+                  <TextField label="Limite Máximo (opcional, ex: 10M/10M - gerado automaticamente se vazio)" value={formData.max_limit} onChange={e => handleInputChange('max_limit', e.target.value)} fullWidth />
+                  <TextField label="Fidelidade (meses)" type="number" value={formData.fidelity_months} onChange={e => handleInputChange('fidelity_months', parseInt(e.target.value) || 0)} fullWidth />
+                  <FormControl fullWidth sx={{ minWidth: 200 }}>
+                    <InputLabel sx={{ backgroundColor: 'white', padding: '0 4px' }}>Ciclo de Cobrança</InputLabel>
+                    <Select value={formData.billing_cycle} onChange={e => handleInputChange('billing_cycle', e.target.value)}>
+                      <MenuItem value="MENSAL">Mensal</MenuItem>
+                      <MenuItem value="TRIMESTRAL">Trimestral</MenuItem>
+                      <MenuItem value="SEMESTRAL">Semestral</MenuItem>
+                      <MenuItem value="ANUAL">Anual</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <TextField label="Observações" multiline rows={3} value={formData.notes} onChange={e => handleInputChange('notes', e.target.value)} fullWidth />
+                  <FormControlLabel
+                    control={<Checkbox checked={formData.promotional_active} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('promotional_active', e.target.checked)} />}
+                    label="Ativar promoção"
+                  />
+                  {formData.promotional_active && (
+                    <>
+                      <TextField label="Preço promocional" type="number" value={formData.promotional_price} onChange={e => handleInputChange('promotional_price', parseFloat(e.target.value) || 0)} fullWidth />
+                      <TextField label="Meses promocionais" type="number" value={formData.promotional_months} onChange={e => handleInputChange('promotional_months', parseInt(e.target.value) || 0)} fullWidth />
+                    </>
+                  )}
+                </Box>
+              )}
+            </Box>
             <div className="p-6 border-t flex justify-end gap-4 flex-shrink-0">
               <Button onClick={handleClose}>Cancelar</Button>
               <Button onClick={handleSubmit} variant="contained">Salvar</Button>

@@ -8,4 +8,6 @@ from . import crud_nfcom
 from . import crud_usuario
 from . import crud_radius
 from . import crud_password_reset
+from . import crud_network
+from . import crud_network
 from . import crud_subscription
