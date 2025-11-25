@@ -73,8 +73,9 @@ export const networkService = {
     return response.data;
   },
 
-  deleteRouterInterface: async (interfaceId: number): Promise<void> => {
-    await api.delete(`/network/interfaces/${interfaceId}`);
+  deleteRouterInterface: async (interfaceId: number, confirm?: boolean): Promise<void> => {
+    const params = confirm ? { confirm: true } : {};
+    await api.delete(`/network/interfaces/${interfaceId}`, { params });
   },
 
   // Interface IP Addresses

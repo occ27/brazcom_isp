@@ -118,9 +118,10 @@ def delete_router_interface(
 
     # Se não confirmado, retornar informações do impacto
     if not confirm:
-        raise HTTPException(
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
             status_code=400,
-            detail={
+            content={
                 "error": "Confirmação necessária para exclusão",
                 "impact": impact_info,
                 "message": "Use confirm=true para confirmar a exclusão desta interface",

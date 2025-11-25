@@ -70,6 +70,12 @@ const RouterInterfaces: React.FC = () => {
   const [selectedInterface, setSelectedInterface] = useState<RouterInterface | null>(null);
   const [selectedIpClass, setSelectedIpClass] = useState<IPClass | null>(null);
 
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState({
+    open: false,
+    interfaceId: 0,
+    impact: null as any,
+  });
+
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -163,15 +169,50 @@ const RouterInterfaces: React.FC = () => {
   };
 
   const handleDelete = async (interfaceId: number) => {
-    if (window.confirm('Tem certeza que deseja excluir esta interface?')) {
-      try {
-        await networkService.deleteRouterInterface(interfaceId);
-        showSnackbar('Interface excluída com sucesso', 'success');
-        loadRouterAndInterfaces();
-      } catch (error) {
-        console.error('Erro ao excluir interface:', error);
+    try {
+      await networkService.deleteRouterInterface(interfaceId);
+      showSnackbar('Interface excluída com sucesso', 'success');
+      loadRouterAndInterfaces();
+    } catch (error: any) {
+      console.error('Erro ao excluir interface:', error);
+      console.error('Error response:', error?.response);
+      console.error('Error response data:', error?.response?.data);
+      console.error('Error status:', error?.response?.status);
+      
+      // Verificar se é erro de confirmação necessária
+      // Pode estar em error.response.data ou error.response.data.detail
+      const errorData = error?.response?.data;
+      const isConfirmationRequired = 
+        error?.response?.status === 400 && (
+          errorData?.confirmation_required || 
+          errorData?.detail?.confirmation_required
+        );
+      
+      if (isConfirmationRequired) {
+        console.log('Detectado erro de confirmação necessária');
+        const impact = errorData?.impact || errorData?.detail?.impact;
+        setDeleteConfirmDialog({
+          open: true,
+          interfaceId,
+          impact: impact,
+        });
+      } else {
+        console.log('Erro não é de confirmação, mostrando snackbar');
         showSnackbar('Erro ao excluir interface', 'error');
       }
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      await networkService.deleteRouterInterface(deleteConfirmDialog.interfaceId, true);
+      showSnackbar('Interface excluída com sucesso', 'success');
+      setDeleteConfirmDialog({ open: false, interfaceId: 0, impact: null });
+      loadRouterAndInterfaces();
+    } catch (error) {
+      console.error('Erro ao confirmar exclusão:', error);
+      showSnackbar('Erro ao excluir interface', 'error');
+      setDeleteConfirmDialog({ open: false, interfaceId: 0, impact: null });
     }
   };
 
@@ -531,6 +572,61 @@ const RouterInterfaces: React.FC = () => {
             disabled={!selectedIpClass}
           >
             Atribuir
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog de confirmação de exclusão */}
+      <Dialog
+        open={deleteConfirmDialog.open}
+        onClose={() => setDeleteConfirmDialog({ open: false, interfaceId: 0, impact: null })}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Confirmar Exclusão da Interface</DialogTitle>
+        <DialogContent>
+          {deleteConfirmDialog.impact && (
+            <Box>
+              <Typography variant="body1" sx={{ mb: 2 }}>
+                Tem certeza que deseja excluir a interface <strong>{deleteConfirmDialog.impact.interface_name}</strong> do router <strong>{deleteConfirmDialog.impact.router_name}</strong>?
+              </Typography>
+              
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                <strong>Impacto da exclusão:</strong>
+              </Typography>
+              
+              <Box sx={{ pl: 2, mb: 2 }}>
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  • Classes IP atribuídas: {deleteConfirmDialog.impact.ip_classes_assigned}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  • Endereços IP configurados: {deleteConfirmDialog.impact.ip_addresses_configured}
+                </Typography>
+              </Box>
+              
+              <Typography variant="body2" color="error" sx={{ fontWeight: 'bold' }}>
+                ⚠️ {deleteConfirmDialog.impact.warning}
+              </Typography>
+              
+              <Typography variant="body2" sx={{ mt: 2 }}>
+                Esta ação não pode ser desfeita.
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setDeleteConfirmDialog({ open: false, interfaceId: 0, impact: null })} 
+            color="inherit"
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleConfirmDelete}
+            color="error"
+            variant="contained"
+          >
+            Excluir Interface
           </Button>
         </DialogActions>
       </Dialog>
