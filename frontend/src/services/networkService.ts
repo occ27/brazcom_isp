@@ -115,8 +115,9 @@ export const networkService = {
     return response.data;
   },
 
-  removeIPClassFromInterface: async (interfaceId: number, ipClassId: number): Promise<void> => {
-    await api.delete(`/network/interface-ip-assignments/${interfaceId}/${ipClassId}`);
+  removeIPClassFromInterface: async (interfaceId: number, ipClassId: number, confirm?: boolean): Promise<void> => {
+    const params = confirm ? { confirm: true } : {};
+    await api.delete(`/network/interface-ip-assignments/${interfaceId}/${ipClassId}`, { params });
   },
 
   // Special operations

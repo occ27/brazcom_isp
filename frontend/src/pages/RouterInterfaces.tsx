@@ -76,6 +76,13 @@ const RouterInterfaces: React.FC = () => {
     impact: null as any,
   });
 
+  const [removeIPClassConfirmDialog, setRemoveIPClassConfirmDialog] = useState({
+    open: false,
+    interfaceId: 0,
+    ipClassId: 0,
+    impact: null as any,
+  });
+
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -175,12 +182,8 @@ const RouterInterfaces: React.FC = () => {
       loadRouterAndInterfaces();
     } catch (error: any) {
       console.error('Erro ao excluir interface:', error);
-      console.error('Error response:', error?.response);
-      console.error('Error response data:', error?.response?.data);
-      console.error('Error status:', error?.response?.status);
       
       // Verificar se é erro de confirmação necessária
-      // Pode estar em error.response.data ou error.response.data.detail
       const errorData = error?.response?.data;
       const isConfirmationRequired = 
         error?.response?.status === 400 && (
@@ -189,7 +192,6 @@ const RouterInterfaces: React.FC = () => {
         );
       
       if (isConfirmationRequired) {
-        console.log('Detectado erro de confirmação necessária');
         const impact = errorData?.impact || errorData?.detail?.impact;
         setDeleteConfirmDialog({
           open: true,
@@ -197,7 +199,6 @@ const RouterInterfaces: React.FC = () => {
           impact: impact,
         });
       } else {
-        console.log('Erro não é de confirmação, mostrando snackbar');
         showSnackbar('Erro ao excluir interface', 'error');
       }
     }
@@ -213,6 +214,23 @@ const RouterInterfaces: React.FC = () => {
       console.error('Erro ao confirmar exclusão:', error);
       showSnackbar('Erro ao excluir interface', 'error');
       setDeleteConfirmDialog({ open: false, interfaceId: 0, impact: null });
+    }
+  };
+
+  const handleConfirmRemoveIPClass = async () => {
+    try {
+      await networkService.removeIPClassFromInterface(
+        removeIPClassConfirmDialog.interfaceId, 
+        removeIPClassConfirmDialog.ipClassId, 
+        true
+      );
+      showSnackbar('Classe IP removida com sucesso', 'success');
+      setRemoveIPClassConfirmDialog({ open: false, interfaceId: 0, ipClassId: 0, impact: null });
+      loadRouterAndInterfaces();
+    } catch (error) {
+      console.error('Erro ao confirmar remoção de classe IP:', error);
+      showSnackbar('Erro ao remover classe IP', 'error');
+      setRemoveIPClassConfirmDialog({ open: false, interfaceId: 0, ipClassId: 0, impact: null });
     }
   };
 
@@ -272,9 +290,34 @@ const RouterInterfaces: React.FC = () => {
       await networkService.removeIPClassFromInterface(interfaceId, ipClassId);
       showSnackbar('Classe IP removida com sucesso', 'success');
       loadRouterAndInterfaces();
-    } catch (error) {
-      console.error('Erro ao remover classe IP:', error);
-      showSnackbar('Erro ao remover classe IP', 'error');
+    } catch (error: any) {
+      console.error('=== ERRO REMOÇÃO CLASSE IP ===');
+      console.error('Error:', error);
+      console.error('Error.response:', error?.response);
+      console.error('Error.response.data:', error?.response?.data);
+      console.error('================================');
+      
+      // Verificar se é erro de confirmação necessária
+      const errorData = error?.response?.data;
+      const isConfirmationRequired = 
+        error?.response?.status === 400 && (
+          errorData?.confirmation_required || 
+          errorData?.detail?.confirmation_required
+        );
+      
+      if (isConfirmationRequired) {
+        console.log('✅ Detectado erro de confirmação necessária para remoção de classe IP');
+        const impact = errorData?.impact || errorData?.detail?.impact;
+        setRemoveIPClassConfirmDialog({
+          open: true,
+          interfaceId,
+          ipClassId,
+          impact: impact,
+        });
+      } else {
+        console.log('❌ Erro não é de confirmação, mostrando snackbar');
+        showSnackbar('Erro ao remover classe IP', 'error');
+      }
     }
   };
 
@@ -627,6 +670,64 @@ const RouterInterfaces: React.FC = () => {
             variant="contained"
           >
             Excluir Interface
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog de confirmação de remoção de classe IP */}
+      <Dialog
+        open={removeIPClassConfirmDialog.open}
+        onClose={() => setRemoveIPClassConfirmDialog({ open: false, interfaceId: 0, ipClassId: 0, impact: null })}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Confirmar Remoção da Classe IP</DialogTitle>
+        <DialogContent>
+          {removeIPClassConfirmDialog.impact && (
+            <Box>
+              <Typography variant="body1" sx={{ mb: 2 }}>
+                Tem certeza que deseja remover a classe IP <strong>{removeIPClassConfirmDialog.impact.ip_class_name}</strong> da interface <strong>{removeIPClassConfirmDialog.impact.interface_name}</strong> do router <strong>{removeIPClassConfirmDialog.impact.router_name}</strong>?
+              </Typography>
+              
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                <strong>Impacto da remoção:</strong>
+              </Typography>
+              
+              <Box sx={{ pl: 2, mb: 2 }}>
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  • Rede: {removeIPClassConfirmDialog.impact.network}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  • Gateway configurado: {removeIPClassConfirmDialog.impact.gateway_configured ? 'Sim' : 'Não'}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  • DNS configurado: {removeIPClassConfirmDialog.impact.dns_configured ? 'Sim' : 'Não'}
+                </Typography>
+              </Box>
+              
+              <Typography variant="body2" color="error" sx={{ fontWeight: 'bold' }}>
+                ⚠️ {removeIPClassConfirmDialog.impact.warning}
+              </Typography>
+              
+              <Typography variant="body2" sx={{ mt: 2 }}>
+                Esta ação não pode ser desfeita.
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setRemoveIPClassConfirmDialog({ open: false, interfaceId: 0, ipClassId: 0, impact: null })} 
+            color="inherit"
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleConfirmRemoveIPClass}
+            color="error"
+            variant="contained"
+          >
+            Remover Classe IP
           </Button>
         </DialogActions>
       </Dialog>

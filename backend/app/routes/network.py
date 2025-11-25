@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -118,10 +119,9 @@ def delete_router_interface(
 
     # Se não confirmado, retornar informações do impacto
     if not confirm:
-        from fastapi.responses import JSONResponse
-        return JSONResponse(
+        raise HTTPException(
             status_code=400,
-            content={
+            detail={
                 "error": "Confirmação necessária para exclusão",
                 "impact": impact_info,
                 "message": "Use confirm=true para confirmar a exclusão desta interface",
