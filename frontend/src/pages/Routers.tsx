@@ -35,12 +35,14 @@ import {
   ServerIcon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
+import { useCompany } from '../contexts/CompanyContext';
 import { routerService, RouterCreate, RouterUpdate } from '../services/routerService';
 import { stringifyError } from '../utils/error';
 import { Router } from '../types';
 
 const Routers: React.FC = () => {
   const { user } = useAuth();
+  const { activeCompany } = useCompany();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [routers, setRouters] = useState<Router[]>([]);
@@ -48,7 +50,6 @@ const Routers: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [editingRouter, setEditingRouter] = useState<Router | null>(null);
   const [formData, setFormData] = useState<RouterCreate>({
-    empresa_id: 0,
     nome: '',
     ip: '',
     porta: 8728,
@@ -63,10 +64,6 @@ const Routers: React.FC = () => {
     message: '',
     severity: 'success' as 'success' | 'error'
   });
-
-  useEffect(() => {
-    loadRouters();
-  }, []);
 
   const loadRouters = async () => {
     try {
@@ -85,22 +82,46 @@ const Routers: React.FC = () => {
     }
   };
 
+  
+
+  useEffect(() => {
+    if (!activeCompany) {
+      // Quando não há empresa selecionada, não tentamos carregar e removemos o loading
+      setLoading(false);
+      return;
+    }
+    loadRouters();
+  }, [activeCompany]);
+
+  // Verificar se há empresa ativa
+  if (!activeCompany) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="warning">
+          <Typography variant="h6">Empresa não selecionada</Typography>
+          <Typography>
+            Você precisa selecionar uma empresa ativa para gerenciar routers.
+            Vá para as configurações ou selecione uma empresa no menu.
+          </Typography>
+        </Alert>
+      </Box>
+    );
+  }
+
   const handleOpenDialog = (router?: Router) => {
     if (router) {
       setEditingRouter(router);
       setFormData({
-        empresa_id: router.empresa_id,
         nome: router.nome,
         ip: router.ip,
         porta: router.porta,
         usuario: router.usuario,
-        senha: router.senha,
+        senha: '', // Senha não vem da API por segurança
         tipo: router.tipo
       });
     } else {
       setEditingRouter(null);
       setFormData({
-        empresa_id: 0,
         nome: '',
         ip: '',
         porta: 8728,
@@ -117,7 +138,6 @@ const Routers: React.FC = () => {
     setOpen(false);
     setEditingRouter(null);
     setFormData({
-      empresa_id: 0,
       nome: '',
       ip: '',
       porta: 8728,
@@ -142,11 +162,9 @@ const Routers: React.FC = () => {
     if (!formData.usuario.trim()) {
       newErrors.usuario = 'Usuário é obrigatório';
     }
-    if (!formData.senha.trim()) {
+    // Senha obrigatória apenas na criação, não na edição
+    if (!editingRouter && !formData.senha.trim()) {
       newErrors.senha = 'Senha é obrigatória';
-    }
-    if (formData.empresa_id === 0) {
-      newErrors.empresa_id = 'Empresa é obrigatória';
     }
 
     setErrors(newErrors);
@@ -385,20 +403,8 @@ const Routers: React.FC = () => {
                   value={formData.senha}
                   onChange={(e) => handleInputChange('senha', e.target.value)}
                   error={!!errors.senha}
-                  helperText={errors.senha}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Empresa ID"
-                  type="number"
-                  value={formData.empresa_id}
-                  onChange={(e) => handleInputChange('empresa_id', parseInt(e.target.value))}
-                  error={!!errors.empresa_id}
-                  helperText={errors.empresa_id}
-                  required
+                  helperText={errors.senha || (editingRouter ? "Deixe vazio para manter a senha atual" : "")}
+                  required={!editingRouter}
                 />
               </Grid>
             </Grid>

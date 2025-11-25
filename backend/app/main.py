@@ -13,6 +13,8 @@ from app.routes import dashboard
 from app.routes import access_control
 from app.routes import router
 from app.routes import radius
+from app.routes import subscriptions
+from app.routes import isp
 
 # A criação das tabelas será feita no evento de startup, após o DB ficar disponível
 
@@ -111,6 +113,8 @@ app.include_router(dashboard.router)
 app.include_router(access_control.router)
 app.include_router(router.router)
 app.include_router(radius.router)
+app.include_router(subscriptions.router)
+app.include_router(isp.router)
 
 @app.get("/")
 def read_root():

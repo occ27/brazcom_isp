@@ -31,6 +31,7 @@ class UsuarioResponse(UsuarioBase):
     id: int
     is_active: bool
     is_superuser: bool
+    active_empresa_id: Optional[int] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 

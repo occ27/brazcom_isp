@@ -15,13 +15,14 @@ def get_routers_by_provider(db: Session, empresa_id: int, skip: int = 0, limit: 
 
 def create_router(db: Session, router: RouterCreate, empresa_id: int) -> Router:
     """Cria um novo roteador para uma empresa."""
-    encrypted_pass = encrypt_password(router.password)
+    encrypted_pass = encrypt_password(router.senha)
     db_router = Router(
-        name=router.name,
-        ip_address=str(router.ip_address),
-        username=router.username,
-        encrypted_password=encrypted_pass,
-        port=router.port,
+        nome=router.nome,
+        ip=router.ip,
+        usuario=router.usuario,
+        senha=encrypted_pass,
+        tipo=router.tipo,
+        porta=router.porta,
         is_active=router.is_active,
         empresa_id=empresa_id
     )
@@ -34,8 +35,12 @@ def update_router(db: Session, db_router: Router, router_in: RouterUpdate) -> Ro
     """Atualiza as informações de um roteador."""
     update_data = router_in.dict(exclude_unset=True)
 
-    if "password" in update_data and update_data["password"]:
-        update_data["encrypted_password"] = encrypt_password(update_data.pop("password"))
+    # Remover senha do update_data se ela for vazia ou None
+    if "senha" in update_data:
+        if not update_data["senha"] or update_data["senha"].strip() == "":
+            del update_data["senha"]
+        else:
+            update_data["senha"] = encrypt_password(update_data["senha"])
 
     for field, value in update_data.items():
         setattr(db_router, field, value)
@@ -48,5 +53,7 @@ def update_router(db: Session, db_router: Router, router_in: RouterUpdate) -> Ro
 def remove_router(db: Session, db_router: Router):
     """Remove um roteador."""
     db.delete(db_router)
+    db.commit()
+    return db_router
     db.commit()
     return db_router

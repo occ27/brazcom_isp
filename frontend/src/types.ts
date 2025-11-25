@@ -17,6 +17,7 @@ export interface User {
   nome: string;
   tipo: 'admin' | 'user';
   ativo: boolean;
+  active_empresa_id?: number;
   created_at: string;
   updated_at: string;
 }
@@ -109,7 +110,6 @@ export interface Router {
   ip: string;
   porta: number;
   usuario: string;
-  senha: string;
   tipo: 'mikrotik' | 'cisco' | 'ubiquiti' | 'outro';
   is_active: boolean;
   created_at: string;

@@ -63,6 +63,7 @@ export interface User {
   nome: string;
   tipo: 'admin' | 'user';
   ativo: boolean;
+  active_empresa_id?: number;
   created_at: string;
   updated_at: string;
 }

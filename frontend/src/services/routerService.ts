@@ -2,7 +2,6 @@ import api from './api';
 import { Router } from '../types';
 
 export interface RouterCreate {
-  empresa_id: number;
   nome: string;
   ip: string;
   porta: number;

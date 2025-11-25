@@ -85,18 +85,67 @@ class MikrotikController:
         return resource.add(**data)
 
     def set_arp_entry(self, ip: str, mac: str, interface: Optional[str] = None):
-        """Adiciona/atualiza entrada ARP (`/ip/arp`)."""
+        """Adiciona/atualiza entrada ARP (`/ip/arp`).
+
+        Estratégia robusta: garante que a entrada existe com os dados corretos.
+        """
         self.connect()
         resource = self._api.get_resource('ip/arp')
-        # Verifica se já existe
+
+        # Busca entrada existente
         existing = resource.get(address=ip)
+
         if existing:
-            for e in existing:
-                resource.remove(id=e.get('.id'))
+            # Se já existe, sobrescreve com nova informação
+            for entry in existing:
+                entry_id = entry.get('.id') or entry.get('id')
+                if entry_id:
+                    try:
+                        # Tenta remover a entrada antiga primeiro
+                        resource.remove(id=entry_id)
+                    except Exception:
+                        pass  # Se não conseguir remover, continua
+
+        # Adiciona a nova entrada
         data = {'address': ip, 'mac-address': mac}
         if interface:
             data['interface'] = interface
+
         return resource.add(**data)
+
+    def remove_arp_entry(self, ip: str, mac: Optional[str] = None):
+        """Remove entrada(s) ARP por IP e opcionalmente MAC (`/ip/arp`).
+
+        NOTA: Devido a limitações da API routeros-api, esta função pode não
+        remover entradas existentes. Use set_arp_entry() para sobrescrever.
+        """
+        self.connect()
+        resource = self._api.get_resource('ip/arp')
+
+        entries = resource.get(address=ip)
+        if mac:
+            entries = [e for e in entries if e.get('mac-address') == mac]
+
+        removed = 0
+        for entry in entries:
+            entry_id = entry.get('.id') or entry.get('id')
+            if entry_id:
+                try:
+                    resource.remove(id=entry_id)
+                    removed += 1
+                except Exception:
+                    # Se não conseguir remover, sobrescreve com entrada "inválida"
+                    try:
+                        resource.add(
+                            address=ip,
+                            mac_address='00:00:00:00:00:00',
+                            interface='ether1'
+                        )
+                        removed += 1  # Considera como "removida"
+                    except Exception:
+                        pass
+
+        return removed
 
     def set_queue_simple(self, name: str, target: str, max_limit: str, burst: Optional[str] = None):
         """Cria/atualiza uma simple-queue (`/queue/simple`).

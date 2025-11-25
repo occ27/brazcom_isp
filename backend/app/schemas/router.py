@@ -1,29 +1,42 @@
 from pydantic import BaseModel
 from typing import Optional
-from ipaddress import IPv4Address
+from datetime import datetime
 
 class RouterBase(BaseModel):
-    name: str
-    ip_address: IPv4Address
-    username: str
-    password: str
-    port: Optional[int] = 8728
+    nome: str
+    ip: str
+    usuario: str
+    senha: str
+    tipo: str
+    porta: Optional[int] = 8728
     is_active: Optional[bool] = True
 
 class RouterCreate(RouterBase):
     pass
 
 class RouterUpdate(BaseModel):
-    name: Optional[str] = None
-    ip_address: Optional[IPv4Address] = None
-    username: Optional[str] = None
-    password: Optional[str] = None
-    port: Optional[int] = None
+    nome: Optional[str] = None
+    ip: Optional[str] = None
+    usuario: Optional[str] = None
+    senha: Optional[str] = None
+    tipo: Optional[str] = None
+    porta: Optional[int] = None
     is_active: Optional[bool] = None
 
-class Router(RouterBase):
+class RouterResponse(BaseModel):
     id: int
     empresa_id: int
+    nome: str
+    ip: str
+    usuario: str
+    tipo: str
+    porta: Optional[int] = 8728
+    is_active: Optional[bool] = True
+    created_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+
+# Alias para manter compatibilidade
+Router = RouterResponse

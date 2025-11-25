@@ -109,6 +109,7 @@ const AuthenticatedApp: React.FC<{ children: React.ReactNode }> = ({ children })
     if (path.startsWith('/nfcom')) return 'nfcom';
     if (path.startsWith('/users')) return 'users';
     if (path === '/reports') return 'reports';
+    if (path === '/routers') return 'routers';
     if (path === '/profile') return 'profile';
     return 'dashboard';
   };
@@ -122,6 +123,7 @@ const AuthenticatedApp: React.FC<{ children: React.ReactNode }> = ({ children })
     else if (page === 'nfcom') navigate('/nfcom');
     else if (page === 'users') navigate('/users');
     else if (page === 'reports') navigate('/reports');
+    else if (page === 'routers') navigate('/routers');
     else if (page === 'profile') navigate('/profile');
   };
 

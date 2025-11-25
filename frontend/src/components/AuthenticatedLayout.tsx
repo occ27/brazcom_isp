@@ -9,7 +9,8 @@ import {
   ChartBarIcon,
   ArrowRightOnRectangleIcon,
   ChevronLeftIcon,
-  Bars3Icon
+  Bars3Icon,
+  ServerIcon
 } from '@heroicons/react/24/outline';
 import { PageType } from '../types';
 import { useAuth } from '../contexts/AuthContext';
