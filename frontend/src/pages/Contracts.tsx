@@ -12,7 +12,10 @@ import { useCompany } from '../contexts/CompanyContext';
 import contratoService, { Contrato, ContratoListResponse } from '../services/contratoService';
 import clientService from '../services/clientService';
 import servicoService, { Servico } from '../services/servicoService';
-import { Cliente } from '../types';
+import { routerService } from '../services/routerService';
+import { networkService } from '../services/networkService';
+import { Cliente, Router, RouterInterface, IPClass } from '../types';
+import { generateAvailableIPs } from '../utils/networkUtils';
 
 const Contracts: React.FC = () => {
   const { activeCompany } = useCompany();
@@ -77,7 +80,13 @@ const Contracts: React.FC = () => {
     periodo_carencia: 0,
     multa_atraso_percentual: 0.0,
     taxa_instalacao: 0.0,
-    taxa_instalacao_paga: false
+    taxa_instalacao_paga: false,
+    // Novos campos de rede
+    router_id: undefined,
+    interface_id: undefined,
+    ip_class_id: undefined,
+    mac_address: '',
+    assigned_ip: ''
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
@@ -111,6 +120,12 @@ const Contracts: React.FC = () => {
   const [servicos, setServicos] = useState<Servico[]>([]);
   const [servicoSearch, setServicoSearch] = useState('');
   const [servicoLoading, setServicoLoading] = useState(false);
+
+  // Network configuration state
+  const [routers, setRouters] = useState<Router[]>([]);
+  const [interfaces, setInterfaces] = useState<RouterInterface[]>([]);
+  const [availableIPs, setAvailableIPs] = useState<string[]>([]);
+  const [networkLoading, setNetworkLoading] = useState(false);
 
   // Helper function to check if contract is expired
   const isContractExpired = useCallback((contrato: Contrato): boolean => {
@@ -327,6 +342,53 @@ const Contracts: React.FC = () => {
       setServicoLoading(false);
     }
   }, [activeCompany]);
+
+  const loadRouters = useCallback(async () => {
+    if (!activeCompany) return;
+    setNetworkLoading(true);
+    try {
+      const resp = await routerService.getByCompany(activeCompany.id);
+      setRouters(resp || []);
+    } catch (error) {
+      console.error("Erro ao carregar routers:", error);
+      setRouters([]);
+    } finally {
+      setNetworkLoading(false);
+    }
+  }, [activeCompany]);
+
+  const loadInterfaces = useCallback(async (routerId?: number) => {
+    if (!activeCompany || !routerId) {
+      setInterfaces([]);
+      return;
+    }
+    try {
+      const resp = await networkService.getRouterInterfaces(routerId);
+      setInterfaces(resp || []);
+    } catch (error) {
+      console.error("Erro ao carregar interfaces:", error);
+      setInterfaces([]);
+    }
+  }, [activeCompany]);
+
+  // Load available IPs when IP class changes
+  const loadAvailableIPs = useCallback((ipClass: IPClass | undefined) => {
+    if (ipClass) {
+      // TODO: Aqui poderia buscar IPs já em uso no backend
+      // Por enquanto, gera todos os IPs disponíveis
+      const ips = generateAvailableIPs(ipClass);
+      setAvailableIPs(ips);
+    } else {
+      setAvailableIPs([]);
+    }
+  }, []);
+
+  // Get IP classes for selected interface
+  const getIPClassesForSelectedInterface = useMemo(() => {
+    if (!form.interface_id) return [];
+    const selectedInterface = interfaces.find(intf => intf.id === form.interface_id);
+    return selectedInterface?.ip_classes || [];
+  }, [form.interface_id, interfaces]);
 
   const renderContractCards = () => (
     <Box sx={{ display: 'grid', gap: 2 }}>
@@ -636,9 +698,17 @@ const Contracts: React.FC = () => {
           console.error('Erro ao carregar serviço:', error);
         }
       }
+
+      // Carregar dados de rede se houver configuração
+      if (activeCompany) {
+        loadRouters();
+        if (c.router_id) {
+          loadInterfaces(c.router_id);
+        }
+      }
     } else {
       setEditing(null);
-      setForm({ quantidade: 1, periodicidade: 'MENSAL', valor_unitario: 0, auto_emit: true, is_active: true, dia_emissao: 1, status: 'ATIVO', periodo_carencia: 0, multa_atraso_percentual: 0.0, taxa_instalacao: 0.0, taxa_instalacao_paga: false, sla_garantido: undefined, velocidade_garantida: '', subscription_id: undefined });
+      setForm({ quantidade: 1, periodicidade: 'MENSAL', valor_unitario: 0, auto_emit: true, is_active: true, dia_emissao: 1, status: 'ATIVO', periodo_carencia: 0, multa_atraso_percentual: 0.0, taxa_instalacao: 0.0, taxa_instalacao_paga: false, sla_garantido: undefined, velocidade_garantida: '', subscription_id: undefined, router_id: undefined, interface_id: undefined, ip_class_id: undefined, mac_address: '', assigned_ip: '' });
       // Reset input values and prefetch the first 10 clients and services
       setClientSearch('');
       setServicoSearch('');
@@ -646,6 +716,8 @@ const Contracts: React.FC = () => {
       if (activeCompany) {
         loadClients('');
         loadServicos('');
+        // Carregar dados de rede para novo contrato
+        loadRouters();
       }
     }
     // If editing we may still want the default lists for the other autocomplete fields
@@ -1244,6 +1316,140 @@ const Contracts: React.FC = () => {
                       placeholder="Ex: 10M/10M"
                       helperText="Velocidade de download/upload garantida"
                     />
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-blue-100">
+                  <h3 className="text-lg sm:text-xl font-bold text-blue-800 mb-1 sm:mb-2 flex items-center">
+                    <span className="mr-2 text-base sm:text-lg">🌐</span>
+                    <span className="text-sm sm:text-base">Configuração de Rede</span>
+                  </h3>
+                  <p className="text-xs sm:text-sm text-blue-600 hidden sm:block">
+                    Configurações de rede para provisionamento automático do serviço de internet.
+                  </p>
+                  <div className="mt-3 sm:mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Router</InputLabel>
+                      <Select
+                        value={form.router_id?.toString() || ''}
+                        label="Router"
+                        onChange={(e: SelectChangeEvent) => {
+                          const routerId = e.target.value ? parseInt(e.target.value) : undefined;
+                          handleInputChange('router_id', routerId);
+                          handleInputChange('interface_id', undefined); // Reset interface when router changes
+                          handleInputChange('ip_class_id', undefined); // Reset IP class when router changes
+                          if (routerId) {
+                            loadInterfaces(routerId);
+                          } else {
+                            setInterfaces([]);
+                          }
+                        }}
+                        disabled={networkLoading}
+                      >
+                        <MenuItem value="">
+                          <em>Selecione um router</em>
+                        </MenuItem>
+                        {routers.map((router) => (
+                          <MenuItem key={router.id} value={router.id}>
+                            {router.nome} ({router.ip})
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {networkLoading && <CircularProgress size={20} sx={{ mt: 1 }} />}
+                    </FormControl>
+
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Interface</InputLabel>
+                      <Select
+                        value={form.interface_id?.toString() || ''}
+                        label="Interface"
+                        onChange={(e: SelectChangeEvent) => {
+                          handleInputChange('interface_id', e.target.value ? parseInt(e.target.value) : undefined);
+                          handleInputChange('ip_class_id', undefined); // Reset IP class when interface changes
+                        }}
+                        disabled={!form.router_id || networkLoading}
+                      >
+                        <MenuItem value="">
+                          <em>Selecione uma interface</em>
+                        </MenuItem>
+                        {interfaces.map((interface_) => (
+                          <MenuItem key={interface_.id} value={interface_.id}>
+                            <div>
+                              <div className="font-medium">{interface_.nome}</div>
+                              {interface_.comentario && (
+                                <div className="text-xs text-gray-500 mt-1">{interface_.comentario}</div>
+                              )}
+                            </div>
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Classe IP</InputLabel>
+                      <Select
+                        value={form.ip_class_id?.toString() || ''}
+                        label="Classe IP"
+                        onChange={(e: SelectChangeEvent) => {
+                          const selectedClassId = e.target.value ? parseInt(e.target.value) : undefined;
+                          handleInputChange('ip_class_id', selectedClassId);
+                          handleInputChange('assigned_ip', ''); // Reset assigned IP when class changes
+                          
+                          // Load available IPs for selected class
+                          if (selectedClassId) {
+                            const selectedInterface = interfaces.find(intf => intf.id === form.interface_id);
+                            const selectedIpClass = selectedInterface?.ip_classes?.find(ipClass => ipClass.id === selectedClassId);
+                            loadAvailableIPs(selectedIpClass);
+                          } else {
+                            setAvailableIPs([]);
+                          }
+                        }}
+                        disabled={!form.interface_id || networkLoading}
+                      >
+                        <MenuItem value="">
+                          <em>Selecione uma classe IP</em>
+                        </MenuItem>
+                        {getIPClassesForSelectedInterface.map((ipClass) => (
+                          <MenuItem key={ipClass.id} value={ipClass.id}>
+                            {ipClass.nome} ({ipClass.rede})
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+
+                    <TextField
+                      label="Endereço MAC"
+                      value={form.mac_address || ''}
+                      onChange={e => handleInputChange('mac_address', e.target.value)}
+                      fullWidth
+                      size="small"
+                      placeholder="Ex: AA:BB:CC:DD:EE:FF"
+                      helperText="MAC address do dispositivo do cliente"
+                    />
+
+                    <FormControl fullWidth size="small">
+                      <InputLabel>IP Atribuído</InputLabel>
+                      <Select
+                        value={form.assigned_ip || ''}
+                        label="IP Atribuído"
+                        onChange={(e: SelectChangeEvent) => handleInputChange('assigned_ip', e.target.value)}
+                        disabled={!form.ip_class_id || availableIPs.length === 0}
+                      >
+                        <MenuItem value="">
+                          <em>Selecione um IP disponível</em>
+                        </MenuItem>
+                        {availableIPs.map((ip) => (
+                          <MenuItem key={ip} value={ip}>
+                            {ip}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+
+                    <div className="flex items-center space-x-2 text-sm text-blue-600">
+                      <span>🔄</span>
+                      <span>Selecione um IP disponível da lista quando a Classe IP for escolhida</span>
+                    </div>
                   </div>
                 </div>
 

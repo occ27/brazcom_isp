@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 
 from app.models.network import (
@@ -17,8 +17,11 @@ def get_router_interface(db: Session, interface_id: int) -> Optional[RouterInter
     return db.query(RouterInterface).filter(RouterInterface.id == interface_id).first()
 
 def get_router_interfaces_by_router(db: Session, router_id: int) -> List[RouterInterface]:
-    """Busca todas as interfaces de um router."""
-    return db.query(RouterInterface).filter(RouterInterface.router_id == router_id).all()
+    """Busca todas as interfaces de um router com suas classes de IP."""
+    return db.query(RouterInterface)\
+        .options(joinedload(RouterInterface.ip_classes))\
+        .filter(RouterInterface.router_id == router_id)\
+        .all()
 
 def create_router_interface(db: Session, interface: RouterInterfaceCreate, router_id: int) -> RouterInterface:
     """Cria uma nova interface para um router."""

@@ -384,6 +384,13 @@ class ServicoContratado(Base):
     # Relacionamento com subscription ativa (provisionamento)
     subscription_id = Column(Integer, ForeignKey("subscriptions.id"), nullable=True)  # Link com ativação atual
 
+    # Configuração de rede (provisionamento automático)
+    router_id = Column(Integer, ForeignKey("routers.id"), nullable=True)  # Router onde será provisionado
+    interface_id = Column(Integer, ForeignKey("router_interfaces.id"), nullable=True)  # Interface do router
+    ip_class_id = Column(Integer, ForeignKey("ip_classes.id"), nullable=True)  # Classe IP para atribuição automática
+    mac_address = Column(String(17), nullable=True)  # Endereço MAC do dispositivo do cliente
+    assigned_ip = Column(String(15), nullable=True)  # IP atribuído automaticamente
+
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -392,6 +399,9 @@ class ServicoContratado(Base):
     cliente = relationship("Cliente", back_populates="servicos_contratados")
     servico = relationship("Servico")
     subscription = relationship("Subscription")
+    router = relationship("Router")
+    interface = relationship("RouterInterface")
+    ip_class = relationship("IPClass")
 
 class NFComFatura(Base):
     """Modelo de Fatura/Cobrança da NFCom."""

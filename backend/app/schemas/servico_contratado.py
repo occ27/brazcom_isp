@@ -66,6 +66,13 @@ class ServicoContratadoBase(BaseModel):
     # Relacionamento com subscription ativa
     subscription_id: Optional[int] = None
 
+    # Configuração de rede (provisionamento automático)
+    router_id: Optional[int] = None
+    interface_id: Optional[int] = None
+    ip_class_id: Optional[int] = None
+    mac_address: Optional[str] = Field(None, max_length=17, description="Endereço MAC do dispositivo do cliente")
+    assigned_ip: Optional[str] = Field(None, max_length=15, description="IP atribuído automaticamente")
+
 
 class ServicoContratadoCreate(ServicoContratadoBase):
     pass
@@ -112,6 +119,13 @@ class ServicoContratadoUpdate(BaseModel):
 
     # Relacionamento com subscription ativa
     subscription_id: Optional[int] = None
+
+    # Configuração de rede (provisionamento automático)
+    router_id: Optional[int] = None
+    interface_id: Optional[int] = None
+    ip_class_id: Optional[int] = None
+    mac_address: Optional[str] = Field(None, max_length=17)
+    assigned_ip: Optional[str] = Field(None, max_length=15)
 
 
 class ServicoContratadoResponse(ServicoContratadoBase):

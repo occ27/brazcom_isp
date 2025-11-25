@@ -33,6 +33,13 @@ export interface Contrato {
   velocidade_garantida?: string;
   subscription_id?: number;
 
+  // Novos campos para configuração de rede
+  router_id?: number;
+  interface_id?: number;
+  ip_class_id?: number;
+  mac_address?: string;
+  assigned_ip?: string;
+
   // Related data
   cliente_nome?: string;
   cliente_razao_social?: string;
