@@ -11,6 +11,11 @@ try:
 except Exception:  # pragma: no cover - optional dependency
     routeros_api = None
 
+try:
+    import librouteros
+except Exception:  # pragma: no cover - optional dependency
+    librouteros = None
+
 
 class MikrotikController:
     def __init__(self, host: str, username: str, password: str, port: int = 8728, use_ssl: bool = False, plaintext_login: bool = True):
@@ -22,6 +27,7 @@ class MikrotikController:
         self.plaintext_login = plaintext_login
         self._pool = None
         self._api = None
+        self._librouteros_api = None  # Fallback API
 
     def connect(self):
         """Estabelece conexão com o RouterOS usando `routeros_api` se disponível.
@@ -29,20 +35,47 @@ class MikrotikController:
         Em ambientes onde a biblioteca não esteja instalada, essa função lançará
         um `RuntimeError` indicando que a dependência é necessária.
         """
-        if routeros_api is None:
-            raise RuntimeError("Biblioteca 'routeros_api' não encontrada. Instale via 'pip install routeros-api'.")
+        import logging
+        logger = logging.getLogger(__name__)
 
-        if self._pool is None:
-            # RouterOsApiPool(host, username, password, plaintext_login=True/False, port=8728)
-            self._pool = routeros_api.RouterOsApiPool(
-                self.host,
-                username=self.username,
-                password=self.password,
-                port=self.port,
-                plaintext_login=self.plaintext_login,
-            )
-            self._api = self._pool.get_api()
+        if routeros_api is None and librouteros is None:
+            raise RuntimeError("Nenhuma biblioteca RouterOS encontrada. Instale 'routeros-api' ou 'librouteros'.")
 
+        # Se já tivermos uma conexão ativa em qualquer biblioteca, nada a fazer
+        if self._api is not None or self._librouteros_api is not None:
+            return
+
+        # Tentar inicializar routeros_api (primário)
+        if routeros_api is not None:
+            try:
+                self._pool = routeros_api.RouterOsApiPool(
+                    self.host,
+                    username=self.username,
+                    password=self.password,
+                    port=self.port,
+                    plaintext_login=self.plaintext_login,
+                )
+                self._api = self._pool.get_api()
+                logger.info("Conexão com routeros_api estabelecida")
+            except Exception as e:
+                logger.warning(f"routeros_api falhou: {e}")
+
+        # Tentar inicializar librouteros (fallback). Não falhar se não conseguir,
+        # vamos apenas registrar e permitir que a outra biblioteca seja usada.
+        if librouteros is not None:
+            try:
+                self._librouteros_api = librouteros.connect(
+                    host=self.host,
+                    username=self.username,
+                    password=self.password,
+                    port=self.port
+                )
+                logger.info("Conexão com librouteros estabelecida (fallback)")
+            except Exception as e:
+                logger.warning(f"librouteros falhou: {e}")
+
+        if self._api is None and self._librouteros_api is None:
+            raise RuntimeError("Falha ao conectar com ambas as bibliotecas RouterOS")
     def close(self):
         if self._pool:
             try:
@@ -51,6 +84,105 @@ class MikrotikController:
                 pass
             self._pool = None
             self._api = None
+
+    def get_connection_status(self):
+        """Retorna status de conexão para debug: routeros_api e librouteros.
+
+        Usado apenas para diagnóstico remoto e logs.
+        """
+        return {
+            'routeros_api': self._api is not None,
+            'librouteros': self._librouteros_api is not None,
+        }
+
+    def ensure_librouteros_connected(self) -> bool:
+        """Garante que existe uma conexão com librouteros (fallback).
+
+        Retorna True se a conexão foi estabelecida, False caso contrário.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        if librouteros is None:
+            logger.debug("librouteros não está instalado, não é possível conectar como fallback")
+            return False
+
+        if self._librouteros_api is not None:
+            return True
+
+        try:
+            self._librouteros_api = librouteros.connect(
+                host=self.host,
+                username=self.username,
+                password=self.password,
+                port=self.port
+            )
+            logger.info("Conexão librouteros estabelecida (fallback)")
+            return True
+        except Exception as e:
+            logger.warning(f"Falha ao conectar via librouteros: {e}")
+            return False
+
+    def is_wan_interface(self, interface: str) -> bool:
+        """Determina se a interface fornecida está atuando como interface WAN.
+
+        - Verifica rotas padrão (/ip/route dst-address=0.0.0.0/0) e compara o campo 'gateway' ou 'interface'.
+        - Verifica se a interface possui um IP público (na ausência de rota clara).
+        - Funciona com `routeros_api` e com `librouteros` fallback.
+
+        Retorna True se parecer ser interface WAN, False caso contrário.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        try:
+            self.connect()
+        except Exception as e:
+            logger.warning(f"is_wan_interface: Falha ao conectar para verificar interface: {e}")
+            return False
+
+        # 1) Checar rotas padrão
+        try:
+            if self._api is not None:
+                routes = self._api.get_resource('ip/route').get()
+                for r in routes:
+                    dst = r.get('dst-address') or r.get('dst-address/mask') or ''
+                    if dst == '0.0.0.0/0' or dst == '0.0.0.0':
+                        # Alguns registros retornam a interface ou gateway
+                        if r.get('interface') == interface:
+                            return True
+                        gw = r.get('gateway')
+                        if gw and interface in str(gw):
+                            return True
+            if self._librouteros_api is not None:
+                for r in self._librouteros_api.path('ip/route').select():
+                    dst = r.get('dst-address') or r.get('dst-address/mask') or ''
+                    if dst == '0.0.0.0/0' or dst == '0.0.0.0':
+                        if r.get('interface') == interface:
+                            return True
+                        gw = r.get('gateway')
+                        if gw and interface in str(gw):
+                            return True
+        except Exception as e:
+            logger.debug(f"is_wan_interface: falha ao checar rotas: {e}")
+
+        # 2) Se rotas não afirmarem, checar se interface tem IP público
+        try:
+            if self._api is not None:
+                addrs = self._api.get_resource('ip/address').get(interface=interface)
+                for a in addrs:
+                    addr = a.get('address') or ''
+                    if addr and not (addr.startswith('10.') or addr.startswith('192.168.') or addr.startswith('172.')):
+                        # Detecção simples para redes privadas vs públicas
+                        return True
+            if self._librouteros_api is not None:
+                for a in self._librouteros_api.path('ip/address').select(interface=interface):
+                    addr = a.get('address')
+                    if addr and not (addr.startswith('10.') or addr.startswith('192.168.') or addr.startswith('172.')):
+                        return True
+        except Exception as e:
+            logger.debug(f"is_wan_interface: falha ao checar endereços: {e}")
+
+        return False
 
     def add_pppoe_user(self, username: str, password: str, service: str = 'pppoe', profile: Optional[str] = None, comment: Optional[str] = None):
         """Adiciona usuário PPPoE no roteador usando `/ppp/secret`.
@@ -362,65 +494,26 @@ class MikrotikController:
         return resource.get()
 
     def add_dhcp_pool(self, name: str, ranges: str):
-        """Adiciona um pool de endereços DHCP usando SSH direto."""
-        import logging
-        import paramiko
-        import time
+        """Adiciona um pool de endereços DHCP."""
+        self.connect()
+        resource = self._api.get_resource('ip/pool')
         
-        logger = logging.getLogger(__name__)
-        logger.info(f"Adicionando pool DHCP {name} com ranges {ranges} via SSH")
+        # Remover pool existente se houver
+        existing = resource.get(name=name)
+        if existing:
+            try:
+                entry_id = existing[0].get('.id') or existing[0].get('id')
+                if entry_id:
+                    resource.remove(id=entry_id)
+                else:
+                    resource.remove(name=name)
+            except Exception:
+                pass  # Ignorar erros de remoção
         
-        # Criar cliente SSH
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        # Criar novo pool
+        data = {'name': name, 'ranges': ranges}
         
-        try:
-            # Conectar via SSH
-            ssh_port = getattr(self, 'port', 22)  # Usar porta configurada ou 22
-            logger.info(f"Conectando via SSH para {self.host}:{ssh_port} como {self.username}")
-            ssh.connect(
-                hostname=self.host,
-                port=ssh_port,
-                username=self.username,
-                password=self.password,
-                timeout=10
-            )
-            logger.info("Conexão SSH estabelecida com sucesso")
-            
-            # Remover pool existente se houver
-            remove_cmd = f'/ip/pool/remove [find name={name}]'
-            logger.info(f"Executando comando de remoção: {remove_cmd}")
-            
-            stdin, stdout, stderr = ssh.exec_command(remove_cmd)
-            time.sleep(1)
-            
-            remove_error = stderr.read().decode().strip()
-            if remove_error:
-                logger.warning(f"Erro na remoção (pode ser normal): {remove_error}")
-            
-            # Criar novo pool
-            add_cmd = f'/ip/pool/add name={name} ranges={ranges}'
-            logger.info(f"Executando comando de adição: {add_cmd}")
-            
-            stdin, stdout, stderr = ssh.exec_command(add_cmd)
-            time.sleep(1)
-            
-            error_output = stderr.read().decode().strip()
-            output = stdout.read().decode().strip()
-            
-            logger.info(f"Saída do comando: '{output}'")
-            if error_output:
-                logger.error(f"Erro no comando: '{error_output}'")
-                raise Exception(f"Erro SSH: {error_output}")
-            
-            logger.info(f"Pool DHCP adicionado com sucesso")
-            return {'name': name, 'ranges': ranges, 'method': 'ssh'}
-            
-        except Exception as e:
-            logger.error(f"Erro ao adicionar pool DHCP via SSH: {str(e)}")
-            raise
-        finally:
-            ssh.close()
+        return resource.add(**data)
 
     def get_dns_servers(self):
         """Busca configuração de DNS (/ip/dns)."""
@@ -608,19 +701,225 @@ class MikrotikController:
         else:
             raise ValueError(f"Método de autenticação não suportado: {metodo_autenticacao}")
 
-    # ===== MÉTODOS PARA CONFIGURAÇÃO AUTOMÁTICA DE SERVIDOR PPPoE =====
-
-    def setup_pppoe_server(self, interface: str, ip_pool_name: str = "pppoe-pool", 
-                           local_address: str = "192.168.1.1", 
-                           first_ip: str = "192.168.1.2", last_ip: str = "192.168.1.254",
-                           default_profile: str = "default"):
-        """Configura automaticamente um servidor PPPoE completo no router.
+    def add_pppoe_profile(self, name: str, local_address: str, remote_address_pool: str,
+                         rate_limit: Optional[str] = None, comment: Optional[str] = None):
+        """Adiciona um profile PPPoE (/ppp/profile)."""
+        self.connect()
+        resource = self._api.get_resource('ppp/profile')
         
+        # Verificar se profile já existe
+        existing = resource.get(name=name)
+        
+        data = {
+            'name': name,
+            'local-address': local_address,
+            'remote-address': remote_address_pool
+        }
+        
+        if rate_limit:
+            data['rate-limit'] = rate_limit
+        if comment:
+            data['comment'] = comment
+        
+        if existing:
+            # Atualizar profile existente
+            entry_id = existing[0].get('.id') or existing[0].get('id')
+            if entry_id:
+                resource.set(id=entry_id, **data)
+                return existing[0]
+            else:
+                # Remover e recriar
+                resource.remove(name=name)
+                return resource.add(**data)
+        else:
+            return resource.add(**data)
+
+    def add_pppoe_server(self, name: str, interface: str, profile: str):
+        """Adiciona um servidor PPPoE (/interface/pppoe-server)."""
+        self.connect()
+
+        # Tentar com routeros_api primeiro (se disponível)
+        last_error = None
+        if self._api is not None:
+            try:
+                return self._add_pppoe_server_routeros_api(name, interface, profile)
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"routeros_api falhou para PPPoE server: {str(e)}")
+                last_error = e
+
+                # Tentar inicializar librouteros caso não esteja inicializado ainda
+                if self._librouteros_api is None and librouteros is not None:
+                    logger.info("Tentando inicializar librouteros como fallback...")
+                    if not self.ensure_librouteros_connected():
+                        logger.warning("Não foi possível inicializar librouteros no fallback")
+
+        # Fallback para librouteros
+        if self._librouteros_api is not None:
+            try:
+                return self._add_pppoe_server_librouteros(name, interface, profile)
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"librouteros também falhou: {str(e)}")
+                raise
+        # Se chegamos aqui, tentamos ambos e falharam
+        if last_error:
+            raise RuntimeError(f"Nenhuma API RouterOS disponível para criar servidor PPPoE: {last_error}")
+        else:
+            raise RuntimeError("Nenhuma API RouterOS disponível para criar servidor PPPoE")
+
+    def _add_pppoe_server_routeros_api(self, name: str, interface: str, profile: str):
+        """Implementação usando routeros_api (com tratamento de erro para .tag e parâmetros)."""
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Verificar versão do RouterOS para determinar a abordagem correta
+        try:
+            system_resource = self._api.get_resource('system/resource')
+            system_info = system_resource.get()[0]
+            version = system_info.get('version', '')
+            logger.info(f"RouterOS version (routeros_api): {version}")
+
+            if version.startswith('6.'):
+                # RouterOS 6.x - usar abordagem simplificada
+                logger.warning(f"RouterOS {version}: Usando abordagem simplificada para PPPoE server")
+                return self._add_pppoe_server_simple()
+        except Exception as e:
+            logger.debug(f"Não foi possível determinar versão via routeros_api: {e}")
+
+        # Verificar se já existe um servidor PPPoE nesta interface
+        try:
+            existing = self._api.get_resource('interface/pppoe-server').get(interface=interface)
+            if existing:
+                # Se já existe, vamos atualizá-lo
+                server_id = existing[0].get('.id') or existing[0].get('id')
+                if server_id:
+                    # Atualizar apenas os campos necessários
+                    update_data = {'disabled': 'no'}
+                    if profile:
+                        update_data['default-profile'] = profile
+                    self._api.get_resource('interface/pppoe-server').set(id=server_id, **update_data)
+                    return existing[0]
+                else:
+                    # Se não conseguir identificar pelo ID, remover e recriar
+                    self._api.get_resource('interface/pppoe-server').remove(interface=interface)
+        except Exception as e:
+            logger.debug(f"Erro ao verificar servidores existentes: {e}")
+
+        # Criar novo servidor PPPoE - tentar abordagem simples primeiro
+        try:
+            return self._add_pppoe_server_simple()
+        except Exception as e:
+            logger.error(f"Falha ao criar servidor PPPoE com abordagem simples: {str(e)}")
+            raise
+
+    def _add_pppoe_server_simple(self):
+        """Cria servidor PPPoE usando comando mais simples possível (sem parâmetros)."""
+        import logging
+        logger = logging.getLogger(__name__)
+
+        try:
+            # Para RouterOS 6.49.19, o comando /interface/pppoe-server/add sem parâmetros funciona
+            if self._api is not None:
+                result = self._api.get_resource('interface/pppoe-server').add()
+                logger.info("Servidor PPPoE criado com comando simples (routeros_api)")
+                return result
+            elif self._librouteros_api is not None:
+                result = self._librouteros_api.path('interface/pppoe-server').add()
+                logger.info("Servidor PPPoE criado com comando simples (librouteros)")
+                return result
+            else:
+                raise RuntimeError("Nenhuma API disponível")
+        except Exception as e:
+            logger.error(f"Erro no comando simples: {str(e)}")
+            raise
+
+    def _add_pppoe_server_librouteros(self, name: str, interface: str, profile: str):
+        """Implementação usando librouteros (mais direta, sem parâmetros extras).
+
+        NOTA: No RouterOS 6.49.19, /interface/pppoe-server/add cria interfaces PPPoE-IN (clientes),
+        não servidores. Este método precisa ser adaptado para a versão específica do RouterOS.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Verificar versão do RouterOS para determinar a abordagem correta
+        try:
+            system_info = list(self._librouteros_api.path('system/resource').select())[0]
+            version = system_info.get('version', '')
+            logger.info(f"RouterOS version: {version}")
+
+            if version.startswith('6.'):
+                # RouterOS 6.x - usar abordagem simplificada
+                logger.warning(f"RouterOS {version}: Usando abordagem simplificada para PPPoE server")
+                return self._add_pppoe_server_simple()
+        except Exception as e:
+            logger.debug(f"Não foi possível determinar versão: {e}")
+
+        # Verificar se já existe - na librouteros, select() sem argumentos retorna tudo
+        existing_servers = tuple(self._librouteros_api.path('interface/pppoe-server').select())
+
+        # Filtrar manualmente por interface
+        existing = [s for s in existing_servers if s.get('interface') == interface]
+
+        if existing:
+            # Atualizar servidor existente
+            server = existing[0]
+            update_cmd = {
+                '.id': server['.id'],
+                'disabled': 'no'
+            }
+            if profile:
+                update_cmd['default-profile'] = profile
+
+            self._librouteros_api.path('interface/pppoe-server').update(**update_cmd)
+            logger.info(f"Servidor PPPoE atualizado na interface {interface}")
+            return server
+        else:
+            # Criar novo servidor
+            # NOTA: No RouterOS 6.49.19, este comando pode criar interface PPPoE-IN em vez de servidor
+            create_cmd = {
+                'interface': interface,
+                'disabled': 'no'
+            }
+            if profile:
+                create_cmd['default-profile'] = profile
+
+            try:
+                result = self._librouteros_api.path('interface/pppoe-server').add(**create_cmd)
+                logger.info(f"Interface PPPoE criada na interface {interface} (pode ser cliente, não servidor)")
+                return result
+            except Exception as e:
+                logger.error(f"Falha ao criar PPPoE na interface {interface}: {e}")
+                # Tentar comando alternativo se disponível
+                try:
+                    # Última tentativa: comando básico sem parâmetros
+                    result = self._librouteros_api.path('interface/pppoe-server').add()
+                    logger.info(f"Interface PPPoE criada sem parâmetros específicos")
+                    return result
+                except Exception as e2:
+                    logger.error(f"Também falhou comando básico: {e2}")
+                    raise e
+
+    def setup_pppoe_server(self, interface: str, ip_pool_name: str = "pppoe-pool",
+                           local_address: str = "192.168.1.1",
+                           first_ip: str = "192.168.1.2", last_ip: str = "192.168.1.254",
+                           default_profile: str = "default",
+                           allow_wan_interface: bool = False):
+        """Configura automaticamente um servidor PPPoE completo no router.
+
         Este método configura:
         1. Pool de IPs para clientes PPPoE
         2. Profile PPPoE padrão
         3. Servidor PPPoE
-        
+
+        LIMITAÇÕES CONHECIDAS:
+        - RouterOS 6.49.19: O comando /interface/pppoe-server/add cria interfaces PPPoE-IN (clientes)
+          em vez de servidores. A configuração pode não funcionar como esperado.
+        - Versões mais antigas podem não suportar PPPoE server via API.
+
         Args:
             interface: Interface onde o servidor PPPoE será configurado (ex: "ether1")
             ip_pool_name: Nome do pool de IPs
@@ -628,32 +927,51 @@ class MikrotikController:
             first_ip: Primeiro IP do pool
             last_ip: Último IP do pool
             default_profile: Nome do profile PPPoE padrão
+            allow_wan_interface: Permitir configuração em interface WAN (não recomendado)
         """
         import logging
         logger = logging.getLogger(__name__)
-        
+
         logger.info(f"Iniciando configuração automática do servidor PPPoE na interface {interface}")
+        # Verificar versão do RouterOS
+        try:
+            if self._librouteros_api:
+                system_info = list(self._librouteros_api.path('system/resource').select())[0]
+                version = system_info.get('version', 'unknown')
+                logger.info(f"RouterOS version detectada: {version}")
+                if version.startswith('6.'):
+                    logger.warning(f"RouterOS {version}: PPPoE server pode ter limitações via API")
+        except Exception as e:
+            logger.debug(f"Não foi possível verificar versão: {e}")
+
+        # Mostrar status de conexão para auxiliar o diagnóstico em caso de falha
+        try:
+            self.connect()
+        except Exception as conn_exc:
+            logger.error(f"Falha ao conectar via API ao iniciar setup PPPoE: {conn_exc}")
+            raise
+        logger.info(f"Status de conexão: {self.get_connection_status()}")
         
         try:
+            # 0. Validar se a interface é válida (não é WAN) a menos que allow_wan_interface=True
+            if not allow_wan_interface and self.is_wan_interface(interface):
+                raise ValueError(f"Interface {interface} parece ser a interface WAN. Não crie um servidor PPPoE nesta interface.")
+
             # 1. Configurar pool de IPs
             logger.info(f"Configurando pool de IPs: {ip_pool_name} ({first_ip}-{last_ip})")
-            pool_result = self.add_dhcp_pool(ip_pool_name, f"{first_ip}-{last_ip}")
-            logger.info(f"Pool de IPs configurado: {pool_result}")
+            self.add_dhcp_pool(ip_pool_name, f"{first_ip}-{last_ip}")
             
             # 2. Configurar profile PPPoE
             logger.info(f"Configurando profile PPPoE: {default_profile}")
-            profile_result = self.add_pppoe_profile(default_profile, local_address, ip_pool_name)
-            logger.info(f"Profile PPPoE configurado: {profile_result}")
+            self.add_pppoe_profile(default_profile, local_address, ip_pool_name)
             
             # 3. Configurar servidor PPPoE
-            logger.info(f"Configurando servidor PPPoE na interface {interface}")
-            server_result = self.add_pppoe_server("pppoe-server", interface, default_profile, ip_pool_name)
-            logger.info(f"Servidor PPPoE configurado: {server_result}")
+            logger.info("Configurando servidor PPPoE")
+            self.add_pppoe_server("pppoe-server", interface, default_profile)
             
             # 4. Configurar regras de firewall/NAT básicas
             logger.info("Configurando regras de firewall para PPPoE")
             self.setup_pppoe_firewall_rules()
-            logger.info("Regras de firewall configuradas")
             
             logger.info("Configuração automática do servidor PPPoE concluída com sucesso!")
             return True
@@ -662,226 +980,38 @@ class MikrotikController:
             logger.error(f"Erro durante configuração automática do servidor PPPoE: {str(e)}")
             raise
 
-    def add_pppoe_profile(self, name: str, local_address: str, remote_address_pool: str,
-                         rate_limit: Optional[str] = None, comment: Optional[str] = None):
-        """Adiciona um profile PPPoE (/ppp/profile) usando SSH direto."""
-        import logging
-        import paramiko
-        import time
-        
-        logger = logging.getLogger(__name__)
-        logger.info(f"Adicionando profile PPPoE {name} via SSH")
-        
-        # Criar cliente SSH
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        
-        try:
-            # Conectar via SSH
-            ssh_port = getattr(self, 'port', 22)  # Usar porta configurada ou 22
-            logger.info(f"Conectando via SSH para {self.host}:{ssh_port} como {self.username}")
-            ssh.connect(
-                hostname=self.host,
-                port=ssh_port,
-                username=self.username,
-                password=self.password,
-                timeout=10
-            )
-            logger.info("Conexão SSH estabelecida com sucesso")
-            
-            # Verificar se profile já existe e remover
-            remove_cmd = f'/ppp/profile/remove [find name={name}]'
-            logger.info(f"Executando comando de remoção: {remove_cmd}")
-            
-            stdin, stdout, stderr = ssh.exec_command(remove_cmd)
-            time.sleep(1)
-            
-            remove_error = stderr.read().decode().strip()
-            if remove_error:
-                logger.warning(f"Erro na remoção (pode ser normal): {remove_error}")
-            
-            # Criar novo profile
-            add_cmd = f'/ppp/profile/add name={name} local-address={local_address} remote-address={remote_address_pool}'
-            
-            if rate_limit:
-                add_cmd += f' rate-limit={rate_limit}'
-            
-            if comment:
-                # Escapar aspas no comentário
-                comment_escaped = comment.replace('"', '\\"')
-                add_cmd += f' comment="{comment_escaped}"'
-            
-            logger.info(f"Executando comando de adição: {add_cmd}")
-            
-            stdin, stdout, stderr = ssh.exec_command(add_cmd)
-            time.sleep(1)
-            
-            error_output = stderr.read().decode().strip()
-            output = stdout.read().decode().strip()
-            
-            logger.info(f"Saída do comando: '{output}'")
-            if error_output:
-                logger.error(f"Erro no comando: '{error_output}'")
-                raise Exception(f"Erro SSH: {error_output}")
-            
-            logger.info(f"Profile PPPoE adicionado com sucesso")
-            return {'name': name, 'local-address': local_address, 'remote-address': remote_address_pool, 'method': 'ssh'}
-            
-        except Exception as e:
-            logger.error(f"Erro ao adicionar profile PPPoE via SSH: {str(e)}")
-            raise
-        finally:
-            ssh.close()
-
-    def add_pppoe_server_interface(self, interface: str, profile: str = "default"):
-        """Adiciona uma interface PPPoE server (/interface/pppoe-server)."""
-        self.connect()
-        resource = self._api.get_resource('interface/pppoe-server')
-
-        # Verificar se já existe
-        existing = resource.get(interface=interface)
-
-        # Usar apenas parâmetros essenciais para evitar problemas de compatibilidade
-        data = {
-            'interface': interface,
-            'disabled': 'no'
-        }
-
-        # Adicionar profile apenas se especificado e existir
-        if profile and profile != "default":
-            data['default-profile'] = profile
-
-        if existing:
-            # Atualizar
-            entry_id = existing[0].get('.id') or existing[0].get('id')
-            if entry_id:
-                resource.set(id=entry_id, **data)
-                return existing[0]
-            else:
-                resource.remove(interface=interface)
-                return resource.add(**data)
-        else:
-            return resource.add(**data)
-
-    def add_pppoe_server(self, name: str, interface: str, profile: str, address_pool: str):
-        """Adiciona um servidor PPPoE usando SSH direto para contornar problemas da API."""
-        import logging
-        import paramiko
-        import time
-        
-        logger = logging.getLogger(__name__)
-        logger.info(f"Configurando servidor PPPoE na interface {interface} via SSH")
-        
-        # Criar cliente SSH
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        
-        try:
-            # Conectar via SSH
-            ssh.connect(
-                hostname=self.host,
-                port=22,  # Porta SSH padrão
-                username=self.username,
-                password=self.password,
-                timeout=10
-            )
-            
-            # Comando para adicionar servidor PPPoE
-            command = f'/interface/pppoe-server/add interface={interface}'
-            logger.info(f"Executando comando: {command}")
-            
-            # Executar comando
-            stdin, stdout, stderr = ssh.exec_command(command)
-            
-            # Aguardar um pouco para o comando ser processado
-            time.sleep(1)
-            
-            # Verificar se houve erro
-            error_output = stderr.read().decode().strip()
-            output = stdout.read().decode().strip()
-            
-            logger.info(f"Saída do comando: '{output}'")
-            if error_output:
-                logger.warning(f"Erro no comando: '{error_output}'")
-                
-                # Se já existe, considerar como sucesso
-                if 'already exists' in error_output.lower() or 'duplicate' in error_output.lower():
-                    logger.info(f"Servidor PPPoE já existe na interface {interface}")
-                    return {'status': 'already_exists', 'interface': interface}
-                else:
-                    raise Exception(f"Erro SSH: {error_output}")
-            
-            logger.info("Servidor PPPoE configurado com sucesso via SSH")
-            return {'status': 'success', 'interface': interface, 'method': 'ssh'}
-            
-        except Exception as e:
-            logger.error(f"Erro ao configurar PPPoE via SSH: {str(e)}")
-            raise
-        finally:
-            ssh.close()
-
     def setup_pppoe_firewall_rules(self):
-        """Configura regras básicas de firewall para PPPoE funcionar usando SSH direto."""
+        """Configura regras básicas de firewall para PPPoE funcionar."""
         import logging
-        import paramiko
-        import time
-        
         logger = logging.getLogger(__name__)
         
-        # Criar cliente SSH
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        
         try:
-            # Conectar via SSH - usar a porta configurada ou 22 como padrão
-            ssh_port = getattr(self, 'port', 22)  # Usar porta configurada ou 22
-            logger.info(f"Conectando via SSH para {self.host}:{ssh_port} como {self.username}")
-            ssh.connect(
-                hostname=self.host,
-                port=ssh_port,
-                username=self.username,
-                password=self.password,
-                timeout=10
-            )
-            logger.info("Conexão SSH estabelecida com sucesso")
+            # Adicionar regras básicas se não existirem
+            self.connect()
             
-            logger.info(f"Configurando servidor PPPoE na interface {interface} via SSH")
+            # Regra para permitir tráfego PPPoE (protocolo 0x8863/0x8864)
+            # Nota: O Mikrotik geralmente já tem essas regras por padrão
             
-            # Verificar se já existe interface PPPoE
-            check_cmd = '/interface/pppoe-server/print'
-            logger.info(f"Verificando interfaces PPPoE: {check_cmd}")
+            # Adicionar NAT para tráfego dos clientes PPPoE
+            nat_resource = self._api.get_resource('ip/firewall/nat')
             
-            stdin, stdout, stderr = ssh.exec_command(check_cmd)
-            time.sleep(1)
+            # Verificar se já existe uma regra de NAT para PPPoE
+            existing_nat = nat_resource.get(out_interface='pppoe-out', action='masquerade')
             
-            output = stdout.read().decode().strip()
-            error_output = stderr.read().decode().strip()
+            if not existing_nat:
+                logger.info("Adicionando regra NAT para clientes PPPoE")
+                nat_resource.add(
+                    chain='srcnat',
+                    out_interface='pppoe-out',
+                    action='masquerade',
+                    comment='NAT para clientes PPPoE'
+                )
             
-            if error_output:
-                logger.warning(f"Erro ao verificar interfaces PPPoE: {error_output}")
-            else:
-                logger.info(f"Interfaces PPPoE encontradas: {output}")
-            
-            # Adicionar regra NAT básica se não existir
-            nat_cmd = '/ip/firewall/nat/add chain=srcnat out-interface=pppoe-out action=masquerade comment="NAT para clientes PPPoE"'
-            logger.info(f"Adicionando regra NAT: {nat_cmd}")
-            
-            stdin, stdout, stderr = ssh.exec_command(nat_cmd)
-            time.sleep(1)
-            
-            error_output = stderr.read().decode().strip()
-            if error_output and 'already exists' not in error_output.lower():
-                logger.warning(f"Erro ao adicionar regra NAT: {error_output}")
-            else:
-                logger.info("Regra NAT adicionada ou já existe")
-            
-            logger.info("Regras de firewall para PPPoE configuradas via SSH")
+            logger.info("Regras de firewall para PPPoE configuradas")
             
         except Exception as e:
-            logger.warning(f"Erro ao configurar regras de firewall para PPPoE via SSH: {str(e)}")
+            logger.warning(f"Erro ao configurar regras de firewall para PPPoE: {str(e)}")
             # Não falhar a configuração por causa das regras de firewall
-        finally:
-            ssh.close()
 
     def get_pppoe_server_status(self):
         """Retorna status do servidor PPPoE configurado."""
