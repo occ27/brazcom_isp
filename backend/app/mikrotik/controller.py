@@ -55,37 +55,93 @@ class MikrotikController:
     def add_pppoe_user(self, username: str, password: str, service: str = 'pppoe', profile: Optional[str] = None, comment: Optional[str] = None):
         """Adiciona usuário PPPoE no roteador usando `/ppp/secret`.
 
+        Se o usuário já existir, remove e recria. Caso contrário, cria um novo.
         Retorna o registro criado (dict) ou lança erro em caso de falha.
         """
         self.connect()
         resource = self._api.get_resource('ppp/secret')
+        
+        # Remover usuário existente se houver
+        existing = resource.get(name=username)
+        if existing:
+            try:
+                entry_id = existing[0].get('.id') or existing[0].get('id')
+                if entry_id:
+                    resource.remove(id=entry_id)
+                else:
+                    resource.remove(name=username)
+            except Exception:
+                pass  # Ignorar erros de remoção
+        
+        # Criar novo usuário
         data = {'name': username, 'password': password, 'service': service}
         if profile:
             data['profile'] = profile
         if comment:
             data['comment'] = comment
+        
         return resource.add(**data)
 
     def remove_pppoe_user(self, username: str):
         """Remove usuário PPPoE buscando por `name` e removendo o item."""
-        self.connect()
-        resource = self._api.get_resource('ppp/secret')
-        items = resource.get(name=username)
-        if not items:
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            self.connect()
+            resource = self._api.get_resource('ppp/secret')
+            items = resource.get(name=username)
+            
+            if not items:
+                logger.warning(f"Usuário PPPoE {username} não encontrado para remoção")
+                return False
+            
+            logger.info(f"Encontrados {len(items)} usuários PPPoE com nome {username}")
+            
+            removed_count = 0
+            for it in items:
+                entry_id = it.get('.id') or it.get('id')
+                if entry_id:
+                    try:
+                        logger.info(f"Removendo usuário PPPoE {username} com ID {entry_id}")
+                        resource.remove(id=entry_id)
+                        removed_count += 1
+                        logger.info(f"Usuário PPPoE {username} removido com sucesso")
+                    except Exception as remove_exc:
+                        logger.error(f"Erro ao remover usuário PPPoE {username} com ID {entry_id}: {str(remove_exc)}")
+                else:
+                    logger.warning(f"Usuário PPPoE {username} encontrado mas sem ID válido: {it}")
+            
+            return removed_count > 0
+            
+        except Exception as e:
+            logger.error(f"Erro geral ao remover usuário PPPoE {username}: {str(e)}")
             return False
-        for it in items:
-            resource.remove(id=it.get('.id'))
-        return True
 
     def add_hotspot_user(self, username: str, password: str, server: Optional[str] = None, comment: Optional[str] = None):
-        """Adiciona usuário de hotspot via `/ip/hotspot/user` (se aplicável)."""
+        """Adiciona usuário de hotspot via `/ip/hotspot/user`."""
         self.connect()
         resource = self._api.get_resource('ip/hotspot/user')
+        
+        # Remover usuário existente se houver
+        existing = resource.get(name=username)
+        if existing:
+            try:
+                entry_id = existing[0].get('.id') or existing[0].get('id')
+                if entry_id:
+                    resource.remove(id=entry_id)
+                else:
+                    resource.remove(name=username)
+            except Exception:
+                pass  # Ignorar erros de remoção
+        
+        # Criar novo usuário
         data = {'name': username, 'password': password}
         if server:
             data['server'] = server
         if comment:
             data['comment'] = comment
+        
         return resource.add(**data)
 
     def set_arp_entry(self, ip: str, mac: str, interface: Optional[str] = None, comment: Optional[str] = None):
@@ -197,9 +253,24 @@ class MikrotikController:
         """Adiciona um endereço IP a uma interface (/ip/address)."""
         self.connect()
         resource = self._api.get_resource('ip/address')
+        
+        # Remover endereço existente se houver
+        existing = resource.get(address=address, interface=interface)
+        if existing:
+            try:
+                entry_id = existing[0].get('.id') or existing[0].get('id')
+                if entry_id:
+                    resource.remove(id=entry_id)
+                else:
+                    resource.remove(address=address, interface=interface)
+            except Exception:
+                pass  # Ignorar erros de remoção
+        
+        # Criar novo endereço
         data = {'address': address, 'interface': interface}
         if comment:
             data['comment'] = comment
+        
         return resource.add(**data)
 
     def remove_ip_address(self, address: str, interface: Optional[str] = None):
@@ -261,12 +332,27 @@ class MikrotikController:
         """Adiciona um servidor DHCP."""
         self.connect()
         resource = self._api.get_resource('ip/dhcp-server')
+        
+        # Remover servidor existente se houver
+        existing = resource.get(name=name)
+        if existing:
+            try:
+                entry_id = existing[0].get('.id') or existing[0].get('id')
+                if entry_id:
+                    resource.remove(id=entry_id)
+                else:
+                    resource.remove(name=name)
+            except Exception:
+                pass  # Ignorar erros de remoção
+        
+        # Criar novo servidor
         data = {
             'name': name,
             'interface': interface,
             'address-pool': address_pool,
             'disabled': 'yes' if disabled else 'no'
         }
+        
         return resource.add(**data)
 
     def get_dhcp_pools(self):
@@ -279,7 +365,22 @@ class MikrotikController:
         """Adiciona um pool de endereços DHCP."""
         self.connect()
         resource = self._api.get_resource('ip/pool')
+        
+        # Remover pool existente se houver
+        existing = resource.get(name=name)
+        if existing:
+            try:
+                entry_id = existing[0].get('.id') or existing[0].get('id')
+                if entry_id:
+                    resource.remove(id=entry_id)
+                else:
+                    resource.remove(name=name)
+            except Exception:
+                pass  # Ignorar erros de remoção
+        
+        # Criar novo pool
         data = {'name': name, 'ranges': ranges}
+        
         return resource.add(**data)
 
     def get_dns_servers(self):

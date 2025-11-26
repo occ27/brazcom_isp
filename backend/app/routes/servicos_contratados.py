@@ -175,6 +175,7 @@ def delete_contrato_for_empresa(empresa_id: int, contrato_id: int, db: Session =
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
 
     # Se o contrato estiver ativo, remover as configurações do router antes de excluir
+    logger.info(f"Status do contrato {contrato_id}: {db_contrato.status}")
     if db_contrato.status == sc_schema.StatusContrato.ATIVO:
         logger.info(f"Contrato {contrato_id} está ativo, removendo configurações do router antes da exclusão")
 
@@ -207,8 +208,13 @@ def delete_contrato_for_empresa(empresa_id: int, contrato_id: int, db: Session =
                     elif db_contrato.metodo_autenticacao == 'PPPOE':
                         # Remover secret PPPoE
                         username = f"contrato_{db_contrato.id}"
-                        mk.remove_pppoe_user(username)
-                        logger.info(f"Secret PPPoE removido para usuário {username}")
+                        logger.info(f"Tentando remover usuário PPPoE: {username}")
+                        try:
+                            mk.remove_pppoe_user(username)
+                            logger.info(f"Secret PPPoE removido com sucesso para usuário {username}")
+                        except Exception as pppoe_exc:
+                            logger.error(f"Erro específico ao remover usuário PPPoE {username}: {str(pppoe_exc)}")
+                            # Não falhar a exclusão por causa disso
 
                     elif db_contrato.metodo_autenticacao == 'HOTSPOT':
                         # Remover usuário Hotspot
@@ -438,16 +444,17 @@ def ativar_servico(contrato_id: int, db: Session = Depends(get_db), current_user
             pass
 
         # Configurar QoS (limite de banda) se o serviço tiver limite definido
-        if servico and hasattr(servico, 'max_limit') and servico.max_limit:
+        # Nota: Para PPPOE, o controle de banda é feito no perfil PPPoE, não em queue separada
+        if servico and hasattr(servico, 'max_limit') and servico.max_limit and c.metodo_autenticacao == 'IP_MAC':
             queue_name = f"contrato-{c.id}"
-            target_ip = c.assigned_ip if c.metodo_autenticacao == 'IP_MAC' else f"contrato_{c.id}"
+            target_ip = c.assigned_ip
             comment = f"Contrato {c.id} - {cliente_nome} - {servico.max_limit}"
 
             logger.info(f"Configurando QoS: {queue_name}, target={target_ip}, limit={servico.max_limit}, Comment={comment}")
             try:
                 mk.set_queue_simple(
                     name=queue_name,
-                    target=f"{target_ip}/32" if c.metodo_autenticacao == 'IP_MAC' else target_ip,
+                    target=f"{target_ip}/32",
                     max_limit=servico.max_limit,
                     comment=comment
                 )
