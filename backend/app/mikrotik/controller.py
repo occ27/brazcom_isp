@@ -683,41 +683,36 @@ class MikrotikController:
             return resource.add(**data)
 
     def add_pppoe_server(self, name: str, interface: str, profile: str, address_pool: str):
-        """Adiciona um servidor PPPoE (/interface/pppoe-server)."""
+        """Adiciona um servidor PPPoE (/interface/pppoe-server) usando apenas parâmetros essenciais."""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         self.connect()
         resource = self._api.get_resource('interface/pppoe-server')
         
+        # Usar APENAS o parâmetro interface - o mínimo necessário
         data = {
-            'interface': interface,
-            'disabled': 'no'
+            'interface': interface
         }
         
-        # Adicionar service-name apenas se especificado
-        if name:
-            data['service-name'] = name
-            
-        # Adicionar profile apenas se especificado
-        if profile:
-            data['default-profile'] = profile
+        logger.info(f"Tentando adicionar servidor PPPoE na interface {interface}")
         
         try:
-            # Tentar adicionar
-            return resource.add(**data)
+            # Tentar adicionar com parâmetro mínimo
+            result = resource.add(**data)
+            logger.info(f"Servidor PPPoE adicionado com sucesso: {result}")
+            return result
+            
         except Exception as e:
-            # Se falhar, tentar atualizar se já existe
-            if 'already exists' in str(e).lower() or 'duplicate' in str(e).lower():
-                try:
-                    # Listar todas as interfaces e encontrar a que corresponde
-                    existing_list = resource.get()
-                    for entry in existing_list:
-                        if entry.get('interface') == interface:
-                            entry_id = entry.get('.id') or entry.get('id')
-                            if entry_id:
-                                resource.set(id=entry_id, **data)
-                                return entry
-                except:
-                    pass
-            # Se não conseguir atualizar, relançar o erro
+            error_msg = str(e)
+            logger.error(f"Erro ao adicionar servidor PPPoE: {error_msg}")
+            
+            # Se já existe, não fazer nada (já está configurado)
+            if 'already exists' in error_msg.lower() or 'duplicate' in error_msg.lower():
+                logger.info(f"Servidor PPPoE já existe na interface {interface}")
+                return {'status': 'already_exists', 'interface': interface}
+            
+            # Para outros erros, tentar abordagem alternativa
             raise
 
     def setup_pppoe_firewall_rules(self):
