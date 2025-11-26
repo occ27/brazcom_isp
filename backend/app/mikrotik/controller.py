@@ -362,26 +362,56 @@ class MikrotikController:
         return resource.get()
 
     def add_dhcp_pool(self, name: str, ranges: str):
-        """Adiciona um pool de endereços DHCP."""
-        self.connect()
-        resource = self._api.get_resource('ip/pool')
+        """Adiciona um pool de endereços DHCP usando SSH direto."""
+        import logging
+        import paramiko
+        import time
         
-        # Remover pool existente se houver
-        existing = resource.get(name=name)
-        if existing:
-            try:
-                entry_id = existing[0].get('.id') or existing[0].get('id')
-                if entry_id:
-                    resource.remove(id=entry_id)
-                else:
-                    resource.remove(name=name)
-            except Exception:
-                pass  # Ignorar erros de remoção
+        logger = logging.getLogger(__name__)
+        logger.info(f"Adicionando pool DHCP {name} com ranges {ranges} via SSH")
         
-        # Criar novo pool
-        data = {'name': name, 'ranges': ranges}
+        # Criar cliente SSH
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         
-        return resource.add(**data)
+        try:
+            # Conectar via SSH
+            ssh.connect(
+                hostname=self.host,
+                port=22,
+                username=self.username,
+                password=self.password,
+                timeout=10
+            )
+            
+            # Remover pool existente se houver
+            remove_cmd = f'/ip/pool/remove [find name={name}]'
+            logger.info(f"Removendo pool existente: {remove_cmd}")
+            
+            stdin, stdout, stderr = ssh.exec_command(remove_cmd)
+            time.sleep(1)
+            
+            # Criar novo pool
+            add_cmd = f'/ip/pool/add name={name} ranges={ranges}'
+            logger.info(f"Adicionando novo pool: {add_cmd}")
+            
+            stdin, stdout, stderr = ssh.exec_command(add_cmd)
+            time.sleep(1)
+            
+            error_output = stderr.read().decode().strip()
+            if error_output:
+                logger.error(f"Erro ao adicionar pool DHCP: {error_output}")
+                raise Exception(f"Erro SSH: {error_output}")
+            
+            output = stdout.read().decode().strip()
+            logger.info(f"Pool DHCP adicionado com sucesso: {output}")
+            return {'name': name, 'ranges': ranges, 'method': 'ssh'}
+            
+        except Exception as e:
+            logger.error(f"Erro ao adicionar pool DHCP via SSH: {str(e)}")
+            raise
+        finally:
+            ssh.close()
 
     def get_dns_servers(self):
         """Busca configuração de DNS (/ip/dns)."""
@@ -598,19 +628,23 @@ class MikrotikController:
         try:
             # 1. Configurar pool de IPs
             logger.info(f"Configurando pool de IPs: {ip_pool_name} ({first_ip}-{last_ip})")
-            self.add_dhcp_pool(ip_pool_name, f"{first_ip}-{last_ip}")
+            pool_result = self.add_dhcp_pool(ip_pool_name, f"{first_ip}-{last_ip}")
+            logger.info(f"Pool de IPs configurado: {pool_result}")
             
             # 2. Configurar profile PPPoE
             logger.info(f"Configurando profile PPPoE: {default_profile}")
-            self.add_pppoe_profile(default_profile, local_address, ip_pool_name)
+            profile_result = self.add_pppoe_profile(default_profile, local_address, ip_pool_name)
+            logger.info(f"Profile PPPoE configurado: {profile_result}")
             
             # 3. Configurar servidor PPPoE
-            logger.info("Configurando servidor PPPoE")
-            self.add_pppoe_server("pppoe-server", interface, default_profile, ip_pool_name)
+            logger.info(f"Configurando servidor PPPoE na interface {interface}")
+            server_result = self.add_pppoe_server("pppoe-server", interface, default_profile, ip_pool_name)
+            logger.info(f"Servidor PPPoE configurado: {server_result}")
             
             # 4. Configurar regras de firewall/NAT básicas
             logger.info("Configurando regras de firewall para PPPoE")
             self.setup_pppoe_firewall_rules()
+            logger.info("Regras de firewall configuradas")
             
             logger.info("Configuração automática do servidor PPPoE concluída com sucesso!")
             return True
@@ -621,36 +655,65 @@ class MikrotikController:
 
     def add_pppoe_profile(self, name: str, local_address: str, remote_address_pool: str,
                          rate_limit: Optional[str] = None, comment: Optional[str] = None):
-        """Adiciona um profile PPPoE (/ppp/profile)."""
-        self.connect()
-        resource = self._api.get_resource('ppp/profile')
+        """Adiciona um profile PPPoE (/ppp/profile) usando SSH direto."""
+        import logging
+        import paramiko
+        import time
         
-        # Verificar se profile já existe
-        existing = resource.get(name=name)
+        logger = logging.getLogger(__name__)
+        logger.info(f"Adicionando profile PPPoE {name} via SSH")
         
-        data = {
-            'name': name,
-            'local-address': local_address,
-            'remote-address': remote_address_pool
-        }
+        # Criar cliente SSH
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         
-        if rate_limit:
-            data['rate-limit'] = rate_limit
-        if comment:
-            data['comment'] = comment
-        
-        if existing:
-            # Atualizar profile existente
-            entry_id = existing[0].get('.id') or existing[0].get('id')
-            if entry_id:
-                resource.set(id=entry_id, **data)
-                return existing[0]
-            else:
-                # Remover e recriar
-                resource.remove(name=name)
-                return resource.add(**data)
-        else:
-            return resource.add(**data)
+        try:
+            # Conectar via SSH
+            ssh.connect(
+                hostname=self.host,
+                port=22,
+                username=self.username,
+                password=self.password,
+                timeout=10
+            )
+            
+            # Verificar se profile já existe e remover
+            remove_cmd = f'/ppp/profile/remove [find name={name}]'
+            logger.info(f"Removendo profile existente: {remove_cmd}")
+            
+            stdin, stdout, stderr = ssh.exec_command(remove_cmd)
+            time.sleep(1)
+            
+            # Criar novo profile
+            add_cmd = f'/ppp/profile/add name={name} local-address={local_address} remote-address={remote_address_pool}'
+            
+            if rate_limit:
+                add_cmd += f' rate-limit={rate_limit}'
+            
+            if comment:
+                # Escapar aspas no comentário
+                comment_escaped = comment.replace('"', '\\"')
+                add_cmd += f' comment="{comment_escaped}"'
+            
+            logger.info(f"Adicionando novo profile: {add_cmd}")
+            
+            stdin, stdout, stderr = ssh.exec_command(add_cmd)
+            time.sleep(1)
+            
+            error_output = stderr.read().decode().strip()
+            if error_output:
+                logger.error(f"Erro ao adicionar profile PPPoE: {error_output}")
+                raise Exception(f"Erro SSH: {error_output}")
+            
+            output = stdout.read().decode().strip()
+            logger.info(f"Profile PPPoE adicionado com sucesso: {output}")
+            return {'name': name, 'local-address': local_address, 'remote-address': remote_address_pool, 'method': 'ssh'}
+            
+        except Exception as e:
+            logger.error(f"Erro ao adicionar profile PPPoE via SSH: {str(e)}")
+            raise
+        finally:
+            ssh.close()
 
     def add_pppoe_server_interface(self, interface: str, profile: str = "default"):
         """Adiciona uma interface PPPoE server (/interface/pppoe-server)."""
@@ -742,37 +805,63 @@ class MikrotikController:
             ssh.close()
 
     def setup_pppoe_firewall_rules(self):
-        """Configura regras básicas de firewall para PPPoE funcionar."""
+        """Configura regras básicas de firewall para PPPoE funcionar usando SSH direto."""
         import logging
+        import paramiko
+        import time
+        
         logger = logging.getLogger(__name__)
+        logger.info("Configurando regras de firewall para PPPoE via SSH")
+        
+        # Criar cliente SSH
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         
         try:
-            # Adicionar regras básicas se não existirem
-            self.connect()
+            # Conectar via SSH
+            ssh.connect(
+                hostname=self.host,
+                port=22,
+                username=self.username,
+                password=self.password,
+                timeout=10
+            )
             
-            # Regra para permitir tráfego PPPoE (protocolo 0x8863/0x8864)
-            # Nota: O Mikrotik geralmente já tem essas regras por padrão
+            # Verificar se já existe interface PPPoE
+            check_cmd = '/interface/pppoe-server/print'
+            logger.info(f"Verificando interfaces PPPoE: {check_cmd}")
             
-            # Adicionar NAT para tráfego dos clientes PPPoE
-            nat_resource = self._api.get_resource('ip/firewall/nat')
+            stdin, stdout, stderr = ssh.exec_command(check_cmd)
+            time.sleep(1)
             
-            # Verificar se já existe uma regra de NAT para PPPoE
-            existing_nat = nat_resource.get(out_interface='pppoe-out', action='masquerade')
+            output = stdout.read().decode().strip()
+            error_output = stderr.read().decode().strip()
             
-            if not existing_nat:
-                logger.info("Adicionando regra NAT para clientes PPPoE")
-                nat_resource.add(
-                    chain='srcnat',
-                    out_interface='pppoe-out',
-                    action='masquerade',
-                    comment='NAT para clientes PPPoE'
-                )
+            if error_output:
+                logger.warning(f"Erro ao verificar interfaces PPPoE: {error_output}")
+            else:
+                logger.info(f"Interfaces PPPoE encontradas: {output}")
             
-            logger.info("Regras de firewall para PPPoE configuradas")
+            # Adicionar regra NAT básica se não existir
+            nat_cmd = '/ip/firewall/nat/add chain=srcnat out-interface=pppoe-out action=masquerade comment="NAT para clientes PPPoE"'
+            logger.info(f"Adicionando regra NAT: {nat_cmd}")
+            
+            stdin, stdout, stderr = ssh.exec_command(nat_cmd)
+            time.sleep(1)
+            
+            error_output = stderr.read().decode().strip()
+            if error_output and 'already exists' not in error_output.lower():
+                logger.warning(f"Erro ao adicionar regra NAT: {error_output}")
+            else:
+                logger.info("Regra NAT adicionada ou já existe")
+            
+            logger.info("Regras de firewall para PPPoE configuradas via SSH")
             
         except Exception as e:
-            logger.warning(f"Erro ao configurar regras de firewall para PPPoE: {str(e)}")
+            logger.warning(f"Erro ao configurar regras de firewall para PPPoE via SSH: {str(e)}")
             # Não falhar a configuração por causa das regras de firewall
+        finally:
+            ssh.close()
 
     def get_pppoe_server_status(self):
         """Retorna status do servidor PPPoE configurado."""
