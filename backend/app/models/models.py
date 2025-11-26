@@ -24,6 +24,14 @@ class TipoConexao(str, enum.Enum):
     OUTRO = "OUTRO"
 
 
+class MetodoAutenticacao(str, enum.Enum):
+    """Métodos de autenticação para serviços de internet."""
+    IP_MAC = "IP_MAC"
+    PPPOE = "PPPOE"
+    HOTSPOT = "HOTSPOT"
+    RADIUS = "RADIUS"
+
+
 class Usuario(Base):
     """Modelo de Usuário do sistema."""
     __tablename__ = "users"
@@ -347,7 +355,7 @@ class ServicoContratado(Base):
     d_contrato_fim = Column(Date, nullable=True)
 
     # Status do contrato (específico para ISPs)
-    status = Column(SQLAlchemyEnum(StatusContrato), nullable=False, server_default=StatusContrato.ATIVO.value)
+    status = Column(SQLAlchemyEnum(StatusContrato), nullable=False, server_default=StatusContrato.PENDENTE_INSTALACAO.value)
 
     # Informações de instalação (específicas para ISPs)
     endereco_instalacao = Column(Text, nullable=True)  # Endereço onde o serviço é instalado (pode ser diferente do endereço do cliente)
@@ -390,6 +398,7 @@ class ServicoContratado(Base):
     ip_class_id = Column(Integer, ForeignKey("ip_classes.id"), nullable=True)  # Classe IP para atribuição automática
     mac_address = Column(String(17), nullable=True)  # Endereço MAC do dispositivo do cliente
     assigned_ip = Column(String(15), nullable=True)  # IP atribuído automaticamente
+    metodo_autenticacao = Column(SQLAlchemyEnum(MetodoAutenticacao), nullable=True)  # Método de autenticação
 
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

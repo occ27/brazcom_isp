@@ -810,3 +810,31 @@ def apply_ip_config_to_interface(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao aplicar configuração IP: {str(e)}")
+
+@router.get("/ip-classes/{ip_class_id}/used-ips/", response_model=List[str])
+def get_used_ips_by_ip_class(
+    *,
+    db: Session = Depends(deps.get_db),
+    ip_class_id: int,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Buscar todos os IPs já atribuídos em contratos para uma classe IP específica.
+    """
+    # Verificar se a classe IP pertence à empresa do usuário
+    ip_class = crud.crud_network.get_ip_class(db=db, class_id=ip_class_id)
+    if not ip_class:
+        raise HTTPException(status_code=404, detail="Classe IP não encontrada")
+
+    # Verificar se algum router desta classe IP pertence à empresa do usuário
+    has_access = False
+    for interface in ip_class.interfaces:
+        router = crud.crud_router.get_router(db=db, router_id=interface.router_id, empresa_id=current_user.active_empresa_id)
+        if router:
+            has_access = True
+            break
+
+    if not has_access:
+        raise HTTPException(status_code=403, detail="Acesso negado à classe IP")
+
+    return crud.crud_network.get_used_ips_by_ip_class(db=db, ip_class_id=ip_class_id)

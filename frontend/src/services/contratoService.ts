@@ -39,6 +39,7 @@ export interface Contrato {
   ip_class_id?: number;
   mac_address?: string;
   assigned_ip?: string;
+  metodo_autenticacao?: 'IP_MAC' | 'PPPOE' | 'HOTSPOT' | 'RADIUS';
 
   // Related data
   cliente_nome?: string;
@@ -87,6 +88,14 @@ const contratoService = {
   },
   deleteContrato: async (empresaId: number, contratoId: number) => {
     const response = await api.delete(`/servicos-contratados/empresa/${empresaId}/${contratoId}`);
+    return response.data;
+  },
+  ativarServico: async (contratoId: number) => {
+    const response = await api.put(`/servicos-contratados/${contratoId}/ativar`);
+    return response.data;
+  },
+  resetConnection: async (contratoId: number) => {
+    const response = await api.put(`/servicos-contratados/${contratoId}/reset-connection`);
     return response.data;
   }
 };

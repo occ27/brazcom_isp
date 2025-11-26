@@ -30,24 +30,38 @@ def create_subscription(
     # Persist subscription as pending
     subscription = crud.crud_subscription.create_subscription(db=db, sub_in=sub_in, empresa_id=empresa_id)
 
-    # Provision synchronously (MVP) - IP+MAC
+    # Provision based on auth_method
     try:
-        if sub_in.auth_method != 'ip_mac' and sub_in.auth_method is not None:
-            # For MVP we only support ip_mac; reject others for now
-            raise HTTPException(status_code=400, detail="Somente auth_method 'ip_mac' é suportado no MVP")
-
         password = decrypt_password(router_db.senha) if router_db.senha else ""
         mk = MikrotikController(host=router_db.ip, username=router_db.usuario, password=password, port=router_db.porta)
 
-        # Add ARP entry
-        mk.set_arp_entry(ip=str(sub_in.ip), mac=sub_in.mac, interface=sub_in.interface)
+        if sub_in.auth_method == 'ip_mac' or sub_in.auth_method is None:
+            # IP + MAC Authentication - Add ARP entry
+            mk.set_arp_entry(ip=str(sub_in.ip), mac=sub_in.mac, interface=sub_in.interface)
 
-        # Optionally create queue if servico provides limits (best-effort)
+        elif sub_in.auth_method == 'pppoe':
+            # PPPoE Authentication - Configure PPPoE Server
+            # TODO: Implement PPPoE server configuration
+            # mk.configure_pppoe_server(username=f"user_{subscription.id}", password=sub_in.password, service="pppoe-inet")
+            pass  # Placeholder for PPPoE implementation
+
+        elif sub_in.auth_method == 'hotspot':
+            # Hotspot Authentication - Configure Hotspot user
+            # TODO: Implement Hotspot user creation
+            # mk.add_hotspot_user(username=f"user_{subscription.id}", password=sub_in.password, profile="default")
+            pass  # Placeholder for Hotspot implementation
+
+        elif sub_in.auth_method == 'radius':
+            # RADIUS Authentication - Configure RADIUS client
+            # TODO: Implement RADIUS configuration
+            # mk.configure_radius_client(server="radius-server-ip", secret="radius-secret")
+            pass  # Placeholder for RADIUS implementation
+
+        # Create queue for bandwidth control (common to all methods)
         servico = None
         if sub_in.servico_id:
             servico = db.query(models.Servico).filter(models.Servico.id == sub_in.servico_id, models.Servico.empresa_id == empresa_id).first()
         if servico and hasattr(servico, 'max_limit') and servico.max_limit:
-            # use name unique to subscription
             queue_name = f"sub-{subscription.id}"
             mk.set_queue_simple(name=queue_name, target=f"{subscription.ip}/32", max_limit=servico.max_limit)
 

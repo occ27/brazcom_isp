@@ -5,9 +5,9 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete, FormControl, InputLabel, Select, MenuItem,
   Card, CardContent, Divider, Chip, Tooltip, SelectChangeEvent, useMediaQuery, useTheme,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination, Pagination,
-  Checkbox
+  Checkbox, Tabs, Tab, FormHelperText
 } from '@mui/material';
-import { PlusIcon, PencilIcon, TrashIcon, DocumentTextIcon, EyeIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon, DocumentTextIcon, EyeIcon, MagnifyingGlassIcon, PlayIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { useCompany } from '../contexts/CompanyContext';
 import contratoService, { Contrato, ContratoListResponse } from '../services/contratoService';
 import clientService from '../services/clientService';
@@ -73,23 +73,33 @@ const Contracts: React.FC = () => {
   const [form, setForm] = useState<Partial<Contrato>>({
     quantidade: 1,
     periodicidade: 'MENSAL',
-    valor_unitario: 0,
+    valor_unitario: undefined, // Campo obrigatório, deve ser preenchido pelo usuário
+    dia_emissao: 1, // Valor padrão para dia de emissão
     auto_emit: true,
     is_active: true,
-    status: 'ATIVO',
+    status: 'PENDENTE_INSTALACAO',
     periodo_carencia: 0,
     multa_atraso_percentual: 0.0,
     taxa_instalacao: 0.0,
     taxa_instalacao_paga: false,
+    tipo_conexao: 'FIBRA', // Valor padrão: Fibra Óptica
+    // Campos de data opcionais
+    d_contrato_ini: undefined,
+    d_contrato_fim: undefined,
+    data_instalacao: undefined,
     // Novos campos de rede
     router_id: undefined,
     interface_id: undefined,
     ip_class_id: undefined,
     mac_address: '',
-    assigned_ip: ''
+    assigned_ip: '',
+    metodo_autenticacao: undefined
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
+  
+  // Tab state for form organization
+  const [tabValue, setTabValue] = useState(0);
   
   // Pagination state
   const [page, setPage] = useState(0);
@@ -372,12 +382,33 @@ const Contracts: React.FC = () => {
   }, [activeCompany]);
 
   // Load available IPs when IP class changes
-  const loadAvailableIPs = useCallback((ipClass: IPClass | undefined) => {
+  const loadAvailableIPs = useCallback(async (ipClass: IPClass | undefined) => {
     if (ipClass) {
-      // TODO: Aqui poderia buscar IPs já em uso no backend
-      // Por enquanto, gera todos os IPs disponíveis
-      const ips = generateAvailableIPs(ipClass);
-      setAvailableIPs(ips);
+      try {
+        // Busca IPs já em uso para esta classe IP
+        const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || '';
+        const usedIPsResponse = await fetch(`${apiBaseUrl}/network/ip-classes/${ipClass.id}/used-ips/`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          },
+        });
+
+        if (usedIPsResponse.ok) {
+          const usedIPs: string[] = await usedIPsResponse.json();
+          // Gera IPs disponíveis excluindo os já em uso
+          const ips = generateAvailableIPs(ipClass, usedIPs);
+          setAvailableIPs(ips);
+        } else {
+          // Fallback: gera todos os IPs se não conseguir buscar os usados
+          const ips = generateAvailableIPs(ipClass);
+          setAvailableIPs(ips);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar IPs em uso:', error);
+        // Fallback: gera todos os IPs em caso de erro
+        const ips = generateAvailableIPs(ipClass);
+        setAvailableIPs(ips);
+      }
     } else {
       setAvailableIPs([]);
     }
@@ -473,6 +504,20 @@ const Contracts: React.FC = () => {
                     <PencilIcon className="w-5 h-5" />
                   </IconButton>
                 </Tooltip>
+                {c.status === 'PENDENTE_INSTALACAO' && (
+                  <Tooltip title="Ativar Serviço">
+                    <IconButton size="small" onClick={() => ativarServico(c)} color="success">
+                      <PlayIcon className="w-5 h-5" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                {c.status === 'ATIVO' && (
+                  <Tooltip title="Resetar Conexão">
+                    <IconButton size="small" onClick={() => resetConnection(c)} color="warning">
+                      <ArrowPathIcon className="w-5 h-5" />
+                    </IconButton>
+                  </Tooltip>
+                )}
                 <Tooltip title="Excluir">
                   <IconButton size="small" onClick={() => remove(c)}>
                     <TrashIcon className="w-5 h-5 text-red-500" />
@@ -499,11 +544,11 @@ const Contracts: React.FC = () => {
                 size="small"
               />
             </TableCell>
-            <TableCell sx={{ fontWeight: 600 }}>Nº Contrato</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>Nº Plano</TableCell>
             <TableCell sx={{ fontWeight: 600 }}>Cliente</TableCell>
             <TableCell sx={{ fontWeight: 600 }}>Cidade/UF</TableCell>
             <TableCell sx={{ fontWeight: 600 }}>CPF/CNPJ</TableCell>
-            <TableCell sx={{ fontWeight: 600 }}>Serviço</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>Plano de Internet</TableCell>
             <TableCell sx={{ fontWeight: 600 }}>Periodicidade</TableCell>
             <TableCell sx={{ fontWeight: 600 }}>Dia Emissão</TableCell>
             <TableCell sx={{ fontWeight: 600 }}>Dia Venc.</TableCell>
@@ -591,6 +636,20 @@ const Contracts: React.FC = () => {
                     <PencilIcon className="w-4 h-4" />
                   </IconButton>
                 </Tooltip>
+                {c.status === 'PENDENTE_INSTALACAO' && (
+                  <Tooltip title="Ativar Serviço">
+                    <IconButton size="small" onClick={() => ativarServico(c)} color="success">
+                      <PlayIcon className="w-4 h-4" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                {c.status === 'ATIVO' && (
+                  <Tooltip title="Resetar Conexão">
+                    <IconButton size="small" onClick={() => resetConnection(c)} color="warning">
+                      <ArrowPathIcon className="w-4 h-4" />
+                    </IconButton>
+                  </Tooltip>
+                )}
                 <Tooltip title="Excluir">
                   <IconButton size="small" onClick={() => remove(c)}>
                     <TrashIcon className="w-4 h-4 text-red-500" />
@@ -707,8 +766,12 @@ const Contracts: React.FC = () => {
         }
       }
     } else {
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+      const oneYearFromNowStr = oneYearFromNow.toISOString().split('T')[0];
       setEditing(null);
-      setForm({ quantidade: 1, periodicidade: 'MENSAL', valor_unitario: 0, auto_emit: true, is_active: true, dia_emissao: 1, status: 'ATIVO', periodo_carencia: 0, multa_atraso_percentual: 0.0, taxa_instalacao: 0.0, taxa_instalacao_paga: false, sla_garantido: undefined, velocidade_garantida: '', subscription_id: undefined, router_id: undefined, interface_id: undefined, ip_class_id: undefined, mac_address: '', assigned_ip: '' });
+      setForm({ quantidade: 1, periodicidade: 'MENSAL', valor_unitario: 0, auto_emit: true, is_active: true, dia_emissao: 1, status: 'PENDENTE_INSTALACAO', periodo_carencia: 0, multa_atraso_percentual: 0.0, taxa_instalacao: 0.0, taxa_instalacao_paga: false, tipo_conexao: 'FIBRA', sla_garantido: undefined, velocidade_garantida: '', subscription_id: undefined, d_contrato_ini: today, d_contrato_fim: oneYearFromNowStr, data_instalacao: today, router_id: undefined, interface_id: undefined, ip_class_id: undefined, mac_address: '', assigned_ip: '', metodo_autenticacao: undefined });
       // Reset input values and prefetch the first 10 clients and services
       setClientSearch('');
       setServicoSearch('');
@@ -735,10 +798,129 @@ const Contracts: React.FC = () => {
     setErrors({});
   };
 
-  const handleInputChange = (field: string, value: any) => {
-    setForm(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
+  // Function to format MAC address input
+  const formatMacAddress = (value: string): string => {
+    // Remove all non-hex characters
+    const cleaned = value.replace(/[^0-9A-Fa-f]/g, '');
+    // Limit to 12 characters (6 bytes)
+    const limited = cleaned.slice(0, 12);
+    // Add colons every 2 characters and convert to uppercase
+    return limited.replace(/(.{2})(?=.)/g, '$1:').toUpperCase();
   };
+
+  const handleInputChange = (field: string, value: any) => {
+    let processedValue = value;
+    
+    if (field === 'mac_address') {
+      processedValue = formatMacAddress(value);
+    }
+    
+    setForm(prev => {
+      const newForm = { ...prev, [field]: processedValue };
+      
+      // Quando o método de autenticação muda, limpar campos relacionados se necessário
+      if (field === 'metodo_autenticacao') {
+        if (value !== 'IP_MAC') {
+          // Limpar MAC e IP se não for IP_MAC
+          newForm.mac_address = '';
+          newForm.assigned_ip = '';
+        }
+      }
+      
+      return newForm;
+    });
+    
+    // Quando a data de início do contrato for alterada, preencher automaticamente a data de instalação se estiver vazia
+    if (field === 'd_contrato_ini' && value && !form.data_instalacao) {
+      setForm(prev => ({ ...prev, data_instalacao: value }));
+    }
+    
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
+    
+    // Validar campos obrigatórios em tempo real
+    setForm(currentForm => {
+      validateRequiredFields({ ...currentForm, [field]: processedValue });
+      return currentForm;
+    });
+  };
+
+  const validateRequiredFields = (currentForm: any) => {
+    const newErrors: Record<string, string> = { ...errors };
+
+    // Campos sempre obrigatórios
+    if (!currentForm.endereco_instalacao || currentForm.endereco_instalacao.trim() === '') {
+      newErrors.endereco_instalacao = 'Endereço de instalação é obrigatório';
+    } else {
+      delete newErrors.endereco_instalacao;
+    }
+
+    if (!currentForm.tipo_conexao) {
+      newErrors.tipo_conexao = 'Tipo de conexão é obrigatório';
+    } else {
+      delete newErrors.tipo_conexao;
+    }
+
+    if (!currentForm.responsavel_tecnico || currentForm.responsavel_tecnico.trim() === '') {
+      newErrors.responsavel_tecnico = 'Responsável técnico é obrigatório';
+    } else {
+      delete newErrors.responsavel_tecnico;
+    }
+
+    // Campos condicionais para rede
+    if (currentForm.router_id) {
+      if (!currentForm.interface_id) {
+        newErrors.interface_id = 'Interface é obrigatória';
+      } else {
+        delete newErrors.interface_id;
+      }
+
+      if (!currentForm.ip_class_id) {
+        newErrors.ip_class_id = 'Classe IP é obrigatória';
+      } else {
+        delete newErrors.ip_class_id;
+      }
+
+      // Só validar MAC e IP se o método for IP_MAC
+      if (currentForm.metodo_autenticacao === 'IP_MAC') {
+        if (!currentForm.mac_address || currentForm.mac_address.trim() === '') {
+          newErrors.mac_address = 'Endereço MAC é obrigatório quando IP + MAC é selecionado';
+        } else {
+          delete newErrors.mac_address;
+        }
+
+        // Só validar IP se houver IPs disponíveis (campo habilitado)
+        if (currentForm.ip_class_id && availableIPs.length > 0) {
+          if (!currentForm.assigned_ip || currentForm.assigned_ip.trim() === '' || currentForm.assigned_ip === undefined || currentForm.assigned_ip === null) {
+            newErrors.assigned_ip = 'IP Atribuído é obrigatório quando IP + MAC é selecionado';
+          } else {
+            delete newErrors.assigned_ip;
+          }
+        } else {
+          // Se não há IPs disponíveis, limpar erro
+          delete newErrors.assigned_ip;
+        }
+      } else {
+        // Limpar erros de MAC e IP se não for IP_MAC
+        delete newErrors.mac_address;
+        delete newErrors.assigned_ip;
+      }
+    } else {
+      // Limpar erros se router não estiver selecionado
+      delete newErrors.interface_id;
+      delete newErrors.ip_class_id;
+      delete newErrors.mac_address;
+      delete newErrors.assigned_ip;
+    }
+
+    setErrors(newErrors);
+  };
+
+  // Validar campos obrigatórios quando o form muda
+  useEffect(() => {
+    if (openForm) {
+      validateRequiredFields(form);
+    }
+  }, [form, openForm]);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -755,7 +937,7 @@ const Contracts: React.FC = () => {
 
     // Serviço obrigatório
     if (!form.servico_id) {
-      newErrors.servico_id = 'Serviço é obrigatório';
+      newErrors.servico_id = 'Plano de internet é obrigatório';
     }
 
     // Valor unitário obrigatório e positivo
@@ -768,13 +950,65 @@ const Contracts: React.FC = () => {
       newErrors.quantidade = 'Quantidade é obrigatória e deve ser maior que zero';
     }
 
-    // Dia de emissão obrigatório e deve estar entre 1 e 31
-    if (form.dia_emissao === undefined || form.dia_emissao === null) {
-      newErrors.dia_emissao = 'Dia de emissão é obrigatório';
+    // Dia de vencimento obrigatório
+    if (form.dia_vencimento === undefined || form.dia_vencimento === null) {
+      newErrors.dia_vencimento = 'Dia de vencimento é obrigatório';
     } else {
-      const dia = Number(form.dia_emissao);
+      const dia = Number(form.dia_vencimento);
       if (dia < 1 || dia > 31) {
-        newErrors.dia_emissao = 'Dia de emissão deve estar entre 1 e 31';
+        newErrors.dia_vencimento = 'Dia de vencimento deve estar entre 1 e 31';
+      }
+    }
+
+    // Data de início do contrato obrigatória
+    if (!form.d_contrato_ini) {
+      newErrors.d_contrato_ini = 'Data de início do contrato é obrigatória';
+    }
+
+    // Data de fim do contrato obrigatória
+    if (!form.d_contrato_fim) {
+      newErrors.d_contrato_fim = 'Data de fim do contrato é obrigatória';
+    }
+
+    // Data de instalação obrigatória
+    if (!form.data_instalacao) {
+      newErrors.data_instalacao = 'Data de instalação é obrigatória';
+    }
+
+    // Endereço de instalação obrigatório
+    if (!form.endereco_instalacao || form.endereco_instalacao.trim() === '') {
+      newErrors.endereco_instalacao = 'Endereço de instalação é obrigatório';
+    }
+
+    // Tipo de conexão obrigatório
+    if (!form.tipo_conexao) {
+      newErrors.tipo_conexao = 'Tipo de conexão é obrigatório';
+    }
+
+    // Responsável técnico obrigatório
+    if (!form.responsavel_tecnico || form.responsavel_tecnico.trim() === '') {
+      newErrors.responsavel_tecnico = 'Responsável técnico é obrigatório';
+    }
+
+    // Validação condicional para rede
+    if (form.router_id) {
+      if (!form.interface_id) {
+        newErrors.interface_id = 'Interface é obrigatória';
+      }
+      if (!form.ip_class_id) {
+        newErrors.ip_class_id = 'Classe IP é obrigatória';
+      }
+      // Só validar MAC e IP se o método for IP_MAC
+      if (form.metodo_autenticacao === 'IP_MAC') {
+        if (!form.mac_address || form.mac_address.trim() === '') {
+          newErrors.mac_address = 'Endereço MAC é obrigatório quando IP + MAC é selecionado';
+        }
+        // Só validar IP se houver IPs disponíveis (campo habilitado)
+        if (form.ip_class_id && availableIPs.length > 0) {
+          if (!form.assigned_ip || form.assigned_ip.trim() === '' || form.assigned_ip === undefined || form.assigned_ip === null) {
+            newErrors.assigned_ip = 'IP Atribuído é obrigatório quando IP + MAC é selecionado';
+          }
+        }
       }
     }
 
@@ -788,21 +1022,100 @@ const Contracts: React.FC = () => {
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    
+    // Navegar para a aba com erro
+    if (Object.keys(newErrors).length > 0) {
+      const errorFields = Object.keys(newErrors);
+      
+      // Campos por aba
+      const dadosPlanoFields = [
+        'numero_contrato', 'cliente_id', 'servico_id', 'periodicidade', 'dia_emissao', 
+        'd_contrato_ini', 'd_contrato_fim', 'dia_vencimento', 'quantidade', 'valor_unitario', 
+        'auto_emit', 'is_active', 'status', 'endereco_instalacao', 'tipo_conexao', 
+        'coordenadas_gps', 'data_instalacao', 'responsavel_tecnico', 'velocidade_garantida'
+      ];
+      
+      const redeFields = ['router_id', 'interface_id', 'ip_class_id', 'mac_address', 'assigned_ip', 'metodo_autenticacao'];
+      
+      const cobrancaFields = [
+        'periodo_carencia', 'multa_atraso_percentual', 'taxa_instalacao', 
+        'taxa_instalacao_paga', 'sla_garantido', 'subscription_id'
+      ];
+      
+      if (errorFields.some(field => dadosPlanoFields.includes(field))) {
+        setTabValue(0);
+      } else if (errorFields.some(field => redeFields.includes(field))) {
+        setTabValue(1);
+      } else if (errorFields.some(field => cobrancaFields.includes(field))) {
+        setTabValue(2);
+      }
+      
+      return false;
+    }
+    
+    return true;
   };
 
   const submit = async () => {
     if (!validateForm()) {
-      setSnackbar({ open: true, message: 'Por favor, corrija os erros do formulário.', severity: 'warning' });
+      const errorMessages = Object.values(errors).filter(msg => msg);
+      const errorMessage = errorMessages.length > 0 
+        ? `Por favor, corrija os seguintes erros: ${errorMessages.join('; ')}`
+        : 'Por favor, corrija os erros do formulário antes de continuar.';
+      setSnackbar({ open: true, message: errorMessage, severity: 'warning' });
       return;
     }
     if (!activeCompany) return;
     try {
+      console.log('Form data before filtering:', form);
+      console.log('Form entries:', Object.entries(form));
       if (editing) {
-        await contratoService.updateContrato(activeCompany.id, editing.id, form as any);
+        // Filtrar apenas campos com valores válidos para evitar erros do Pydantic
+        const contractData = Object.fromEntries(
+          Object.entries(form).filter(([key, value]) => {
+            const requiredFields = ['cliente_id', 'servico_id', 'valor_unitario', 'quantidade', 'dia_emissao', 'd_contrato_ini', 'd_contrato_fim', 'data_instalacao'];
+            if (requiredFields.includes(key)) {
+              return true; // Sempre incluir campos obrigatórios
+            }
+            
+            // Para outros campos, filtrar valores vazios/inválidos
+            if (value === undefined || value === null || value === '') return false;
+            if (typeof value === 'string' && value.trim() === '') return false;
+            if (typeof value === 'number' && isNaN(value)) return false;
+            
+            return true;
+          })
+        );
+        console.log('Contract data after filtering (update):', contractData);
+        console.log('Contract data JSON:', JSON.stringify(contractData));
+        await contratoService.updateContrato(activeCompany.id, editing.id, contractData);
         setSnackbar({ open: true, message: 'Contrato atualizado com sucesso!', severity: 'success' });
       } else {
-        await contratoService.createContrato(activeCompany.id, form as any);
+        // Filtrar apenas campos com valores válidos para evitar erros do Pydantic
+        const contractData = Object.fromEntries(
+          Object.entries(form).filter(([key, value]) => {
+            const requiredFields = ['cliente_id', 'servico_id', 'valor_unitario', 'quantidade', 'dia_emissao', 'd_contrato_ini', 'd_contrato_fim', 'data_instalacao'];
+            if (requiredFields.includes(key)) {
+              return true; // Sempre incluir campos obrigatórios
+            }
+            
+            // Para outros campos, filtrar valores vazios/inválidos
+            if (value === undefined || value === null || value === '') return false;
+            if (typeof value === 'string' && value.trim() === '') return false;
+            if (typeof value === 'number' && isNaN(value)) return false;
+            
+            return true;
+          })
+        );
+        console.log('Contract data after filtering (create):', contractData);
+        console.log('Contract data JSON:', JSON.stringify(contractData));
+        const createdContrato = await contratoService.createContrato(activeCompany.id, contractData);
+        // Atualizar o numero_contrato com o ID real do contrato criado
+        if (createdContrato.id) {
+          await contratoService.updateContrato(activeCompany.id, createdContrato.id, { 
+            numero_contrato: createdContrato.id.toString() 
+          });
+        }
         setSnackbar({ open: true, message: 'Contrato criado com sucesso!', severity: 'success' });
       }
       handleCloseForm();
@@ -821,6 +1134,27 @@ const Contracts: React.FC = () => {
       load();
     } catch (e) {
       setSnackbar({ open: true, message: 'Erro ao excluir contrato', severity: 'error' });
+    }
+  };
+
+  const ativarServico = async (c: Contrato) => {
+    if (!window.confirm('Tem certeza que deseja ativar este serviço? As regras serão enviadas para o router.')) return;
+    try {
+      await contratoService.ativarServico(c.id);
+      setSnackbar({ open: true, message: 'Serviço ativado com sucesso!', severity: 'success' });
+      load();
+    } catch (e) {
+      setSnackbar({ open: true, message: 'Erro ao ativar serviço', severity: 'error' });
+    }
+  };
+
+  const resetConnection = async (c: Contrato) => {
+    if (!window.confirm('Tem certeza que deseja resetar a conexão deste cliente?')) return;
+    try {
+      await contratoService.resetConnection(c.id);
+      setSnackbar({ open: true, message: 'Conexão resetada com sucesso!', severity: 'success' });
+    } catch (e) {
+      setSnackbar({ open: true, message: 'Erro ao resetar conexão', severity: 'error' });
     }
   };
 
@@ -846,7 +1180,7 @@ const Contracts: React.FC = () => {
             fontSize: { xs: '1.5rem', sm: '2.125rem' }
           }}
         >
-          Contratos de Serviço
+          Planos de Internet
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           <Button
@@ -855,7 +1189,7 @@ const Contracts: React.FC = () => {
             sx={{ py: 1.5, width: { xs: '100%', sm: 'auto' } }}
             onClick={() => handleOpenForm()}
           >
-            Novo Contrato
+            Novo Plano
           </Button>
           {selectedContracts.length > 0 && (
             <Button
@@ -919,7 +1253,7 @@ const Contracts: React.FC = () => {
               {searchTerm ? 'Nenhum contrato encontrado' : 'Nenhum contrato cadastrado'}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {searchTerm ? 'Tente ajustar os termos da busca' : 'Comece cadastrando seu primeiro contrato de serviço.'}
+              {searchTerm ? 'Tente ajustar os termos da busca' : 'Comece cadastrando seu primeiro plano de internet.'}
             </Typography>
             {!searchTerm && (
               <Button variant="outlined" startIcon={<PlusIcon className="w-5 h-5" />} onClick={() => handleOpenForm()}>
@@ -950,9 +1284,9 @@ const Contracts: React.FC = () => {
                 </div>
                 <div>
                   <h2 className="text-base sm:text-xl font-bold text-text bg-gradient-to-r from-indigo-700 to-indigo-600 bg-clip-text text-transparent">
-                    {editing ? 'Editar Contrato' : 'Novo Contrato de Serviço'}
+                    {editing ? 'Editar Plano de Internet' : 'Novo Plano de Internet'}
                   </h2>
-                  <p className="text-xs sm:text-sm text-textLight hidden sm:block">Preencha os dados do contrato corretamente.</p>
+                  <p className="text-xs sm:text-sm text-textLight hidden sm:block">Configure o plano de acesso à internet do cliente.</p>
                 </div>
               </div>
               <button
@@ -973,14 +1307,31 @@ const Contracts: React.FC = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 sm:p-6 min-h-0 bg-gradient-to-b from-white to-gray-50/30">
-              <div className="space-y-4 sm:space-y-6">
+              {/* Tabs for better organization */}
+              <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+                <Tabs 
+                  value={tabValue} 
+                  onChange={(_, newValue) => setTabValue(newValue)} 
+                  aria-label="contrato tabs"
+                  variant="scrollable"
+                  scrollButtons="auto"
+                >
+                  <Tab label="📋 Dados do Plano" />
+                  <Tab label="🌐 Configuração de Rede" />
+                  <Tab label="💰 Cobrança e SLA" />
+                </Tabs>
+              </Box>
+
+              {/* Tab Content */}
+              {tabValue === 0 && (
+                <div className="space-y-4 sm:space-y-6">
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-blue-100">
                   <h3 className="text-lg sm:text-xl font-bold text-blue-800 mb-1 sm:mb-2 flex items-center">
                     <span className="mr-2 text-base sm:text-lg">📋</span>
                     <span className="text-sm sm:text-base">Identificação</span>
                   </h3>
                   <p className="text-xs sm:text-sm text-blue-600 hidden sm:block">
-                    Informações básicas do contrato de serviço.
+                    Informações básicas do plano de internet.
                   </p>
                   <div className="mt-3 sm:mt-4">
                     <TextField
@@ -1011,10 +1362,10 @@ const Contracts: React.FC = () => {
                 <div className="bg-gradient-to-r from-cyan-50 to-blue-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-cyan-100">
                   <h3 className="text-lg sm:text-xl font-bold text-cyan-800 mb-1 sm:mb-2 flex items-center">
                     <span className="mr-2 text-base sm:text-lg">👤</span>
-                    <span className="text-sm sm:text-base">Cliente e Serviço</span>
+                    <span className="text-sm sm:text-base">Cliente e Plano</span>
                   </h3>
                   <p className="text-xs sm:text-sm text-cyan-600 hidden sm:block">
-                    Selecione o cliente e o serviço contratado.
+                    Selecione o cliente e o plano de internet contratado.
                   </p>
                   <div className="mt-3 sm:mt-4 space-y-3 sm:space-y-4">
                     <Autocomplete
@@ -1071,7 +1422,65 @@ const Contracts: React.FC = () => {
                       onChange={(_, value) => {
                         handleInputChange('servico_id', value?.id || undefined);
                         if (value) {
+                          // Preencher campos automaticamente com dados do serviço
                           handleInputChange('valor_unitario', value.valor_unitario || 0);
+                          
+                          // Preencher velocidade garantida baseada nas velocidades do plano
+                          if (value.upload_speed || value.download_speed) {
+                            const velocidade = [];
+                            if (value.download_speed) velocidade.push(`${value.download_speed} Mbps ↓`);
+                            if (value.upload_speed) velocidade.push(`${value.upload_speed} Mbps ↑`);
+                            handleInputChange('velocidade_garantida', velocidade.join(' / '));
+                          }
+                          
+                          // Preencher periodicidade baseada no ciclo de cobrança do serviço
+                          if (value.billing_cycle) {
+                            const periodicidadeMap: { [key: string]: string } = {
+                              'MENSAL': 'MENSAL',
+                              'TRIMESTRAL': 'TRIMESTRAL', 
+                              'SEMESTRAL': 'SEMESTRAL',
+                              'ANUAL': 'ANUAL',
+                              'UNICA': 'UNICA'
+                            };
+                            handleInputChange('periodicidade', periodicidadeMap[value.billing_cycle] || 'MENSAL');
+                          }
+                          
+                          // Preencher período de carência baseado nos meses de fidelidade
+                          if (value.fidelity_months) {
+                            handleInputChange('periodo_carencia', value.fidelity_months);
+                          }
+                          
+                          // Preencher SLA garantido para planos de internet (padrão 99.9%)
+                          if (value.tipo === 'PLANO_INTERNET') {
+                            handleInputChange('sla_garantido', 99.9);
+                          }
+                          
+                          // Usar preço promocional se estiver ativo
+                          if (value.promotional_active && value.promotional_price) {
+                            handleInputChange('valor_unitario', value.promotional_price);
+                          }
+                          
+                          // Preencher número do contrato automaticamente (será atualizado com ID após criação)
+                          if (!form.numero_contrato) {
+                            // Gerar um número temporário baseado na data atual + código do serviço
+                            const today = new Date();
+                            const tempNumber = `${today.getFullYear()}${(today.getMonth()+1).toString().padStart(2,'0')}${today.getDate().toString().padStart(2,'0')}-${value.id}`;
+                            handleInputChange('numero_contrato', tempNumber);
+                          }
+                          
+                          // Preencher data de início com hoje
+                          if (!form.d_contrato_ini) {
+                            const today = new Date().toISOString().split('T')[0];
+                            handleInputChange('d_contrato_ini', today);
+                          }
+                          
+                          // Preencher data de fim baseada na fidelidade do plano
+                          if (value.fidelity_months && value.fidelity_months > 0 && !form.d_contrato_fim) {
+                            const startDate = form.d_contrato_ini ? new Date(form.d_contrato_ini) : new Date();
+                            const endDate = new Date(startDate);
+                            endDate.setMonth(endDate.getMonth() + value.fidelity_months);
+                            handleInputChange('d_contrato_fim', endDate.toISOString().split('T')[0]);
+                          }
                         }
                       }}
                       inputValue={servicoSearch}
@@ -1087,7 +1496,7 @@ const Contracts: React.FC = () => {
                         }
                       }}
                       loading={servicoLoading}
-                      renderInput={(params) => <TextField {...params} label="Serviço *" error={!!errors.servico_id} helperText={errors.servico_id || 'Digite para buscar um serviço'} size="small" />}
+                      renderInput={(params) => <TextField {...params} label="Plano de Internet *" error={!!errors.servico_id} helperText={errors.servico_id || 'Digite para buscar um plano'} size="small" />}
                     />
                   </div>
                 </div>
@@ -1130,6 +1539,8 @@ const Contracts: React.FC = () => {
                       onChange={e => handleInputChange('d_contrato_ini', e.target.value)}
                       fullWidth
                       size="small"
+                      error={!!errors.d_contrato_ini}
+                      helperText={errors.d_contrato_ini}
                       InputLabelProps={{ shrink: true }}
                     />
                     <TextField
@@ -1144,13 +1555,14 @@ const Contracts: React.FC = () => {
                       InputLabelProps={{ shrink: true }}
                     />
                         <TextField
-                          label="Dia de Vencimento (1-31)"
+                          label="Dia de Vencimento (1-31) *"
                           type="number"
                           value={form.dia_vencimento ?? ''}
                           onChange={e => handleInputChange('dia_vencimento', e.target.value === '' ? undefined : Number(e.target.value))}
                           fullWidth
                           size="small"
-                          helperText="Dia do mês para vencimento da fatura (opcional). Usado na geração automática de faturas."
+                          error={!!errors.dia_vencimento}
+                          helperText={errors.dia_vencimento || "Dia do mês para vencimento da fatura. Usado na geração automática de faturas."}
                           inputProps={{ min: 1, max: 31 }}
                         />
                   </div>
@@ -1162,7 +1574,7 @@ const Contracts: React.FC = () => {
                     <span className="text-sm sm:text-base">Valores</span>
                   </h3>
                   <p className="text-xs sm:text-sm text-amber-600 hidden sm:block">
-                    Informe a quantidade e valor unitário do serviço.
+                    Informe a quantidade e valor unitário do plano.
                   </p>
                   <div className="mt-3 sm:mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <TextField
@@ -1264,9 +1676,10 @@ const Contracts: React.FC = () => {
                       size="small"
                       multiline
                       rows={2}
-                      helperText="Endereço onde o serviço será instalado"
+                      error={!!errors.endereco_instalacao}
+                      helperText={errors.endereco_instalacao || "Endereço onde o serviço será instalado"}
                     />
-                    <FormControl fullWidth size="small">
+                    <FormControl fullWidth size="small" error={!!errors.tipo_conexao}>
                       <InputLabel>Tipo de Conexão</InputLabel>
                       <Select
                         value={form.tipo_conexao || ''}
@@ -1280,6 +1693,7 @@ const Contracts: React.FC = () => {
                         <MenuItem value="ADSL">ADSL</MenuItem>
                         <MenuItem value="OUTRO">Outro</MenuItem>
                       </Select>
+                      {errors.tipo_conexao && <FormHelperText>{errors.tipo_conexao}</FormHelperText>}
                     </FormControl>
                     <TextField
                       label="Coordenadas GPS"
@@ -1297,6 +1711,8 @@ const Contracts: React.FC = () => {
                       onChange={e => handleInputChange('data_instalacao', e.target.value)}
                       fullWidth
                       size="small"
+                      error={!!errors.data_instalacao}
+                      helperText={errors.data_instalacao}
                       InputLabelProps={{ shrink: true }}
                     />
                     <TextField
@@ -1305,7 +1721,8 @@ const Contracts: React.FC = () => {
                       onChange={e => handleInputChange('responsavel_tecnico', e.target.value)}
                       fullWidth
                       size="small"
-                      helperText="Nome do técnico responsável pela instalação"
+                      error={!!errors.responsavel_tecnico}
+                      helperText={errors.responsavel_tecnico || "Nome do técnico responsável pela instalação"}
                     />
                     <TextField
                       label="Velocidade Garantida"
@@ -1318,14 +1735,19 @@ const Contracts: React.FC = () => {
                     />
                   </div>
                 </div>
+                </div>
+              )}
 
+              {/* Second Tab - Network Configuration */}
+              {tabValue === 1 && (
+                <div className="space-y-4 sm:space-y-6">
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-blue-100">
                   <h3 className="text-lg sm:text-xl font-bold text-blue-800 mb-1 sm:mb-2 flex items-center">
                     <span className="mr-2 text-base sm:text-lg">🌐</span>
                     <span className="text-sm sm:text-base">Configuração de Rede</span>
                   </h3>
                   <p className="text-xs sm:text-sm text-blue-600 hidden sm:block">
-                    Configurações de rede para provisionamento automático do serviço de internet.
+                    Configurações de rede para provisionamento automático do plano de internet.
                   </p>
                   <div className="mt-3 sm:mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <FormControl fullWidth size="small">
@@ -1356,6 +1778,23 @@ const Contracts: React.FC = () => {
                         ))}
                       </Select>
                       {networkLoading && <CircularProgress size={20} sx={{ mt: 1 }} />}
+                    </FormControl>
+
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Método de Autenticação</InputLabel>
+                      <Select
+                        value={form.metodo_autenticacao || ''}
+                        label="Método de Autenticação"
+                        onChange={(e: SelectChangeEvent) => handleInputChange('metodo_autenticacao', e.target.value)}
+                      >
+                        <MenuItem value="">
+                          <em>Selecione um método</em>
+                        </MenuItem>
+                        <MenuItem value="IP_MAC">IP + MAC</MenuItem>
+                        <MenuItem value="PPPOE">PPPoE</MenuItem>
+                        <MenuItem value="HOTSPOT">Hotspot</MenuItem>
+                        <MenuItem value="RADIUS">RADIUS</MenuItem>
+                      </Select>
                     </FormControl>
 
                     <FormControl fullWidth size="small">
@@ -1417,49 +1856,60 @@ const Contracts: React.FC = () => {
                       </Select>
                     </FormControl>
 
-                    <TextField
-                      label="Endereço MAC"
-                      value={form.mac_address || ''}
-                      onChange={e => handleInputChange('mac_address', e.target.value)}
-                      fullWidth
-                      size="small"
-                      placeholder="Ex: AA:BB:CC:DD:EE:FF"
-                      helperText="MAC address do dispositivo do cliente"
-                    />
+                    {form.metodo_autenticacao === 'IP_MAC' && (
+                      <>
+                        <TextField
+                          label="Endereço MAC"
+                          value={form.mac_address || ''}
+                          onChange={e => handleInputChange('mac_address', e.target.value)}
+                          fullWidth
+                          size="small"
+                          placeholder="Ex: AA:BB:CC:DD:EE:FF"
+                          error={!!errors.mac_address}
+                          helperText={errors.mac_address || "MAC address do dispositivo do cliente"}
+                        />
 
-                    <FormControl fullWidth size="small">
-                      <InputLabel>IP Atribuído</InputLabel>
-                      <Select
-                        value={form.assigned_ip || ''}
-                        label="IP Atribuído"
-                        onChange={(e: SelectChangeEvent) => handleInputChange('assigned_ip', e.target.value)}
-                        disabled={!form.ip_class_id || availableIPs.length === 0}
-                      >
-                        <MenuItem value="">
-                          <em>Selecione um IP disponível</em>
-                        </MenuItem>
-                        {availableIPs.map((ip) => (
-                          <MenuItem key={ip} value={ip}>
-                            {ip}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+                        <FormControl fullWidth size="small" error={!!errors.assigned_ip}>
+                          <InputLabel>IP Atribuído</InputLabel>
+                          <Select
+                            value={form.assigned_ip || ''}
+                            label="IP Atribuído"
+                            onChange={(e: SelectChangeEvent) => handleInputChange('assigned_ip', e.target.value)}
+                            disabled={!form.ip_class_id || availableIPs.length === 0}
+                          >
+                            <MenuItem value="">
+                              <em>Selecione um IP disponível</em>
+                            </MenuItem>
+                            {availableIPs.map((ip) => (
+                              <MenuItem key={ip} value={ip}>
+                                {ip}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                          {errors.assigned_ip && <FormHelperText>{errors.assigned_ip}</FormHelperText>}
+                        </FormControl>
 
-                    <div className="flex items-center space-x-2 text-sm text-blue-600">
-                      <span>🔄</span>
-                      <span>Selecione um IP disponível da lista quando a Classe IP for escolhida</span>
-                    </div>
+                        <div className="flex items-center space-x-2 text-sm text-blue-600">
+                          <span>🔄</span>
+                          <span>Selecione um IP disponível da lista quando a Classe IP for escolhida</span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
+                </div>
+              )}
 
+              {/* Third Tab - Billing and SLA */}
+              {tabValue === 2 && (
+                <div className="space-y-4 sm:space-y-6">
                 <div className="bg-gradient-to-r from-rose-50 to-pink-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-rose-100">
                   <h3 className="text-lg sm:text-xl font-bold text-rose-800 mb-1 sm:mb-2 flex items-center">
                     <span className="mr-2 text-base sm:text-lg">💰</span>
                     <span className="text-sm sm:text-base">Cobrança e SLA</span>
                   </h3>
                   <p className="text-xs sm:text-sm text-rose-600 hidden sm:block">
-                    Configurações de cobrança e qualidade do serviço.
+                    Configurações de cobrança e qualidade do plano de internet.
                   </p>
                   <div className="mt-3 sm:mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <TextField
@@ -1520,11 +1970,13 @@ const Contracts: React.FC = () => {
                       fullWidth
                       size="small"
                       type="number"
-                      helperText="ID da subscription relacionada (opcional)"
+                      disabled={true}
+                      helperText="ID da subscription relacionada (somente leitura)"
                     />
                   </div>
                 </div>
-              </div>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 p-3 sm:p-6 border-t border-borderLight bg-gradient-to-r from-gray-50 to-blue-50/30 flex-shrink-0 shadow-modern">

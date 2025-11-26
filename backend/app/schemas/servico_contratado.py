@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional
 from datetime import date, datetime
 from enum import Enum
+import re
 
 
 class StatusContrato(str, Enum):
@@ -20,6 +21,13 @@ class TipoConexao(str, Enum):
     OUTRO = "OUTRO"
 
 
+class MetodoAutenticacao(str, Enum):
+    IP_MAC = "IP_MAC"
+    PPPOE = "PPPOE"
+    HOTSPOT = "HOTSPOT"
+    RADIUS = "RADIUS"
+
+
 class ServicoContratadoBase(BaseModel):
     empresa_id: Optional[int] = None
     cliente_id: int
@@ -30,14 +38,14 @@ class ServicoContratadoBase(BaseModel):
     d_contrato_fim: Optional[date] = None
 
     # Status do contrato (específico para ISPs)
-    status: Optional[StatusContrato] = Field(StatusContrato.ATIVO, description="Status: ATIVO, SUSPENSO, CANCELADO, PENDENTE_INSTALACAO")
+    status: Optional[StatusContrato] = Field(StatusContrato.PENDENTE_INSTALACAO, description="Status: ATIVO, SUSPENSO, CANCELADO, PENDENTE_INSTALACAO")
 
     # Informações de instalação (específicas para ISPs)
-    endereco_instalacao: Optional[str] = Field(None, max_length=500, description="Endereço onde o serviço é instalado")
-    tipo_conexao: Optional[TipoConexao] = Field(None, description="Tipo: FIBRA, RADIO, CABO, SATELITE, ADSL, OUTRO")
+    endereco_instalacao: str = Field(..., max_length=500, description="Endereço onde o serviço é instalado")
+    tipo_conexao: TipoConexao = Field(..., description="Tipo: FIBRA, RADIO, CABO, SATELITE, ADSL, OUTRO")
     coordenadas_gps: Optional[str] = Field(None, max_length=50, description="Coordenadas GPS: latitude,longitude")
     data_instalacao: Optional[date] = None
-    responsavel_tecnico: Optional[str] = Field(None, max_length=100, description="Nome do técnico responsável pela instalação")
+    responsavel_tecnico: str = Field(..., max_length=100, description="Nome do técnico responsável pela instalação")
 
     # Dia do mês de vencimento do serviço/contrato (opcional). Preferido para geração de faturas.
     dia_vencimento: Optional[int] = Field(None, ge=1, le=31, description="Dia do mês para vencimento (1-31)")
@@ -72,18 +80,68 @@ class ServicoContratadoBase(BaseModel):
     ip_class_id: Optional[int] = None
     mac_address: Optional[str] = Field(None, max_length=17, description="Endereço MAC do dispositivo do cliente")
     assigned_ip: Optional[str] = Field(None, max_length=15, description="IP atribuído automaticamente")
+    metodo_autenticacao: Optional[MetodoAutenticacao] = Field(None, description="Método de autenticação para o serviço")
 
 
 class ServicoContratadoCreate(ServicoContratadoBase):
-    pass
+    @field_validator('interface_id', mode='after')
+    @classmethod
+    def validate_interface_if_router(cls, v, info):
+        if info.data.get('router_id') is not None and v is None:
+            raise ValueError('interface_id é obrigatório quando router_id é preenchido')
+        return v
+
+    @field_validator('ip_class_id', mode='after')
+    @classmethod
+    def validate_ip_class_if_router(cls, v, info):
+        if info.data.get('router_id') is not None and v is None:
+            raise ValueError('ip_class_id é obrigatório quando router_id é preenchido')
+        return v
+
+    @field_validator('mac_address')
+    @classmethod
+    def validate_mac_format(cls, v):
+        if v and v != '':
+            # Convert to uppercase first
+            v = v.upper()
+            # Check if MAC address is in format AA:BB:CC:DD:EE:FF
+            mac_pattern = r'^([0-9A-F]{2}:){5}[0-9A-F]{2}$'
+            if not re.match(mac_pattern, v):
+                raise ValueError('mac_address deve estar no formato AA:BB:CC:DD:EE:FF')
+        return v
+
+    @field_validator('mac_address', mode='after')
+    @classmethod
+    def validate_mac_if_router(cls, v, info):
+        if info.data.get('router_id') is not None and info.data.get('metodo_autenticacao') == 'IP_MAC':
+            if v is None or v == '':
+                raise ValueError('mac_address é obrigatório quando router_id é preenchido e método é IP_MAC')
+        return v
+
+    @field_validator('assigned_ip', mode='after')
+    @classmethod
+    def validate_assigned_ip_if_router(cls, v, info):
+        if info.data.get('router_id') is not None and info.data.get('metodo_autenticacao') == 'IP_MAC':
+            if v is None or v == '':
+                raise ValueError('assigned_ip é obrigatório quando router_id é preenchido e método é IP_MAC')
+        return v
+
+    @model_validator(mode='after')
+    def validate_router_requirements(self):
+        if self.router_id is not None and self.metodo_autenticacao == 'IP_MAC':
+            if not self.mac_address or self.mac_address == '':
+                raise ValueError('mac_address é obrigatório quando router_id é preenchido e método é IP_MAC')
+            if not self.assigned_ip or self.assigned_ip == '':
+                raise ValueError('assigned_ip é obrigatório quando router_id é preenchido e método é IP_MAC')
+        return self
 
 
 class ServicoContratadoUpdate(BaseModel):
     cliente_id: Optional[int] = None
     servico_id: Optional[int] = None
     numero_contrato: Optional[str] = Field(None, max_length=50)
-    d_contrato_ini: Optional[date]
-    d_contrato_fim: Optional[date]
+    d_contrato_ini: Optional[date] = None
+    d_contrato_fim: Optional[date] = None
 
     # Status do contrato
     status: Optional[StatusContrato] = None
@@ -92,7 +150,7 @@ class ServicoContratadoUpdate(BaseModel):
     endereco_instalacao: Optional[str] = Field(None, max_length=500)
     tipo_conexao: Optional[TipoConexao] = None
     coordenadas_gps: Optional[str] = Field(None, max_length=50)
-    data_instalacao: Optional[date]
+    data_instalacao: Optional[date] = None
     responsavel_tecnico: Optional[str] = Field(None, max_length=100)
 
     dia_vencimento: Optional[int] = Field(None, ge=1, le=31)
@@ -126,6 +184,49 @@ class ServicoContratadoUpdate(BaseModel):
     ip_class_id: Optional[int] = None
     mac_address: Optional[str] = Field(None, max_length=17)
     assigned_ip: Optional[str] = Field(None, max_length=15)
+    metodo_autenticacao: Optional[MetodoAutenticacao] = Field(None, description="Método de autenticação para o serviço")
+
+    @field_validator('interface_id', mode='after')
+    @classmethod
+    def validate_interface_if_router(cls, v, info):
+        if info.data.get('router_id') is not None and v is None:
+            raise ValueError('interface_id é obrigatório quando router_id é preenchido')
+        return v
+
+    @field_validator('ip_class_id', mode='after')
+    @classmethod
+    def validate_ip_class_if_router(cls, v, info):
+        if info.data.get('router_id') is not None and v is None:
+            raise ValueError('ip_class_id é obrigatório quando router_id é preenchido')
+        return v
+
+    @field_validator('mac_address')
+    @classmethod
+    def validate_mac_format(cls, v):
+        if v and v != '':
+            # Convert to uppercase first
+            v = v.upper()
+            # Check if MAC address is in format AA:BB:CC:DD:EE:FF
+            mac_pattern = r'^([0-9A-F]{2}:){5}[0-9A-F]{2}$'
+            if not re.match(mac_pattern, v):
+                raise ValueError('mac_address deve estar no formato AA:BB:CC:DD:EE:FF')
+        return v
+
+    @field_validator('mac_address', mode='after')
+    @classmethod
+    def validate_mac_if_router(cls, v, info):
+        if info.data.get('router_id') is not None and info.data.get('metodo_autenticacao') == 'IP_MAC':
+            if v is None or v == '':
+                raise ValueError('mac_address é obrigatório quando router_id é preenchido e método é IP_MAC')
+        return v
+
+    @field_validator('assigned_ip', mode='after')
+    @classmethod
+    def validate_assigned_ip_if_router(cls, v, info):
+        if info.data.get('router_id') is not None and info.data.get('metodo_autenticacao') == 'IP_MAC':
+            if v is None or v == '':
+                raise ValueError('assigned_ip é obrigatório quando router_id é preenchido e método é IP_MAC')
+        return v
 
 
 class ServicoContratadoResponse(ServicoContratadoBase):

@@ -171,3 +171,19 @@ def get_interfaces_by_ip_class(db: Session, class_id: int) -> List[RouterInterfa
     if ip_class:
         return ip_class.interfaces
     return []
+
+def get_used_ips_by_ip_class(db: Session, ip_class_id: int) -> List[str]:
+    """Busca todos os IPs já atribuídos em contratos para uma classe IP específica."""
+    from app.models.models import ServicoContratado
+
+    # Busca contratos que têm IP atribuído nesta classe IP
+    used_ips = db.query(ServicoContratado.assigned_ip)\
+        .filter(
+            ServicoContratado.ip_class_id == ip_class_id,
+            ServicoContratado.assigned_ip.isnot(None),
+            ServicoContratado.assigned_ip != ''
+        )\
+        .all()
+
+    # Retorna lista de IPs (desempacota tuplas)
+    return [ip[0] for ip in used_ips]
