@@ -683,37 +683,63 @@ class MikrotikController:
             return resource.add(**data)
 
     def add_pppoe_server(self, name: str, interface: str, profile: str, address_pool: str):
-        """Adiciona um servidor PPPoE (/interface/pppoe-server) usando apenas parâmetros essenciais."""
+        """Adiciona um servidor PPPoE usando SSH direto para contornar problemas da API."""
         import logging
+        import paramiko
+        import time
+        
         logger = logging.getLogger(__name__)
+        logger.info(f"Configurando servidor PPPoE na interface {interface} via SSH")
         
-        self.connect()
-        resource = self._api.get_resource('interface/pppoe-server')
-        
-        # Usar APENAS o parâmetro interface - o mínimo necessário
-        data = {
-            'interface': interface
-        }
-        
-        logger.info(f"Tentando adicionar servidor PPPoE na interface {interface}")
+        # Criar cliente SSH
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         
         try:
-            # Tentar adicionar com parâmetro mínimo
-            result = resource.add(**data)
-            logger.info(f"Servidor PPPoE adicionado com sucesso: {result}")
-            return result
+            # Conectar via SSH
+            ssh.connect(
+                hostname=self.host,
+                port=22,  # Porta SSH padrão
+                username=self.username,
+                password=self.password,
+                timeout=10
+            )
+            
+            # Comando para adicionar servidor PPPoE
+            command = f'/interface/pppoe-server/add interface={interface}'
+            logger.info(f"Executando comando: {command}")
+            
+            # Executar comando
+            stdin, stdout, stderr = ssh.exec_command(command)
+            
+            # Aguardar um pouco para o comando ser processado
+            time.sleep(1)
+            
+            # Verificar se houve erro
+            error_output = stderr.read().decode().strip()
+            if error_output:
+                logger.warning(f"Saída de erro do comando: {error_output}")
+                
+                # Se já existe, considerar como sucesso
+                if 'already exists' in error_output.lower() or 'duplicate' in error_output.lower():
+                    logger.info(f"Servidor PPPoE já existe na interface {interface}")
+                    return {'status': 'already_exists', 'interface': interface}
+                else:
+                    raise Exception(f"Erro SSH: {error_output}")
+            
+            # Verificar saída padrão
+            output = stdout.read().decode().strip()
+            if output:
+                logger.info(f"Saída do comando: {output}")
+            
+            logger.info("Servidor PPPoE configurado com sucesso via SSH")
+            return {'status': 'success', 'interface': interface, 'method': 'ssh'}
             
         except Exception as e:
-            error_msg = str(e)
-            logger.error(f"Erro ao adicionar servidor PPPoE: {error_msg}")
-            
-            # Se já existe, não fazer nada (já está configurado)
-            if 'already exists' in error_msg.lower() or 'duplicate' in error_msg.lower():
-                logger.info(f"Servidor PPPoE já existe na interface {interface}")
-                return {'status': 'already_exists', 'interface': interface}
-            
-            # Para outros erros, tentar abordagem alternativa
+            logger.error(f"Erro ao configurar PPPoE via SSH: {str(e)}")
             raise
+        finally:
+            ssh.close()
 
     def setup_pppoe_firewall_rules(self):
         """Configura regras básicas de firewall para PPPoE funcionar."""
