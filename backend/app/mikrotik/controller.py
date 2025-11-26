@@ -376,10 +376,11 @@ class MikrotikController:
         
         try:
             # Conectar via SSH
-            logger.info(f"Conectando via SSH para {self.host}:{22} como {self.username}")
+            ssh_port = getattr(self, 'port', 22)  # Usar porta configurada ou 22
+            logger.info(f"Conectando via SSH para {self.host}:{ssh_port} como {self.username}")
             ssh.connect(
                 hostname=self.host,
-                port=22,
+                port=ssh_port,
                 username=self.username,
                 password=self.password,
                 timeout=10
@@ -677,10 +678,11 @@ class MikrotikController:
         
         try:
             # Conectar via SSH
-            logger.info(f"Conectando via SSH para {self.host}:{22} como {self.username}")
+            ssh_port = getattr(self, 'port', 22)  # Usar porta configurada ou 22
+            logger.info(f"Conectando via SSH para {self.host}:{ssh_port} como {self.username}")
             ssh.connect(
                 hostname=self.host,
-                port=22,
+                port=ssh_port,
                 username=self.username,
                 password=self.password,
                 timeout=10
@@ -831,11 +833,12 @@ class MikrotikController:
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         
         try:
-            # Conectar via SSH
-            logger.info(f"Conectando via SSH para {self.host}:{22} como {self.username}")
+            # Conectar via SSH - usar a porta configurada ou 22 como padrão
+            ssh_port = getattr(self, 'port', 22)  # Usar porta configurada ou 22
+            logger.info(f"Conectando via SSH para {self.host}:{ssh_port} como {self.username}")
             ssh.connect(
                 hostname=self.host,
-                port=22,
+                port=ssh_port,
                 username=self.username,
                 password=self.password,
                 timeout=10
