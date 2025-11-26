@@ -683,32 +683,42 @@ class MikrotikController:
             return resource.add(**data)
 
     def add_pppoe_server(self, name: str, interface: str, profile: str, address_pool: str):
-        """Adiciona um servidor PPPoE (/ppp/pppoe-server)."""
+        """Adiciona um servidor PPPoE (/interface/pppoe-server)."""
         self.connect()
-        resource = self._api.get_resource('ppp/pppoe-server')
-        
-        # Verificar se já existe
-        existing = resource.get(service_name=name)
+        resource = self._api.get_resource('interface/pppoe-server')
         
         data = {
-            'service-name': name,
             'interface': interface,
-            'default-profile': profile,
-            'address-pool': address_pool,
             'disabled': 'no'
         }
         
-        if existing:
-            # Atualizar
-            entry_id = existing[0].get('.id') or existing[0].get('id')
-            if entry_id:
-                resource.set(id=entry_id, **data)
-                return existing[0]
-            else:
-                resource.remove(service_name=name)
-                return resource.add(**data)
-        else:
+        # Adicionar service-name apenas se especificado
+        if name:
+            data['service-name'] = name
+            
+        # Adicionar profile apenas se especificado
+        if profile:
+            data['default-profile'] = profile
+        
+        try:
+            # Tentar adicionar
             return resource.add(**data)
+        except Exception as e:
+            # Se falhar, tentar atualizar se já existe
+            if 'already exists' in str(e).lower() or 'duplicate' in str(e).lower():
+                try:
+                    # Listar todas as interfaces e encontrar a que corresponde
+                    existing_list = resource.get()
+                    for entry in existing_list:
+                        if entry.get('interface') == interface:
+                            entry_id = entry.get('.id') or entry.get('id')
+                            if entry_id:
+                                resource.set(id=entry_id, **data)
+                                return entry
+                except:
+                    pass
+            # Se não conseguir atualizar, relançar o erro
+            raise
 
     def setup_pppoe_firewall_rules(self):
         """Configura regras básicas de firewall para PPPoE funcionar."""
