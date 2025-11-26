@@ -376,6 +376,7 @@ class MikrotikController:
         
         try:
             # Conectar via SSH
+            logger.info(f"Conectando via SSH para {self.host}:{22} como {self.username}")
             ssh.connect(
                 hostname=self.host,
                 port=22,
@@ -383,28 +384,35 @@ class MikrotikController:
                 password=self.password,
                 timeout=10
             )
+            logger.info("Conexão SSH estabelecida com sucesso")
             
             # Remover pool existente se houver
             remove_cmd = f'/ip/pool/remove [find name={name}]'
-            logger.info(f"Removendo pool existente: {remove_cmd}")
+            logger.info(f"Executando comando de remoção: {remove_cmd}")
             
             stdin, stdout, stderr = ssh.exec_command(remove_cmd)
             time.sleep(1)
             
+            remove_error = stderr.read().decode().strip()
+            if remove_error:
+                logger.warning(f"Erro na remoção (pode ser normal): {remove_error}")
+            
             # Criar novo pool
             add_cmd = f'/ip/pool/add name={name} ranges={ranges}'
-            logger.info(f"Adicionando novo pool: {add_cmd}")
+            logger.info(f"Executando comando de adição: {add_cmd}")
             
             stdin, stdout, stderr = ssh.exec_command(add_cmd)
             time.sleep(1)
             
             error_output = stderr.read().decode().strip()
+            output = stdout.read().decode().strip()
+            
+            logger.info(f"Saída do comando: '{output}'")
             if error_output:
-                logger.error(f"Erro ao adicionar pool DHCP: {error_output}")
+                logger.error(f"Erro no comando: '{error_output}'")
                 raise Exception(f"Erro SSH: {error_output}")
             
-            output = stdout.read().decode().strip()
-            logger.info(f"Pool DHCP adicionado com sucesso: {output}")
+            logger.info(f"Pool DHCP adicionado com sucesso")
             return {'name': name, 'ranges': ranges, 'method': 'ssh'}
             
         except Exception as e:
@@ -669,6 +677,7 @@ class MikrotikController:
         
         try:
             # Conectar via SSH
+            logger.info(f"Conectando via SSH para {self.host}:{22} como {self.username}")
             ssh.connect(
                 hostname=self.host,
                 port=22,
@@ -676,13 +685,18 @@ class MikrotikController:
                 password=self.password,
                 timeout=10
             )
+            logger.info("Conexão SSH estabelecida com sucesso")
             
             # Verificar se profile já existe e remover
             remove_cmd = f'/ppp/profile/remove [find name={name}]'
-            logger.info(f"Removendo profile existente: {remove_cmd}")
+            logger.info(f"Executando comando de remoção: {remove_cmd}")
             
             stdin, stdout, stderr = ssh.exec_command(remove_cmd)
             time.sleep(1)
+            
+            remove_error = stderr.read().decode().strip()
+            if remove_error:
+                logger.warning(f"Erro na remoção (pode ser normal): {remove_error}")
             
             # Criar novo profile
             add_cmd = f'/ppp/profile/add name={name} local-address={local_address} remote-address={remote_address_pool}'
@@ -695,18 +709,20 @@ class MikrotikController:
                 comment_escaped = comment.replace('"', '\\"')
                 add_cmd += f' comment="{comment_escaped}"'
             
-            logger.info(f"Adicionando novo profile: {add_cmd}")
+            logger.info(f"Executando comando de adição: {add_cmd}")
             
             stdin, stdout, stderr = ssh.exec_command(add_cmd)
             time.sleep(1)
             
             error_output = stderr.read().decode().strip()
+            output = stdout.read().decode().strip()
+            
+            logger.info(f"Saída do comando: '{output}'")
             if error_output:
-                logger.error(f"Erro ao adicionar profile PPPoE: {error_output}")
+                logger.error(f"Erro no comando: '{error_output}'")
                 raise Exception(f"Erro SSH: {error_output}")
             
-            output = stdout.read().decode().strip()
-            logger.info(f"Profile PPPoE adicionado com sucesso: {output}")
+            logger.info(f"Profile PPPoE adicionado com sucesso")
             return {'name': name, 'local-address': local_address, 'remote-address': remote_address_pool, 'method': 'ssh'}
             
         except Exception as e:
@@ -780,8 +796,11 @@ class MikrotikController:
             
             # Verificar se houve erro
             error_output = stderr.read().decode().strip()
+            output = stdout.read().decode().strip()
+            
+            logger.info(f"Saída do comando: '{output}'")
             if error_output:
-                logger.warning(f"Saída de erro do comando: {error_output}")
+                logger.warning(f"Erro no comando: '{error_output}'")
                 
                 # Se já existe, considerar como sucesso
                 if 'already exists' in error_output.lower() or 'duplicate' in error_output.lower():
@@ -789,11 +808,6 @@ class MikrotikController:
                     return {'status': 'already_exists', 'interface': interface}
                 else:
                     raise Exception(f"Erro SSH: {error_output}")
-            
-            # Verificar saída padrão
-            output = stdout.read().decode().strip()
-            if output:
-                logger.info(f"Saída do comando: {output}")
             
             logger.info("Servidor PPPoE configurado com sucesso via SSH")
             return {'status': 'success', 'interface': interface, 'method': 'ssh'}
@@ -811,7 +825,6 @@ class MikrotikController:
         import time
         
         logger = logging.getLogger(__name__)
-        logger.info("Configurando regras de firewall para PPPoE via SSH")
         
         # Criar cliente SSH
         ssh = paramiko.SSHClient()
@@ -819,6 +832,7 @@ class MikrotikController:
         
         try:
             # Conectar via SSH
+            logger.info(f"Conectando via SSH para {self.host}:{22} como {self.username}")
             ssh.connect(
                 hostname=self.host,
                 port=22,
@@ -826,6 +840,9 @@ class MikrotikController:
                 password=self.password,
                 timeout=10
             )
+            logger.info("Conexão SSH estabelecida com sucesso")
+            
+            logger.info(f"Configurando servidor PPPoE na interface {interface} via SSH")
             
             # Verificar se já existe interface PPPoE
             check_cmd = '/interface/pppoe-server/print'
