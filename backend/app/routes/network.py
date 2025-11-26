@@ -11,7 +11,8 @@ from app.schemas.network import (
     InterfaceIPAddressResponse, InterfaceIPAddressCreate, InterfaceIPAddressUpdate,
     IPClassResponse, IPClassCreate, IPClassUpdate,
     InterfaceIPClassAssignmentCreate, InterfaceIPClassAssignmentResponse,
-    RouterWithInterfacesResponse
+    RouterWithInterfacesResponse,
+    PPPoESetupRequest, PPPoESetupResponse, PPPoEStatusResponse
 )
 
 router = APIRouter(prefix="/network", tags=["Network"])
@@ -838,3 +839,144 @@ def get_used_ips_by_ip_class(
         raise HTTPException(status_code=403, detail="Acesso negado à classe IP")
 
     return crud.crud_network.get_used_ips_by_ip_class(db=db, ip_class_id=ip_class_id)
+
+
+# ===== ROTAS PARA CONFIGURAÇÃO AUTOMÁTICA DE SERVIDORES =====
+
+@router.post("/routers/{router_id}/setup-pppoe-server", response_model=PPPoESetupResponse)
+def setup_pppoe_server(
+    *,
+    db: Session = Depends(deps.get_db),
+    router_id: int,
+    setup_data: PPPoESetupRequest,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Configura automaticamente um servidor PPPoE completo no router.
+    
+    Esta rota configura:
+    - Pool de IPs para clientes PPPoE
+    - Profile PPPoE com configurações básicas
+    - Interface PPPoE server
+    - Servidor PPPoE
+    - Regras básicas de firewall/NAT
+    
+    Parâmetros:
+    - interface: Interface física onde conectar o servidor PPPoE (ex: "ether1")
+    - ip_pool_name: Nome do pool de IPs (padrão: "pppoe-pool")
+    - local_address: IP do servidor PPPoE (padrão: "192.168.1.1")
+    - first_ip/last_ip: Range de IPs para clientes (padrão: 192.168.1.2-192.168.1.254)
+    - default_profile: Nome do profile PPPoE (padrão: "pppoe-default")
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Verificar se o router pertence à empresa do usuário
+    router = crud.crud_router.get_router(db=db, router_id=router_id, empresa_id=current_user.active_empresa_id)
+    if not router:
+        raise HTTPException(status_code=404, detail="Router não encontrado")
+    
+    # Verificar se a interface existe no router
+    router_interfaces = crud.crud_network.get_router_interfaces_by_router(db=db, router_id=router_id)
+    interface_names = [ri.nome for ri in router_interfaces]
+    if setup_data.interface not in interface_names:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Interface '{setup_data.interface}' não encontrada no router. Interfaces disponíveis: {interface_names}"
+        )
+    
+    try:
+        # Descriptografar senha do router
+        from app.core.security import decrypt_password
+        try:
+            password = decrypt_password(router.senha) if router.senha else ""
+        except Exception:
+            password = router.senha if router.senha else ""
+        
+        # Conectar ao router
+        from app.mikrotik.controller import MikrotikController
+        mk = MikrotikController(
+            host=router.ip,
+            username=router.usuario,
+            password=password,
+            port=router.porta or 8728
+        )
+        
+        # Configurar servidor PPPoE automaticamente
+        logger.info(f"Configurando servidor PPPoE no router {router.ip} na interface {setup_data.interface}")
+        
+        mk.setup_pppoe_server(
+            interface=setup_data.interface,
+            ip_pool_name=setup_data.ip_pool_name,
+            local_address=setup_data.local_address,
+            first_ip=setup_data.first_ip,
+            last_ip=setup_data.last_ip,
+            default_profile=setup_data.default_profile
+        )
+        
+        # Fechar conexão
+        mk.close()
+        
+        return {
+            "message": "Servidor PPPoE configurado com sucesso!",
+            "details": {
+                "interface": setup_data.interface,
+                "ip_pool": f"{setup_data.ip_pool_name} ({setup_data.first_ip}-{setup_data.last_ip})",
+                "local_address": setup_data.local_address,
+                "profile": setup_data.default_profile
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro ao configurar servidor PPPoE: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Erro ao configurar servidor PPPoE: {str(e)}"
+        )
+
+
+@router.get("/routers/{router_id}/pppoe-status", response_model=PPPoEStatusResponse)
+def get_pppoe_server_status(
+    *,
+    db: Session = Depends(deps.get_db),
+    router_id: int,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Retorna o status da configuração PPPoE no router.
+    """
+    # Verificar se o router pertence à empresa do usuário
+    router = crud.crud_router.get_router(db=db, router_id=router_id, empresa_id=current_user.active_empresa_id)
+    if not router:
+        raise HTTPException(status_code=404, detail="Router não encontrado")
+    
+    try:
+        # Descriptografar senha do router
+        from app.core.security import decrypt_password
+        try:
+            password = decrypt_password(router.senha) if router.senha else ""
+        except Exception:
+            password = router.senha if router.senha else ""
+        
+        # Conectar ao router
+        from app.mikrotik.controller import MikrotikController
+        mk = MikrotikController(
+            host=router.ip,
+            username=router.usuario,
+            password=password,
+            port=router.porta or 8728
+        )
+        
+        # Obter status
+        status = mk.get_pppoe_server_status()
+        
+        # Fechar conexão
+        mk.close()
+        
+        return status
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Erro ao obter status PPPoE: {str(e)}"
+        )

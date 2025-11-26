@@ -20,6 +20,23 @@ export interface RouterUpdate {
   is_active?: boolean;
 }
 
+export interface PPPoESetupRequest {
+  interface: string;
+  ip_pool_name?: string;
+  local_address?: string;
+  first_ip?: string;
+  last_ip?: string;
+  default_profile?: string;
+}
+
+export interface PPPoEStatus {
+  profiles: any[];
+  servers: any[];
+  interfaces: any[];
+  pools: any[];
+  error?: string;
+}
+
 export const routerService = {
   // Buscar todos os routers
   getAll: async (): Promise<Router[]> => {
@@ -48,6 +65,18 @@ export const routerService = {
   // Deletar router
   delete: async (id: number): Promise<void> => {
     await api.delete(`/routers/${id}`);
+  },
+
+  // Configurar servidor PPPoE
+  setupPPPoE: async (routerId: number, setupData: PPPoESetupRequest): Promise<any> => {
+    const response = await api.post(`/network/routers/${routerId}/setup-pppoe-server`, setupData);
+    return response.data;
+  },
+
+  // Obter status PPPoE
+  getPPPoEStatus: async (routerId: number): Promise<PPPoEStatus> => {
+    const response = await api.get(`/network/routers/${routerId}/pppoe-status`);
+    return response.data;
   },
 
   // Buscar routers por empresa

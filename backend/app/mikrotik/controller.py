@@ -568,3 +568,210 @@ class MikrotikController:
 
         else:
             raise ValueError(f"Método de autenticação não suportado: {metodo_autenticacao}")
+
+    # ===== MÉTODOS PARA CONFIGURAÇÃO AUTOMÁTICA DE SERVIDOR PPPoE =====
+
+    def setup_pppoe_server(self, interface: str, ip_pool_name: str = "pppoe-pool", 
+                           local_address: str = "192.168.1.1", 
+                           first_ip: str = "192.168.1.2", last_ip: str = "192.168.1.254",
+                           default_profile: str = "default"):
+        """Configura automaticamente um servidor PPPoE completo no router.
+        
+        Este método configura:
+        1. Pool de IPs para clientes PPPoE
+        2. Profile PPPoE padrão
+        3. Servidor PPPoE
+        
+        Args:
+            interface: Interface onde o servidor PPPoE será configurado (ex: "ether1")
+            ip_pool_name: Nome do pool de IPs
+            local_address: Endereço IP local do servidor
+            first_ip: Primeiro IP do pool
+            last_ip: Último IP do pool
+            default_profile: Nome do profile PPPoE padrão
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"Iniciando configuração automática do servidor PPPoE na interface {interface}")
+        
+        try:
+            # 1. Configurar pool de IPs
+            logger.info(f"Configurando pool de IPs: {ip_pool_name} ({first_ip}-{last_ip})")
+            self.add_dhcp_pool(ip_pool_name, f"{first_ip}-{last_ip}")
+            
+            # 2. Configurar profile PPPoE
+            logger.info(f"Configurando profile PPPoE: {default_profile}")
+            self.add_pppoe_profile(default_profile, local_address, ip_pool_name)
+            
+            # 3. Configurar servidor PPPoE
+            logger.info("Configurando servidor PPPoE")
+            self.add_pppoe_server("pppoe-server", interface, default_profile, ip_pool_name)
+            
+            # 4. Configurar regras de firewall/NAT básicas
+            logger.info("Configurando regras de firewall para PPPoE")
+            self.setup_pppoe_firewall_rules()
+            
+            logger.info("Configuração automática do servidor PPPoE concluída com sucesso!")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Erro durante configuração automática do servidor PPPoE: {str(e)}")
+            raise
+
+    def add_pppoe_profile(self, name: str, local_address: str, remote_address_pool: str,
+                         rate_limit: Optional[str] = None, comment: Optional[str] = None):
+        """Adiciona um profile PPPoE (/ppp/profile)."""
+        self.connect()
+        resource = self._api.get_resource('ppp/profile')
+        
+        # Verificar se profile já existe
+        existing = resource.get(name=name)
+        
+        data = {
+            'name': name,
+            'local-address': local_address,
+            'remote-address': remote_address_pool
+        }
+        
+        if rate_limit:
+            data['rate-limit'] = rate_limit
+        if comment:
+            data['comment'] = comment
+        
+        if existing:
+            # Atualizar profile existente
+            entry_id = existing[0].get('.id') or existing[0].get('id')
+            if entry_id:
+                resource.set(id=entry_id, **data)
+                return existing[0]
+            else:
+                # Remover e recriar
+                resource.remove(name=name)
+                return resource.add(**data)
+        else:
+            return resource.add(**data)
+
+    def add_pppoe_server_interface(self, interface: str, profile: str = "default"):
+        """Adiciona uma interface PPPoE server (/interface/pppoe-server)."""
+        self.connect()
+        resource = self._api.get_resource('interface/pppoe-server')
+
+        # Verificar se já existe
+        existing = resource.get(interface=interface)
+
+        # Usar apenas parâmetros essenciais para evitar problemas de compatibilidade
+        data = {
+            'interface': interface,
+            'disabled': 'no'
+        }
+
+        # Adicionar profile apenas se especificado e existir
+        if profile and profile != "default":
+            data['default-profile'] = profile
+
+        if existing:
+            # Atualizar
+            entry_id = existing[0].get('.id') or existing[0].get('id')
+            if entry_id:
+                resource.set(id=entry_id, **data)
+                return existing[0]
+            else:
+                resource.remove(interface=interface)
+                return resource.add(**data)
+        else:
+            return resource.add(**data)
+
+    def add_pppoe_server(self, name: str, interface: str, profile: str, address_pool: str):
+        """Adiciona um servidor PPPoE (/ppp/pppoe-server)."""
+        self.connect()
+        resource = self._api.get_resource('ppp/pppoe-server')
+        
+        # Verificar se já existe
+        existing = resource.get(service_name=name)
+        
+        data = {
+            'service-name': name,
+            'interface': interface,
+            'default-profile': profile,
+            'address-pool': address_pool,
+            'disabled': 'no'
+        }
+        
+        if existing:
+            # Atualizar
+            entry_id = existing[0].get('.id') or existing[0].get('id')
+            if entry_id:
+                resource.set(id=entry_id, **data)
+                return existing[0]
+            else:
+                resource.remove(service_name=name)
+                return resource.add(**data)
+        else:
+            return resource.add(**data)
+
+    def setup_pppoe_firewall_rules(self):
+        """Configura regras básicas de firewall para PPPoE funcionar."""
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            # Adicionar regras básicas se não existirem
+            self.connect()
+            
+            # Regra para permitir tráfego PPPoE (protocolo 0x8863/0x8864)
+            # Nota: O Mikrotik geralmente já tem essas regras por padrão
+            
+            # Adicionar NAT para tráfego dos clientes PPPoE
+            nat_resource = self._api.get_resource('ip/firewall/nat')
+            
+            # Verificar se já existe uma regra de NAT para PPPoE
+            existing_nat = nat_resource.get(out_interface='pppoe-out', action='masquerade')
+            
+            if not existing_nat:
+                logger.info("Adicionando regra NAT para clientes PPPoE")
+                nat_resource.add(
+                    chain='srcnat',
+                    out_interface='pppoe-out',
+                    action='masquerade',
+                    comment='NAT para clientes PPPoE'
+                )
+            
+            logger.info("Regras de firewall para PPPoE configuradas")
+            
+        except Exception as e:
+            logger.warning(f"Erro ao configurar regras de firewall para PPPoE: {str(e)}")
+            # Não falhar a configuração por causa das regras de firewall
+
+    def get_pppoe_server_status(self):
+        """Retorna status do servidor PPPoE configurado."""
+        self.connect()
+        
+        status = {
+            'profiles': [],
+            'servers': [],
+            'interfaces': [],
+            'pools': []
+        }
+        
+        try:
+            # Profiles
+            profile_resource = self._api.get_resource('ppp/profile')
+            status['profiles'] = profile_resource.get()
+            
+            # Servidores
+            server_resource = self._api.get_resource('ppp/pppoe-server')
+            status['servers'] = server_resource.get()
+            
+            # Interfaces
+            interface_resource = self._api.get_resource('interface/pppoe-server')
+            status['interfaces'] = interface_resource.get()
+            
+            # Pools
+            pool_resource = self._api.get_resource('ip/pool')
+            status['pools'] = pool_resource.get()
+            
+        except Exception as e:
+            status['error'] = str(e)
+        
+        return status

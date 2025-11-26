@@ -107,3 +107,24 @@ class RouterWithInterfacesResponse(RouterResponse):
 
     class Config:
         from_attributes = True
+
+
+# Schemas para configuração PPPoE
+class PPPoESetupRequest(BaseModel):
+    interface: str
+    ip_pool_name: Optional[str] = "pppoe-pool"
+    local_address: Optional[str] = "192.168.1.1"
+    first_ip: Optional[str] = "192.168.1.2"
+    last_ip: Optional[str] = "192.168.1.254"
+    default_profile: Optional[str] = "pppoe-default"
+
+class PPPoESetupResponse(BaseModel):
+    message: str
+    details: dict
+
+class PPPoEStatusResponse(BaseModel):
+    profiles: List[dict] = []
+    servers: List[dict] = []
+    interfaces: List[dict] = []
+    pools: List[dict] = []
+    error: Optional[str] = None

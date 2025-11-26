@@ -27,4 +27,4 @@ class IspClientResponse(IspClientBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
