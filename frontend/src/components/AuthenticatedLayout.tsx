@@ -74,8 +74,6 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
       items: [
         { label: 'Empresas', icon: BuildingOfficeIcon, path: 'companies' as PageType, group: 'cadastros' },
         { label: 'Usuários', icon: UserIcon, path: 'users' as PageType, group: 'administracao' },
-        { label: 'Routers', icon: HomeIcon, path: 'routers' as PageType, group: 'administracao' },
-        { label: 'Classes IP', icon: ServerIcon, path: 'ip-classes' as PageType, group: 'administracao' },
       ]
     },
     {
@@ -83,6 +81,8 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
       icon: WifiIcon,
       color: 'blue',
       items: [
+        { label: 'Routers', icon: HomeIcon, path: 'routers' as PageType, group: 'administracao' },
+        { label: 'Classes IP', icon: ServerIcon, path: 'ip-classes' as PageType, group: 'administracao' },
         { label: 'PPPoE', icon: WifiIcon, path: 'pppoe' as PageType, group: 'rede' },
         { label: 'DHCP', icon: CloudIcon, path: 'dhcp' as PageType, group: 'rede' },
       ]

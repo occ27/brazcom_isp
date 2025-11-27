@@ -27,6 +27,7 @@ class Router(Base):
     ppp_profiles = relationship("PPPProfile", back_populates="router", cascade="all, delete-orphan")
     pppoe_servers = relationship("PPPoEServer", back_populates="router", cascade="all, delete-orphan")
     dhcp_servers = relationship("DHCPServer", back_populates="router", cascade="all, delete-orphan")
+    dhcp_networks = relationship("DHCPNetwork", back_populates="router", cascade="all, delete-orphan")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -220,7 +221,12 @@ class DHCPNetwork(Base):
     caps_manager = Column(String(255), nullable=True)  # Gerenciadores CAPS
     comentario = Column(Text, nullable=True)  # Comentário
 
-    # Relacionamento com servidor DHCP
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
+    router_id = Column(Integer, ForeignKey("routers.id"), nullable=True)  # Router onde foi criado
+
+    # Relacionamentos
+    empresa = relationship("Empresa", back_populates="dhcp_networks")
+    router = relationship("Router", back_populates="dhcp_networks")
     dhcp_server = relationship("DHCPServer", back_populates="dhcp_networks")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())

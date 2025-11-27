@@ -2,13 +2,19 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 
 from app.models.network import (
-    RouterInterface, InterfaceIPAddress, IPClass, InterfaceIPClassAssignment
+    RouterInterface, InterfaceIPAddress, IPClass, InterfaceIPClassAssignment,
+    IPPool, PPPProfile, PPPoEServer, DHCPServer, DHCPNetwork
 )
 from app.schemas.network import (
     RouterInterfaceCreate, RouterInterfaceUpdate,
     InterfaceIPAddressCreate, InterfaceIPAddressUpdate,
     IPClassCreate, IPClassUpdate,
-    InterfaceIPClassAssignmentCreate
+    InterfaceIPClassAssignmentCreate,
+    IPPoolCreate, IPPoolUpdate,
+    PPPProfileCreate, PPPProfileUpdate,
+    PPPoEServerCreate, PPPoEServerUpdate,
+    DHCPServerCreate, DHCPServerUpdate,
+    DHCPNetworkCreate, DHCPNetworkUpdate
 )
 
 # CRUD para RouterInterface
@@ -187,3 +193,237 @@ def get_used_ips_by_ip_class(db: Session, ip_class_id: int) -> List[str]:
 
     # Retorna lista de IPs (desempacota tuplas)
     return [ip[0] for ip in used_ips]
+
+# CRUD para IPPool
+def get_ip_pool(db: Session, pool_id: int) -> Optional[IPPool]:
+    """Busca um pool de IP específico."""
+    return db.query(IPPool).filter(IPPool.id == pool_id).first()
+
+def get_ip_pools_by_empresa(db: Session, empresa_id: int) -> List[IPPool]:
+    """Busca todos os pools de IP de uma empresa."""
+    return db.query(IPPool).filter(IPPool.empresa_id == empresa_id).all()
+
+def create_ip_pool(db: Session, pool: IPPoolCreate, empresa_id: int) -> IPPool:
+    """Cria um novo pool de IP."""
+    db_pool = IPPool(
+        empresa_id=empresa_id,
+        router_id=pool.router_id,
+        nome=pool.nome,
+        ranges=pool.ranges,
+        comentario=pool.comentario
+    )
+    db.add(db_pool)
+    db.commit()
+    db.refresh(db_pool)
+    return db_pool
+
+def update_ip_pool(db: Session, db_pool: IPPool, pool_in: IPPoolUpdate) -> IPPool:
+    """Atualiza um pool de IP."""
+    update_data = pool_in.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_pool, field, value)
+
+    db.add(db_pool)
+    db.commit()
+    db.refresh(db_pool)
+    return db_pool
+
+def delete_ip_pool(db: Session, pool_id: int) -> bool:
+    """Remove um pool de IP."""
+    pool = db.query(IPPool).filter(IPPool.id == pool_id).first()
+    if pool:
+        db.delete(pool)
+        db.commit()
+        return True
+    return False
+
+# CRUD para PPPProfile
+def get_ppp_profile(db: Session, profile_id: int) -> Optional[PPPProfile]:
+    """Busca um perfil PPP específico."""
+    return db.query(PPPProfile).filter(PPPProfile.id == profile_id).first()
+
+def get_ppp_profiles_by_empresa(db: Session, empresa_id: int) -> List[PPPProfile]:
+    """Busca todos os perfis PPP de uma empresa."""
+    return db.query(PPPProfile).filter(PPPProfile.empresa_id == empresa_id).all()
+
+def create_ppp_profile(db: Session, profile: PPPProfileCreate, empresa_id: int) -> PPPProfile:
+    """Cria um novo perfil PPP."""
+    db_profile = PPPProfile(
+        empresa_id=empresa_id,
+        router_id=profile.router_id,
+        nome=profile.nome,
+        local_address=profile.local_address,
+        remote_address_pool_id=profile.remote_address_pool_id,
+        rate_limit=profile.rate_limit,
+        session_timeout=profile.session_timeout,
+        idle_timeout=profile.idle_timeout,
+        only_one_session=profile.only_one_session,
+        comentario=profile.comentario
+    )
+    db.add(db_profile)
+    db.commit()
+    db.refresh(db_profile)
+    return db_profile
+
+def update_ppp_profile(db: Session, db_profile: PPPProfile, profile_in: PPPProfileUpdate) -> PPPProfile:
+    """Atualiza um perfil PPP."""
+    update_data = profile_in.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_profile, field, value)
+
+    db.add(db_profile)
+    db.commit()
+    db.refresh(db_profile)
+    return db_profile
+
+def delete_ppp_profile(db: Session, profile_id: int) -> bool:
+    """Remove um perfil PPP."""
+    profile = db.query(PPPProfile).filter(PPPProfile.id == profile_id).first()
+    if profile:
+        db.delete(profile)
+        db.commit()
+        return True
+    return False
+
+# CRUD para PPPoEServer
+def get_pppoe_server(db: Session, server_id: int) -> Optional[PPPoEServer]:
+    """Busca um servidor PPPoE específico."""
+    return db.query(PPPoEServer).filter(PPPoEServer.id == server_id).first()
+
+def get_pppoe_servers_by_empresa(db: Session, empresa_id: int) -> List[PPPoEServer]:
+    """Busca todos os servidores PPPoE de uma empresa."""
+    return db.query(PPPoEServer).filter(PPPoEServer.empresa_id == empresa_id).all()
+
+def create_pppoe_server(db: Session, server: PPPoEServerCreate, empresa_id: int) -> PPPoEServer:
+    """Cria um novo servidor PPPoE."""
+    db_server = PPPoEServer(
+        empresa_id=empresa_id,
+        router_id=server.router_id,
+        service_name=server.service_name,
+        interface_id=server.interface_id,
+        default_profile_id=server.default_profile_id,
+        max_sessions=server.max_sessions,
+        max_sessions_per_host=server.max_sessions_per_host,
+        authentication=server.authentication,
+        keepalive_timeout=server.keepalive_timeout,
+        comentario=server.comentario
+    )
+    db.add(db_server)
+    db.commit()
+    db.refresh(db_server)
+    return db_server
+
+def update_pppoe_server(db: Session, db_server: PPPoEServer, server_in: PPPoEServerUpdate) -> PPPoEServer:
+    """Atualiza um servidor PPPoE."""
+    update_data = server_in.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_server, field, value)
+
+    db.add(db_server)
+    db.commit()
+    db.refresh(db_server)
+    return db_server
+
+def delete_pppoe_server(db: Session, server_id: int) -> bool:
+    """Remove um servidor PPPoE."""
+    server = db.query(PPPoEServer).filter(PPPoEServer.id == server_id).first()
+    if server:
+        db.delete(server)
+        db.commit()
+        return True
+    return False
+
+# CRUD para DHCPServer
+def get_dhcp_server(db: Session, server_id: int) -> Optional[DHCPServer]:
+    """Busca um servidor DHCP específico."""
+    return db.query(DHCPServer).filter(DHCPServer.id == server_id).first()
+
+def get_dhcp_servers_by_empresa(db: Session, empresa_id: int) -> List[DHCPServer]:
+    """Busca todos os servidores DHCP de uma empresa."""
+    return db.query(DHCPServer).filter(DHCPServer.empresa_id == empresa_id).all()
+
+def create_dhcp_server(db: Session, server: DHCPServerCreate, empresa_id: int) -> DHCPServer:
+    """Cria um novo servidor DHCP."""
+    db_server = DHCPServer(
+        empresa_id=empresa_id,
+        router_id=server.router_id,
+        nome=server.nome,
+        interface_id=server.interface_id,
+        address_pool_id=server.address_pool_id,
+        lease_time=server.lease_time,
+        bootp_support=server.bootp_support,
+        comentario=server.comentario
+    )
+    db.add(db_server)
+    db.commit()
+    db.refresh(db_server)
+    return db_server
+
+def update_dhcp_server(db: Session, db_server: DHCPServer, server_in: DHCPServerUpdate) -> DHCPServer:
+    """Atualiza um servidor DHCP."""
+    update_data = server_in.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_server, field, value)
+
+    db.add(db_server)
+    db.commit()
+    db.refresh(db_server)
+    return db_server
+
+def delete_dhcp_server(db: Session, server_id: int) -> bool:
+    """Remove um servidor DHCP."""
+    server = db.query(DHCPServer).filter(DHCPServer.id == server_id).first()
+    if server:
+        db.delete(server)
+        db.commit()
+        return True
+    return False
+
+# CRUD para DHCPNetwork
+def get_dhcp_network(db: Session, network_id: int) -> Optional[DHCPNetwork]:
+    """Busca uma rede DHCP específica."""
+    return db.query(DHCPNetwork).filter(DHCPNetwork.id == network_id).first()
+
+def get_dhcp_networks_by_empresa(db: Session, empresa_id: int) -> List[DHCPNetwork]:
+    """Busca todas as redes DHCP de uma empresa."""
+    return db.query(DHCPNetwork).filter(DHCPNetwork.empresa_id == empresa_id).all()
+
+def create_dhcp_network(db: Session, network: DHCPNetworkCreate, empresa_id: int) -> DHCPNetwork:
+    """Cria uma nova rede DHCP."""
+    db_network = DHCPNetwork(
+        empresa_id=empresa_id,
+        router_id=network.router_id,
+        dhcp_server_id=network.dhcp_server_id,
+        address=network.address,
+        gateway=network.gateway,
+        dns_servers=network.dns_servers,
+        domain=network.domain,
+        wins_servers=network.wins_servers,
+        ntp_servers=network.ntp_servers,
+        caps_manager=network.caps_manager,
+        comentario=network.comentario
+    )
+    db.add(db_network)
+    db.commit()
+    db.refresh(db_network)
+    return db_network
+
+def update_dhcp_network(db: Session, db_network: DHCPNetwork, network_in: DHCPNetworkUpdate) -> DHCPNetwork:
+    """Atualiza uma rede DHCP."""
+    update_data = network_in.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_network, field, value)
+
+    db.add(db_network)
+    db.commit()
+    db.refresh(db_network)
+    return db_network
+
+def delete_dhcp_network(db: Session, network_id: int) -> bool:
+    """Remove uma rede DHCP."""
+    network = db.query(DHCPNetwork).filter(DHCPNetwork.id == network_id).first()
+    if network:
+        db.delete(network)
+        db.commit()
+        return True
+    return False

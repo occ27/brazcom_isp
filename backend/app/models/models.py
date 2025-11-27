@@ -122,6 +122,7 @@ class Empresa(Base):
     ppp_profiles = relationship("PPPProfile", back_populates="empresa", cascade="all, delete-orphan")
     pppoe_servers = relationship("PPPoEServer", back_populates="empresa", cascade="all, delete-orphan")
     dhcp_servers = relationship("DHCPServer", back_populates="empresa", cascade="all, delete-orphan")
+    dhcp_networks = relationship("DHCPNetwork", back_populates="empresa", cascade="all, delete-orphan")
 
     # Especifica explicitamente que esta relação usa a coluna user_id como FK
     usuario_criador = relationship(

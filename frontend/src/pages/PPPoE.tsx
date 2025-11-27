@@ -152,6 +152,25 @@ const PPPoE: React.FC = () => {
     loadData();
   }, [loadData]);
 
+  // Carregar interfaces quando router muda no modal PPPoE Server
+  useEffect(() => {
+    const loadInterfaces = async () => {
+      if (pppoeServerForm.router_id) {
+        try {
+          const interfacesResp = await networkService.getRouterInterfaces(pppoeServerForm.router_id);
+          setInterfaces(interfacesResp || []);
+        } catch (error) {
+          console.error('Erro ao carregar interfaces:', error);
+          setInterfaces([]);
+        }
+      } else {
+        setInterfaces([]);
+      }
+    };
+
+    loadInterfaces();
+  }, [pppoeServerForm.router_id]);
+
   // Handlers para IP Pools
   const handleCreateIpPool = async () => {
     try {
@@ -653,11 +672,12 @@ const PPPoE: React.FC = () => {
         <DialogTitle>{editingIpPool ? 'Editar Pool de IP' : 'Novo Pool de IP'}</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <FormControl fullWidth>
+            <FormControl fullWidth sx={{ mt: 2 }}>
               <InputLabel>Router (Opcional)</InputLabel>
               <Select
                 value={ipPoolForm.router_id || ''}
                 onChange={(e) => setIpPoolForm({ ...ipPoolForm, router_id: e.target.value ? Number(e.target.value) : undefined })}
+                label="Router (Opcional)"
               >
                 <MenuItem value="">Global (Todas as empresas)</MenuItem>
                 {routers.map((router) => (
@@ -715,11 +735,12 @@ const PPPoE: React.FC = () => {
         <DialogTitle>{editingPppProfile ? 'Editar Perfil PPP' : 'Novo Perfil PPP'}</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <FormControl fullWidth>
+            <FormControl fullWidth sx={{ mt: 2 }}>
               <InputLabel>Router (Opcional)</InputLabel>
               <Select
                 value={pppProfileForm.router_id || ''}
                 onChange={(e) => setPppProfileForm({ ...pppProfileForm, router_id: e.target.value ? Number(e.target.value) : undefined })}
+                label="Router (Opcional)"
               >
                 <MenuItem value="">Global (Todas as empresas)</MenuItem>
                 {routers.map((router) => (
@@ -791,11 +812,12 @@ const PPPoE: React.FC = () => {
         <DialogTitle>{editingPppoeServer ? 'Editar Servidor PPPoE' : 'Novo Servidor PPPoE'}</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <FormControl fullWidth>
+            <FormControl fullWidth sx={{ mt: 1 }}>
               <InputLabel>Router (Opcional)</InputLabel>
               <Select
                 value={pppoeServerForm.router_id || ''}
                 onChange={(e) => setPppoeServerForm({ ...pppoeServerForm, router_id: e.target.value ? Number(e.target.value) : undefined })}
+                label="Router (Opcional)"
               >
                 <MenuItem value="">Global (Todas as empresas)</MenuItem>
                 {routers.map((router) => (
@@ -810,11 +832,12 @@ const PPPoE: React.FC = () => {
               onChange={(e) => setPppoeServerForm({ ...pppoeServerForm, service_name: e.target.value })}
               required
             />
-            <FormControl fullWidth>
+            <FormControl fullWidth sx={{ mt: 1 }}>
               <InputLabel>Interface</InputLabel>
               <Select
                 value={pppoeServerForm.interface_id}
                 onChange={(e) => setPppoeServerForm({ ...pppoeServerForm, interface_id: Number(e.target.value) })}
+                label="Interface"
                 required
               >
                 {interfaces.map((iface) => (
@@ -822,11 +845,12 @@ const PPPoE: React.FC = () => {
                 ))}
               </Select>
             </FormControl>
-            <FormControl fullWidth>
+            <FormControl fullWidth sx={{ mt: 1 }}>
               <InputLabel>Perfil Padrão</InputLabel>
               <Select
                 value={pppoeServerForm.default_profile_id}
                 onChange={(e) => setPppoeServerForm({ ...pppoeServerForm, default_profile_id: Number(e.target.value) })}
+                label="Perfil Padrão"
                 required
               >
                 {pppProfiles.map((profile) => (

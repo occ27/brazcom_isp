@@ -12,7 +12,12 @@ from app.schemas.network import (
     IPClassResponse, IPClassCreate, IPClassUpdate,
     InterfaceIPClassAssignmentCreate, InterfaceIPClassAssignmentResponse,
     RouterWithInterfacesResponse,
-    PPPoESetupRequest, PPPoESetupResponse, PPPoEStatusResponse
+    PPPoESetupRequest, PPPoESetupResponse, PPPoEStatusResponse,
+    IPPoolResponse, IPPoolCreate, IPPoolUpdate,
+    PPPProfileResponse, PPPProfileCreate, PPPProfileUpdate,
+    PPPoEServerResponse, PPPoEServerCreate, PPPoEServerUpdate,
+    DHCPServerResponse, DHCPServerCreate, DHCPServerUpdate,
+    DHCPNetworkResponse, DHCPNetworkCreate, DHCPNetworkUpdate
 )
 
 router = APIRouter(prefix="/network", tags=["Network"])
@@ -980,3 +985,298 @@ def get_pppoe_server_status(
             status_code=500, 
             detail=f"Erro ao obter status PPPoE: {str(e)}"
         )
+
+# Rotas para IPPool
+@router.get("/ip-pools/", response_model=List[IPPoolResponse])
+def read_ip_pools(
+    *,
+    db: Session = Depends(deps.get_db),
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Buscar todos os pools de IP da empresa.
+    """
+    return crud.crud_network.get_ip_pools_by_empresa(db=db, empresa_id=current_user.active_empresa_id)
+
+@router.post("/ip-pools/", response_model=IPPoolResponse)
+def create_ip_pool(
+    *,
+    db: Session = Depends(deps.get_db),
+    pool_in: IPPoolCreate,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Criar um novo pool de IP.
+    """
+    return crud.crud_network.create_ip_pool(db=db, pool=pool_in, empresa_id=current_user.active_empresa_id)
+
+@router.put("/ip-pools/{pool_id}", response_model=IPPoolResponse)
+def update_ip_pool(
+    *,
+    db: Session = Depends(deps.get_db),
+    pool_id: int,
+    pool_in: IPPoolUpdate,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Atualizar um pool de IP.
+    """
+    pool = crud.crud_network.get_ip_pool(db=db, pool_id=pool_id)
+    if not pool or pool.empresa_id != current_user.active_empresa_id:
+        raise HTTPException(status_code=404, detail="Pool de IP não encontrado")
+    
+    return crud.crud_network.update_ip_pool(db=db, db_pool=pool, pool_in=pool_in)
+
+@router.delete("/ip-pools/{pool_id}")
+def delete_ip_pool(
+    *,
+    db: Session = Depends(deps.get_db),
+    pool_id: int,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Excluir um pool de IP.
+    """
+    pool = crud.crud_network.get_ip_pool(db=db, pool_id=pool_id)
+    if not pool or pool.empresa_id != current_user.active_empresa_id:
+        raise HTTPException(status_code=404, detail="Pool de IP não encontrado")
+    
+    if crud.crud_network.delete_ip_pool(db=db, pool_id=pool_id):
+        return {"message": "Pool de IP excluído com sucesso"}
+    raise HTTPException(status_code=500, detail="Erro ao excluir pool de IP")
+
+# Rotas para PPPProfile
+@router.get("/ppp-profiles/", response_model=List[PPPProfileResponse])
+def read_ppp_profiles(
+    *,
+    db: Session = Depends(deps.get_db),
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Buscar todos os perfis PPP da empresa.
+    """
+    return crud.crud_network.get_ppp_profiles_by_empresa(db=db, empresa_id=current_user.active_empresa_id)
+
+@router.post("/ppp-profiles/", response_model=PPPProfileResponse)
+def create_ppp_profile(
+    *,
+    db: Session = Depends(deps.get_db),
+    profile_in: PPPProfileCreate,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Criar um novo perfil PPP.
+    """
+    return crud.crud_network.create_ppp_profile(db=db, profile=profile_in, empresa_id=current_user.active_empresa_id)
+
+@router.put("/ppp-profiles/{profile_id}", response_model=PPPProfileResponse)
+def update_ppp_profile(
+    *,
+    db: Session = Depends(deps.get_db),
+    profile_id: int,
+    profile_in: PPPProfileUpdate,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Atualizar um perfil PPP.
+    """
+    profile = crud.crud_network.get_ppp_profile(db=db, profile_id=profile_id)
+    if not profile or profile.empresa_id != current_user.active_empresa_id:
+        raise HTTPException(status_code=404, detail="Perfil PPP não encontrado")
+    
+    return crud.crud_network.update_ppp_profile(db=db, db_profile=profile, profile_in=profile_in)
+
+@router.delete("/ppp-profiles/{profile_id}")
+def delete_ppp_profile(
+    *,
+    db: Session = Depends(deps.get_db),
+    profile_id: int,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Excluir um perfil PPP.
+    """
+    profile = crud.crud_network.get_ppp_profile(db=db, profile_id=profile_id)
+    if not profile or profile.empresa_id != current_user.active_empresa_id:
+        raise HTTPException(status_code=404, detail="Perfil PPP não encontrado")
+    
+    if crud.crud_network.delete_ppp_profile(db=db, profile_id=profile_id):
+        return {"message": "Perfil PPP excluído com sucesso"}
+    raise HTTPException(status_code=500, detail="Erro ao excluir perfil PPP")
+
+# Rotas para PPPoEServer
+@router.get("/pppoe-servers/", response_model=List[PPPoEServerResponse])
+def read_pppoe_servers(
+    *,
+    db: Session = Depends(deps.get_db),
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Buscar todos os servidores PPPoE da empresa.
+    """
+    return crud.crud_network.get_pppoe_servers_by_empresa(db=db, empresa_id=current_user.active_empresa_id)
+
+@router.post("/pppoe-servers/", response_model=PPPoEServerResponse)
+def create_pppoe_server(
+    *,
+    db: Session = Depends(deps.get_db),
+    server_in: PPPoEServerCreate,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Criar um novo servidor PPPoE.
+    """
+    return crud.crud_network.create_pppoe_server(db=db, server=server_in, empresa_id=current_user.active_empresa_id)
+
+@router.put("/pppoe-servers/{server_id}", response_model=PPPoEServerResponse)
+def update_pppoe_server(
+    *,
+    db: Session = Depends(deps.get_db),
+    server_id: int,
+    server_in: PPPoEServerUpdate,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Atualizar um servidor PPPoE.
+    """
+    server = crud.crud_network.get_pppoe_server(db=db, server_id=server_id)
+    if not server or server.empresa_id != current_user.active_empresa_id:
+        raise HTTPException(status_code=404, detail="Servidor PPPoE não encontrado")
+    
+    return crud.crud_network.update_pppoe_server(db=db, db_server=server, server_in=server_in)
+
+@router.delete("/pppoe-servers/{server_id}")
+def delete_pppoe_server(
+    *,
+    db: Session = Depends(deps.get_db),
+    server_id: int,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Excluir um servidor PPPoE.
+    """
+    server = crud.crud_network.get_pppoe_server(db=db, server_id=server_id)
+    if not server or server.empresa_id != current_user.active_empresa_id:
+        raise HTTPException(status_code=404, detail="Servidor PPPoE não encontrado")
+    
+    if crud.crud_network.delete_pppoe_server(db=db, server_id=server_id):
+        return {"message": "Servidor PPPoE excluído com sucesso"}
+    raise HTTPException(status_code=500, detail="Erro ao excluir servidor PPPoE")
+
+# Rotas para DHCPServer
+@router.get("/dhcp-servers/", response_model=List[DHCPServerResponse])
+def read_dhcp_servers(
+    *,
+    db: Session = Depends(deps.get_db),
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Buscar todos os servidores DHCP da empresa.
+    """
+    return crud.crud_network.get_dhcp_servers_by_empresa(db=db, empresa_id=current_user.active_empresa_id)
+
+@router.post("/dhcp-servers/", response_model=DHCPServerResponse)
+def create_dhcp_server(
+    *,
+    db: Session = Depends(deps.get_db),
+    server_in: DHCPServerCreate,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Criar um novo servidor DHCP.
+    """
+    return crud.crud_network.create_dhcp_server(db=db, server=server_in, empresa_id=current_user.active_empresa_id)
+
+@router.put("/dhcp-servers/{server_id}", response_model=DHCPServerResponse)
+def update_dhcp_server(
+    *,
+    db: Session = Depends(deps.get_db),
+    server_id: int,
+    server_in: DHCPServerUpdate,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Atualizar um servidor DHCP.
+    """
+    server = crud.crud_network.get_dhcp_server(db=db, server_id=server_id)
+    if not server or server.empresa_id != current_user.active_empresa_id:
+        raise HTTPException(status_code=404, detail="Servidor DHCP não encontrado")
+    
+    return crud.crud_network.update_dhcp_server(db=db, db_server=server, server_in=server_in)
+
+@router.delete("/dhcp-servers/{server_id}")
+def delete_dhcp_server(
+    *,
+    db: Session = Depends(deps.get_db),
+    server_id: int,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Excluir um servidor DHCP.
+    """
+    server = crud.crud_network.get_dhcp_server(db=db, server_id=server_id)
+    if not server or server.empresa_id != current_user.active_empresa_id:
+        raise HTTPException(status_code=404, detail="Servidor DHCP não encontrado")
+    
+    if crud.crud_network.delete_dhcp_server(db=db, server_id=server_id):
+        return {"message": "Servidor DHCP excluído com sucesso"}
+    raise HTTPException(status_code=500, detail="Erro ao excluir servidor DHCP")
+
+# Rotas para DHCPNetwork
+@router.get("/dhcp-networks/", response_model=List[DHCPNetworkResponse])
+def read_dhcp_networks(
+    *,
+    db: Session = Depends(deps.get_db),
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Buscar todas as redes DHCP da empresa.
+    """
+    return crud.crud_network.get_dhcp_networks_by_empresa(db=db, empresa_id=current_user.active_empresa_id)
+
+@router.post("/dhcp-networks/", response_model=DHCPNetworkResponse)
+def create_dhcp_network(
+    *,
+    db: Session = Depends(deps.get_db),
+    network_in: DHCPNetworkCreate,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Criar uma nova rede DHCP.
+    """
+    return crud.crud_network.create_dhcp_network(db=db, network=network_in, empresa_id=current_user.active_empresa_id)
+
+@router.put("/dhcp-networks/{network_id}", response_model=DHCPNetworkResponse)
+def update_dhcp_network(
+    *,
+    db: Session = Depends(deps.get_db),
+    network_id: int,
+    network_in: DHCPNetworkUpdate,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Atualizar uma rede DHCP.
+    """
+    network = crud.crud_network.get_dhcp_network(db=db, network_id=network_id)
+    if not network or network.empresa_id != current_user.active_empresa_id:
+        raise HTTPException(status_code=404, detail="Rede DHCP não encontrada")
+    
+    return crud.crud_network.update_dhcp_network(db=db, db_network=network, network_in=network_in)
+
+@router.delete("/dhcp-networks/{network_id}")
+def delete_dhcp_network(
+    *,
+    db: Session = Depends(deps.get_db),
+    network_id: int,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Excluir uma rede DHCP.
+    """
+    network = crud.crud_network.get_dhcp_network(db=db, network_id=network_id)
+    if not network or network.empresa_id != current_user.active_empresa_id:
+        raise HTTPException(status_code=404, detail="Rede DHCP não encontrada")
+    
+    if crud.crud_network.delete_dhcp_network(db=db, network_id=network_id):
+        return {"message": "Rede DHCP excluída com sucesso"}
+    raise HTTPException(status_code=500, detail="Erro ao excluir rede DHCP")

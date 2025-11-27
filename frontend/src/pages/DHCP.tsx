@@ -505,7 +505,7 @@ const DHCP: React.FC = () => {
         <DialogTitle>{editingDhcpServer ? 'Editar Servidor DHCP' : 'Novo Servidor DHCP'}</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <FormControl fullWidth>
+            <FormControl fullWidth sx={{ mt: 1 }}>
               <InputLabel>Router (Opcional)</InputLabel>
               <Select
                 value={dhcpServerForm.router_id || ''}
@@ -518,6 +518,7 @@ const DHCP: React.FC = () => {
                     setInterfaces([]);
                   }
                 }}
+                label="Router (Opcional)"
               >
                 <MenuItem value="">Global (Todas as empresas)</MenuItem>
                 {routers.map((router) => (
@@ -525,6 +526,7 @@ const DHCP: React.FC = () => {
                 ))}
               </Select>
             </FormControl>
+
             <TextField
               fullWidth
               label="Nome"
@@ -532,7 +534,7 @@ const DHCP: React.FC = () => {
               onChange={(e) => setDhcpServerForm({ ...dhcpServerForm, name: e.target.value })}
               required
             />
-            <FormControl fullWidth>
+            <FormControl fullWidth sx={{ mt: 1 }}>
               <InputLabel>Interface</InputLabel>
               <Select
                 value={dhcpServerForm.interface_id}
@@ -584,7 +586,7 @@ const DHCP: React.FC = () => {
         <DialogTitle>{editingDhcpNetwork ? 'Editar Rede DHCP' : 'Nova Rede DHCP'}</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <FormControl fullWidth>
+            <FormControl fullWidth sx={{ mt: 1 }}>
               <InputLabel>Servidor DHCP</InputLabel>
               <Select
                 value={dhcpNetworkForm.dhcp_server_id}
