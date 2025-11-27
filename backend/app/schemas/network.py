@@ -100,6 +100,7 @@ class InterfaceIPClassAssignmentResponse(InterfaceIPClassAssignmentBase):
 
 # Atualizar RouterResponse para incluir interfaces
 from app.schemas.router import RouterResponse
+from app.schemas.empresa import EmpresaResponse
 
 # Criar uma nova versão do RouterResponse que inclui interfaces
 class RouterWithInterfacesResponse(RouterResponse):
@@ -189,6 +190,7 @@ class PPPProfileResponse(PPPProfileBase):
     router_id: Optional[int] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
+    remote_address_pool: Optional["IPPoolResponse"] = None
 
     class Config:
         from_attributes = True
@@ -227,6 +229,10 @@ class PPPoEServerResponse(PPPoEServerBase):
     is_active: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
+    interface: Optional[RouterInterfaceResponse] = None
+    default_profile: Optional[PPPProfileResponse] = None
+    router: Optional[RouterResponse] = None
+    empresa: Optional[EmpresaResponse] = None
 
     class Config:
         from_attributes = True

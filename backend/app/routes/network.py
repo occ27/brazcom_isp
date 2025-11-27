@@ -1144,6 +1144,71 @@ def delete_ip_pool(
         return {"message": "Pool de IP excluído com sucesso"}
     raise HTTPException(status_code=500, detail="Erro ao excluir pool de IP")
 
+@router.post("/ip-pools/{pool_id}/apply-to-router/")
+def apply_ip_pool_to_router(
+    *,
+    db: Session = Depends(deps.get_db),
+    pool_id: int,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Aplicar pool de IP no router MikroTik onde ele foi sincronizado.
+    """
+    # Verificar se o pool pertence à empresa do usuário
+    pool = crud.crud_network.get_ip_pool(db=db, pool_id=pool_id)
+    if not pool or pool.empresa_id != current_user.active_empresa_id:
+        raise HTTPException(status_code=404, detail="Pool de IP não encontrado")
+
+    # Verificar se o pool tem router associado
+    if not pool.router_id:
+        raise HTTPException(status_code=400, detail="Pool de IP não está associado a nenhum router")
+
+    # Verificar se o router pertence à empresa do usuário
+    router = crud.crud_router.get_router(db=db, router_id=pool.router_id, empresa_id=current_user.active_empresa_id)
+    if not router:
+        raise HTTPException(status_code=403, detail="Acesso negado ao router")
+
+    # Verificar se o pool tem ranges configurados
+    if not pool.ranges:
+        raise HTTPException(status_code=400, detail="Pool de IP não possui ranges configurados")
+
+    try:
+        # Conectar ao router MikroTik
+        from app.core.security import decrypt_password
+        from app.mikrotik.controller import MikrotikController
+
+        # Tentar descriptografar senha, se falhar usar em texto plano
+        try:
+            password = decrypt_password(router.senha)
+        except Exception as pwd_error:
+            password = router.senha
+            print(f"Aviso: Usando senha em texto plano para router {router.id}: {str(pwd_error)}")
+
+        mk = MikrotikController(
+            host=router.ip,
+            username=router.usuario,
+            password=password,
+            port=router.porta or 8728
+        )
+
+        # Aplicar pool de IP no router
+        try:
+            result = mk.add_dhcp_pool(
+                name=pool.nome,
+                ranges=pool.ranges
+            )
+            return {
+                "message": f"Pool de IP '{pool.nome}' aplicado no router '{router.nome}' com sucesso",
+                "pool_name": pool.nome,
+                "ranges": pool.ranges,
+                "router": router.nome
+            }
+        except Exception as pool_error:
+            raise Exception(f"Falha ao aplicar pool de IP '{pool.nome}' no router '{router.nome}': {str(pool_error)}")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao aplicar pool de IP no router: {str(e)}")
+
 # Rotas para PPPProfile
 @router.get("/ppp-profiles/", response_model=List[PPPProfileResponse])
 def read_ppp_profiles(
@@ -1203,6 +1268,81 @@ def delete_ppp_profile(
         return {"message": "Perfil PPP excluído com sucesso"}
     raise HTTPException(status_code=500, detail="Erro ao excluir perfil PPP")
 
+@router.post("/ppp-profiles/{profile_id}/apply-to-router/")
+def apply_ppp_profile_to_router(
+    *,
+    db: Session = Depends(deps.get_db),
+    profile_id: int,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Aplicar perfil PPP no router MikroTik onde ele foi sincronizado.
+    """
+    # Verificar se o perfil pertence à empresa do usuário
+    profile = crud.crud_network.get_ppp_profile(db=db, profile_id=profile_id)
+    if not profile or profile.empresa_id != current_user.active_empresa_id:
+        raise HTTPException(status_code=404, detail="Perfil PPP não encontrado")
+
+    # Verificar se o perfil tem router associado
+    if not profile.router_id:
+        raise HTTPException(status_code=400, detail="Perfil PPP não está associado a nenhum router")
+
+    # Verificar se o router pertence à empresa do usuário
+    router = crud.crud_router.get_router(db=db, router_id=profile.router_id, empresa_id=current_user.active_empresa_id)
+    if not router:
+        raise HTTPException(status_code=403, detail="Acesso negado ao router")
+
+    # Verificar se o perfil tem configurações necessárias
+    if not profile.local_address or not profile.remote_address_pool_id:
+        raise HTTPException(status_code=400, detail="Perfil PPP não possui endereço local ou pool remoto configurados")
+
+    # Obter o pool de IP remoto
+    remote_pool = crud.crud_network.get_ip_pool(db=db, pool_id=profile.remote_address_pool_id)
+    if not remote_pool:
+        raise HTTPException(status_code=400, detail="Pool de IP remoto associado ao perfil não encontrado")
+
+    try:
+        # Conectar ao router MikroTik
+        from app.core.security import decrypt_password
+        from app.mikrotik.controller import MikrotikController
+
+        # Tentar descriptografar senha, se falhar usar em texto plano
+        try:
+            password = decrypt_password(router.senha)
+        except Exception as pwd_error:
+            password = router.senha
+            print(f"Aviso: Usando senha em texto plano para router {router.id}: {str(pwd_error)}")
+
+        mk = MikrotikController(
+            host=router.ip,
+            username=router.usuario,
+            password=password,
+            port=router.porta or 8728
+        )
+
+        # Aplicar perfil PPP no router
+        try:
+            result = mk.add_pppoe_profile(
+                name=profile.nome,
+                local_address=profile.local_address,
+                remote_address_pool=remote_pool.nome,
+                rate_limit=profile.rate_limit,
+                comment=profile.comment
+            )
+            return {
+                "message": f"Perfil PPP '{profile.nome}' aplicado no router '{router.nome}' com sucesso",
+                "profile_name": profile.nome,
+                "local_address": profile.local_address,
+                "remote_address_pool": remote_pool.nome,
+                "rate_limit": profile.rate_limit,
+                "router": router.nome
+            }
+        except Exception as profile_error:
+            raise Exception(f"Falha ao aplicar perfil PPP '{profile.nome}' no router '{router.nome}': {str(profile_error)}")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao aplicar perfil PPP no router: {str(e)}")
+
 # Rotas para PPPoEServer
 @router.get("/pppoe-servers/", response_model=List[PPPoEServerResponse])
 def read_pppoe_servers(
@@ -1261,6 +1401,74 @@ def delete_pppoe_server(
     if crud.crud_network.delete_pppoe_server(db=db, server_id=server_id):
         return {"message": "Servidor PPPoE excluído com sucesso"}
     raise HTTPException(status_code=500, detail="Erro ao excluir servidor PPPoE")
+
+@router.post("/pppoe-servers/{server_id}/apply-to-router/")
+def apply_pppoe_server_to_router(
+    *,
+    db: Session = Depends(deps.get_db),
+    server_id: int,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Aplicar servidor PPPoE no router MikroTik onde ele foi sincronizado.
+    """
+    # Verificar se o servidor pertence à empresa do usuário
+    server = crud.crud_network.get_pppoe_server(db=db, server_id=server_id)
+    if not server or server.empresa_id != current_user.active_empresa_id:
+        raise HTTPException(status_code=404, detail="Servidor PPPoE não encontrado")
+
+    # Verificar se o servidor tem router associado
+    if not server.router_id:
+        raise HTTPException(status_code=400, detail="Servidor PPPoE não está associado a nenhum router")
+
+    # Verificar se o router pertence à empresa do usuário
+    router = crud.crud_router.get_router(db=db, router_id=server.router_id, empresa_id=current_user.active_empresa_id)
+    if not router:
+        raise HTTPException(status_code=403, detail="Acesso negado ao router")
+
+    # Verificar se o servidor tem configurações necessárias
+    if not server.interface or not server.profile:
+        raise HTTPException(status_code=400, detail="Servidor PPPoE não possui interface ou perfil configurados")
+
+    try:
+        # Conectar ao router MikroTik
+        from app.core.security import decrypt_password
+        from app.mikrotik.controller import MikrotikController
+
+        # Tentar descriptografar senha, se falhar usar em texto plano
+        try:
+            password = decrypt_password(router.senha)
+        except Exception as pwd_error:
+            password = router.senha
+            print(f"Aviso: Usando senha em texto plano para router {router.id}: {str(pwd_error)}")
+
+        mk = MikrotikController(
+            host=router.ip,
+            username=router.usuario,
+            password=password,
+            port=router.porta or 8728
+        )
+
+        # Aplicar servidor PPPoE no router
+        try:
+            result = mk.add_pppoe_server(
+                name=server.service_name or server.nome,
+                interface=server.interface,
+                profile=server.profile
+            )
+            return {
+                "message": f"Servidor PPPoE '{server.nome}' aplicado no router '{router.nome}' com sucesso",
+                "server_name": server.nome,
+                "service_name": server.service_name,
+                "interface": server.interface,
+                "profile": server.profile,
+                "router": router.nome
+            }
+        except Exception as server_error:
+            raise Exception(f"Falha ao aplicar servidor PPPoE '{server.nome}' no router '{router.nome}': {str(server_error)}")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao aplicar servidor PPPoE no router: {str(e)}")
 
 # Rotas para DHCPServer
 @router.get("/dhcp-servers/", response_model=List[DHCPServerResponse])

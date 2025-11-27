@@ -400,8 +400,20 @@ def sync_ppp_profiles(db: Session, router_id: int, empresa_id: int) -> dict:
                 db_profile.local_address = local_address
                 needs_update = True
             
-            # Nota: remote_address do Mikrotik pode ser um IP direto ou referência a pool
-            # Por enquanto, não sincronizamos este campo automaticamente
+            # Tentar resolver remote_address como referência a pool de IP
+            remote_pool_id = None
+            if remote_address:
+                # Verificar se remote_address é uma referência a pool existente
+                remote_pool = db.query(IPPool).filter(
+                    IPPool.nome == remote_address,
+                    IPPool.empresa_id == empresa_id
+                ).first()
+                if remote_pool:
+                    remote_pool_id = remote_pool.id
+            
+            if db_profile.remote_address_pool_id != remote_pool_id:
+                db_profile.remote_address_pool_id = remote_pool_id
+                needs_update = True
             
             if db_profile.rate_limit != rate_limit:
                 db_profile.rate_limit = rate_limit
@@ -418,10 +430,21 @@ def sync_ppp_profiles(db: Session, router_id: int, empresa_id: int) -> dict:
                 updated += 1
         else:
             # Criar novo profile
+            # Tentar resolver remote_address como referência a pool de IP
+            remote_pool_id = None
+            if remote_address:
+                # Verificar se remote_address é uma referência a pool existente
+                remote_pool = db.query(IPPool).filter(
+                    IPPool.nome == remote_address,
+                    IPPool.empresa_id == empresa_id
+                ).first()
+                if remote_pool:
+                    remote_pool_id = remote_pool.id
+            
             new_profile = PPPProfile(
                 nome=profile_name,
                 local_address=local_address,
-                remote_address_pool_id=None,  # Será configurado manualmente se necessário
+                remote_address_pool_id=remote_pool_id,
                 rate_limit=rate_limit,
                 comentario=comment,
                 router_id=router_id,
@@ -612,11 +635,19 @@ def sync_pppoe_servers(db: Session, router_id: int, empresa_id: int) -> dict:
 # CRUD para PPPProfile
 def get_ppp_profile(db: Session, profile_id: int) -> Optional[PPPProfile]:
     """Busca um perfil PPP específico."""
-    return db.query(PPPProfile).filter(PPPProfile.id == profile_id).first()
+    return db.query(PPPProfile).options(
+        joinedload(PPPProfile.remote_address_pool),
+        joinedload(PPPProfile.router),
+        joinedload(PPPProfile.empresa)
+    ).filter(PPPProfile.id == profile_id).first()
 
 def get_ppp_profiles_by_empresa(db: Session, empresa_id: int) -> List[PPPProfile]:
     """Busca todos os perfis PPP de uma empresa."""
-    return db.query(PPPProfile).filter(PPPProfile.empresa_id == empresa_id).all()
+    return db.query(PPPProfile).options(
+        joinedload(PPPProfile.remote_address_pool),
+        joinedload(PPPProfile.router),
+        joinedload(PPPProfile.empresa)
+    ).filter(PPPProfile.empresa_id == empresa_id).all()
 
 def create_ppp_profile(db: Session, profile: PPPProfileCreate, empresa_id: int) -> PPPProfile:
     """Cria um novo perfil PPP."""
@@ -660,11 +691,21 @@ def delete_ppp_profile(db: Session, profile_id: int) -> bool:
 # CRUD para PPPoEServer
 def get_pppoe_server(db: Session, server_id: int) -> Optional[PPPoEServer]:
     """Busca um servidor PPPoE específico."""
-    return db.query(PPPoEServer).filter(PPPoEServer.id == server_id).first()
+    return db.query(PPPoEServer).options(
+        joinedload(PPPoEServer.interface),
+        joinedload(PPPoEServer.default_profile),
+        joinedload(PPPoEServer.router),
+        joinedload(PPPoEServer.empresa)
+    ).filter(PPPoEServer.id == server_id).first()
 
 def get_pppoe_servers_by_empresa(db: Session, empresa_id: int) -> List[PPPoEServer]:
     """Busca todos os servidores PPPoE de uma empresa."""
-    return db.query(PPPoEServer).filter(PPPoEServer.empresa_id == empresa_id).all()
+    return db.query(PPPoEServer).options(
+        joinedload(PPPoEServer.interface),
+        joinedload(PPPoEServer.default_profile),
+        joinedload(PPPoEServer.router),
+        joinedload(PPPoEServer.empresa)
+    ).filter(PPPoEServer.empresa_id == empresa_id).all()
 
 def create_pppoe_server(db: Session, server: PPPoEServerCreate, empresa_id: int) -> PPPoEServer:
     """Cria um novo servidor PPPoE."""

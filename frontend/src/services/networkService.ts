@@ -82,7 +82,7 @@ export interface PPPProfileCreate {
   router_id?: number;
   nome: string;
   local_address: string;
-  remote_address?: string;
+  remote_address_pool_id?: number;
   rate_limit?: string;
   comentario?: string;
   is_active?: boolean;
@@ -260,6 +260,11 @@ export const networkService = {
     return response.data;
   },
 
+  applyIPPoolToRouter: async (poolId: number): Promise<any> => {
+    const response = await api.post(`/network/ip-pools/${poolId}/apply-to-router/`);
+    return response.data;
+  },
+
   deleteIPPool: async (poolId: number): Promise<void> => {
     await api.delete(`/network/ip-pools/${poolId}`);
   },
@@ -284,6 +289,11 @@ export const networkService = {
     await api.delete(`/network/ppp-profiles/${profileId}`);
   },
 
+  applyPPPProfileToRouter: async (profileId: number): Promise<any> => {
+    const response = await api.post(`/network/ppp-profiles/${profileId}/apply-to-router/`);
+    return response.data;
+  },
+
   // PPPoE Servers
   getPPPoEServers: async (): Promise<PPPoEServer[]> => {
     const response = await api.get('/network/pppoe-servers/');
@@ -302,6 +312,11 @@ export const networkService = {
 
   deletePPPoEServer: async (serverId: number): Promise<void> => {
     await api.delete(`/network/pppoe-servers/${serverId}`);
+  },
+
+  applyPPPoEServerToRouter: async (serverId: number): Promise<any> => {
+    const response = await api.post(`/network/pppoe-servers/${serverId}/apply-to-router/`);
+    return response.data;
   },
 
   // DHCP Servers

@@ -188,7 +188,7 @@ export interface PPPProfile {
   router_id?: number;
   nome: string;
   local_address: string;
-  remote_address?: string;
+  remote_address_pool_id?: number;
   rate_limit?: string;
   comentario?: string;
   is_active: boolean;
@@ -196,6 +196,7 @@ export interface PPPProfile {
   updated_at?: string;
   empresa?: Company;
   router?: Router;
+  remote_address_pool?: IPPool;
 }
 
 export interface PPPoEServer {

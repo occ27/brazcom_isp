@@ -112,7 +112,7 @@ const PPPoE: React.FC = () => {
   const [pppProfileForm, setPppProfileForm] = useState<PPPProfileCreate>({
     nome: '',
     local_address: '',
-    remote_address: '',
+    remote_address_pool_id: undefined,
     rate_limit: '',
     comentario: '',
     is_active: true
@@ -258,6 +258,23 @@ const PPPoE: React.FC = () => {
     }
   };
 
+  const handleApplyPPPProfileToRouter = async (profile: PPPProfile) => {
+    try {
+      setLoading(true);
+      const result = await networkService.applyPPPProfileToRouter(profile.id);
+      enqueueSnackbar(
+        `Perfil PPP '${profile.nome}' aplicado no router '${profile.router?.nome}' com sucesso`,
+        { variant: 'success' }
+      );
+      loadData();
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || 'Erro ao aplicar perfil PPP no router';
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Handlers para PPPoE Servers
   const handleCreatePppoeServer = async () => {
     try {
@@ -299,6 +316,23 @@ const PPPoE: React.FC = () => {
     }
   };
 
+  const handleApplyPPPoEServerToRouter = async (server: PPPoEServer) => {
+    try {
+      setLoading(true);
+      const result = await networkService.applyPPPoEServerToRouter(server.id);
+      enqueueSnackbar(
+        `Servidor PPPoE '${server.service_name}' aplicado no router '${server.router?.nome}' com sucesso`,
+        { variant: 'success' }
+      );
+      loadData();
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || 'Erro ao aplicar servidor PPPoE no router';
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSyncIPPools = async () => {
     setSelectedRouterForSync('');
     setSyncPoolsDialog(true);
@@ -321,6 +355,23 @@ const PPPoE: React.FC = () => {
       loadData();
     } catch (error) {
       enqueueSnackbar('Erro ao sincronizar pools de IP', { variant: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApplyIPPoolToRouter = async (pool: IPPool) => {
+    try {
+      setLoading(true);
+      const result = await networkService.applyIPPoolToRouter(pool.id);
+      enqueueSnackbar(
+        `Pool '${pool.nome}' aplicado no router '${pool.router?.nome}' com sucesso`,
+        { variant: 'success' }
+      );
+      loadData();
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || 'Erro ao aplicar pool de IP no router';
+      enqueueSnackbar(errorMessage, { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -394,7 +445,7 @@ const PPPoE: React.FC = () => {
     setPppProfileForm({
       nome: '',
       local_address: '',
-      remote_address: '',
+      remote_address_pool_id: undefined,
       rate_limit: '',
       comentario: '',
       is_active: true
@@ -435,7 +486,7 @@ const PPPoE: React.FC = () => {
         router_id: profile.router_id || undefined,
         nome: profile.nome,
         local_address: profile.local_address,
-        remote_address: profile.remote_address || '',
+        remote_address_pool_id: profile.remote_address_pool_id || undefined,
         rate_limit: profile.rate_limit || '',
         comentario: profile.comentario || '',
         is_active: profile.is_active
@@ -583,6 +634,15 @@ const PPPoE: React.FC = () => {
                         </Box>
                       </TableCell>
                       <TableCell align="right">
+                        <IconButton 
+                          onClick={() => handleApplyIPPoolToRouter(pool)} 
+                          size="small" 
+                          color="primary"
+                          disabled={!pool.router_id || !pool.ranges}
+                          title={pool.router_id ? "Aplicar pool no router" : "Pool não associado a router"}
+                        >
+                          <RouterIcon />
+                        </IconButton>
                         <IconButton onClick={() => openIpPoolDialog(pool)} size="small">
                           <EditIcon />
                         </IconButton>
@@ -652,7 +712,18 @@ const PPPoE: React.FC = () => {
                     <TableRow key={profile.id}>
                       <TableCell>{profile.nome}</TableCell>
                       <TableCell>{profile.local_address}</TableCell>
-                      <TableCell>{profile.remote_address || '-'}</TableCell>
+                      <TableCell>
+                        <Box>
+                          <Typography variant="body2">
+                            {profile.remote_address_pool?.nome || '-'}
+                          </Typography>
+                          {profile.remote_address_pool?.ranges && (
+                            <Typography variant="caption" color="text.secondary">
+                              {profile.remote_address_pool.ranges}
+                            </Typography>
+                          )}
+                        </Box>
+                      </TableCell>
                       <TableCell>{profile.rate_limit || '-'}</TableCell>
                       <TableCell>{profile.router?.nome || 'Global'}</TableCell>
                       <TableCell>
@@ -670,6 +741,15 @@ const PPPoE: React.FC = () => {
                         </Box>
                       </TableCell>
                       <TableCell align="right">
+                        <IconButton 
+                          onClick={() => handleApplyPPPProfileToRouter(profile)} 
+                          size="small" 
+                          color="primary"
+                          disabled={!profile.router_id || !profile.local_address || !profile.remote_address_pool_id}
+                          title={profile.router_id ? "Aplicar perfil no router" : "Perfil não associado a router"}
+                        >
+                          <RouterIcon />
+                        </IconButton>
                         <IconButton onClick={() => openPppProfileDialog(profile)} size="small">
                           <EditIcon />
                         </IconButton>
@@ -755,6 +835,15 @@ const PPPoE: React.FC = () => {
                         </Box>
                       </TableCell>
                       <TableCell align="right">
+                        <IconButton 
+                          onClick={() => handleApplyPPPoEServerToRouter(server)} 
+                          size="small" 
+                          color="primary"
+                          disabled={!server.router_id || !server.interface || !server.default_profile}
+                          title={server.router_id ? "Aplicar servidor no router" : "Servidor não associado a router"}
+                        >
+                          <RouterIcon />
+                        </IconButton>
                         <IconButton onClick={() => openPppoeServerDialog(server)} size="small">
                           <EditIcon />
                         </IconButton>
@@ -879,12 +968,19 @@ const PPPoE: React.FC = () => {
               placeholder="Ex: 192.168.1.1"
               required
             />
-            <TextField
+            <Autocomplete
               fullWidth
-              label="Endereço Remoto (Opcional)"
-              value={pppProfileForm.remote_address}
-              onChange={(e) => setPppProfileForm({ ...pppProfileForm, remote_address: e.target.value })}
-              placeholder="Ex: 192.168.1.2"
+              options={ipPools}
+              getOptionLabel={(option) => option.nome}
+              value={ipPools.find(pool => pool.id === pppProfileForm.remote_address_pool_id) || null}
+              onChange={(_, newValue) => setPppProfileForm({ ...pppProfileForm, remote_address_pool_id: newValue?.id })}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Pool de IP Remoto (Opcional)"
+                  placeholder="Selecione um pool de IP"
+                />
+              )}
             />
             <TextField
               fullWidth
