@@ -409,10 +409,46 @@ def ativar_servico(contrato_id: int, db: Session = Depends(get_db), current_user
 
             logger.info(f"Configurando usuário PPPoE: {username}, Comment={comment}")
             try:
+                # If the service has a PPP profile configured, ensure it exists on the router
+                ppp_profile_name = None
+                try:
+                    if servico and getattr(servico, 'ppp_profile_id', None):
+                        from app.models.network import PPPProfile as PPPProfileModel
+                        ppp_profile = db.query(PPPProfileModel).filter(PPPProfileModel.id == servico.ppp_profile_id).first()
+                        if ppp_profile:
+                            ppp_profile_name = ppp_profile.nome
+                            # If profile has no rate_limit but service defines max_limit, propagate it to profile
+                            try:
+                                if (not getattr(ppp_profile, 'rate_limit', None) or str(ppp_profile.rate_limit).strip() == '') and servico and getattr(servico, 'max_limit', None):
+                                    logger.info(f"Atualizando PPPProfile DB '{ppp_profile.nome}' com rate_limit do serviço: {servico.max_limit}")
+                                    ppp_profile.rate_limit = servico.max_limit
+                                    db.add(ppp_profile)
+                                    db.commit()
+                                    db.refresh(ppp_profile)
+                            except Exception as e_upd:
+                                logger.warning(f"Falha ao atualizar rate_limit do PPPProfile no DB: {e_upd}")
+
+                            logger.debug(f"Sincronizando PPP profile '{ppp_profile_name}' no roteador antes de criar secret")
+                            try:
+                                mk.add_pppoe_profile(
+                                    name=ppp_profile.nome,
+                                    local_address=ppp_profile.local_address,
+                                    remote_address_pool=ppp_profile.remote_address_pool.nome if ppp_profile.remote_address_pool else "",
+                                    rate_limit=ppp_profile.rate_limit,
+                                    comment=ppp_profile.comentario
+                                )
+                            except Exception as e:
+                                logger.warning(f"Falha ao garantir PPP profile no roteador: {e}")
+
+                except Exception as e:
+                    logger.debug(f"Erro ao buscar/sincronizar ppp_profile do serviço: {e}")
+
                 mk.add_pppoe_user(
                     username=username,
                     password=password_pppoe,
                     service='pppoe',
+                    profile=ppp_profile_name,
+                    rate_limit=(servico.max_limit if servico and getattr(servico, 'max_limit', None) else None),
                     comment=comment
                 )
                 logger.info("Usuário PPPoE criado com sucesso")

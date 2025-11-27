@@ -35,7 +35,7 @@ import {
   TrashIcon,
   ServerIcon
 } from '@heroicons/react/24/outline';
-import { SettingsEthernet as InterfaceIcon, Router as RouterIcon } from '@mui/icons-material';
+import { SettingsEthernet as InterfaceIcon } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
 import { routerService, RouterCreate, RouterUpdate } from '../services/routerService';
@@ -231,43 +231,6 @@ const Routers: React.FC = () => {
     }
   };
 
-  const handleSetupPPPoE = async (router: Router) => {
-    // Por enquanto, vamos usar uma interface padrão
-    // TODO: Implementar seleção de interface pelo usuário
-    const interfaceName = 'ether1'; // Interface padrão comum em routers Mikrotik
-    
-    if (!window.confirm(`Isso irá configurar automaticamente um servidor PPPoE no router "${router.nome}" na interface ${interfaceName}.\n\nDeseja continuar?`)) {
-      return;
-    }
-
-    try {
-      setSaving(true);
-      const result = await routerService.setupPPPoE(router.id, {
-        interface: interfaceName,
-        ip_pool_name: 'pppoe-pool',
-        local_address: '192.168.1.1',
-        first_ip: '192.168.1.2',
-        last_ip: '192.168.1.254',
-        default_profile: 'pppoe-default'
-      });
-
-      setSnackbar({
-        open: true,
-        message: 'Servidor PPPoE configurado com sucesso!',
-        severity: 'success'
-      });
-    } catch (error) {
-      console.error('Erro ao configurar PPPoE:', error);
-      setSnackbar({
-        open: true,
-        message: 'Erro ao configurar servidor PPPoE: ' + stringifyError(error),
-        severity: 'error'
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
@@ -338,14 +301,6 @@ const Routers: React.FC = () => {
                     />
                   </TableCell>
                   <TableCell>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleSetupPPPoE(router)}
-                      title="Configurar Servidor PPPoE"
-                      color="secondary"
-                    >
-                      <RouterIcon />
-                    </IconButton>
                     <IconButton
                       size="small"
                       onClick={() => navigate(`/routers/${router.id}/interfaces`)}

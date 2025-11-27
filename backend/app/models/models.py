@@ -408,6 +408,10 @@ class ServicoContratado(Base):
     assigned_ip = Column(String(15), nullable=True)  # IP atribuído automaticamente
     metodo_autenticacao = Column(SQLAlchemyEnum(MetodoAutenticacao), nullable=True)  # Método de autenticação
 
+    # Campos específicos para autenticação PPPoE
+    pppoe_username = Column(String(50), nullable=True)  # Username PPPoE do cliente
+    pppoe_password = Column(String(50), nullable=True)  # Password PPPoE do cliente
+
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

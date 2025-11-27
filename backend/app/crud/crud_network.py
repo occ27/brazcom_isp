@@ -507,6 +507,13 @@ def sync_pppoe_servers(db: Session, router_id: int, empresa_id: int) -> dict:
     # Buscar servidores do MikroTik
     mikrotik_servers = mk.get_pppoe_servers()
     
+    # DEBUG: Log dos servidores retornados pelo MikroTik
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"[DEBUG] Servidores PPPoE retornados pelo MikroTik: {mikrotik_servers}")
+    for i, server in enumerate(mikrotik_servers):
+        logger.info(f"[DEBUG] Servidor {i+1}: {server}")
+    
     # Obter servidores atuais do banco para este router
     current_servers = db.query(PPPoEServer).filter(
         PPPoEServer.router_id == router_id,
@@ -525,18 +532,52 @@ def sync_pppoe_servers(db: Session, router_id: int, empresa_id: int) -> dict:
         service_name = mk_server.get('service-name', '').strip()  # Campo correto
         interface_name = mk_server.get('interface', '').strip()
         default_profile_name = mk_server.get('default-profile', '').strip()
-        max_sessions_str = mk_server.get('max-sessions', 'unlimited')
-        max_sessions = None if max_sessions_str == 'unlimited' else int(max_sessions_str) if max_sessions_str.isdigit() else None
-        max_sessions_per_host = 1 if mk_server.get('one-session-per-host', '').lower() == 'true' else None
+        
+        # Processar max_sessions (pode ser string 'unlimited' ou número)
+        max_sessions_raw = mk_server.get('max-sessions', 'unlimited')
+        if isinstance(max_sessions_raw, str):
+            max_sessions = None if max_sessions_raw == 'unlimited' else int(max_sessions_raw) if max_sessions_raw.isdigit() else None
+        else:
+            max_sessions = max_sessions_raw if max_sessions_raw != 'unlimited' else None
+        
+        # Processar max_sessions_per_host (pode ser booleano ou string)
+        one_session_raw = mk_server.get('one-session-per-host')
+        if isinstance(one_session_raw, bool):
+            max_sessions_per_host = 1 if one_session_raw else None
+        elif isinstance(one_session_raw, str):
+            max_sessions_per_host = 1 if one_session_raw.lower() == 'true' else None
+        else:
+            max_sessions_per_host = None
+            
         authentication = mk_server.get('authentication', 'pap,chap,mschap1,mschap2')
-        keepalive_timeout = mk_server.get('keepalive-timeout', None)
-        disabled = mk_server.get('disabled', 'false').lower() == 'true'
+        
+        # Processar keepalive_timeout (pode ser int ou string)
+        keepalive_raw = mk_server.get('keepalive-timeout')
+        if isinstance(keepalive_raw, int):
+            keepalive_timeout = keepalive_raw
+        elif isinstance(keepalive_raw, str) and keepalive_raw.isdigit():
+            keepalive_timeout = int(keepalive_raw)
+        else:
+            keepalive_timeout = None
+            
+        # Processar disabled (pode ser booleano ou string)
+        disabled_raw = mk_server.get('disabled', False)
+        if isinstance(disabled_raw, bool):
+            disabled = disabled_raw
+        elif isinstance(disabled_raw, str):
+            disabled = disabled_raw.lower() == 'true'
+        else:
+            disabled = False
+        
+        logger.info(f"[DEBUG] Processando servidor: service_name='{service_name}', interface='{interface_name}', disabled={disabled}")
         
         # Pular servidores desabilitados
         if disabled:
+            logger.info(f"[DEBUG] Pulando servidor desabilitado: {service_name}")
             continue
         
         if not service_name or not interface_name:
+            logger.warning(f"[DEBUG] Servidor inválido - service_name ou interface vazios: {mk_server}")
             continue  # Pular servidores inválidos
         
         # Buscar interface no banco de dados
@@ -592,9 +633,13 @@ def sync_pppoe_servers(db: Session, router_id: int, empresa_id: int) -> dict:
             
             if needs_update:
                 updated += 1
+                logger.info(f"[DEBUG] Servidor atualizado: {service_name}")
             elif not db_server.is_active:
                 db_server.is_active = True
                 updated += 1
+                logger.info(f"[DEBUG] Servidor reativado: {service_name}")
+            else:
+                logger.info(f"[DEBUG] Servidor já existe e está atualizado: {service_name}")
         else:
             # Criar novo servidor
             new_server = PPPoEServer(
@@ -612,6 +657,7 @@ def sync_pppoe_servers(db: Session, router_id: int, empresa_id: int) -> dict:
             )
             db.add(new_server)
             created += 1
+            logger.info(f"[DEBUG] Novo servidor criado: {service_name}")
     
     # Marcar servidores removidos como inativos (exceto servidores criados manualmente)
     mikrotik_service_names = {server.get('service-name', '').strip() for server in mikrotik_servers}

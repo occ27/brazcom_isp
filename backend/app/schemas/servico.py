@@ -35,6 +35,9 @@ class ServicoBase(BaseModel):
     promotional_months: Optional[int] = Field(None, ge=1, description="Meses com preço promocional")
     promotional_active: Optional[bool] = Field(False, description="Se promoção está ativa")
 
+    # Configuração de rede para planos de internet
+    ppp_profile_id: Optional[int] = Field(None, description="Profile PPPoE para planos de internet")
+
 
 class ServicoCreate(ServicoBase):
     @field_validator('max_limit')
@@ -83,6 +86,9 @@ class ServicoUpdate(BaseModel):
     promotional_price: Optional[float] = Field(None, ge=0)
     promotional_months: Optional[int] = Field(None, ge=1)
     promotional_active: Optional[bool] = None
+
+    # Configuração de rede para planos de internet
+    ppp_profile_id: Optional[int] = Field(None, description="Profile PPPoE para planos de internet")
 
     @field_validator('max_limit')
     @classmethod

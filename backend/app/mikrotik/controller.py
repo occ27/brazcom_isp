@@ -188,12 +188,14 @@ class MikrotikController:
 
         return False
 
-    def add_pppoe_user(self, username: str, password: str, service: str = 'pppoe', profile: Optional[str] = None, comment: Optional[str] = None):
+    def add_pppoe_user(self, username: str, password: str, service: str = 'pppoe', profile: Optional[str] = None, rate_limit: Optional[str] = None, comment: Optional[str] = None):
         """Adiciona usuário PPPoE no roteador usando `/ppp/secret`.
 
         Se o usuário já existir, remove e recria. Caso contrário, cria um novo.
         Retorna o registro criado (dict) ou lança erro em caso de falha.
         """
+        import logging
+        logger = logging.getLogger(__name__)
         self.connect()
         resource = self._api.get_resource('ppp/secret')
         
@@ -213,10 +215,50 @@ class MikrotikController:
         data = {'name': username, 'password': password, 'service': service}
         if profile:
             data['profile'] = profile
+        if rate_limit:
+            data['rate-limit'] = rate_limit
         if comment:
             data['comment'] = comment
-        
-        return resource.add(**data)
+
+        # Log payload enviado ao RouterOS para debug
+        try:
+            logger.debug(f"add_pppoe_user payload: {data}")
+        except Exception:
+            pass
+
+        added = None
+        try:
+            added = resource.add(**data)
+        except Exception as exc:
+            msg = str(exc)
+            logger.error(f"Erro ao adicionar PPPoE user {username}: {exc}")
+            # Alguns RouterOS (ou versões da API) não aceitam 'rate-limit' no /ppp/secret
+            # Se for esse o caso, tentar novamente sem o parâmetro 'rate-limit'
+            if ('unknown parameter rate-limit' in msg) or (b'unknown parameter rate-limit' in getattr(exc, 'args', [])):
+                try:
+                    logger.warning(f"Router não aceita 'rate-limit' no secret; tentando criar secret {username} sem rate-limit")
+                    data_retry = dict(data)
+                    data_retry.pop('rate-limit', None)
+                    added = resource.add(**data_retry)
+                except Exception as exc2:
+                    logger.error(f"Tentativa sem 'rate-limit' também falhou para {username}: {exc2}")
+                    raise
+            else:
+                raise
+
+        # Ler e logar o secret criado para verificar quais campos o Router aplicou
+        try:
+            created = resource.get(name=username)
+            if created:
+                # Pode retornar lista; logar primeiro item
+                item = created[0]
+                logger.info(f"Secret PPPoE criado. name={item.get('name')}, profile={item.get('profile')}, rate-limit={item.get('rate-limit')}")
+            else:
+                logger.warning(f"Secret PPPoE {username} não encontrado após criação")
+        except Exception as exc2:
+            logger.debug(f"Falha ao recuperar secret PPPoE criado para {username}: {exc2}")
+
+        return added
 
     def remove_pppoe_user(self, username: str):
         """Remove usuário PPPoE buscando por `name` e removendo o item."""
@@ -714,35 +756,63 @@ class MikrotikController:
     def add_pppoe_profile(self, name: str, local_address: str, remote_address_pool: str,
                          rate_limit: Optional[str] = None, comment: Optional[str] = None):
         """Adiciona um profile PPPoE (/ppp/profile)."""
+        import logging
+        logger = logging.getLogger(__name__)
         self.connect()
         resource = self._api.get_resource('ppp/profile')
-        
+
         # Verificar se profile já existe
         existing = resource.get(name=name)
-        
+
         data = {
             'name': name,
             'local-address': local_address,
             'remote-address': remote_address_pool
         }
-        
+
         if rate_limit:
             data['rate-limit'] = rate_limit
         if comment:
             data['comment'] = comment
-        
+
+        try:
+            logger.debug(f"add_pppoe_profile payload: {data}")
+        except Exception:
+            pass
+
+        # Criar/atualizar profile
+        result = None
         if existing:
-            # Atualizar profile existente
             entry_id = existing[0].get('.id') or existing[0].get('id')
-            if entry_id:
-                resource.set(id=entry_id, **data)
-                return existing[0]
-            else:
-                # Remover e recriar
-                resource.remove(name=name)
-                return resource.add(**data)
+            try:
+                if entry_id:
+                    resource.set(id=entry_id, **data)
+                    result = existing[0]
+                else:
+                    resource.remove(name=name)
+                    result = resource.add(**data)
+            except Exception as exc:
+                logger.error(f"Erro ao atualizar PPP profile {name}: {exc}")
+                raise
         else:
-            return resource.add(**data)
+            try:
+                result = resource.add(**data)
+            except Exception as exc:
+                logger.error(f"Erro ao criar PPP profile {name}: {exc}")
+                raise
+
+        # Ler e logar o profile aplicado no roteador
+        try:
+            created = resource.get(name=name)
+            if created:
+                p = created[0]
+                logger.info(f"PPP profile aplicado. name={p.get('name')}, remote-address={p.get('remote-address')}, rate-limit={p.get('rate-limit')}")
+            else:
+                logger.warning(f"PPP profile {name} não encontrado após criação/atualização")
+        except Exception as e:
+            logger.debug(f"Falha ao recuperar ppp profile criado para {name}: {e}")
+
+        return result
 
     def add_pppoe_server(self, name: str, interface: str, profile: str, max_sessions: Optional[int] = None, 
                          max_sessions_per_host: Optional[int] = None, authentication: Optional[str] = None,
@@ -1184,37 +1254,44 @@ class MikrotikController:
         import logging
         logger = logging.getLogger(__name__)
         
-        self.connect()
-        
         servers = []
         
         try:
-            # Com base no comando usado pelo usuário: /interface pppoe-server server add
-            # Priorizar o recurso exato usado pelo Winbox: 'interface/pppoe-server server'
-            possible_paths = [
-                'interface/pppoe-server server',  # Caminho Winbox
-                'ppp/pppoe-server',
-                'ppp/server',
-                'interface/pppoe-server',
-                'interface/pppoe',
-            ]
+            # Garantir que a conexão seja feita dentro do try para capturar e logar falhas
+            self.connect()
             
-            for path in possible_paths:
+            logger.info(f"[DEBUG] Buscando servidores PPPoE...")
+            
+            # Primeiro tentar via librouteros (funciona melhor para PPPoE servers)
+            if self._librouteros_api is not None:
                 try:
-                    logger.debug(f"Tentando caminho: {path}")
-                    if self._api:
-                        resource = self._api.get_resource(path)
-                        path_servers = resource.get()
-                        if path_servers:
-                            logger.info(f"Encontrados {len(path_servers)} servidores PPPoE no caminho {path}")
-                            servers.extend(path_servers)
-                            # Mostrar detalhes dos servidores encontrados
-                            for server in path_servers:
-                                logger.info(f"Servidor PPPoE encontrado: {server}")
-                except Exception as e:
-                    logger.debug(f"Caminho {path} falhou: {str(e)}")
-        except Exception as e:
-            logger.error(f"Erro geral ao obter servidores PPPoE: {str(e)}")
+                    logger.info("[DEBUG] Tentando via librouteros")
+                    # Caminho que funciona no teste: interface/pppoe-server/server
+                    items = list(self._librouteros_api.path('interface/pppoe-server/server').select())
+                    logger.info(f"[DEBUG] librouteros encontrou {len(items)} servidores")
+                    if items:
+                        for it in items:
+                            # librouteros retorna dict-like, normalizar keys para str
+                            servers.append(dict(it))
+                        logger.info(f"[DEBUG] Sucesso via librouteros! Servidores: {servers}")
+                        return servers  # Retornar imediatamente se encontrou
+                except Exception as e_lib:
+                    logger.warning(f"[DEBUG] librouteros falhou: {e_lib}")
+            
+            # Fallback: tentar via routeros_api
+            logger.info("[DEBUG] Tentando via routeros_api")
+            try:
+                resource = self._api.get_resource('interface/pppoe-server')
+                servers_data = resource.get()
+                logger.info(f"[DEBUG] routeros_api encontrou {len(servers_data)} servidores")
+                if servers_data:
+                    servers.extend(servers_data)
+                    logger.info(f"[DEBUG] Sucesso via routeros_api! Servidores: {servers}")
+            except Exception as e_api:
+                logger.warning(f"[DEBUG] routeros_api também falhou: {e_api}")
         
-        logger.info(f"Total de servidores PPPoE encontrados: {len(servers)}")
+        except Exception as e:
+            logger.error(f"[DEBUG] Erro geral ao obter servidores PPPoE: {str(e)}")
+        
+        logger.info(f"[DEBUG] Total final de servidores PPPoE encontrados: {len(servers)}")
         return servers

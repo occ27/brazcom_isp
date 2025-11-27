@@ -14,6 +14,7 @@ export interface Servico {
   base_calculo_icms_default?: number;
   aliquota_icms_default?: number;
   ativo?: boolean;
+  ppp_profile_id?: number;
   upload_speed?: number;
   download_speed?: number;
   max_limit?: string;

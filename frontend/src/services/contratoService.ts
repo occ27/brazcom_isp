@@ -41,6 +41,10 @@ export interface Contrato {
   assigned_ip?: string;
   metodo_autenticacao?: 'IP_MAC' | 'PPPOE' | 'HOTSPOT' | 'RADIUS';
 
+  // Campos específicos para autenticação PPPoE
+  pppoe_username?: string;
+  pppoe_password?: string;
+
   // Related data
   cliente_nome?: string;
   cliente_razao_social?: string;

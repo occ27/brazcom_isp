@@ -43,4 +43,8 @@ class Servico(Base):
     promotional_months = Column(Integer, nullable=True)  # Meses com preço promocional
     promotional_active = Column(Boolean, nullable=True, default=False)  # Se promoção está ativa
 
+    # Configuração de rede para planos de internet
+    ppp_profile_id = Column(Integer, ForeignKey("ppp_profiles.id"), nullable=True)  # Profile PPPoE para planos de internet
+
     empresa = relationship("Empresa")
+    ppp_profile = relationship("PPPProfile")

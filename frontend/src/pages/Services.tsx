@@ -7,6 +7,8 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import cfopList from '../data/cfop.json';
 import { useCompany } from '../contexts/CompanyContext';
 import servicoService, { Servico, ServicoListResponse } from '../services/servicoService';
+import { networkService } from '../services/networkService';
+import { PPPProfile } from '../types';
 import { stringifyError } from '../utils/error';
 
 interface ServicoCreate {
@@ -31,6 +33,7 @@ interface ServicoCreate {
   promotional_price?: number;
   promotional_months?: number;
   promotional_active?: boolean;
+  ppp_profile_id?: number;
 }
 
 const Servicos: React.FC = () => {
@@ -50,10 +53,11 @@ const Servicos: React.FC = () => {
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
 
-  const [formData, setFormData] = useState<ServicoCreate>({ tipo: 'SERVICO', codigo: '', descricao: '', cClass: '', unidade_medida: 'UN', valor_unitario: 0, cfop: '', ncm: '', base_calculo_icms_default: 0, aliquota_icms_default: 0, valor_desconto_default: 0, valor_outros_default: 0, upload_speed: 0, download_speed: 0, max_limit: '', fidelity_months: 0, billing_cycle: 'MENSAL', notes: '', promotional_price: 0, promotional_months: 0, promotional_active: false });
+  const [formData, setFormData] = useState<ServicoCreate>({ tipo: 'SERVICO', codigo: '', descricao: '', cClass: '', unidade_medida: 'UN', valor_unitario: 0, cfop: '', ncm: '', base_calculo_icms_default: 0, aliquota_icms_default: 0, valor_desconto_default: 0, valor_outros_default: 0, upload_speed: 0, download_speed: 0, max_limit: '', fidelity_months: 0, billing_cycle: 'MENSAL', notes: '', promotional_price: 0, promotional_months: 0, promotional_active: false, ppp_profile_id: undefined });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
   const [tabValue, setTabValue] = useState(0);
+  const [pppProfiles, setPppProfiles] = useState<PPPProfile[]>([]);
 
   const loadServicos = useCallback(async () => {
     if (!activeCompany) return;
@@ -74,11 +78,21 @@ const Servicos: React.FC = () => {
     }
   }, [activeCompany, page, rowsPerPage, searchTerm]);
 
+  const loadPPPProfiles = useCallback(async () => {
+    try {
+      const profiles = await networkService.getPPPProfiles();
+      setPppProfiles(profiles);
+    } catch (e) {
+      console.error('Erro ao carregar perfis PPP:', e);
+    }
+  }, []);
+
   useEffect(() => {
     if (activeCompany) {
       loadServicos();
+      loadPPPProfiles();
     }
-  }, [activeCompany, loadServicos]);
+  }, [activeCompany, loadServicos, loadPPPProfiles]);
   // Keep a ref to the latest `loadServicos` so the debounce effect can call it without
   // having `loadServicos` as a dependency (which would change when `page` changes and
   // cause the debounce effect to re-run and reset the page to 0).
@@ -274,10 +288,11 @@ const Servicos: React.FC = () => {
         promotional_price: (servico as any).promotional_price ?? 0,
         promotional_months: (servico as any).promotional_months ?? 0,
         promotional_active: (servico as any).promotional_active ?? false,
+        ppp_profile_id: (servico as any).ppp_profile_id ?? undefined,
       });
     } else {
       setEditingServico(null);
-      setFormData({ tipo: 'SERVICO', codigo: '', descricao: '', cClass: '', unidade_medida: 'UN', valor_unitario: 0, cfop: '', ncm: '', base_calculo_icms_default: 0, aliquota_icms_default: 0, valor_desconto_default: 0, valor_outros_default: 0, upload_speed: 0, download_speed: 0, max_limit: '', fidelity_months: 0, billing_cycle: 'MENSAL', notes: '', promotional_price: 0, promotional_months: 0, promotional_active: false });
+      setFormData({ tipo: 'SERVICO', codigo: '', descricao: '', cClass: '', unidade_medida: 'UN', valor_unitario: 0, cfop: '', ncm: '', base_calculo_icms_default: 0, aliquota_icms_default: 0, valor_desconto_default: 0, valor_outros_default: 0, upload_speed: 0, download_speed: 0, max_limit: '', fidelity_months: 0, billing_cycle: 'MENSAL', notes: '', promotional_price: 0, promotional_months: 0, promotional_active: false, ppp_profile_id: undefined });
     }
     setErrors({});
     setOpen(true);
@@ -508,6 +523,22 @@ const Servicos: React.FC = () => {
                   <TextField label="Velocidade de Upload (Mbps)" type="number" value={formData.upload_speed} onChange={e => handleInputChange('upload_speed', parseFloat(e.target.value) || 0)} fullWidth />
                   <TextField label="Velocidade de Download (Mbps)" type="number" value={formData.download_speed} onChange={e => handleInputChange('download_speed', parseFloat(e.target.value) || 0)} fullWidth />
                   <TextField label="Limite Máximo (opcional, ex: 10M/10M - gerado automaticamente se vazio)" value={formData.max_limit} onChange={e => handleInputChange('max_limit', e.target.value)} fullWidth />
+                  <FormControl fullWidth sx={{ minWidth: 200 }}>
+                    <InputLabel sx={{ backgroundColor: 'white', padding: '0 4px' }}>Profile PPPoE (opcional)</InputLabel>
+                    <Select
+                      value={formData.ppp_profile_id || ''}
+                      onChange={e => handleInputChange('ppp_profile_id', e.target.value ? parseInt(e.target.value as string) : undefined)}
+                    >
+                      <MenuItem value="">
+                        <em>Nenhum</em>
+                      </MenuItem>
+                      {pppProfiles.map(profile => (
+                        <MenuItem key={profile.id} value={profile.id}>
+                          {profile.nome}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                   <TextField label="Fidelidade (meses)" type="number" value={formData.fidelity_months} onChange={e => handleInputChange('fidelity_months', parseInt(e.target.value) || 0)} fullWidth />
                   <FormControl fullWidth sx={{ minWidth: 200 }}>
                     <InputLabel sx={{ backgroundColor: 'white', padding: '0 4px' }}>Ciclo de Cobrança</InputLabel>

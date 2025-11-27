@@ -1327,7 +1327,7 @@ def apply_ppp_profile_to_router(
                 local_address=profile.local_address,
                 remote_address_pool=remote_pool.nome,
                 rate_limit=profile.rate_limit,
-                comment=profile.comment
+                comment=profile.comentario
             )
             return {
                 "message": f"Perfil PPP '{profile.nome}' aplicado no router '{router.nome}' com sucesso",

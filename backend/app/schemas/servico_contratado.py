@@ -82,6 +82,10 @@ class ServicoContratadoBase(BaseModel):
     assigned_ip: Optional[str] = Field(None, max_length=15, description="IP atribuído automaticamente")
     metodo_autenticacao: Optional[MetodoAutenticacao] = Field(None, description="Método de autenticação para o serviço")
 
+    # Campos específicos para autenticação PPPoE
+    pppoe_username: Optional[str] = Field(None, max_length=50, description="Username PPPoE do cliente")
+    pppoe_password: Optional[str] = Field(None, max_length=50, description="Password PPPoE do cliente")
+
 
 class ServicoContratadoCreate(ServicoContratadoBase):
     @field_validator('interface_id', mode='after')
@@ -185,6 +189,10 @@ class ServicoContratadoUpdate(BaseModel):
     mac_address: Optional[str] = Field(None, max_length=17)
     assigned_ip: Optional[str] = Field(None, max_length=15)
     metodo_autenticacao: Optional[MetodoAutenticacao] = Field(None, description="Método de autenticação para o serviço")
+
+    # Campos específicos para autenticação PPPoE
+    pppoe_username: Optional[str] = Field(None, max_length=50, description="Username PPPoE do cliente")
+    pppoe_password: Optional[str] = Field(None, max_length=50, description="Password PPPoE do cliente")
 
     @field_validator('interface_id', mode='after')
     @classmethod

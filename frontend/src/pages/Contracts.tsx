@@ -93,7 +93,10 @@ const Contracts: React.FC = () => {
     ip_class_id: undefined,
     mac_address: '',
     assigned_ip: '',
-    metodo_autenticacao: undefined
+    metodo_autenticacao: undefined,
+    // Campos PPPoE
+    pppoe_username: '',
+    pppoe_password: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
@@ -771,7 +774,7 @@ const Contracts: React.FC = () => {
       oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
       const oneYearFromNowStr = oneYearFromNow.toISOString().split('T')[0];
       setEditing(null);
-      setForm({ quantidade: 1, periodicidade: 'MENSAL', valor_unitario: 0, auto_emit: true, is_active: true, dia_emissao: 1, status: 'PENDENTE_INSTALACAO', periodo_carencia: 0, multa_atraso_percentual: 0.0, taxa_instalacao: 0.0, taxa_instalacao_paga: false, tipo_conexao: 'FIBRA', sla_garantido: undefined, velocidade_garantida: '', subscription_id: undefined, d_contrato_ini: today, d_contrato_fim: oneYearFromNowStr, data_instalacao: today, router_id: undefined, interface_id: undefined, ip_class_id: undefined, mac_address: '', assigned_ip: '', metodo_autenticacao: undefined });
+      setForm({ quantidade: 1, periodicidade: 'MENSAL', valor_unitario: 0, auto_emit: true, is_active: true, dia_emissao: 1, status: 'PENDENTE_INSTALACAO', periodo_carencia: 0, multa_atraso_percentual: 0.0, taxa_instalacao: 0.0, taxa_instalacao_paga: false, tipo_conexao: 'FIBRA', sla_garantido: undefined, velocidade_garantida: '', subscription_id: undefined, d_contrato_ini: today, d_contrato_fim: oneYearFromNowStr, data_instalacao: today, router_id: undefined, interface_id: undefined, ip_class_id: undefined, mac_address: '', assigned_ip: '', metodo_autenticacao: undefined, pppoe_username: '', pppoe_password: '' });
       // Reset input values and prefetch the first 10 clients and services
       setClientSearch('');
       setServicoSearch('');
@@ -874,14 +877,20 @@ const Contracts: React.FC = () => {
         delete newErrors.interface_id;
       }
 
-      if (!currentForm.ip_class_id) {
-        newErrors.ip_class_id = 'Classe IP é obrigatória';
-      } else {
-        delete newErrors.ip_class_id;
-      }
-
-      // Só validar MAC e IP se o método for IP_MAC
+      // Validação condicional baseada no método de autenticação
       if (currentForm.metodo_autenticacao === 'IP_MAC') {
+        if (!currentForm.interface_id) {
+          newErrors.interface_id = 'Interface é obrigatória quando IP + MAC é selecionado';
+        } else {
+          delete newErrors.interface_id;
+        }
+
+        if (!currentForm.ip_class_id) {
+          newErrors.ip_class_id = 'Classe IP é obrigatória quando IP + MAC é selecionado';
+        } else {
+          delete newErrors.ip_class_id;
+        }
+
         if (!currentForm.mac_address || currentForm.mac_address.trim() === '') {
           newErrors.mac_address = 'Endereço MAC é obrigatório quando IP + MAC é selecionado';
         } else {
@@ -899,8 +908,26 @@ const Contracts: React.FC = () => {
           // Se não há IPs disponíveis, limpar erro
           delete newErrors.assigned_ip;
         }
+      } else if (currentForm.metodo_autenticacao === 'PPPOE') {
+        if (!currentForm.interface_id) {
+          newErrors.interface_id = 'Interface é obrigatória quando PPPoE é selecionado';
+        } else {
+          delete newErrors.interface_id;
+        }
+
+        // Para PPPoE, classe IP, MAC e IP atribuído não são necessários
+        delete newErrors.ip_class_id;
+        delete newErrors.mac_address;
+        delete newErrors.assigned_ip;
       } else {
-        // Limpar erros de MAC e IP se não for IP_MAC
+        // Para outros métodos, apenas interface pode ser necessária
+        if (!currentForm.interface_id) {
+          newErrors.interface_id = 'Interface é obrigatória';
+        } else {
+          delete newErrors.interface_id;
+        }
+
+        delete newErrors.ip_class_id;
         delete newErrors.mac_address;
         delete newErrors.assigned_ip;
       }
@@ -992,14 +1019,14 @@ const Contracts: React.FC = () => {
 
     // Validação condicional para rede
     if (form.router_id) {
-      if (!form.interface_id) {
-        newErrors.interface_id = 'Interface é obrigatória';
-      }
-      if (!form.ip_class_id) {
-        newErrors.ip_class_id = 'Classe IP é obrigatória';
-      }
-      // Só validar MAC e IP se o método for IP_MAC
+      // Para IP_MAC, interface e classe IP são obrigatórios
       if (form.metodo_autenticacao === 'IP_MAC') {
+        if (!form.interface_id) {
+          newErrors.interface_id = 'Interface é obrigatória quando IP + MAC é selecionado';
+        }
+        if (!form.ip_class_id) {
+          newErrors.ip_class_id = 'Classe IP é obrigatória quando IP + MAC é selecionado';
+        }
         if (!form.mac_address || form.mac_address.trim() === '') {
           newErrors.mac_address = 'Endereço MAC é obrigatório quando IP + MAC é selecionado';
         }
@@ -1009,6 +1036,36 @@ const Contracts: React.FC = () => {
             newErrors.assigned_ip = 'IP Atribuído é obrigatório quando IP + MAC é selecionado';
           }
         }
+      }
+      // Para PPPoE, apenas interface é obrigatória (para saber onde está o servidor PPPoE)
+      else if (form.metodo_autenticacao === 'PPPOE') {
+        if (!form.interface_id) {
+          newErrors.interface_id = 'Interface é obrigatória quando PPPoE é selecionado';
+        }
+        // Classe IP, MAC e IP atribuído não são necessários para PPPoE
+        delete newErrors.ip_class_id;
+        delete newErrors.mac_address;
+        delete newErrors.assigned_ip;
+      }
+      // Para outros métodos, manter validação básica se necessário
+      else {
+        if (!form.interface_id) {
+          newErrors.interface_id = 'Interface é obrigatória';
+        }
+        delete newErrors.ip_class_id;
+        delete newErrors.mac_address;
+        delete newErrors.assigned_ip;
+      }
+    }
+
+    // Validar campos PPPoE se o método for PPPOE
+    if (form.metodo_autenticacao === 'PPPOE') {
+      if (!form.pppoe_username || form.pppoe_username.trim() === '') {
+        newErrors.pppoe_username = 'Username PPPoE é obrigatório quando PPPoE é selecionado';
+      }
+
+      if (!form.pppoe_password || form.pppoe_password.trim() === '') {
+        newErrors.pppoe_password = 'Password PPPoE é obrigatório quando PPPoE é selecionado';
       }
     }
 
@@ -1035,7 +1092,7 @@ const Contracts: React.FC = () => {
         'coordenadas_gps', 'data_instalacao', 'responsavel_tecnico', 'velocidade_garantida'
       ];
       
-      const redeFields = ['router_id', 'interface_id', 'ip_class_id', 'mac_address', 'assigned_ip', 'metodo_autenticacao'];
+      const redeFields = ['router_id', 'interface_id', 'ip_class_id', 'mac_address', 'assigned_ip', 'metodo_autenticacao', 'pppoe_username', 'pppoe_password'];
       
       const cobrancaFields = [
         'periodo_carencia', 'multa_atraso_percentual', 'taxa_instalacao', 
@@ -1892,6 +1949,38 @@ const Contracts: React.FC = () => {
                         <div className="flex items-center space-x-2 text-sm text-blue-600">
                           <span>🔄</span>
                           <span>Selecione um IP disponível da lista quando a Classe IP for escolhida</span>
+                        </div>
+                      </>
+                    )}
+
+                    {form.metodo_autenticacao === 'PPPOE' && (
+                      <>
+                        <TextField
+                          label="Username PPPoE"
+                          value={form.pppoe_username || ''}
+                          onChange={e => handleInputChange('pppoe_username', e.target.value)}
+                          fullWidth
+                          size="small"
+                          placeholder="Ex: cliente123"
+                          error={!!errors.pppoe_username}
+                          helperText={errors.pppoe_username || "Username para autenticação PPPoE"}
+                        />
+
+                        <TextField
+                          label="Password PPPoE"
+                          type="password"
+                          value={form.pppoe_password || ''}
+                          onChange={e => handleInputChange('pppoe_password', e.target.value)}
+                          fullWidth
+                          size="small"
+                          placeholder="Digite a senha PPPoE"
+                          error={!!errors.pppoe_password}
+                          helperText={errors.pppoe_password || "Password para autenticação PPPoE"}
+                        />
+
+                        <div className="flex items-center space-x-2 text-sm text-green-600">
+                          <span>🔐</span>
+                          <span>Configure as credenciais PPPoE para autenticação do cliente</span>
                         </div>
                       </>
                     )}
