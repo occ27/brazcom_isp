@@ -1427,7 +1427,7 @@ def apply_pppoe_server_to_router(
         raise HTTPException(status_code=403, detail="Acesso negado ao router")
 
     # Verificar se o servidor tem configurações necessárias
-    if not server.interface or not server.profile:
+    if not server.interface or not server.default_profile:
         raise HTTPException(status_code=400, detail="Servidor PPPoE não possui interface ou perfil configurados")
 
     try:
@@ -1452,20 +1452,24 @@ def apply_pppoe_server_to_router(
         # Aplicar servidor PPPoE no router
         try:
             result = mk.add_pppoe_server(
-                name=server.service_name or server.nome,
-                interface=server.interface,
-                profile=server.profile
+                name=server.service_name,
+                interface=server.interface.nome,
+                profile=server.default_profile.nome,
+                max_sessions=server.max_sessions,
+                max_sessions_per_host=server.max_sessions_per_host,
+                authentication=server.authentication,
+                keepalive_timeout=server.keepalive_timeout
             )
             return {
-                "message": f"Servidor PPPoE '{server.nome}' aplicado no router '{router.nome}' com sucesso",
-                "server_name": server.nome,
+                "message": f"Servidor PPPoE '{server.service_name}' aplicado no router '{router.nome}' com sucesso",
+                "server_name": server.service_name,
                 "service_name": server.service_name,
-                "interface": server.interface,
-                "profile": server.profile,
+                "interface": server.interface.nome,
+                "profile": server.default_profile.nome,
                 "router": router.nome
             }
         except Exception as server_error:
-            raise Exception(f"Falha ao aplicar servidor PPPoE '{server.nome}' no router '{router.nome}': {str(server_error)}")
+            raise Exception(f"Falha ao aplicar servidor PPPoE '{server.service_name}' no router '{router.nome}': {str(server_error)}")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao aplicar servidor PPPoE no router: {str(e)}")

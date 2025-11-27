@@ -744,7 +744,9 @@ class MikrotikController:
         else:
             return resource.add(**data)
 
-    def add_pppoe_server(self, name: str, interface: str, profile: str):
+    def add_pppoe_server(self, name: str, interface: str, profile: str, max_sessions: Optional[int] = None, 
+                         max_sessions_per_host: Optional[int] = None, authentication: Optional[str] = None,
+                         keepalive_timeout: Optional[str] = None):
         """Adiciona um servidor PPPoE (/interface/pppoe-server server).
         
         Usa o comando correto do Winbox: /interface pppoe-server server add
@@ -752,11 +754,42 @@ class MikrotikController:
         """
         self.connect()
 
+        # Verificar versão do RouterOS: RouterOS 6.x não suporta PPPoE Server dedicado
+        try:
+            if self._api is not None:
+                sys_res = self._api.get_resource('system/resource').get()
+                if sys_res:
+                    version = sys_res[0].get('version', '')
+                    if version.startswith('6.'):
+                        raise RuntimeError(
+                            "RouterOS 6.x não suporta configuração de 'PPPoe Server' dedicada via API. "
+                            "Atualize para RouterOS 7.x ou use alternativa (Hotspot/PPP secrets)."
+                        )
+            elif self._librouteros_api is not None:
+                try:
+                    sys_res = list(self._librouteros_api.path('system/resource').select())[0]
+                    version = sys_res.get('version', '')
+                    if version.startswith('6.'):
+                        raise RuntimeError(
+                            "RouterOS 6.x não suporta configuração de 'PPPoe Server' dedicada via API. "
+                            "Atualize para RouterOS 7.x ou use alternativa (Hotspot/PPP secrets)."
+                        )
+                except Exception:
+                    # Se falhar ao obter versão via librouteros, seguir em frente e tentar criar;
+                    # chamadas subsequentes vão falhar de modo claro se não suportadas.
+                    pass
+        except RuntimeError:
+            # Re-raise para que a rota capture e retorne mensagem clara
+            raise
+        except Exception:
+            # Falha ao obter versão - não interromper, tentaremos executar e lidar com erros abaixo
+            pass
+
         # Tentar com routeros_api primeiro (se disponível)
         last_error = None
         if self._api is not None:
             try:
-                return self._add_pppoe_server_routeros_api(name, interface, profile)
+                return self._add_pppoe_server_routeros_api(name, interface, profile, max_sessions, max_sessions_per_host, authentication, keepalive_timeout)
             except Exception as e:
                 import logging
                 logger = logging.getLogger(__name__)
@@ -772,7 +805,7 @@ class MikrotikController:
         # Fallback para librouteros
         if self._librouteros_api is not None:
             try:
-                return self._add_pppoe_server_librouteros(name, interface, profile)
+                return self._add_pppoe_server_librouteros(name, interface, profile, max_sessions, max_sessions_per_host, authentication, keepalive_timeout)
             except Exception as e:
                 import logging
                 logger = logging.getLogger(__name__)
@@ -784,7 +817,9 @@ class MikrotikController:
         else:
             raise RuntimeError("Nenhuma API RouterOS disponível para criar servidor PPPoE")
 
-    def _add_pppoe_server_routeros_api(self, name: str, interface: str, profile: str):
+    def _add_pppoe_server_routeros_api(self, name: str, interface: str, profile: str, max_sessions: Optional[int] = None, 
+                                       max_sessions_per_host: Optional[int] = None, authentication: Optional[str] = None,
+                                       keepalive_timeout: Optional[str] = None):
         """Implementação usando routeros_api (com tratamento de erro para .tag e parâmetros)."""
         import logging
         logger = logging.getLogger(__name__)
@@ -803,30 +838,61 @@ class MikrotikController:
         except Exception as e:
             logger.debug(f"Não foi possível determinar versão via routeros_api: {e}")
 
-        # Verificar se já existe um servidor PPPoE nesta interface
+        # Verificar se já existe um servidor PPPoE com o mesmo service-name
         try:
-            existing = self._api.get_resource('interface/pppoe-server').get(interface=interface)
+            existing = self._api.get_resource('interface/pppoe-server server').get(service_name=name)
             if existing:
                 # Se já existe, vamos atualizá-lo
                 server_id = existing[0].get('.id') or existing[0].get('id')
                 if server_id:
                     # Atualizar apenas os campos necessários
                     update_data = {'disabled': 'no'}
+                    if interface:
+                        update_data['interface'] = interface
                     if profile:
                         update_data['default-profile'] = profile
-                    self._api.get_resource('interface/pppoe-server').set(id=server_id, **update_data)
+                    if max_sessions is not None:
+                        update_data['max-sessions'] = str(max_sessions)
+                    if max_sessions_per_host is not None:
+                        update_data['one-session-per-host'] = 'yes' if max_sessions_per_host == 1 else 'no'
+                    if authentication:
+                        update_data['authentication'] = authentication
+                    if keepalive_timeout:
+                        update_data['keepalive-timeout'] = keepalive_timeout
+                    self._api.get_resource('interface/pppoe-server server').set(id=server_id, **update_data)
                     return existing[0]
                 else:
                     # Se não conseguir identificar pelo ID, remover e recriar
-                    self._api.get_resource('interface/pppoe-server').remove(interface=interface)
+                    self._api.get_resource('interface/pppoe-server server').remove(service_name=name)
         except Exception as e:
             logger.debug(f"Erro ao verificar servidores existentes: {e}")
 
-        # Criar novo servidor PPPoE - tentar abordagem simples primeiro
+        # Criar novo servidor PPPoE com parâmetros completos
         try:
-            return self._add_pppoe_server_simple()
+            create_data = {
+                'service-name': name,
+                'interface': interface,
+                'default-profile': profile,
+                'disabled': 'no'
+            }
+            
+            # Adicionar parâmetros opcionais se fornecidos
+            if max_sessions is not None:
+                create_data['max-sessions'] = str(max_sessions)
+            if max_sessions_per_host is not None:
+                create_data['one-session-per-host'] = 'yes' if max_sessions_per_host == 1 else 'no'
+            if authentication:
+                create_data['authentication'] = authentication
+            if keepalive_timeout:
+                create_data['keepalive-timeout'] = keepalive_timeout
+            
+            # Criar usando o recurso de servidor PPPoE do menu Interface (mesmo que o Winbox mostre /interface pppoe-server server)
+            logger.debug(f"Criando PPPoE server via routeros_api: resource='interface/pppoe-server/server' data={create_data}")
+            result = self._api.get_resource('interface/pppoe-server/server').add(**create_data)
+            logger.info(f"Servidor PPPoE '{name}' criado com sucesso na interface {interface}")
+            return result
         except Exception as e:
-            logger.error(f"Falha ao criar servidor PPPoE com abordagem simples: {str(e)}")
+            logger.error(f"Falha ao criar servidor PPPoE com parâmetros completos: {str(e)}")
             raise
 
     def _add_pppoe_server_simple(self):
@@ -835,22 +901,48 @@ class MikrotikController:
         logger = logging.getLogger(__name__)
 
         try:
-            # Para RouterOS 6.49.19, o comando /interface/pppoe-server/add sem parâmetros funciona
+            # Tentar criar via caminho de servidores PPPoE ('ppp/pppoe-server') primeiro.
+            # Evitar chamar diretamente 'interface/pppoe-server' sem parâmetros pois isso
+            # costuma criar entradas na aba Interface (pppoe-in), não na aba PPP > PPPoE Servers.
             if self._api is not None:
-                result = self._api.get_resource('interface/pppoe-server').add()
-                logger.info("Servidor PPPoE criado com comando simples (routeros_api)")
-                return result
+                # Preferir o recurso exato usado pelo comando Winbox: '/interface pppoe-server server add'
+                try:
+                    result = self._api.get_resource('interface/pppoe-server/server').add()
+                    logger.info("Servidor PPPoE criado com comando simples (interface/pppoe-server/server, routeros_api)")
+                    return result
+                except Exception as e1:
+                    logger.debug(f"Falha criando via 'interface/pppoe-server server': {e1}")
+                    # Tentar alternativa histórica
+                    try:
+                        result = self._api.get_resource('ppp/pppoe-server').add()
+                        logger.info("Servidor PPPoE criado com comando simples (ppp/pppoe-server, routeros_api)")
+                        return result
+                    except Exception as e2:
+                        logger.debug(f"Falha criando via 'ppp/pppoe-server': {e2}")
+                        raise RuntimeError(f"Não foi possível criar servidor PPPoE via API: {e1} / {e2}")
             elif self._librouteros_api is not None:
-                result = self._librouteros_api.path('interface/pppoe-server').add()
-                logger.info("Servidor PPPoE criado com comando simples (librouteros)")
-                return result
+                try:
+                    result = self._librouteros_api.path('interface/pppoe-server/server').add()
+                    logger.info("Servidor PPPoE criado com comando simples (interface/pppoe-server/server, librouteros)")
+                    return result
+                except Exception as e1:
+                    logger.debug(f"Falha criando via librouteros 'interface/pppoe-server server': {e1}")
+                    try:
+                        result = self._librouteros_api.path('ppp/pppoe-server').add()
+                        logger.info("Servidor PPPoE criado com comando simples (ppp/pppoe-server, librouteros)")
+                        return result
+                    except Exception as e2:
+                        logger.debug(f"Falha criando via librouteros 'ppp/pppoe-server': {e2}")
+                        raise RuntimeError(f"Não foi possível criar servidor PPPoE via librouteros: {e1} / {e2}")
             else:
                 raise RuntimeError("Nenhuma API disponível")
         except Exception as e:
             logger.error(f"Erro no comando simples: {str(e)}")
             raise
 
-    def _add_pppoe_server_librouteros(self, name: str, interface: str, profile: str):
+    def _add_pppoe_server_librouteros(self, name: str, interface: str, profile: str, max_sessions: Optional[int] = None, 
+                                     max_sessions_per_host: Optional[int] = None, authentication: Optional[str] = None,
+                                     keepalive_timeout: Optional[str] = None):
         """Implementação usando librouteros (mais direta, sem parâmetros extras).
 
         NOTA: No RouterOS 6.49.19, /interface/pppoe-server/add cria interfaces PPPoE-IN (clientes),
@@ -873,10 +965,10 @@ class MikrotikController:
             logger.debug(f"Não foi possível determinar versão: {e}")
 
         # Verificar se já existe - na librouteros, select() sem argumentos retorna tudo
-        existing_servers = tuple(self._librouteros_api.path('interface/pppoe-server').select())
+        existing_servers = tuple(self._librouteros_api.path('interface/pppoe-server server').select())
 
-        # Filtrar manualmente por interface
-        existing = [s for s in existing_servers if s.get('interface') == interface]
+        # Filtrar manualmente por service-name
+        existing = [s for s in existing_servers if s.get('service-name') == name]
 
         if existing:
             # Atualizar servidor existente
@@ -885,37 +977,49 @@ class MikrotikController:
                 '.id': server['.id'],
                 'disabled': 'no'
             }
+            if interface:
+                update_cmd['interface'] = interface
             if profile:
                 update_cmd['default-profile'] = profile
+            if max_sessions is not None:
+                update_cmd['max-sessions'] = str(max_sessions)
+            if max_sessions_per_host is not None:
+                update_cmd['one-session-per-host'] = 'yes' if max_sessions_per_host == 1 else 'no'
+            if authentication:
+                update_cmd['authentication'] = authentication
+            if keepalive_timeout:
+                update_cmd['keepalive-timeout'] = keepalive_timeout
 
-            self._librouteros_api.path('interface/pppoe-server').update(**update_cmd)
-            logger.info(f"Servidor PPPoE atualizado na interface {interface}")
+            logger.debug(f"Atualizando PPPoE server via librouteros: resource='interface/pppoe-server server' update={update_cmd}")
+            self._librouteros_api.path('interface/pppoe-server server').update(**update_cmd)
+            logger.info(f"Servidor PPPoE '{name}' atualizado")
             return server
         else:
             # Criar novo servidor
-            # NOTA: No RouterOS 6.49.19, este comando pode criar interface PPPoE-IN em vez de servidor
             create_cmd = {
+                'service-name': name,
                 'interface': interface,
                 'disabled': 'no'
             }
             if profile:
                 create_cmd['default-profile'] = profile
+            if max_sessions is not None:
+                create_cmd['max-sessions'] = str(max_sessions)
+            if max_sessions_per_host is not None:
+                create_cmd['one-session-per-host'] = 'yes' if max_sessions_per_host == 1 else 'no'
+            if authentication:
+                create_cmd['authentication'] = authentication
+            if keepalive_timeout:
+                create_cmd['keepalive-timeout'] = keepalive_timeout
 
             try:
-                result = self._librouteros_api.path('interface/pppoe-server').add(**create_cmd)
-                logger.info(f"Interface PPPoE criada na interface {interface} (pode ser cliente, não servidor)")
+                logger.debug(f"Criando PPPoE server via librouteros: resource='interface/pppoe-server server' data={create_cmd}")
+                result = self._librouteros_api.path('interface/pppoe-server server').add(**create_cmd)
+                logger.info(f"Servidor PPPoE '{name}' criado na interface {interface}")
                 return result
             except Exception as e:
-                logger.error(f"Falha ao criar PPPoE na interface {interface}: {e}")
-                # Tentar comando alternativo se disponível
-                try:
-                    # Última tentativa: comando básico sem parâmetros
-                    result = self._librouteros_api.path('interface/pppoe-server').add()
-                    logger.info(f"Interface PPPoE criada sem parâmetros específicos")
-                    return result
-                except Exception as e2:
-                    logger.error(f"Também falhou comando básico: {e2}")
-                    raise e
+                logger.error(f"Falha ao criar servidor PPPoE '{name}' na interface {interface}: {e}")
+                raise e
 
     def setup_pppoe_server(self, interface: str, ip_pool_name: str = "pppoe-pool",
                            local_address: str = "192.168.1.1",
@@ -1058,8 +1162,8 @@ class MikrotikController:
             profile_resource = self._api.get_resource('ppp/profile')
             status['profiles'] = profile_resource.get()
             
-            # Servidores
-            server_resource = self._api.get_resource('ppp/pppoe-server')
+            # Servidores (usar o recurso de servidor dentro do menu Interface)
+            server_resource = self._api.get_resource('interface/pppoe-server server')
             status['servers'] = server_resource.get()
             
             # Interfaces
@@ -1086,12 +1190,12 @@ class MikrotikController:
         
         try:
             # Com base no comando usado pelo usuário: /interface pppoe-server server add
-            # O caminho correto deve ser interface/pppoe-server/server
+            # Priorizar o recurso exato usado pelo Winbox: 'interface/pppoe-server server'
             possible_paths = [
-                'interface/pppoe-server/server',  # Caminho correto baseado no comando
-                'interface/pppoe-server',
-                'ppp/pppoe-server', 
+                'interface/pppoe-server server',  # Caminho Winbox
+                'ppp/pppoe-server',
                 'ppp/server',
+                'interface/pppoe-server',
                 'interface/pppoe',
             ]
             

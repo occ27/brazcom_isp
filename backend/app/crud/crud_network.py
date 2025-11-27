@@ -614,7 +614,7 @@ def sync_pppoe_servers(db: Session, router_id: int, empresa_id: int) -> dict:
             created += 1
     
     # Marcar servidores removidos como inativos (exceto servidores criados manualmente)
-    mikrotik_service_names = {server.get('service', '').strip() for server in mikrotik_servers}
+    mikrotik_service_names = {server.get('service-name', '').strip() for server in mikrotik_servers}
     for db_server in current_servers:
         if db_server.service_name not in mikrotik_service_names and db_server.is_active:
             # Verificar se foi criado manualmente (não sincronizado)
