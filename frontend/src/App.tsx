@@ -18,6 +18,8 @@ import Reports from './pages/Reports';
 import Routers from './pages/Routers';
 import RouterInterfaces from './pages/RouterInterfaces';
 import IPClasses from './pages/IPClasses';
+import PPPoE from './pages/PPPoE';
+import DHCP from './pages/DHCP';
 import AuthenticatedLayout from './components/AuthenticatedLayout';
 import { PageType } from './types';
 
@@ -110,9 +112,11 @@ const AuthenticatedApp: React.FC<{ children: React.ReactNode }> = ({ children })
     if (path === '/services') return 'services';
     if (path.startsWith('/nfcom')) return 'nfcom';
     if (path.startsWith('/users')) return 'users';
-    if (path === '/reports') return 'reports';
+    if (path.startsWith('/reports')) return 'reports';
     if (path === '/routers') return 'routers';
     if (path === '/ip-classes') return 'ip-classes';
+    if (path === '/pppoe') return 'pppoe';
+    if (path === '/dhcp') return 'dhcp';
     if (path === '/profile') return 'profile';
     return 'dashboard';
   };
@@ -128,6 +132,8 @@ const AuthenticatedApp: React.FC<{ children: React.ReactNode }> = ({ children })
     else if (page === 'reports') navigate('/reports');
     else if (page === 'routers') navigate('/routers');
     else if (page === 'ip-classes') navigate('/ip-classes');
+    else if (page === 'pppoe') navigate('/pppoe');
+    else if (page === 'dhcp') navigate('/dhcp');
     else if (page === 'profile') navigate('/profile');
   };
 
@@ -267,6 +273,26 @@ const AppContent: React.FC = () => {
           <ProtectedRoute>
             <AuthenticatedApp>
               <IPClasses />
+            </AuthenticatedApp>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/pppoe"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedApp>
+              <PPPoE />
+            </AuthenticatedApp>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dhcp"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedApp>
+              <DHCP />
             </AuthenticatedApp>
           </ProtectedRoute>
         }

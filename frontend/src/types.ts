@@ -10,6 +10,8 @@ export type PageType =
   | 'users'
   | 'routers'
   | 'ip-classes'
+  | 'pppoe'
+  | 'dhcp'
   | 'settings';
 
 export interface User {
@@ -163,4 +165,86 @@ export interface InterfaceIPClassAssignment {
   assigned_at: string;
   applied_configs?: string[];
   application_status?: string;
+}
+
+// PPPoE e DHCP Types
+export interface IPPool {
+  id: number;
+  empresa_id: number;
+  router_id?: number;
+  nome: string;
+  ranges: string;
+  comentario?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+  empresa?: Company;
+  router?: Router;
+}
+
+export interface PPPProfile {
+  id: number;
+  empresa_id: number;
+  router_id?: number;
+  nome: string;
+  local_address: string;
+  remote_address?: string;
+  rate_limit?: string;
+  comentario?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+  empresa?: Company;
+  router?: Router;
+}
+
+export interface PPPoEServer {
+  id: number;
+  empresa_id: number;
+  router_id?: number;
+  service_name: string;
+  interface_id: number;
+  default_profile_id: number;
+  comentario?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+  empresa?: Company;
+  router?: Router;
+  interface?: RouterInterface;
+  default_profile?: PPPProfile;
+}
+
+export interface DHCPServer {
+  id: number;
+  empresa_id: number;
+  router_id?: number;
+  name: string;
+  interface_id: number;
+  comentario?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+  empresa?: Company;
+  router?: Router;
+  interface?: RouterInterface;
+  networks?: DHCPNetwork[];
+}
+
+export interface DHCPNetwork {
+  id: number;
+  empresa_id: number;
+  router_id?: number;
+  dhcp_server_id: number;
+  network: string;
+  gateway?: string;
+  dns_servers?: string;
+  lease_time?: string;
+  comentario?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+  empresa?: Company;
+  router?: Router;
+  dhcp_server?: DHCPServer;
 }

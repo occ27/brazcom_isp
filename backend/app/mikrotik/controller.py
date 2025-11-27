@@ -48,6 +48,7 @@ class MikrotikController:
         # Tentar inicializar routeros_api (primário)
         if routeros_api is not None:
             try:
+                logger.info(f"Tentando conectar via routeros_api: {self.host}:{self.port} (user: {self.username})")
                 self._pool = routeros_api.RouterOsApiPool(
                     self.host,
                     username=self.username,
@@ -56,26 +57,29 @@ class MikrotikController:
                     plaintext_login=self.plaintext_login,
                 )
                 self._api = self._pool.get_api()
-                logger.info("Conexão com routeros_api estabelecida")
+                logger.info("✅ Conexão com routeros_api estabelecida")
             except Exception as e:
-                logger.warning(f"routeros_api falhou: {e}")
+                logger.warning(f"❌ routeros_api falhou: {e}")
 
         # Tentar inicializar librouteros (fallback). Não falhar se não conseguir,
         # vamos apenas registrar e permitir que a outra biblioteca seja usada.
         if librouteros is not None:
             try:
+                logger.info(f"Tentando conectar via librouteros: {self.host}:{self.port} (user: {self.username})")
                 self._librouteros_api = librouteros.connect(
                     host=self.host,
                     username=self.username,
                     password=self.password,
                     port=self.port
                 )
-                logger.info("Conexão com librouteros estabelecida (fallback)")
+                logger.info("✅ Conexão com librouteros estabelecida (fallback)")
             except Exception as e:
-                logger.warning(f"librouteros falhou: {e}")
+                logger.warning(f"❌ librouteros falhou: {e}")
 
         if self._api is None and self._librouteros_api is None:
-            raise RuntimeError("Falha ao conectar com ambas as bibliotecas RouterOS")
+            error_msg = f"Falha ao conectar com ambas as bibliotecas RouterOS ao host {self.host}:{self.port}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
     def close(self):
         if self._pool:
             try:
@@ -735,7 +739,11 @@ class MikrotikController:
             return resource.add(**data)
 
     def add_pppoe_server(self, name: str, interface: str, profile: str):
-        """Adiciona um servidor PPPoE (/interface/pppoe-server)."""
+        """Adiciona um servidor PPPoE (/interface/pppoe-server server).
+        
+        Usa o comando correto do Winbox: /interface pppoe-server server add
+        service-name=server-clientes interface=ether2 default-profile=perfil-padrao disabled=no one-session-per-host=yes
+        """
         self.connect()
 
         # Tentar com routeros_api primeiro (se disponível)
@@ -915,13 +923,14 @@ class MikrotikController:
         2. Profile PPPoE padrão
         3. Servidor PPPoE
 
-        LIMITAÇÕES CONHECIDAS:
-        - RouterOS 6.49.19: O comando /interface/pppoe-server/add cria interfaces PPPoE-IN (clientes)
-          em vez de servidores. A configuração pode não funcionar como esperado.
-        - Versões mais antigas podem não suportar PPPoE server via API.
+        ⚠️ LIMITAÇÕES CRÍTICAS - RouterOS 6.49.19:
+        - PPPoE SERVER DEDICADO NÃO É SUPORTADO nesta versão!
+        - O comando cria interfaces PPPoE CLIENTE (pppoe-out), não servidor
+        - Clientes NÃO poderão se autenticar via PPPoE neste router
+        - Para autenticação PPPoE, use Hotspot ou atualize para RouterOS 7.x+
 
         Args:
-            interface: Interface onde o servidor PPPoE será configurado (ex: "ether1")
+            interface: Interface onde o servidor PPPoE seria configurado (ex: "ether1")
             ip_pool_name: Nome do pool de IPs
             local_address: Endereço IP local do servidor
             first_ip: Primeiro IP do pool
@@ -932,7 +941,7 @@ class MikrotikController:
         import logging
         logger = logging.getLogger(__name__)
 
-        logger.info(f"Iniciando configuração automática do servidor PPPoE na interface {interface}")
+        logger.info(f"Iniciando configuração PPPoE na interface {interface}")
         # Verificar versão do RouterOS
         try:
             if self._librouteros_api:
@@ -940,7 +949,10 @@ class MikrotikController:
                 version = system_info.get('version', 'unknown')
                 logger.info(f"RouterOS version detectada: {version}")
                 if version.startswith('6.'):
-                    logger.warning(f"RouterOS {version}: PPPoE server pode ter limitações via API")
+                    logger.error("🚨 CRÍTICO: RouterOS 6.49.19 NÃO SUPORTA PPPoE SERVER!")
+                    logger.error("🚨 Este método criará PPPoE CLIENTE, não servidor!")
+                    logger.error("🚨 Clientes NÃO poderão se autenticar via PPPoE!")
+                    logger.error("💡 Solução: Use Hotspot ou atualize para RouterOS 7.x+")
         except Exception as e:
             logger.debug(f"Não foi possível verificar versão: {e}")
 
@@ -949,7 +961,18 @@ class MikrotikController:
             self.connect()
         except Exception as conn_exc:
             logger.error(f"Falha ao conectar via API ao iniciar setup PPPoE: {conn_exc}")
-            raise
+            logger.error("💡 POSSÍVEIS CAUSAS:")
+            logger.error("   1. Router não acessível (verifique IP, rede, firewall)")
+            logger.error("   2. Credenciais incorretas (usuário/senha)")
+            logger.error("   3. API não habilitada no router Mikrotik")
+            logger.error("   4. Porta 8728 bloqueada ou incorreta")
+            logger.error("   5. RouterOS versão incompatível")
+            logger.error("")
+            logger.error("🔧 SOLUÇÕES:")
+            logger.error("   - No Winbox: IP > Services > API > Enable")
+            logger.error("   - Verifique credenciais no router")
+            logger.error("   - Teste conectividade: telnet IP 8728")
+            raise RuntimeError(f"Não foi possível conectar ao router Mikrotik: {conn_exc}") from conn_exc
         logger.info(f"Status de conexão: {self.get_connection_status()}")
         
         try:

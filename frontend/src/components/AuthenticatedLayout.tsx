@@ -10,7 +10,9 @@ import {
   ArrowRightOnRectangleIcon,
   ChevronLeftIcon,
   Bars3Icon,
-  ServerIcon
+  ServerIcon,
+  WifiIcon,
+  CloudIcon
 } from '@heroicons/react/24/outline';
 import { PageType } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -74,6 +76,15 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
         { label: 'Usuários', icon: UserIcon, path: 'users' as PageType, group: 'administracao' },
         { label: 'Routers', icon: HomeIcon, path: 'routers' as PageType, group: 'administracao' },
         { label: 'Classes IP', icon: ServerIcon, path: 'ip-classes' as PageType, group: 'administracao' },
+      ]
+    },
+    {
+      name: 'Rede',
+      icon: WifiIcon,
+      color: 'blue',
+      items: [
+        { label: 'PPPoE', icon: WifiIcon, path: 'pppoe' as PageType, group: 'rede' },
+        { label: 'DHCP', icon: CloudIcon, path: 'dhcp' as PageType, group: 'rede' },
       ]
     },
     {

@@ -116,6 +116,13 @@ class Empresa(Base):
     radius_servers = relationship("RadiusServer", back_populates="empresa", cascade="all, delete-orphan")
     radius_users = relationship("RadiusUser", back_populates="empresa", cascade="all, delete-orphan")
     ip_classes = relationship("IPClass", back_populates="empresa", cascade="all, delete-orphan")
+
+    # Relacionamentos com configurações PPPoE e DHCP
+    ip_pools = relationship("IPPool", back_populates="empresa", cascade="all, delete-orphan")
+    ppp_profiles = relationship("PPPProfile", back_populates="empresa", cascade="all, delete-orphan")
+    pppoe_servers = relationship("PPPoEServer", back_populates="empresa", cascade="all, delete-orphan")
+    dhcp_servers = relationship("DHCPServer", back_populates="empresa", cascade="all, delete-orphan")
+
     # Especifica explicitamente que esta relação usa a coluna user_id como FK
     usuario_criador = relationship(
         "Usuario",
