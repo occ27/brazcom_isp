@@ -134,6 +134,7 @@ class IPPoolBase(BaseModel):
     nome: str
     ranges: str
     comentario: Optional[str] = None
+    is_active: bool = True
 
 class IPPoolCreate(IPPoolBase):
     router_id: Optional[int] = None
@@ -143,6 +144,7 @@ class IPPoolUpdate(BaseModel):
     nome: Optional[str] = None
     ranges: Optional[str] = None
     comentario: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class IPPoolResponse(IPPoolBase):
     id: int
@@ -164,6 +166,7 @@ class PPPProfileBase(BaseModel):
     idle_timeout: Optional[str] = None
     only_one_session: Optional[bool] = False
     comentario: Optional[str] = None
+    is_active: bool = True
 
 class PPPProfileCreate(PPPProfileBase):
     router_id: Optional[int] = None
@@ -178,6 +181,7 @@ class PPPProfileUpdate(BaseModel):
     idle_timeout: Optional[str] = None
     only_one_session: Optional[bool] = None
     comentario: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class PPPProfileResponse(PPPProfileBase):
     id: int
@@ -199,6 +203,7 @@ class PPPoEServerBase(BaseModel):
     authentication: Optional[str] = "pap,chap,mschap1,mschap2"
     keepalive_timeout: Optional[str] = None
     comentario: Optional[str] = None
+    is_active: Optional[bool] = True
 
 class PPPoEServerCreate(PPPoEServerBase):
     router_id: Optional[int] = None
@@ -213,11 +218,13 @@ class PPPoEServerUpdate(BaseModel):
     authentication: Optional[str] = None
     keepalive_timeout: Optional[str] = None
     comentario: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class PPPoEServerResponse(PPPoEServerBase):
     id: int
     empresa_id: int
     router_id: Optional[int] = None
+    is_active: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
 

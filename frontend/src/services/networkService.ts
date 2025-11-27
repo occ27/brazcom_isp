@@ -224,6 +224,21 @@ export const networkService = {
     return response.data;
   },
 
+  syncIPPools: async (routerId: number): Promise<any> => {
+    const response = await api.post(`/network/routers/${routerId}/sync-ip-pools/`);
+    return response.data;
+  },
+
+  syncPPPProfiles: async (routerId: number): Promise<any> => {
+    const response = await api.post(`/network/routers/${routerId}/sync-ppp-profiles/`);
+    return response.data;
+  },
+
+  syncPPPoEServers: async (routerId: number): Promise<any> => {
+    const response = await api.post(`/network/routers/${routerId}/sync-pppoe-servers/`);
+    return response.data;
+  },
+
   applyIPConfigToInterface: async (interfaceId: number): Promise<any> => {
     const response = await api.post(`/network/interfaces/${interfaceId}/apply-ip-config/`);
     return response.data;

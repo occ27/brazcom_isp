@@ -111,6 +111,7 @@ class IPPool(Base):
     nome = Column(String(100), nullable=False, unique=True)  # Nome do pool
     ranges = Column(Text, nullable=False)  # Ranges de IP (ex: "192.168.1.2-192.168.1.254")
     comentario = Column(Text, nullable=True)  # Comentário do pool
+    is_active = Column(Boolean, default=True)  # Status ativo/inativo
     empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
     router_id = Column(Integer, ForeignKey("routers.id"), nullable=True)  # Router onde foi criado
 
@@ -138,6 +139,7 @@ class PPPProfile(Base):
     idle_timeout = Column(String(20), nullable=True)  # Timeout de inatividade
     only_one_session = Column(Boolean, default=False)  # Uma sessão por usuário
     comentario = Column(Text, nullable=True)  # Comentário do perfil
+    is_active = Column(Boolean, default=True)  # Status ativo/inativo
 
     empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
     router_id = Column(Integer, ForeignKey("routers.id"), nullable=True)  # Router onde foi criado
@@ -166,6 +168,7 @@ class PPPoEServer(Base):
     authentication = Column(String(100), default="pap,chap,mschap1,mschap2")  # Métodos de autenticação
     keepalive_timeout = Column(String(20), nullable=True)  # Timeout keepalive
     comentario = Column(Text, nullable=True)  # Comentário do servidor
+    is_active = Column(Boolean, default=True)  # Status ativo/inativo
 
     empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
     router_id = Column(Integer, ForeignKey("routers.id"), nullable=True)  # Router onde foi criado

@@ -497,6 +497,12 @@ class MikrotikController:
         resource = self._api.get_resource('ip/pool')
         return resource.get()
 
+    def get_ppp_profiles(self):
+        """Busca profiles PPP (/ppp/profile)."""
+        self.connect()
+        resource = self._api.get_resource('ppp/profile')
+        return resource.get()
+
     def add_dhcp_pool(self, name: str, ranges: str):
         """Adiciona um pool de endereços DHCP."""
         self.connect()
@@ -1068,3 +1074,43 @@ class MikrotikController:
             status['error'] = str(e)
         
         return status
+
+    def get_pppoe_servers(self):
+        """Retorna lista de servidores PPPoE configurados no router."""
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        self.connect()
+        
+        servers = []
+        
+        try:
+            # Com base no comando usado pelo usuário: /interface pppoe-server server add
+            # O caminho correto deve ser interface/pppoe-server/server
+            possible_paths = [
+                'interface/pppoe-server/server',  # Caminho correto baseado no comando
+                'interface/pppoe-server',
+                'ppp/pppoe-server', 
+                'ppp/server',
+                'interface/pppoe',
+            ]
+            
+            for path in possible_paths:
+                try:
+                    logger.debug(f"Tentando caminho: {path}")
+                    if self._api:
+                        resource = self._api.get_resource(path)
+                        path_servers = resource.get()
+                        if path_servers:
+                            logger.info(f"Encontrados {len(path_servers)} servidores PPPoE no caminho {path}")
+                            servers.extend(path_servers)
+                            # Mostrar detalhes dos servidores encontrados
+                            for server in path_servers:
+                                logger.info(f"Servidor PPPoE encontrado: {server}")
+                except Exception as e:
+                    logger.debug(f"Caminho {path} falhou: {str(e)}")
+        except Exception as e:
+            logger.error(f"Erro geral ao obter servidores PPPoE: {str(e)}")
+        
+        logger.info(f"Total de servidores PPPoE encontrados: {len(servers)}")
+        return servers

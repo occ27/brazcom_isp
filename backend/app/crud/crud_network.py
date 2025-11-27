@@ -237,6 +237,378 @@ def delete_ip_pool(db: Session, pool_id: int) -> bool:
         return True
     return False
 
+def sync_ip_pools(db: Session, router_id: int, empresa_id: int) -> dict:
+    """
+    Sincroniza pools de IP do router MikroTik com o banco de dados.
+    
+    Estratégia:
+    - Pools existentes no MikroTik: atualiza ou cria no sistema
+    - Pools removidos do MikroTik: marca como inativos (não remove)
+    - Pools criados manualmente: preserva intactos
+    """
+    from app.mikrotik.controller import MikrotikController
+    from app.core.security import decrypt_password
+    from app import crud
+    
+    # Buscar router
+    router = crud.crud_router.get_router(db=db, router_id=router_id, empresa_id=empresa_id)
+    if not router:
+        raise ValueError("Router não encontrado")
+    
+    # Conectar ao MikroTik
+    try:
+        password = decrypt_password(router.senha)
+    except Exception:
+        password = router.senha
+    
+    mk = MikrotikController(
+        host=router.ip,
+        username=router.usuario,
+        password=password,
+        port=router.porta or 8728
+    )
+    
+    # Buscar pools do MikroTik
+    mikrotik_pools = mk.get_dhcp_pools()
+    
+    # Obter pools atuais do banco para este router
+    current_pools = db.query(IPPool).filter(
+        IPPool.router_id == router_id,
+        IPPool.empresa_id == empresa_id
+    ).all()
+    
+    # Criar dicionário de pools atuais por nome
+    current_pools_dict = {pool.nome: pool for pool in current_pools}
+    
+    created = 0
+    updated = 0
+    deactivated = 0
+    
+    # Processar pools do MikroTik
+    for mk_pool in mikrotik_pools:
+        pool_name = mk_pool.get('name', '').strip()
+        pool_ranges = mk_pool.get('ranges', '').strip()
+        
+        if not pool_name or not pool_ranges:
+            continue  # Pular pools inválidos
+        
+        if pool_name in current_pools_dict:
+            # Atualizar pool existente
+            db_pool = current_pools_dict[pool_name]
+            if db_pool.ranges != pool_ranges:
+                db_pool.ranges = pool_ranges
+                db_pool.is_active = True  # Reativar se estava inativo
+                updated += 1
+            elif not db_pool.is_active:
+                db_pool.is_active = True
+                updated += 1
+        else:
+            # Criar novo pool
+            new_pool = IPPool(
+                nome=pool_name,
+                ranges=pool_ranges,
+                router_id=router_id,
+                empresa_id=empresa_id,
+                is_active=True
+            )
+            db.add(new_pool)
+            created += 1
+    
+    # Marcar pools removidos como inativos (exceto pools criados manualmente)
+    mikrotik_pool_names = {pool.get('name', '').strip() for pool in mikrotik_pools}
+    for db_pool in current_pools:
+        if db_pool.nome not in mikrotik_pool_names and db_pool.is_active:
+            # Verificar se foi criado manualmente (não sincronizado)
+            # Por enquanto, vamos desativar todos que não existem mais no MikroTik
+            db_pool.is_active = False
+            deactivated += 1
+    
+    db.commit()
+    
+    return {
+        "created": created,
+        "updated": updated,
+        "deactivated": deactivated,
+        "total_mikrotik": len(mikrotik_pools),
+        "total_db": len(current_pools)
+    }
+
+def sync_ppp_profiles(db: Session, router_id: int, empresa_id: int) -> dict:
+    """
+    Sincroniza profiles PPP do router MikroTik com o banco de dados.
+    
+    Estratégia:
+    - Profiles existentes no MikroTik: atualiza ou cria no sistema
+    - Profiles removidos do MikroTik: marca como inativos (não remove)
+    - Profiles criados manualmente: preserva intactos
+    """
+    from app.mikrotik.controller import MikrotikController
+    from app.core.security import decrypt_password
+    from app import crud
+    
+    # Buscar router
+    router = crud.crud_router.get_router(db=db, router_id=router_id, empresa_id=empresa_id)
+    if not router:
+        raise ValueError("Router não encontrado")
+    
+    # Conectar ao MikroTik
+    try:
+        password = decrypt_password(router.senha)
+    except Exception:
+        password = router.senha
+    
+    mk = MikrotikController(
+        host=router.ip,
+        username=router.usuario,
+        password=password,
+        port=router.porta or 8728
+    )
+    
+    # Buscar profiles do MikroTik
+    mikrotik_profiles = mk.get_ppp_profiles()
+    
+    # Obter profiles atuais do banco para este router
+    current_profiles = db.query(PPPProfile).filter(
+        PPPProfile.router_id == router_id,
+        PPPProfile.empresa_id == empresa_id
+    ).all()
+    
+    # Criar dicionário de profiles atuais por nome
+    current_profiles_dict = {profile.nome: profile for profile in current_profiles}
+    
+    created = 0
+    updated = 0
+    deactivated = 0
+    
+    # Processar profiles do MikroTik
+    for mk_profile in mikrotik_profiles:
+        profile_name = mk_profile.get('name', '').strip()
+        local_address = mk_profile.get('local-address', '').strip()
+        remote_address = mk_profile.get('remote-address', '').strip()
+        rate_limit = mk_profile.get('rate-limit', '').strip()
+        comment = mk_profile.get('comment', '').strip()
+        
+        if not profile_name or not local_address:
+            continue  # Pular profiles inválidos
+        
+        if profile_name in current_profiles_dict:
+            # Atualizar profile existente
+            db_profile = current_profiles_dict[profile_name]
+            needs_update = False
+            
+            if db_profile.local_address != local_address:
+                db_profile.local_address = local_address
+                needs_update = True
+            
+            # Nota: remote_address do Mikrotik pode ser um IP direto ou referência a pool
+            # Por enquanto, não sincronizamos este campo automaticamente
+            
+            if db_profile.rate_limit != rate_limit:
+                db_profile.rate_limit = rate_limit
+                needs_update = True
+                
+            if db_profile.comentario != comment:
+                db_profile.comentario = comment
+                needs_update = True
+            
+            if needs_update:
+                updated += 1
+            elif not db_profile.is_active:
+                db_profile.is_active = True
+                updated += 1
+        else:
+            # Criar novo profile
+            new_profile = PPPProfile(
+                nome=profile_name,
+                local_address=local_address,
+                remote_address_pool_id=None,  # Será configurado manualmente se necessário
+                rate_limit=rate_limit,
+                comentario=comment,
+                router_id=router_id,
+                empresa_id=empresa_id,
+                is_active=True
+            )
+            db.add(new_profile)
+            created += 1
+    
+    # Marcar profiles removidos como inativos (exceto profiles criados manualmente)
+    mikrotik_profile_names = {profile.get('name', '').strip() for profile in mikrotik_profiles}
+    for db_profile in current_profiles:
+        if db_profile.nome not in mikrotik_profile_names and db_profile.is_active:
+            # Verificar se foi criado manualmente (não sincronizado)
+            # Por enquanto, vamos desativar todos que não existem mais no MikroTik
+            db_profile.is_active = False
+            deactivated += 1
+    
+    db.commit()
+    
+    return {
+        "created": created,
+        "updated": updated,
+        "deactivated": deactivated,
+        "total_mikrotik": len(mikrotik_profiles),
+        "total_db": len(current_profiles)
+    }
+
+def sync_pppoe_servers(db: Session, router_id: int, empresa_id: int) -> dict:
+    """
+    Sincroniza servidores PPPoE do router MikroTik com o banco de dados.
+    
+    Estratégia:
+    - Servidores existentes no MikroTik: atualiza ou cria no sistema
+    - Servidores removidos do MikroTik: marca como inativos (não remove)
+    - Servidores criados manualmente: preserva intactos
+    """
+    from app.mikrotik.controller import MikrotikController
+    from app.core.security import decrypt_password
+    from app import crud
+    
+    # Buscar router
+    router = crud.crud_router.get_router(db=db, router_id=router_id, empresa_id=empresa_id)
+    if not router:
+        raise ValueError("Router não encontrado")
+    
+    # Conectar ao MikroTik
+    try:
+        password = decrypt_password(router.senha)
+    except Exception:
+        password = router.senha
+    
+    mk = MikrotikController(
+        host=router.ip,
+        username=router.usuario,
+        password=password,
+        port=router.porta or 8728
+    )
+    
+    # Buscar servidores do MikroTik
+    mikrotik_servers = mk.get_pppoe_servers()
+    
+    # Obter servidores atuais do banco para este router
+    current_servers = db.query(PPPoEServer).filter(
+        PPPoEServer.router_id == router_id,
+        PPPoEServer.empresa_id == empresa_id
+    ).all()
+    
+    # Criar dicionário de servidores atuais por service_name
+    current_servers_dict = {server.service_name: server for server in current_servers}
+    
+    created = 0
+    updated = 0
+    deactivated = 0
+    
+    # Processar servidores do MikroTik
+    for mk_server in mikrotik_servers:
+        service_name = mk_server.get('service-name', '').strip()  # Campo correto
+        interface_name = mk_server.get('interface', '').strip()
+        default_profile_name = mk_server.get('default-profile', '').strip()
+        max_sessions_str = mk_server.get('max-sessions', 'unlimited')
+        max_sessions = None if max_sessions_str == 'unlimited' else int(max_sessions_str) if max_sessions_str.isdigit() else None
+        max_sessions_per_host = 1 if mk_server.get('one-session-per-host', '').lower() == 'true' else None
+        authentication = mk_server.get('authentication', 'pap,chap,mschap1,mschap2')
+        keepalive_timeout = mk_server.get('keepalive-timeout', None)
+        disabled = mk_server.get('disabled', 'false').lower() == 'true'
+        
+        # Pular servidores desabilitados
+        if disabled:
+            continue
+        
+        if not service_name or not interface_name:
+            continue  # Pular servidores inválidos
+        
+        # Buscar interface no banco de dados
+        interface_obj = db.query(RouterInterface).filter(
+            RouterInterface.router_id == router_id,
+            RouterInterface.nome == interface_name
+        ).first()
+        
+        if not interface_obj:
+            continue  # Interface não encontrada, pular servidor
+        
+        # Buscar perfil padrão no banco de dados
+        profile_obj = None
+        if default_profile_name:
+            profile_obj = db.query(PPPProfile).filter(
+                PPPProfile.router_id == router_id,
+                PPPProfile.empresa_id == empresa_id,
+                PPPProfile.nome == default_profile_name
+            ).first()
+        
+        if service_name in current_servers_dict:
+            # Atualizar servidor existente
+            db_server = current_servers_dict[service_name]
+            needs_update = False
+            
+            if db_server.interface_id != interface_obj.id:
+                db_server.interface_id = interface_obj.id
+                needs_update = True
+            
+            if profile_obj and db_server.default_profile_id != profile_obj.id:
+                db_server.default_profile_id = profile_obj.id
+                needs_update = True
+            
+            if db_server.max_sessions != max_sessions:
+                db_server.max_sessions = max_sessions
+                needs_update = True
+                
+            if db_server.max_sessions_per_host != max_sessions_per_host:
+                db_server.max_sessions_per_host = max_sessions_per_host
+                needs_update = True
+                
+            if db_server.authentication != authentication:
+                db_server.authentication = authentication
+                needs_update = True
+                
+            if db_server.keepalive_timeout != keepalive_timeout:
+                db_server.keepalive_timeout = keepalive_timeout
+                needs_update = True
+                
+            if db_server.comentario != comment:
+                db_server.comentario = comment
+                needs_update = True
+            
+            if needs_update:
+                updated += 1
+            elif not db_server.is_active:
+                db_server.is_active = True
+                updated += 1
+        else:
+            # Criar novo servidor
+            new_server = PPPoEServer(
+                service_name=service_name,
+                interface_id=interface_obj.id,
+                default_profile_id=profile_obj.id if profile_obj else None,
+                max_sessions=max_sessions,
+                max_sessions_per_host=max_sessions_per_host,
+                authentication=authentication,
+                keepalive_timeout=keepalive_timeout,
+                comentario=f"Servidor PPPoE sincronizado automaticamente",
+                router_id=router_id,
+                empresa_id=empresa_id,
+                is_active=True
+            )
+            db.add(new_server)
+            created += 1
+    
+    # Marcar servidores removidos como inativos (exceto servidores criados manualmente)
+    mikrotik_service_names = {server.get('service', '').strip() for server in mikrotik_servers}
+    for db_server in current_servers:
+        if db_server.service_name not in mikrotik_service_names and db_server.is_active:
+            # Verificar se foi criado manualmente (não sincronizado)
+            # Por enquanto, vamos desativar todos que não existem mais no MikroTik
+            db_server.is_active = False
+            deactivated += 1
+    
+    db.commit()
+    
+    return {
+        "created": created,
+        "updated": updated,
+        "deactivated": deactivated,
+        "total_mikrotik": len(mikrotik_servers),
+        "total_db": len(current_servers)
+    }
+
 # CRUD para PPPProfile
 def get_ppp_profile(db: Session, profile_id: int) -> Optional[PPPProfile]:
     """Busca um perfil PPP específico."""

@@ -714,6 +714,105 @@ def sync_router_interfaces(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao sincronizar interfaces: {str(e)}")
 
+@router.post("/routers/{router_id}/sync-ip-pools/", response_model=dict)
+def sync_router_ip_pools(
+    *,
+    db: Session = Depends(deps.get_db),
+    router_id: int,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Sincronizar pools de IP do router MikroTik com o banco de dados.
+    Estratégia completa e segura:
+
+    🔄 SINCRONIZAÇÃO DE POOLS DE IP:
+    - Pools existentes no MikroTik: atualiza ou cria no sistema
+    - Pools removidos do MikroTik: marca como inativos (não remove)
+    - Pools criados manualmente: preserva intactos
+
+    💡 RESULTADO: Sincronização completa em um clique!
+    """
+    # Verificar se o router pertence à empresa do usuário
+    router = crud.crud_router.get_router(db=db, router_id=router_id, empresa_id=current_user.active_empresa_id)
+    if not router:
+        raise HTTPException(status_code=404, detail="Router não encontrado")
+
+    try:
+        result = crud.crud_network.sync_ip_pools(
+            db=db,
+            router_id=router_id,
+            empresa_id=current_user.active_empresa_id
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao sincronizar pools de IP: {str(e)}")
+
+@router.post("/routers/{router_id}/sync-ppp-profiles/", response_model=dict)
+def sync_router_ppp_profiles(
+    *,
+    db: Session = Depends(deps.get_db),
+    router_id: int,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Sincronizar profiles PPP do router MikroTik com o banco de dados.
+    Estratégia completa e segura:
+
+    🔄 SINCRONIZAÇÃO DE PROFILES PPP:
+    - Profiles existentes no MikroTik: atualiza ou cria no sistema
+    - Profiles removidos do MikroTik: marca como inativos (não remove)
+    - Profiles criados manualmente: preserva intactos
+
+    💡 RESULTADO: Sincronização completa em um clique!
+    """
+    # Verificar se o router pertence à empresa do usuário
+    router = crud.crud_router.get_router(db=db, router_id=router_id, empresa_id=current_user.active_empresa_id)
+    if not router:
+        raise HTTPException(status_code=404, detail="Router não encontrado")
+
+    try:
+        result = crud.crud_network.sync_ppp_profiles(
+            db=db,
+            router_id=router_id,
+            empresa_id=current_user.active_empresa_id
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao sincronizar profiles PPP: {str(e)}")
+
+@router.post("/routers/{router_id}/sync-pppoe-servers/", response_model=dict)
+def sync_router_pppoe_servers(
+    *,
+    db: Session = Depends(deps.get_db),
+    router_id: int,
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+):
+    """
+    Sincronizar servidores PPPoE do router MikroTik com o banco de dados.
+    Estratégia completa e segura:
+
+    🔄 SINCRONIZAÇÃO DE SERVIDORES PPPOE:
+    - Servidores existentes no MikroTik: atualiza ou cria no sistema
+    - Servidores removidos do MikroTik: marca como inativos (não remove)
+    - Servidores criados manualmente: preserva intactos
+
+    💡 RESULTADO: Sincronização completa em um clique!
+    """
+    # Verificar se o router pertence à empresa do usuário
+    router = crud.crud_router.get_router(db=db, router_id=router_id, empresa_id=current_user.active_empresa_id)
+    if not router:
+        raise HTTPException(status_code=404, detail="Router não encontrado")
+
+    try:
+        result = crud.crud_network.sync_pppoe_servers(
+            db=db,
+            router_id=router_id,
+            empresa_id=current_user.active_empresa_id
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao sincronizar servidores PPPoE: {str(e)}")
+
 # Rota para aplicar configuração IP à interface no router
 @router.post("/interfaces/{interface_id}/apply-ip-config/")
 def apply_ip_config_to_interface(

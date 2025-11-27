@@ -94,6 +94,9 @@ const PPPoE: React.FC = () => {
   const [ipPoolDialog, setIpPoolDialog] = useState(false);
   const [pppProfileDialog, setPppProfileDialog] = useState(false);
   const [pppoeServerDialog, setPppoeServerDialog] = useState(false);
+  const [syncPoolsDialog, setSyncPoolsDialog] = useState(false);
+  const [syncProfilesDialog, setSyncProfilesDialog] = useState(false);
+  const [syncServersDialog, setSyncServersDialog] = useState(false);
   const [editingIpPool, setEditingIpPool] = useState<IPPool | null>(null);
   const [editingPppProfile, setEditingPppProfile] = useState<PPPProfile | null>(null);
   const [editingPppoeServer, setEditingPppoeServer] = useState<PPPoEServer | null>(null);
@@ -122,6 +125,8 @@ const PPPoE: React.FC = () => {
     comentario: '',
     is_active: true
   });
+
+  const [selectedRouterForSync, setSelectedRouterForSync] = useState<number | ''>('');
 
   // Carregar dados
   const loadData = useCallback(async () => {
@@ -294,6 +299,87 @@ const PPPoE: React.FC = () => {
     }
   };
 
+  const handleSyncIPPools = async () => {
+    setSelectedRouterForSync('');
+    setSyncPoolsDialog(true);
+  };
+
+  const handleConfirmSyncIPPools = async () => {
+    if (!selectedRouterForSync) {
+      enqueueSnackbar('Selecione um router para sincronizar', { variant: 'error' });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setSyncPoolsDialog(false);
+      const result = await networkService.syncIPPools(Number(selectedRouterForSync));
+      enqueueSnackbar(
+        `Pools sincronizados: ${result.created} criados, ${result.updated} atualizados, ${result.deactivated} desativados`,
+        { variant: 'success' }
+      );
+      loadData();
+    } catch (error) {
+      enqueueSnackbar('Erro ao sincronizar pools de IP', { variant: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSyncPPPProfiles = async () => {
+    setSelectedRouterForSync('');
+    setSyncProfilesDialog(true);
+  };
+
+  const handleConfirmSyncPPPProfiles = async () => {
+    if (!selectedRouterForSync) {
+      enqueueSnackbar('Selecione um router para sincronizar', { variant: 'error' });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setSyncProfilesDialog(false);
+      const result = await networkService.syncPPPProfiles(Number(selectedRouterForSync));
+      enqueueSnackbar(
+        `Profiles sincronizados: ${result.created} criados, ${result.updated} atualizados, ${result.deactivated} desativados`,
+        { variant: 'success' }
+      );
+      loadData();
+    } catch (error) {
+      enqueueSnackbar('Erro ao sincronizar profiles PPP', { variant: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSyncPPPoEServers = async () => {
+    setSelectedRouterForSync('');
+    setSyncServersDialog(true);
+  };
+
+  const handleConfirmSyncPPPoEServers = async () => {
+    if (!selectedRouterForSync) {
+      enqueueSnackbar('Selecione um router para sincronizar', { variant: 'error' });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setSyncServersDialog(false);
+      const result = await networkService.syncPPPoEServers(Number(selectedRouterForSync));
+      enqueueSnackbar(
+        `Servidores PPPoE sincronizados: ${result.created} criados, ${result.updated} atualizados, ${result.deactivated} desativados`,
+        { variant: 'success' }
+      );
+      loadData();
+    } catch (error) {
+      enqueueSnackbar('Erro ao sincronizar servidores PPPoE', { variant: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Funções auxiliares
   const resetIpPoolForm = () => {
     setIpPoolForm({
@@ -447,13 +533,23 @@ const PPPoE: React.FC = () => {
           <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6">Pools de IP</Typography>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => openIpPoolDialog()}
-              >
-                Novo Pool
-              </Button>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<RefreshIcon />}
+                  onClick={handleSyncIPPools}
+                  disabled={loading}
+                >
+                  Sincronizar
+                </Button>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => openIpPoolDialog()}
+                >
+                  Novo Pool
+                </Button>
+              </Box>
             </Box>
             <TableContainer>
               <Table>
@@ -520,13 +616,23 @@ const PPPoE: React.FC = () => {
           <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6">Perfis PPP</Typography>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => openPppProfileDialog()}
-              >
-                Novo Perfil
-              </Button>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<RefreshIcon />}
+                  onClick={handleSyncPPPProfiles}
+                  disabled={loading}
+                >
+                  Sincronizar
+                </Button>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => openPppProfileDialog()}
+                >
+                  Novo Perfil
+                </Button>
+              </Box>
             </Box>
             <TableContainer>
               <Table>
@@ -597,13 +703,23 @@ const PPPoE: React.FC = () => {
           <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6">Servidores PPPoE</Typography>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => openPppoeServerDialog()}
-              >
-                Novo Servidor
-              </Button>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<RefreshIcon />}
+                  onClick={handleSyncPPPoEServers}
+                  disabled={loading}
+                >
+                  Sincronizar
+                </Button>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => openPppoeServerDialog()}
+                >
+                  Novo Servidor
+                </Button>
+              </Box>
             </Box>
             <TableContainer>
               <Table>
@@ -884,6 +1000,108 @@ const PPPoE: React.FC = () => {
             variant="contained"
           >
             {editingPppoeServer ? 'Atualizar' : 'Criar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog de Sincronização de Pools de IP */}
+      <Dialog open={syncPoolsDialog} onClose={() => setSyncPoolsDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Sincronizar Pools de IP</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Selecione o router do qual deseja sincronizar os pools de IP.
+          </Typography>
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>Router</InputLabel>
+            <Select
+              value={selectedRouterForSync}
+              onChange={(e) => setSelectedRouterForSync(e.target.value as number | '')}
+              label="Router"
+            >
+              {routers.map((router) => (
+                <MenuItem key={router.id} value={router.id}>
+                  {router.nome} ({router.ip})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSyncPoolsDialog(false)}>Cancelar</Button>
+          <Button
+            onClick={handleConfirmSyncIPPools}
+            variant="contained"
+            disabled={!selectedRouterForSync || loading}
+          >
+            Sincronizar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog de Sincronização de Profiles PPP */}
+      <Dialog open={syncProfilesDialog} onClose={() => setSyncProfilesDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Sincronizar Profiles PPP</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Selecione o router do qual deseja sincronizar os profiles PPP.
+          </Typography>
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>Router</InputLabel>
+            <Select
+              value={selectedRouterForSync}
+              onChange={(e) => setSelectedRouterForSync(e.target.value as number | '')}
+              label="Router"
+            >
+              {routers.map((router) => (
+                <MenuItem key={router.id} value={router.id}>
+                  {router.nome} ({router.ip})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSyncProfilesDialog(false)}>Cancelar</Button>
+          <Button
+            onClick={handleConfirmSyncPPPProfiles}
+            variant="contained"
+            disabled={!selectedRouterForSync || loading}
+          >
+            Sincronizar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog de Sincronização de Servidores PPPoE */}
+      <Dialog open={syncServersDialog} onClose={() => setSyncServersDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Sincronizar Servidores PPPoE</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Selecione o router do qual deseja sincronizar os servidores PPPoE.
+          </Typography>
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>Router</InputLabel>
+            <Select
+              value={selectedRouterForSync}
+              onChange={(e) => setSelectedRouterForSync(e.target.value as number | '')}
+              label="Router"
+            >
+              {routers.map((router) => (
+                <MenuItem key={router.id} value={router.id}>
+                  {router.nome} ({router.ip})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSyncServersDialog(false)}>Cancelar</Button>
+          <Button
+            onClick={handleConfirmSyncPPPoEServers}
+            variant="contained"
+            disabled={!selectedRouterForSync || loading}
+          >
+            Sincronizar
           </Button>
         </DialogActions>
       </Dialog>
