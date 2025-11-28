@@ -5,6 +5,7 @@ import {
   DocumentTextIcon,
   UserIcon,
   UsersIcon,
+  ShieldCheckIcon,
   BuildingOfficeIcon,
   ChartBarIcon,
   ArrowRightOnRectangleIcon,
@@ -12,7 +13,13 @@ import {
   Bars3Icon,
   ServerIcon,
   WifiIcon,
-  CloudIcon
+  CloudIcon,
+  CogIcon,
+  DocumentCheckIcon,
+  GlobeAltIcon,
+  ServerStackIcon,
+  ChevronDownIcon,
+  ChevronRightIcon
 } from '@heroicons/react/24/outline';
 import { PageType } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -42,6 +49,13 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [drawerCollapsed, setDrawerCollapsed] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    'NFCom': true,
+    'Cadastros': true,
+    'Administração': false,
+    'Rede': false,
+    'Relatórios': false
+  });
   const { user, logout } = useAuth();
 
   // Largura do drawer colapsado (não utilizado diretamente, mas mantido para referência)
@@ -63,8 +77,8 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
       items: [
         
         { label: 'Clientes', icon: UsersIcon, path: 'clients' as PageType, group: 'cadastros' },
-            { label: 'Serviços', icon: DocumentTextIcon, path: 'services' as PageType, group: 'cadastros' },
-            { label: 'Contratos', icon: DocumentTextIcon, path: 'contracts' as PageType, group: 'cadastros' },
+            { label: 'Serviços', icon: CogIcon, path: 'services' as PageType, group: 'cadastros' },
+            { label: 'Contratos', icon: DocumentCheckIcon, path: 'contracts' as PageType, group: 'cadastros' },
       ]
     },
     {
@@ -74,6 +88,7 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
       items: [
         { label: 'Empresas', icon: BuildingOfficeIcon, path: 'companies' as PageType, group: 'cadastros' },
         { label: 'Usuários', icon: UserIcon, path: 'users' as PageType, group: 'administracao' },
+        { label: 'Roles', icon: ShieldCheckIcon, path: 'roles' as PageType, group: 'administracao' },
       ]
     },
     {
@@ -83,8 +98,8 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
       items: [
         { label: 'Routers', icon: HomeIcon, path: 'routers' as PageType, group: 'administracao' },
         { label: 'Classes IP', icon: ServerIcon, path: 'ip-classes' as PageType, group: 'administracao' },
-        { label: 'PPPoE', icon: WifiIcon, path: 'pppoe' as PageType, group: 'rede' },
-        { label: 'DHCP', icon: CloudIcon, path: 'dhcp' as PageType, group: 'rede' },
+        { label: 'PPPoE', icon: GlobeAltIcon, path: 'pppoe' as PageType, group: 'rede' },
+        { label: 'DHCP', icon: ServerStackIcon, path: 'dhcp' as PageType, group: 'rede' },
       ]
     },
     {
@@ -112,6 +127,13 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
   const handleLogout = () => {
     logout();
     navigate('/');
+  };
+
+  const toggleGroupExpansion = (groupName: string) => {
+    setExpandedGroups(prev => ({
+      ...prev,
+      [groupName]: !prev[groupName]
+    }));
   };
 
   // Função não utilizada (mantida para compatibilidade futura)
@@ -198,18 +220,26 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
             <div key={group.name} className="mb-2">
               {/* Título do grupo */}
               {!drawerCollapsed && (
-                <div className="px-4 py-2">
+                <button
+                  onClick={() => toggleGroupExpansion(group.name)}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-50 rounded-lg transition-colors"
+                >
                   <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wider flex items-center">
                     <div className={`p-1 rounded ${getGroupColor(group.color)} mr-2`}>
                       <group.icon className="h-3 w-3" />
                     </div>
-                    {group.name}
+                    <span className="flex-1">{group.name}</span>
+                    {expandedGroups[group.name] ? (
+                      <ChevronDownIcon className="h-4 w-4 text-gray-400" />
+                    ) : (
+                      <ChevronRightIcon className="h-4 w-4 text-gray-400" />
+                    )}
                   </h3>
-                </div>
+                </button>
               )}
 
               {/* Itens do grupo */}
-              {group.items.map((item) => (
+              {expandedGroups[group.name] && group.items.map((item) => (
                 <button
                   key={item.path}
                   onClick={() => handleNavigate(item.path)}

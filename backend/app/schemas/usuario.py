@@ -5,12 +5,10 @@ from datetime import datetime
 # Schemas para Usuário
 
 class UsuarioBase(BaseModel):
-    # Permite popular o modelo tanto por nome do campo (`full_name`) quanto
-    # pelo alias em português (`nome`). Para compatibilidade com frontends
-    # que enviam `nome`, usamos `alias="nome"` e `populate_by_name=True`.
+    # Campo full_name sem alias para evitar confusão
     model_config = ConfigDict(populate_by_name=True)
 
-    full_name: str = Field(..., min_length=3, max_length=255, alias="nome")
+    full_name: str = Field(..., min_length=3, max_length=255)
     email: EmailStr
 
 class UsuarioCreate(UsuarioBase):

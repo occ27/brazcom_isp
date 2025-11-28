@@ -104,3 +104,38 @@ def list_user_permissions(user_id: int, db: Session = Depends(get_db), current_u
         for p in role.permissions:
             perm_set.add(p.name)
     return list(perm_set)
+
+
+@router.put('/roles/{role_id}', status_code=status.HTTP_200_OK)
+def update_role(role_id: int, payload: RoleCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_active_user)):
+    deps.permission_checker('role_manage')(db=db, current_user=current_user)
+    role = db.query(Role).filter(Role.id == role_id).first()
+    if not role:
+        raise HTTPException(status_code=404, detail='Role não encontrada')
+    # Verifica se role pertence à empresa do usuário ou é global
+    if role.empresa_id and role.empresa_id != getattr(current_user, 'active_empresa_id', None) and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail='Role pertence a outro provedor')
+    role.name = payload.name
+    role.description = payload.description
+    db.commit()
+    db.refresh(role)
+    return {'id': role.id, 'name': role.name, 'description': role.description, 'empresa_id': role.empresa_id}
+
+
+@router.delete('/roles/{role_id}', status_code=status.HTTP_200_OK)
+def delete_role(role_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_active_user)):
+    deps.permission_checker('role_manage')(db=db, current_user=current_user)
+    role = db.query(Role).filter(Role.id == role_id).first()
+    if not role:
+        raise HTTPException(status_code=404, detail='Role não encontrada')
+    # Verifica se role pertence à empresa do usuário ou é global
+    if role.empresa_id and role.empresa_id != getattr(current_user, 'active_empresa_id', None) and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail='Role pertence a outro provedor')
+    # Verifica se role está atribuída a usuários
+    ura = user_role_association
+    assigned = db.execute(ura.select().where(ura.c.role_id == role_id)).first()
+    if assigned:
+        raise HTTPException(status_code=400, detail='Role está atribuída a usuários e não pode ser excluída')
+    db.delete(role)
+    db.commit()
+    return {'status': 'ok'}

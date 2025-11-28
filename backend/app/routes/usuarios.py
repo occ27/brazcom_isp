@@ -166,15 +166,152 @@ def update_usuario(
         raise HTTPException(status_code=403, detail="Não tem permissão para atualizar este usuário")
     return crud_usuario.update_usuario(db=db, db_obj=db_user, obj_in=usuario)
 
-@router.delete("/{usuario_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_usuario(
-    usuario_id: int,
+@router.get("/empresa/{empresa_id}", response_model=List[UsuarioResponse])
+def read_usuarios_by_empresa(
+    empresa_id: int,
+    skip: int = 0,
+    limit: int = 100,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_active_superuser)
+    current_user: Usuario = Depends(get_current_active_user)
 ):
-    """Deleta um usuário."""
-    db_user = crud_usuario.get_usuario(db, usuario_id=usuario_id)
-    if db_user is None:
+    """Lista usuários associados a uma empresa. Apenas admins da empresa ou superusuários."""
+    # Verificar se a empresa existe
+    empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+
+    # Verificar permissões: superuser ou admin da empresa
+    if not current_user.is_superuser:
+        from app.models.models import UsuarioEmpresa
+        usuario_empresa = db.query(UsuarioEmpresa).filter(
+            UsuarioEmpresa.usuario_id == current_user.id,
+            UsuarioEmpresa.empresa_id == empresa_id,
+            UsuarioEmpresa.is_admin == True
+        ).first()
+        if not usuario_empresa:
+            raise HTTPException(
+                status_code=403,
+                detail="Apenas administradores da empresa ou superusuários podem visualizar usuários"
+            )
+
+    # Obter usuários associados à empresa
+    from app.models.models import UsuarioEmpresa
+    usuario_ids = db.query(UsuarioEmpresa.usuario_id).filter(
+        UsuarioEmpresa.empresa_id == empresa_id
+    ).subquery()
+
+    usuarios = db.query(Usuario).filter(
+        Usuario.id.in_(usuario_ids)
+    ).offset(skip).limit(limit).all()
+
+    return usuarios
+
+
+@router.post("/empresa/{empresa_id}/associate", response_model=dict)
+def associate_usuario_to_empresa(
+    empresa_id: int,
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Associa um usuário existente a uma empresa. Apenas admins da empresa ou superusuários."""
+    usuario_id = payload.get('usuario_id')
+    is_admin = payload.get('is_admin', False)
+
+    if usuario_id is None:
+        raise HTTPException(status_code=400, detail="usuario_id é obrigatório")
+
+    # Verificar se a empresa existe
+    empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+
+    # Verificar se o usuário existe
+    usuario = crud_usuario.get_usuario(db, usuario_id=usuario_id)
+    if not usuario:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    crud_usuario.delete_usuario(db=db, db_obj=db_user)
-    return None
+
+    # Verificar permissões: superuser ou admin da empresa
+    if not current_user.is_superuser:
+        from app.models.models import UsuarioEmpresa
+        usuario_empresa = db.query(UsuarioEmpresa).filter(
+            UsuarioEmpresa.usuario_id == current_user.id,
+            UsuarioEmpresa.empresa_id == empresa_id,
+            UsuarioEmpresa.is_admin == True
+        ).first()
+        if not usuario_empresa:
+            raise HTTPException(
+                status_code=403,
+                detail="Apenas administradores da empresa ou superusuários podem associar usuários"
+            )
+
+    # Verificar se já existe associação
+    from app.models.models import UsuarioEmpresa
+    existing_assoc = db.query(UsuarioEmpresa).filter(
+        UsuarioEmpresa.usuario_id == usuario_id,
+        UsuarioEmpresa.empresa_id == empresa_id
+    ).first()
+
+    if existing_assoc:
+        # Atualizar associação existente
+        existing_assoc.is_admin = is_admin
+        db.commit()
+        return {"message": "Associação atualizada com sucesso"}
+    else:
+        # Criar nova associação
+        new_assoc = UsuarioEmpresa(
+            usuario_id=usuario_id,
+            empresa_id=empresa_id,
+            is_admin=is_admin
+        )
+        db.add(new_assoc)
+        db.commit()
+        return {"message": "Usuário associado à empresa com sucesso"}
+
+
+@router.post("/empresa/{empresa_id}", response_model=UsuarioResponse)
+def create_usuario_for_empresa(
+    empresa_id: int,
+    usuario: UsuarioCreate,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Cria um novo usuário e o associa a uma empresa. Apenas admins da empresa ou superusuários."""
+    # Verificar se a empresa existe
+    empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+
+    # Verificar permissões: superuser ou admin da empresa
+    if not current_user.is_superuser:
+        from app.models.models import UsuarioEmpresa
+        usuario_empresa = db.query(UsuarioEmpresa).filter(
+            UsuarioEmpresa.usuario_id == current_user.id,
+            UsuarioEmpresa.empresa_id == empresa_id,
+            UsuarioEmpresa.is_admin == True
+        ).first()
+        if not usuario_empresa:
+            raise HTTPException(
+                status_code=403,
+                detail="Apenas administradores da empresa ou superusuários podem criar usuários"
+            )
+
+    # Verificar se email já existe
+    db_user = crud_usuario.get_usuario_by_email(db, email=usuario.email)
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email já registrado")
+
+    # Criar usuário
+    new_user = crud_usuario.create_usuario(db=db, usuario=usuario)
+
+    # Associar à empresa
+    from app.models.models import UsuarioEmpresa
+    new_assoc = UsuarioEmpresa(
+        usuario_id=new_user.id,
+        empresa_id=empresa_id,
+        is_admin=False  # Novos usuários começam como não-admin
+    )
+    db.add(new_assoc)
+    db.commit()
+
+    return new_user

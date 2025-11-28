@@ -8,6 +8,7 @@ export type PageType =
   | 'nfcom'
   | 'reports'
   | 'users'
+  | 'roles'
   | 'routers'
   | 'ip-classes'
   | 'pppoe'
@@ -17,13 +18,19 @@ export type PageType =
 export interface User {
   id: number;
   email: string;
-  nome: string;
-  tipo: 'admin' | 'user';
-  ativo: boolean;
+  full_name: string;
+  nome?: string; // Mantido para compatibilidade
+  is_superuser: boolean;
+  is_active: boolean;
+  ativo?: boolean; // Mantido para compatibilidade
+  tipo?: 'admin' | 'user'; // Mantido para compatibilidade
   active_empresa_id?: number;
   created_at: string;
   updated_at: string;
 }
+
+// Alias para evitar conflitos
+export type AppUser = User;
 
 export interface Company {
   id: number;

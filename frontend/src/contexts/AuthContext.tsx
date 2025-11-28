@@ -1,10 +1,23 @@
 import React, { useContext, useState, createContext, useEffect } from 'react';
 import * as authService from '../services/authService';
-import { User } from '../types';
+
+interface AppUser {
+  id: number;
+  email: string;
+  full_name: string;
+  nome?: string; // Mantido para compatibilidade
+  is_superuser: boolean;
+  is_active: boolean;
+  ativo?: boolean; // Mantido para compatibilidade
+  tipo?: 'admin' | 'user'; // Mantido para compatibilidade
+  active_empresa_id?: number;
+  created_at: string;
+  updated_at: string;
+}
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  user: User | null;
+  user: AppUser | null;
   loading: boolean;
   error: string | null;
   login: (username: string, password: string) => Promise<void>;
@@ -25,7 +38,7 @@ export function useAuth() {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

@@ -1,6 +1,20 @@
 // Serviços de autenticação e API para NFCom — reutiliza o cliente axios central
 import api, { API_BASE_URL } from './api';
 
+export interface User {
+  id: number;
+  email: string;
+  full_name: string;
+  nome?: string; // Mantido para compatibilidade
+  is_superuser: boolean;
+  is_active: boolean;
+  ativo?: boolean; // Mantido para compatibilidade
+  tipo?: 'admin' | 'user'; // Mantido para compatibilidade
+  active_empresa_id?: number;
+  created_at: string;
+  updated_at: string;
+}
+
 // Funções helper para endpoints
 export const endpoints = {
   auth: {
@@ -57,17 +71,6 @@ api.interceptors.response.use(
 );
 
 // Interfaces
-export interface User {
-  id: number;
-  email: string;
-  nome: string;
-  tipo: 'admin' | 'user';
-  ativo: boolean;
-  active_empresa_id?: number;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface LoginResponse {
   access_token: string;
   token_type: string;
@@ -156,9 +159,13 @@ export async function getCurrentUser(): Promise<User> {
     return {
       id: userData.id,
       email: userData.email,
-      nome: userData.full_name,
-      tipo: userData.is_superuser ? 'admin' : 'user',
-      ativo: userData.is_active,
+      full_name: userData.full_name,
+      nome: userData.full_name, // Campo de compatibilidade
+      is_superuser: userData.is_superuser,
+      is_active: userData.is_active,
+      ativo: userData.is_active, // Campo de compatibilidade
+      tipo: userData.is_superuser ? 'admin' : 'user', // Campo de compatibilidade
+      active_empresa_id: userData.active_empresa_id,
       created_at: userData.created_at,
       updated_at: userData.updated_at,
     };
