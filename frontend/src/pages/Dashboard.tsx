@@ -156,18 +156,24 @@ const Dashboard: React.FC = () => {
     <Box>
       {/* Header com logo */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <img src="/logo_brazcom_isp.PNG" alt="Brazcom ISP Logo" style={{ height: '100px', marginRight: '16px' }} />
+        <img src="/logo_brazcom_isp.PNG" alt="Brazcom ISP Logo" style={{ height: '100px', marginRight: 0 }} />
         <Box>
-          <Typography
-            variant="h4"
-            component="h1"
-            sx={{
-              fontWeight: 'bold',
-              fontSize: { xs: '1.5rem', sm: '2.125rem' }
-            }}
-          >
-            Brazcom ISP Suite
-          </Typography>
+          <Box component="header">
+            <Typography
+              variant="h4"
+              component="div"
+              sx={{ fontWeight: 900, color: '#0b3d91', lineHeight: 1 }}
+            >
+              Brazcom
+            </Typography>
+            <Typography
+              variant="subtitle1"
+              component="div"
+              sx={{ fontWeight: 700, color: '#0b3d91', mt: 0.25, fontSize: { xs: '1rem', sm: '1.25rem' } }}
+            >
+              ISP Suite
+            </Typography>
+          </Box>
         </Box>
       </Box>
 
