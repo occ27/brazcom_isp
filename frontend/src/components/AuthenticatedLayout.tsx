@@ -56,7 +56,7 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
     'Rede': false,
     'Relatórios': false
   });
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
 
   // Largura do drawer colapsado (não utilizado diretamente, mas mantido para referência)
 
@@ -88,7 +88,8 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
       items: [
         { label: 'Empresas', icon: BuildingOfficeIcon, path: 'companies' as PageType, group: 'cadastros' },
         { label: 'Usuários', icon: UserIcon, path: 'users' as PageType, group: 'administracao' },
-        { label: 'Roles', icon: ShieldCheckIcon, path: 'roles' as PageType, group: 'administracao' },
+            { label: 'Roles', icon: ShieldCheckIcon, path: 'roles' as PageType, group: 'administracao' },
+            { label: 'Permissões', icon: ShieldCheckIcon, path: 'permissions' as PageType, group: 'administracao' },
       ]
     },
     {
@@ -111,6 +112,38 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
       ]
     },
   ];
+
+  // Mapeamento opcional de permissão necessária por rota (se vazio -> visível por padrão)
+  // Pode ser string ou array de strings para permitir OR lógico entre permissões
+  const permissionMap: Record<string, string | string[] | undefined> = {
+    nfcom: 'nfcom_manage',
+    users: 'user_manage',
+    roles: 'role_manage',
+    permissions: 'permission_manage',
+    companies: 'company_manage',
+    clients: 'clients_manage',
+    services: 'services_manage',
+    // Permitir visualizar Contratos tanto para quem gerencia quanto para quem apenas vê
+    contracts: ['contract_manage', 'contract_view'],
+    routers: 'network_manage',
+    'ip-classes': 'ip_class_manage',
+    pppoe: 'pppoe_manage',
+    dhcp: 'dhcp_manage',
+    reports: 'report_view'
+  };
+
+  const canViewItem = (path: PageType) => {
+    const required = permissionMap[path as string];
+    if (!required) return true; // sem permissão declarada -> visível
+    try {
+      if (Array.isArray(required)) {
+        return required.some(r => hasPermission(r));
+      }
+      return hasPermission(required as string);
+    } catch (e) {
+      return false;
+    }
+  };
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -196,7 +229,7 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
             <button
               onClick={() => handleNavigate('dashboard')}
               className={`flex items-center w-full transition-colors rounded-lg ${
-                drawerCollapsed ? 'mx-0.5 px-1 py-3 justify-center' : 'mx-2 px-4 py-3'
+                drawerCollapsed ? 'px-1 py-3 justify-center' : 'px-3 py-3'
               } ${
                 currentPage === 'dashboard'
                   ? 'bg-indigo-50 text-indigo-700 border-r-2 border-indigo-700 shadow-sm'
@@ -219,32 +252,36 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
           {menuGroups.map((group, groupIndex) => (
             <div key={group.name} className="mb-2">
               {/* Título do grupo */}
-              {!drawerCollapsed && (
-                <button
-                  onClick={() => toggleGroupExpansion(group.name)}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-50 rounded-lg transition-colors"
-                >
-                  <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wider flex items-center">
-                    <div className={`p-1 rounded ${getGroupColor(group.color)} mr-2`}>
-                      <group.icon className="h-3 w-3" />
-                    </div>
-                    <span className="flex-1">{group.name}</span>
-                    {expandedGroups[group.name] ? (
-                      <ChevronDownIcon className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                    )}
-                  </h3>
-                </button>
-              )}
+              {(() => {
+                const hasVisible = group.items.some(it => canViewItem(it.path));
+                if (!hasVisible) return null;
+                return (!drawerCollapsed && (
+                  <button
+                    onClick={() => toggleGroupExpansion(group.name)}
+                    className="w-full px-3 py-2 text-left hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wider flex items-center">
+                      <div className={`p-1 rounded ${getGroupColor(group.color)} mr-2`}>
+                        <group.icon className="h-3 w-3" />
+                      </div>
+                      <span className="flex-1">{group.name}</span>
+                      {expandedGroups[group.name] ? (
+                        <ChevronDownIcon className="h-4 w-4 text-gray-400" />
+                      ) : (
+                        <ChevronRightIcon className="h-4 w-4 text-gray-400" />
+                      )}
+                    </h3>
+                  </button>
+                ));
+              })()}
 
               {/* Itens do grupo */}
-              {expandedGroups[group.name] && group.items.map((item) => (
+              {expandedGroups[group.name] && group.items.filter(item => canViewItem(item.path)).map((item) => (
                 <button
                   key={item.path}
                   onClick={() => handleNavigate(item.path)}
                   className={`flex items-center w-full transition-colors rounded-lg ${
-                    drawerCollapsed ? 'mx-0.5 px-1 py-3 justify-center' : 'mx-2 px-4 py-3'
+                    drawerCollapsed ? 'px-1 py-3 justify-center' : 'px-3 py-3'
                   } ${
                     currentPage === item.path
                       ? 'bg-indigo-50 text-indigo-700 border-r-2 border-indigo-700 shadow-sm'
@@ -267,11 +304,11 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
           ))}
 
           {/* Botão de logout */}
-          <div className={`${drawerCollapsed ? 'px-0.5' : 'px-2'}`}>
+            <div className={`${drawerCollapsed ? 'px-0.5' : 'px-2'}`}>
             <button
               onClick={handleLogout}
               className={`flex items-center w-full transition-colors rounded-lg ${
-                drawerCollapsed ? 'px-1 py-3 justify-center' : 'px-4 py-3'
+                drawerCollapsed ? 'px-1 py-3 justify-center' : 'px-3 py-3'
               } text-gray-600 hover:bg-red-50 hover:text-red-700`}
               title={drawerCollapsed ? 'Sair' : ''}
             >

@@ -16,6 +16,7 @@ export interface Permission {
 export interface Usuario {
   id: number;
   full_name: string;
+  nome?: string;
   email: string;
   is_active: boolean;
   is_superuser: boolean;
@@ -119,6 +120,41 @@ class UserService {
     return response.data;
   }
 
+  // Permissions methods
+  async listPermissions(): Promise<Permission[]> {
+    const response = await api.get('/access/permissions');
+    return response.data;
+  }
+
+  async updatePermission(permissionId: number, payload: { name: string; description?: string }): Promise<Permission> {
+    const response = await api.put(`/access/permissions/${permissionId}`, payload);
+    return response.data;
+  }
+
+  async deletePermission(permissionId: number): Promise<{ status: string }> {
+    const response = await api.delete(`/access/permissions/${permissionId}`);
+    return response.data;
+  }
+
+  async addPermissionToRole(roleId: number, permissionId: number): Promise<{ status: string }> {
+    const response = await api.post(`/access/roles/${roleId}/permissions/${permissionId}`);
+    return response.data;
+  }
+
+  async removePermissionFromRole(roleId: number, permissionId: number): Promise<{ status: string }> {
+    const response = await api.delete(`/access/roles/${roleId}/permissions/${permissionId}`);
+    return response.data;
+  }
+
+  async listRolePermissions(roleId: number): Promise<Permission[]> {
+    const response = await api.get(`/access/roles/${roleId}/permissions`);
+    return response.data;
+  }
+
+  async listUserPermissions(userId: number): Promise<string[]> {
+    const response = await api.get(`/access/users/${userId}/permissions`);
+    return response.data;
+  }
 }
 
 export default new UserService();

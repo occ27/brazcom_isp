@@ -18,10 +18,19 @@ import {
   Alert,
   IconButton,
   Tooltip
+  ,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Checkbox,
+  ListItemText,
+  OutlinedInput
 } from '@mui/material';
 import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { useCompany } from '../contexts/CompanyContext';
-import userService, { Role } from '../services/userService';
+import userService, { Role, Permission } from '../services/userService';
+import { useAuth } from '../contexts/AuthContext';
 
 const RolesPage: React.FC = () => {
   const { activeCompany } = useCompany();
@@ -37,6 +46,10 @@ const RolesPage: React.FC = () => {
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [editRoleName, setEditRoleName] = useState('');
   const [editRoleDesc, setEditRoleDesc] = useState('');
+  const [allPermissions, setAllPermissions] = useState<Permission[]>([]);
+  const [rolePermBefore, setRolePermBefore] = useState<number[]>([]);
+  const [selectedPermissionIds, setSelectedPermissionIds] = useState<number[]>([]);
+  const { hasPermission, reloadPermissions } = useAuth();
 
   useEffect(() => {
     loadAll();
@@ -74,7 +87,23 @@ const RolesPage: React.FC = () => {
     setEditingRole(role);
     setEditRoleName(role.name);
     setEditRoleDesc(role.description || '');
-    setOpenEdit(true);
+    // carregar permissões e marcar as já atribuídas
+    (async () => {
+      try {
+        const [perms, rolePerms] = await Promise.all([
+          userService.listPermissions(),
+          userService.listRolePermissions(role.id)
+        ]);
+        setAllPermissions(perms || []);
+        const ids = (rolePerms || []).map((p) => p.id);
+        setRolePermBefore(ids);
+        setSelectedPermissionIds(ids);
+      } catch (err: any) {
+        setError(err.response?.data?.detail || 'Erro ao carregar permissões');
+      } finally {
+        setOpenEdit(true);
+      }
+    })();
   };
 
   const handleCloseEdit = () => {
@@ -98,6 +127,17 @@ const RolesPage: React.FC = () => {
     if (!editingRole) return;
     try {
       await userService.updateRole(editingRole.id, { name: editRoleName, description: editRoleDesc });
+      // Atualizar permissões: calcular diferenças
+      const before = new Set(rolePermBefore || []);
+      const after = new Set(selectedPermissionIds || []);
+      const toAdd = Array.from(after).filter((id) => !before.has(id));
+      const toRemove = Array.from(before).filter((id) => !after.has(id));
+      await Promise.all([
+        ...toAdd.map((pid) => userService.addPermissionToRole(editingRole.id, pid)),
+        ...toRemove.map((pid) => userService.removePermissionFromRole(editingRole.id, pid)),
+      ]);
+      // reload permissions in auth context (in case current user's perms changed)
+      try { await reloadPermissions(); } catch (e) { /* ignore */ }
       setOpenEdit(false);
       setEditingRole(null);
       setEditRoleName('');
@@ -125,9 +165,11 @@ const RolesPage: React.FC = () => {
         <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
           Roles
         </Typography>
-        <Button variant="contained" startIcon={<PlusIcon className="w-5 h-5" />} onClick={() => setOpenCreate(true)}>
-          Novo Role
-        </Button>
+        {hasPermission('role_manage') && (
+          <Button variant="contained" startIcon={<PlusIcon className="w-5 h-5" />} onClick={() => setOpenCreate(true)}>
+            Novo Role
+          </Button>
+        )}
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
@@ -151,16 +193,20 @@ const RolesPage: React.FC = () => {
                     <TableCell>{r.name}</TableCell>
                     <TableCell>{r.description}</TableCell>
                     <TableCell>
-                      <Tooltip title="Editar">
-                        <IconButton onClick={() => handleOpenEdit(r)} size="small" color="primary">
-                          <PencilIcon className="w-4 h-4" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Excluir">
-                        <IconButton onClick={() => handleDeleteRole(r.id)} size="small" color="error">
-                          <TrashIcon className="w-4 h-4" />
-                        </IconButton>
-                      </Tooltip>
+                      {hasPermission('role_manage') && (
+                        <Tooltip title="Editar">
+                          <IconButton onClick={() => handleOpenEdit(r)} size="small" color="primary">
+                            <PencilIcon className="w-4 h-4" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {hasPermission('role_manage') && (
+                        <Tooltip title="Excluir">
+                          <IconButton onClick={() => handleDeleteRole(r.id)} size="small" color="error">
+                            <TrashIcon className="w-4 h-4" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -192,6 +238,27 @@ const RolesPage: React.FC = () => {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             <TextField label="Nome" value={editRoleName} onChange={(e) => setEditRoleName(e.target.value)} fullWidth />
             <TextField label="Descrição" value={editRoleDesc} onChange={(e) => setEditRoleDesc(e.target.value)} fullWidth />
+            <FormControl fullWidth>
+              <InputLabel id="role-perms-label">Permissões</InputLabel>
+              <Select
+                labelId="role-perms-label"
+                multiple
+                value={selectedPermissionIds}
+                onChange={(e) => setSelectedPermissionIds(typeof e.target.value === 'string' ? e.target.value.split(',').map(Number) : e.target.value as number[])}
+                input={<OutlinedInput label="Permissões" />}
+                renderValue={(selected) => {
+                  const ids = selected as number[];
+                  return allPermissions.filter(p => ids.includes(p.id)).map(p => p.name).join(', ');
+                }}
+              >
+                {allPermissions.map((p) => (
+                  <MenuItem key={p.id} value={p.id}>
+                    <Checkbox checked={selectedPermissionIds.indexOf(p.id) > -1} />
+                    <ListItemText primary={p.name} secondary={p.description} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
         </DialogContent>
         <DialogActions>

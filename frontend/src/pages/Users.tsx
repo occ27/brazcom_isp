@@ -91,7 +91,7 @@ const Users: React.FC = () => {
     if (user) {
       setEditingUser(user);
       setFormData({
-        nome: user.full_name,
+        nome: user.full_name || (user as any).nome || '',
         email: user.email,
         password: '', // Não preencher senha na edição
         is_superuser: user.is_superuser
@@ -277,7 +277,7 @@ const Users: React.FC = () => {
               <TableBody>
                 {users.map((user) => (
                   <TableRow key={user.id} hover>
-                    <TableCell>{user.full_name}</TableCell>
+                    <TableCell>{user.full_name || (user as any).nome || '-'}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
                       <Chip

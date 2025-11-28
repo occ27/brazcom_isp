@@ -15,6 +15,7 @@ import Services from './pages/Services';
 import Contracts from './pages/Contracts';
 import Users from './pages/Users';
 import Roles from './pages/Roles';
+import Permissions from './pages/Permissions';
 import Reports from './pages/Reports';
 import Routers from './pages/Routers';
 import RouterInterfaces from './pages/RouterInterfaces';
@@ -114,6 +115,7 @@ const AuthenticatedApp: React.FC<{ children: React.ReactNode }> = ({ children })
     if (path.startsWith('/nfcom')) return 'nfcom';
     if (path.startsWith('/users')) return 'users';
     if (path.startsWith('/roles')) return 'roles';
+    if (path.startsWith('/permissions')) return 'permissions';
     if (path.startsWith('/reports')) return 'reports';
     if (path === '/routers') return 'routers';
     if (path === '/ip-classes') return 'ip-classes';
@@ -132,6 +134,7 @@ const AuthenticatedApp: React.FC<{ children: React.ReactNode }> = ({ children })
     else if (page === 'nfcom') navigate('/nfcom');
     else if (page === 'users') navigate('/users');
     else if (page === 'roles') navigate('/roles');
+    else if (page === 'permissions') navigate('/permissions');
     else if (page === 'reports') navigate('/reports');
     else if (page === 'routers') navigate('/routers');
     else if (page === 'ip-classes') navigate('/ip-classes');
@@ -246,6 +249,16 @@ const AppContent: React.FC = () => {
           <ProtectedRoute>
             <AuthenticatedApp>
               <Roles />
+            </AuthenticatedApp>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/permissions"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedApp>
+              <Permissions />
             </AuthenticatedApp>
           </ProtectedRoute>
         }

@@ -1,5 +1,6 @@
 import React, { useContext, useState, createContext, useEffect } from 'react';
 import * as authService from '../services/authService';
+import userService from '../services/userService';
 
 interface AppUser {
   id: number;
@@ -20,10 +21,13 @@ interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
   error: string | null;
+  permissions: string[];
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   register: (userData: any) => Promise<void>;
   loadUserInfo: () => Promise<void>;
+  hasPermission: (name: string) => boolean;
+  reloadPermissions: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,6 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [permissions, setPermissions] = useState<string[]>([]);
 
   useEffect(() => {
     // Initialize auth on app start
@@ -57,6 +62,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const userData = await authService.getCurrentUser();
       setUser(userData);
+      // load aggregated permissions for the user
+      try {
+        const perms = await userService.listUserPermissions(userData.id);
+        setPermissions(perms || []);
+      } catch (e) {
+        console.warn('Não foi possível carregar permissões do usuário', e);
+        setPermissions([]);
+      }
       setIsAuthenticated(true);
     } catch (error) {
       console.error('Erro ao carregar informações do usuário:', error);
@@ -65,6 +78,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const reloadPermissions = async () => {
+    if (!user) return;
+    try {
+      const perms = await userService.listUserPermissions(user.id);
+      setPermissions(perms || []);
+    } catch (e) {
+      console.warn('Erro ao recarregar permissões', e);
+    }
+  };
+
+  const hasPermission = (name: string) => {
+    if (!user) return false;
+    if (user.is_superuser) return true;
+    return permissions.includes(name);
   };
 
   const login = async (username: string, password: string) => {
@@ -109,10 +138,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     loading,
     error,
+    permissions,
     login,
     logout,
     register,
     loadUserInfo,
+    hasPermission,
+    reloadPermissions,
   };
 
   return (

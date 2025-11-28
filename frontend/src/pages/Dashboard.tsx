@@ -155,8 +155,8 @@ const Dashboard: React.FC = () => {
   return (
     <Box>
       {/* Header com logo */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-        <img src="/NFCom.PNG" alt="NFCom Logo" style={{ height: '60px', marginRight: '16px' }} />
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+        <img src="/logo_brazcom_isp.PNG" alt="Brazcom ISP Logo" style={{ height: '100px', marginRight: '16px' }} />
         <Box>
           <Typography
             variant="h4"
@@ -166,16 +166,13 @@ const Dashboard: React.FC = () => {
               fontSize: { xs: '1.5rem', sm: '2.125rem' }
             }}
           >
-            Dashboard NFCom
-          </Typography>
-          <Typography variant="subtitle1" sx={{ color: 'text.secondary' }}>
-            Sistema de Gestão Fiscal Inteligente
+            Brazcom ISP Suite
           </Typography>
         </Box>
       </Box>
 
       {/* Cards de estatísticas */}
-      <Grid container spacing={3} columns={10} sx={{ mb: 4 }}>
+      <Grid container spacing={3} columns={10} sx={{ mb: 2 }}>
         {stats.map((stat, index) => (
           <Grid item key={index} xs={10} sm={5} md={stat.title === 'Valor Total' ? 4 : 2}>
             <Paper
@@ -216,7 +213,7 @@ const Dashboard: React.FC = () => {
       </Grid>
 
       {/* Gráficos */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Grid container spacing={3} sx={{ mb: 2 }}>
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, height: 350 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
@@ -261,7 +258,7 @@ const Dashboard: React.FC = () => {
         </Grid>
       </Grid>
 
-      <Box sx={{ mt: 4 }}>
+      <Box sx={{ mt: 2 }}>
         <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
           ⚡ Ações Rápidas
         </Typography>

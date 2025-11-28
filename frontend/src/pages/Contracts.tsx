@@ -9,6 +9,7 @@ import {
 } from '@mui/material';
 import { PlusIcon, PencilIcon, TrashIcon, DocumentTextIcon, EyeIcon, MagnifyingGlassIcon, PlayIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { useCompany } from '../contexts/CompanyContext';
+import { useAuth } from '../contexts/AuthContext';
 import contratoService, { Contrato, ContratoListResponse } from '../services/contratoService';
 import clientService from '../services/clientService';
 import servicoService, { Servico } from '../services/servicoService';
@@ -19,6 +20,7 @@ import { generateAvailableIPs } from '../utils/networkUtils';
 
 const Contracts: React.FC = () => {
   const { activeCompany } = useCompany();
+  const { hasPermission } = useAuth();
   // Normalize date-like values to YYYY-MM-DD suitable for <input type="date">.
   // Preserve the date component without applying local timezone shifts.
   const toLocalDateInputString = (val: any): string => {
@@ -70,6 +72,7 @@ const Contracts: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [openForm, setOpenForm] = useState(false);
   const [editing, setEditing] = useState<Contrato | null>(null);
+  const [viewOnly, setViewOnly] = useState(false);
   const [form, setForm] = useState<Partial<Contrato>>({
     quantidade: 1,
     periodicidade: 'MENSAL',
@@ -502,30 +505,40 @@ const Contracts: React.FC = () => {
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', mt: 2 }}>
-                <Tooltip title="Editar">
-                  <IconButton size="small" onClick={() => handleOpenForm(c)}>
-                    <PencilIcon className="w-5 h-5" />
-                  </IconButton>
-                </Tooltip>
-                {c.status === 'PENDENTE_INSTALACAO' && (
-                  <Tooltip title="Ativar Serviço">
-                    <IconButton size="small" onClick={() => ativarServico(c)} color="success">
-                      <PlayIcon className="w-5 h-5" />
+                {hasPermission('contract_manage') ? (
+                  <>
+                    <Tooltip title="Editar">
+                      <IconButton size="small" onClick={() => handleOpenForm(c)}>
+                        <PencilIcon className="w-5 h-5" />
+                      </IconButton>
+                    </Tooltip>
+                    {c.status === 'PENDENTE_INSTALACAO' && (
+                      <Tooltip title="Ativar Serviço">
+                        <IconButton size="small" onClick={() => ativarServico(c)} color="success">
+                          <PlayIcon className="w-5 h-5" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {c.status === 'ATIVO' && (
+                      <Tooltip title="Resetar Conexão">
+                        <IconButton size="small" onClick={() => resetConnection(c)} color="warning">
+                          <ArrowPathIcon className="w-5 h-5" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    <Tooltip title="Excluir">
+                      <IconButton size="small" onClick={() => remove(c)}>
+                        <TrashIcon className="w-5 h-5 text-red-500" />
+                      </IconButton>
+                    </Tooltip>
+                  </>
+                ) : hasPermission('contract_view') ? (
+                  <Tooltip title="Visualizar">
+                    <IconButton size="small" onClick={() => handleOpenForm(c, true)}>
+                      <EyeIcon className="w-5 h-5" />
                     </IconButton>
                   </Tooltip>
-                )}
-                {c.status === 'ATIVO' && (
-                  <Tooltip title="Resetar Conexão">
-                    <IconButton size="small" onClick={() => resetConnection(c)} color="warning">
-                      <ArrowPathIcon className="w-5 h-5" />
-                    </IconButton>
-                  </Tooltip>
-                )}
-                <Tooltip title="Excluir">
-                  <IconButton size="small" onClick={() => remove(c)}>
-                    <TrashIcon className="w-5 h-5 text-red-500" />
-                  </IconButton>
-                </Tooltip>
+                ) : null}
               </Box>
             </CardContent>
           </Card>
@@ -547,16 +560,14 @@ const Contracts: React.FC = () => {
                 size="small"
               />
             </TableCell>
-            <TableCell sx={{ fontWeight: 600 }}>Nº Plano</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>Nº</TableCell>
             <TableCell sx={{ fontWeight: 600 }}>Cliente</TableCell>
             <TableCell sx={{ fontWeight: 600 }}>Cidade/UF</TableCell>
             <TableCell sx={{ fontWeight: 600 }}>CPF/CNPJ</TableCell>
-            <TableCell sx={{ fontWeight: 600 }}>Plano de Internet</TableCell>
-            <TableCell sx={{ fontWeight: 600 }}>Periodicidade</TableCell>
-            <TableCell sx={{ fontWeight: 600 }}>Dia Emissão</TableCell>
-            <TableCell sx={{ fontWeight: 600 }}>Dia Venc.</TableCell>
-            <TableCell sx={{ fontWeight: 600 }}>Valor Unitário</TableCell>
-            <TableCell sx={{ fontWeight: 600 }}>Status ISP</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>Plano</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>Emissão</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>Venc.</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>Valor</TableCell>
             <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
             <TableCell sx={{ fontWeight: 600, width: 120 }}>Ações</TableCell>
           </TableRow>
@@ -588,24 +599,10 @@ const Contracts: React.FC = () => {
               <TableCell>{c.cliente_municipio ? `${c.cliente_municipio}${c.cliente_uf ? '/' + c.cliente_uf : ''}` : '-'}</TableCell>
               <TableCell>{c.cliente_cpf_cnpj ? clientService.formatCpfCnpj(c.cliente_cpf_cnpj) : '-'}</TableCell>
               <TableCell>{c.servico_descricao || `Serviço #${c.servico_id}`}</TableCell>
-              <TableCell>{c.periodicidade || 'MENSAL'}</TableCell>
               <TableCell>{c.dia_emissao || '-'}</TableCell>
               <TableCell>{c.dia_vencimento ?? (c.vencimento ? (() => { const m = (String(c.vencimento)).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3] : '-'; })() : '-')}</TableCell>
               <TableCell>
                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(c.valor_unitario || 0)}
-              </TableCell>
-              <TableCell>
-                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
-                  {isExpired ? (
-                    <Chip label="VENCIDO" color="error" size="small" variant="filled" />
-                  ) : (
-                    <>
-                      {c.is_active && <Chip label="Ativo" color="success" size="small" />}
-                      {!c.is_active && <Chip label="Inativo" color="default" size="small" />}
-                    </>
-                  )}
-                  {c.auto_emit && <Chip label="Auto" color="info" size="small" />}
-                </Box>
               </TableCell>
               <TableCell>
                 <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -623,7 +620,7 @@ const Contracts: React.FC = () => {
                       variant="outlined" 
                     />
                   )}
-                  {c.taxa_instalacao && c.taxa_instalacao > 0 && (
+                  {(c.taxa_instalacao ?? 0) > 0 && (
                     <Chip 
                       label={c.taxa_instalacao_paga ? 'Instalação Paga' : 'Taxa Pendente'} 
                       color={c.taxa_instalacao_paga ? 'success' : 'warning'} 
@@ -634,30 +631,40 @@ const Contracts: React.FC = () => {
                 </Box>
               </TableCell>
               <TableCell>
-                <Tooltip title="Editar">
-                  <IconButton size="small" onClick={() => handleOpenForm(c)}>
-                    <PencilIcon className="w-4 h-4" />
-                  </IconButton>
-                </Tooltip>
-                {c.status === 'PENDENTE_INSTALACAO' && (
-                  <Tooltip title="Ativar Serviço">
-                    <IconButton size="small" onClick={() => ativarServico(c)} color="success">
-                      <PlayIcon className="w-4 h-4" />
+                {hasPermission('contract_manage') ? (
+                  <>
+                    <Tooltip title="Editar">
+                      <IconButton size="small" onClick={() => handleOpenForm(c)}>
+                        <PencilIcon className="w-4 h-4" />
+                      </IconButton>
+                    </Tooltip>
+                    {c.status === 'PENDENTE_INSTALACAO' && (
+                      <Tooltip title="Ativar Serviço">
+                        <IconButton size="small" onClick={() => ativarServico(c)} color="success">
+                          <PlayIcon className="w-4 h-4" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {c.status === 'ATIVO' && (
+                      <Tooltip title="Resetar Conexão">
+                        <IconButton size="small" onClick={() => resetConnection(c)} color="warning">
+                          <ArrowPathIcon className="w-4 h-4" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    <Tooltip title="Excluir">
+                      <IconButton size="small" onClick={() => remove(c)}>
+                        <TrashIcon className="w-4 h-4 text-red-500" />
+                      </IconButton>
+                    </Tooltip>
+                  </>
+                ) : hasPermission('contract_view') ? (
+                  <Tooltip title="Visualizar">
+                    <IconButton size="small" onClick={() => handleOpenForm(c, true)}>
+                      <EyeIcon className="w-4 h-4" />
                     </IconButton>
                   </Tooltip>
-                )}
-                {c.status === 'ATIVO' && (
-                  <Tooltip title="Resetar Conexão">
-                    <IconButton size="small" onClick={() => resetConnection(c)} color="warning">
-                      <ArrowPathIcon className="w-4 h-4" />
-                    </IconButton>
-                  </Tooltip>
-                )}
-                <Tooltip title="Excluir">
-                  <IconButton size="small" onClick={() => remove(c)}>
-                    <TrashIcon className="w-4 h-4 text-red-500" />
-                  </IconButton>
-                </Tooltip>
+                ) : null}
               </TableCell>
             </TableRow>
             );
@@ -708,7 +715,8 @@ const Contracts: React.FC = () => {
     );
   };
 
-  const handleOpenForm = async (c?: Contrato) => {
+  const handleOpenForm = async (c?: Contrato, view: boolean = false) => {
+    setViewOnly(!!view);
     if (c) {
       setEditing(c);
   // Normalize date fields to YYYY-MM-DD for date inputs to avoid timezone shifts
@@ -769,6 +777,7 @@ const Contracts: React.FC = () => {
         }
       }
     } else {
+      setViewOnly(false);
       const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
       const oneYearFromNow = new Date();
       oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
@@ -1240,15 +1249,17 @@ const Contracts: React.FC = () => {
           Planos de Internet
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          <Button
-            variant="contained"
-            startIcon={<PlusIcon className="w-5 h-5" />}
-            sx={{ py: 1.5, width: { xs: '100%', sm: 'auto' } }}
-            onClick={() => handleOpenForm()}
-          >
-            Novo Plano
-          </Button>
-          {selectedContracts.length > 0 && (
+          {hasPermission('contract_manage') && (
+            <Button
+              variant="contained"
+              startIcon={<PlusIcon className="w-5 h-5" />}
+              sx={{ py: 1.5, width: { xs: '100%', sm: 'auto' } }}
+              onClick={() => handleOpenForm()}
+            >
+              Novo Plano
+            </Button>
+          )}
+          {hasPermission('contract_manage') && selectedContracts.length > 0 && (
             <Button
               variant="contained"
               color="success"
@@ -1341,7 +1352,7 @@ const Contracts: React.FC = () => {
                 </div>
                 <div>
                   <h2 className="text-base sm:text-xl font-bold text-text bg-gradient-to-r from-indigo-700 to-indigo-600 bg-clip-text text-transparent">
-                    {editing ? 'Editar Plano de Internet' : 'Novo Plano de Internet'}
+                    {viewOnly ? 'Visualizar Plano de Internet' : (editing ? 'Editar Plano de Internet' : 'Novo Plano de Internet')}
                   </h2>
                   <p className="text-xs sm:text-sm text-textLight hidden sm:block">Configure o plano de acesso à internet do cliente.</p>
                 </div>
@@ -2075,7 +2086,9 @@ const Contracts: React.FC = () => {
               </div>
               <div className="flex gap-2 sm:gap-3 justify-center sm:justify-end">
                 <button onClick={handleCloseForm} className="px-4 sm:px-5 py-2 sm:py-2.5 btn-secondary rounded-lg sm:rounded-xl shadow-sm hover:shadow-md transition-all duration-200 font-semibold flex-shrink-0 text-sm sm:text-sm">Cancelar</button>
-                <button onClick={submit} className="px-4 sm:px-5 py-2 sm:py-2.5 btn-primary rounded-lg sm:rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 font-semibold flex-shrink-0 text-sm sm:text-sm bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700">{editing ? 'Atualizar' : 'Criar'}</button>
+                {!viewOnly && (
+                  <button onClick={submit} className="px-4 sm:px-5 py-2 sm:py-2.5 btn-primary rounded-lg sm:rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 font-semibold flex-shrink-0 text-sm sm:text-sm bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700">{editing ? 'Atualizar' : 'Criar'}</button>
+                )}
               </div>
             </div>
           </div>

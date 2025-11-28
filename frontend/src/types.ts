@@ -9,6 +9,7 @@ export type PageType =
   | 'reports'
   | 'users'
   | 'roles'
+  | 'permissions'
   | 'routers'
   | 'ip-classes'
   | 'pppoe'

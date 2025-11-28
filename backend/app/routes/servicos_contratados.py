@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.routes.auth import get_current_active_user
+from app.api import deps
 from app.models.models import Usuario
 from app.schemas import servico_contratado as sc_schema
 from app.crud import crud_servico_contratado, crud_empresa
@@ -48,6 +49,9 @@ def update_contrato(contrato_id: int, contrato_in: sc_schema.ServicoContratadoUp
     c = crud_servico_contratado.get_servico_contratado(db, contrato_id=contrato_id)
     if not c:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
+    # permission check
+    deps.permission_checker('contract_manage')(db=db, current_user=current_user)
+
     if c.empresa_id:
         user_empresas_ids = [e.empresa_id for e in current_user.empresas]
         if c.empresa_id not in user_empresas_ids and not current_user.is_superuser:
@@ -118,6 +122,9 @@ def create_contrato_for_empresa(empresa_id: int, contrato: sc_schema.ServicoCont
     db_empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
     if not db_empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
+    # Backend-level permission: require contract_manage
+    deps.permission_checker('contract_manage')(db=db, current_user=current_user)
+
     user_empresas_ids = [e.empresa_id for e in current_user.empresas]
     if not current_user.is_superuser and empresa_id not in user_empresas_ids:
         raise HTTPException(status_code=403, detail="Usuário não tem permissão")
@@ -144,6 +151,9 @@ def update_contrato_for_empresa(empresa_id: int, contrato_id: int, contrato_in: 
     db_empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
     if not db_empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
+    # Backend-level permission: require contract_manage
+    deps.permission_checker('contract_manage')(db=db, current_user=current_user)
+
     user_empresas_ids = [e.empresa_id for e in current_user.empresas]
     if not current_user.is_superuser and empresa_id not in user_empresas_ids:
         raise HTTPException(status_code=403, detail="Usuário não tem permissão")
@@ -164,6 +174,9 @@ def delete_contrato_for_empresa(empresa_id: int, contrato_id: int, db: Session =
     db_empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
     if not db_empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
+
+    # Backend-level permission: require contract_manage
+    deps.permission_checker('contract_manage')(db=db, current_user=current_user)
 
     user_empresas_ids = [e.empresa_id for e in current_user.empresas]
     if not current_user.is_superuser and empresa_id not in user_empresas_ids:
@@ -292,6 +305,9 @@ def ativar_servico(contrato_id: int, db: Session = Depends(get_db), current_user
     """Ativa um serviço contratado, mudando o status para ATIVO e enviando regras para o router."""
     import logging
     logger = logging.getLogger(__name__)
+
+    # permission check
+    deps.permission_checker('contract_manage')(db=db, current_user=current_user)
 
     c = crud_servico_contratado.get_servico_contratado(db, contrato_id=contrato_id)
     if not c:
@@ -534,6 +550,9 @@ def reset_client_connection(contrato_id: int, db: Session = Depends(get_db), cur
     """Reseta a conexão do cliente no router, forçando uma reconexão."""
     import logging
     logger = logging.getLogger(__name__)
+
+    # permission check
+    deps.permission_checker('contract_manage')(db=db, current_user=current_user)
 
     c = crud_servico_contratado.get_servico_contratado(db, contrato_id=contrato_id)
     if not c:
