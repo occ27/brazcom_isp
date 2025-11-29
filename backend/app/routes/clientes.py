@@ -12,6 +12,7 @@ from app.schemas.cliente import (
     ClienteListResponse,
 )
 from app.routes.auth import get_current_active_user
+from app.api import deps
 from app.models.models import Usuario
 from app.models.models import EmpresaCliente
 
@@ -34,6 +35,9 @@ def create_cliente(
     user_empresas_ids = [e.empresa_id for e in current_user.empresas]
     if empresa_id not in user_empresas_ids and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Usuário não tem permissão para adicionar clientes a esta empresa")
+
+    # Backend permission: require clients_manage to create clientes
+    deps.permission_checker('clients_manage')(db=db, current_user=current_user)
 
     # DEBUG: log incoming payload enderecos
     try:
@@ -169,6 +173,9 @@ async def update_cliente(
     if not current_user.is_superuser and assoc.created_by_user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Apenas o usuário criador da associação pode editar os dados deste cliente nesta empresa")
 
+    # Backend permission: require clients_manage to update clientes
+    deps.permission_checker('clients_manage')(db=db, current_user=current_user)
+
     db_cliente = crud_cliente.get_cliente(db, cliente_id=cliente_id)
     if not db_cliente:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
@@ -235,6 +242,9 @@ def delete_cliente(
     # Permissão de deleção: somente o usuário que criou a associação (ou superuser)
     if not current_user.is_superuser and assoc.created_by_user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Apenas o usuário criador da associação pode deletar esta associação")
+
+    # Backend permission: require clients_manage to delete clientes/associações
+    deps.permission_checker('clients_manage')(db=db, current_user=current_user)
 
     # Se superuser e remove_orphan_cliente True: deletar Cliente global
     if current_user.is_superuser and remove_orphan_cliente:

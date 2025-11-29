@@ -111,18 +111,19 @@ const Register: React.FC = () => {
             maxWidth: '100%'
           }}
         >
-          <Typography
-            component="h1"
-            variant="h4"
+          <Box
+            component="img"
+            src="/logo_retangular.PNG"
+            alt="Brazcom ISP Logo"
             sx={{
-              mb: 0,
-              color: 'primary.main',
-              fontWeight: 'bold',
-              fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2.125rem' }
+              height: { xs: 50, sm: 50, md: 80 },
+              width: 'auto',
+              mr: { xs: 0, sm: 2 },
+              mb: { xs: 1, sm: 2 },
+              display: 'block',
             }}
-          >
-            Brazcom ISP
-          </Typography>
+          />
+
           <Typography
             component="h2"
             variant="h5"

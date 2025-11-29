@@ -344,7 +344,7 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-3 sm:p-4 md:p-6">
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-3 sm:p-2 md:p-4">
           {children}
         </main>
       </div>

@@ -20,6 +20,8 @@ def create_isp_client(
 ):
     empresa_id = current_user.active_empresa_id or isp_in.router_id  # fallback minimal
 
+    # Backend permission: require contract_manage to provision ISP clients
+    deps.permission_checker('contract_manage')(db=db, current_user=current_user)
     # Valida se cliente e servico existem (simples check)
     cliente = db.query(models.Cliente).filter(models.Cliente.id == isp_in.cliente_id, models.Cliente.empresa_id == empresa_id).first()
     if not cliente:

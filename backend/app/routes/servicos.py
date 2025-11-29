@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.routes.auth import get_current_active_user
+from app.api import deps
 from app.models.models import Usuario
 from app.crud import crud_servico, crud_empresa
 from app.schemas.servico import ServicoCreate, ServicoResponse, ServicoUpdate
@@ -36,6 +37,9 @@ def create_servico(servico: ServicoCreate, db: Session = Depends(get_db), curren
         if servico.empresa_id not in user_empresas_ids and not current_user.is_superuser:
             raise HTTPException(status_code=403, detail="Usuário não tem permissão para criar serviço para esta empresa")
 
+    # Backend permission: require services_manage to create services
+    deps.permission_checker('services_manage')(db=db, current_user=current_user)
+
     # Pass the Pydantic object to the CRUD layer; if servico.empresa_id is provided,
     # create_servico will persist it (permission already checked above).
     s = crud_servico.create_servico(db, servico_in=servico, empresa_id=getattr(servico, 'empresa_id', None))
@@ -64,6 +68,8 @@ def update_servico(servico_id: int, servico_in: ServicoUpdate, db: Session = Dep
         user_empresas_ids = [e.empresa_id for e in current_user.empresas]
         if s.empresa_id not in user_empresas_ids and not current_user.is_superuser:
             raise HTTPException(status_code=403, detail="Usuário não tem permissão")
+    # Backend permission: require services_manage to update services
+    deps.permission_checker('services_manage')(db=db, current_user=current_user)
     updated = crud_servico.update_servico(db, db_obj=s, obj_in=servico_in)
     return updated
 
@@ -77,5 +83,7 @@ def delete_servico(servico_id: int, db: Session = Depends(get_db), current_user:
         user_empresas_ids = [e.empresa_id for e in current_user.empresas]
         if s.empresa_id not in user_empresas_ids and not current_user.is_superuser:
             raise HTTPException(status_code=403, detail="Usuário não tem permissão")
+    # Backend permission: require services_manage to delete services
+    deps.permission_checker('services_manage')(db=db, current_user=current_user)
     crud_servico.delete_servico(db, db_obj=s)
     return {"detail": "Serviço removido"}

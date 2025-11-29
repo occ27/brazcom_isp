@@ -19,6 +19,9 @@ def create_subscription(
 ):
     empresa_id = current_user.active_empresa_id or 0
 
+    # Backend permission: require contract_manage to create/provision subscriptions
+    deps.permission_checker('contract_manage')(db=db, current_user=current_user)
+
     # Validations
     cliente = db.query(models.Cliente).filter(models.Cliente.id == sub_in.cliente_id, models.Cliente.empresa_id == empresa_id).first()
     if not cliente:

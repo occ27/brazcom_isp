@@ -38,6 +38,8 @@ def create_router_interface(
     router = crud.crud_router.get_router(db=db, router_id=router_id, empresa_id=current_user.active_empresa_id)
     if not router:
         raise HTTPException(status_code=404, detail="Router não encontrado")
+    # Permission: require router_manage to create interfaces
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
 
     return crud.crud_network.create_router_interface(db=db, interface=interface_in, router_id=router_id)
 
@@ -78,6 +80,8 @@ def update_router_interface(
     router = crud.crud_router.get_router(db=db, router_id=interface.router_id, empresa_id=current_user.active_empresa_id)
     if not router:
         raise HTTPException(status_code=403, detail="Acesso negado")
+    # Permission: require router_manage to update interfaces
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
 
     return crud.crud_network.update_router_interface(db=db, db_interface=interface, interface_in=interface_in)
 
@@ -123,6 +127,9 @@ def delete_router_interface(
         "warning": "Esta operação é irreversível e pode afetar configurações de rede ativas!"
     }
 
+    # Permission: require router_manage to delete interfaces
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
+
     # Se não confirmado, retornar informações do impacto
     if not confirm:
         raise HTTPException(
@@ -158,6 +165,8 @@ def create_interface_ip_address(
     router = crud.crud_router.get_router(db=db, router_id=interface.router_id, empresa_id=current_user.active_empresa_id)
     if not router:
         raise HTTPException(status_code=403, detail="Acesso negado")
+    # Permission: require router_manage to create IP addresses
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
 
     return crud.crud_network.create_interface_ip_address(db=db, ip_address=ip_address_in, interface_id=interface_id)
 
@@ -194,6 +203,8 @@ def create_ip_class(
     Criar uma nova classe IP para a empresa do usuário.
     """
     empresa_id = current_user.active_empresa_id or 2  # Usar 2 como fallback
+    # Permission: require router_manage to create IP classes
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
     return crud.crud_network.create_ip_class(db=db, ip_class=ip_class_in, empresa_id=empresa_id)
 
 @router.get("/ip-classes/", response_model=List[IPClassResponse])
@@ -458,6 +469,8 @@ def remove_ip_class_from_interface(
     router = crud.crud_router.get_router(db=db, router_id=interface.router_id, empresa_id=current_user.active_empresa_id)
     if not router:
         raise HTTPException(status_code=403, detail="Acesso negado à interface")
+    # Permission: require router_manage to remove IP class assignments
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
 
     # Verificar se a classe IP existe e pertence à empresa
     ip_class = crud.crud_network.get_ip_class(db=db, class_id=ip_class_id)
@@ -523,6 +536,9 @@ def sync_router_interfaces(
     router = crud.crud_router.get_router(db=db, router_id=router_id, empresa_id=current_user.active_empresa_id)
     if not router:
         raise HTTPException(status_code=404, detail="Router não encontrado")
+
+    # Permission: require router_manage to synchronize interfaces
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
 
     try:
         # Conectar ao router MikroTik
@@ -737,6 +753,9 @@ def sync_router_ip_pools(
     if not router:
         raise HTTPException(status_code=404, detail="Router não encontrado")
 
+    # Permission: require router_manage to synchronize IP pools
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
+
     try:
         result = crud.crud_network.sync_ip_pools(
             db=db,
@@ -769,6 +788,9 @@ def sync_router_ppp_profiles(
     router = crud.crud_router.get_router(db=db, router_id=router_id, empresa_id=current_user.active_empresa_id)
     if not router:
         raise HTTPException(status_code=404, detail="Router não encontrado")
+
+    # Permission: require router_manage to synchronize PPP profiles
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
 
     try:
         result = crud.crud_network.sync_ppp_profiles(
@@ -803,6 +825,9 @@ def sync_router_pppoe_servers(
     if not router:
         raise HTTPException(status_code=404, detail="Router não encontrado")
 
+    # Permission: require router_manage to synchronize PPPoE servers
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
+
     try:
         result = crud.crud_network.sync_pppoe_servers(
             db=db,
@@ -832,6 +857,9 @@ def apply_ip_config_to_interface(
     router = crud.crud_router.get_router(db=db, router_id=interface.router_id, empresa_id=current_user.active_empresa_id)
     if not router:
         raise HTTPException(status_code=403, detail="Acesso negado")
+
+    # Permission: require router_manage to apply IP configuration to interface
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
 
     # Verificar se há classes IP atribuídas à interface
     ip_classes = crud.crud_network.get_ip_classes_by_interface(db=db, interface_id=interface_id)
@@ -1107,6 +1135,8 @@ def create_ip_pool(
     """
     Criar um novo pool de IP.
     """
+    # Permission: require router_manage to create IP pools
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
     return crud.crud_network.create_ip_pool(db=db, pool=pool_in, empresa_id=current_user.active_empresa_id)
 
 @router.put("/ip-pools/{pool_id}", response_model=IPPoolResponse)
@@ -1123,7 +1153,8 @@ def update_ip_pool(
     pool = crud.crud_network.get_ip_pool(db=db, pool_id=pool_id)
     if not pool or pool.empresa_id != current_user.active_empresa_id:
         raise HTTPException(status_code=404, detail="Pool de IP não encontrado")
-    
+    # Permission: require router_manage to update IP pools
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
     return crud.crud_network.update_ip_pool(db=db, db_pool=pool, pool_in=pool_in)
 
 @router.delete("/ip-pools/{pool_id}")
@@ -1139,7 +1170,9 @@ def delete_ip_pool(
     pool = crud.crud_network.get_ip_pool(db=db, pool_id=pool_id)
     if not pool or pool.empresa_id != current_user.active_empresa_id:
         raise HTTPException(status_code=404, detail="Pool de IP não encontrado")
-    
+    # Permission: require router_manage to delete IP pools
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
+
     if crud.crud_network.delete_ip_pool(db=db, pool_id=pool_id):
         return {"message": "Pool de IP excluído com sucesso"}
     raise HTTPException(status_code=500, detail="Erro ao excluir pool de IP")
@@ -1167,6 +1200,9 @@ def apply_ip_pool_to_router(
     router = crud.crud_router.get_router(db=db, router_id=pool.router_id, empresa_id=current_user.active_empresa_id)
     if not router:
         raise HTTPException(status_code=403, detail="Acesso negado ao router")
+
+    # Permission: require router_manage to apply IP pools to router
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
 
     # Verificar se o pool tem ranges configurados
     if not pool.ranges:
@@ -1231,6 +1267,8 @@ def create_ppp_profile(
     """
     Criar um novo perfil PPP.
     """
+    # Permission: require router_manage to create PPP profiles
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
     return crud.crud_network.create_ppp_profile(db=db, profile=profile_in, empresa_id=current_user.active_empresa_id)
 
 @router.put("/ppp-profiles/{profile_id}", response_model=PPPProfileResponse)
@@ -1247,7 +1285,8 @@ def update_ppp_profile(
     profile = crud.crud_network.get_ppp_profile(db=db, profile_id=profile_id)
     if not profile or profile.empresa_id != current_user.active_empresa_id:
         raise HTTPException(status_code=404, detail="Perfil PPP não encontrado")
-    
+    # Permission: require router_manage to update PPP profiles
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
     return crud.crud_network.update_ppp_profile(db=db, db_profile=profile, profile_in=profile_in)
 
 @router.delete("/ppp-profiles/{profile_id}")
@@ -1263,7 +1302,9 @@ def delete_ppp_profile(
     profile = crud.crud_network.get_ppp_profile(db=db, profile_id=profile_id)
     if not profile or profile.empresa_id != current_user.active_empresa_id:
         raise HTTPException(status_code=404, detail="Perfil PPP não encontrado")
-    
+    # Permission: require router_manage to delete PPP profiles
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
+
     if crud.crud_network.delete_ppp_profile(db=db, profile_id=profile_id):
         return {"message": "Perfil PPP excluído com sucesso"}
     raise HTTPException(status_code=500, detail="Erro ao excluir perfil PPP")
@@ -1291,6 +1332,9 @@ def apply_ppp_profile_to_router(
     router = crud.crud_router.get_router(db=db, router_id=profile.router_id, empresa_id=current_user.active_empresa_id)
     if not router:
         raise HTTPException(status_code=403, detail="Acesso negado ao router")
+
+    # Permission: require router_manage to apply PPP profiles to router
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
 
     # Verificar se o perfil tem configurações necessárias
     if not profile.local_address or not profile.remote_address_pool_id:
@@ -1365,6 +1409,8 @@ def create_pppoe_server(
     """
     Criar um novo servidor PPPoE.
     """
+    # Permission: require router_manage to create PPPoE servers
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
     return crud.crud_network.create_pppoe_server(db=db, server=server_in, empresa_id=current_user.active_empresa_id)
 
 @router.put("/pppoe-servers/{server_id}", response_model=PPPoEServerResponse)
@@ -1381,7 +1427,8 @@ def update_pppoe_server(
     server = crud.crud_network.get_pppoe_server(db=db, server_id=server_id)
     if not server or server.empresa_id != current_user.active_empresa_id:
         raise HTTPException(status_code=404, detail="Servidor PPPoE não encontrado")
-    
+    # Permission: require router_manage to update PPPoE servers
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
     return crud.crud_network.update_pppoe_server(db=db, db_server=server, server_in=server_in)
 
 @router.delete("/pppoe-servers/{server_id}")
@@ -1397,7 +1444,9 @@ def delete_pppoe_server(
     server = crud.crud_network.get_pppoe_server(db=db, server_id=server_id)
     if not server or server.empresa_id != current_user.active_empresa_id:
         raise HTTPException(status_code=404, detail="Servidor PPPoE não encontrado")
-    
+    # Permission: require router_manage to delete PPPoE servers
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
+
     if crud.crud_network.delete_pppoe_server(db=db, server_id=server_id):
         return {"message": "Servidor PPPoE excluído com sucesso"}
     raise HTTPException(status_code=500, detail="Erro ao excluir servidor PPPoE")
@@ -1425,6 +1474,9 @@ def apply_pppoe_server_to_router(
     router = crud.crud_router.get_router(db=db, router_id=server.router_id, empresa_id=current_user.active_empresa_id)
     if not router:
         raise HTTPException(status_code=403, detail="Acesso negado ao router")
+
+    # Permission: require router_manage to apply PPPoE servers to router
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
 
     # Verificar se o servidor tem configurações necessárias
     if not server.interface or not server.default_profile:
@@ -1496,6 +1548,8 @@ def create_dhcp_server(
     """
     Criar um novo servidor DHCP.
     """
+    # Permission: require router_manage to create DHCP servers
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
     return crud.crud_network.create_dhcp_server(db=db, server=server_in, empresa_id=current_user.active_empresa_id)
 
 @router.put("/dhcp-servers/{server_id}", response_model=DHCPServerResponse)
@@ -1512,7 +1566,8 @@ def update_dhcp_server(
     server = crud.crud_network.get_dhcp_server(db=db, server_id=server_id)
     if not server or server.empresa_id != current_user.active_empresa_id:
         raise HTTPException(status_code=404, detail="Servidor DHCP não encontrado")
-    
+    # Permission: require router_manage to update DHCP servers
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
     return crud.crud_network.update_dhcp_server(db=db, db_server=server, server_in=server_in)
 
 @router.delete("/dhcp-servers/{server_id}")
@@ -1528,7 +1583,9 @@ def delete_dhcp_server(
     server = crud.crud_network.get_dhcp_server(db=db, server_id=server_id)
     if not server or server.empresa_id != current_user.active_empresa_id:
         raise HTTPException(status_code=404, detail="Servidor DHCP não encontrado")
-    
+    # Permission: require router_manage to delete DHCP servers
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
+
     if crud.crud_network.delete_dhcp_server(db=db, server_id=server_id):
         return {"message": "Servidor DHCP excluído com sucesso"}
     raise HTTPException(status_code=500, detail="Erro ao excluir servidor DHCP")
@@ -1555,6 +1612,8 @@ def create_dhcp_network(
     """
     Criar uma nova rede DHCP.
     """
+    # Permission: require router_manage to create DHCP networks
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
     return crud.crud_network.create_dhcp_network(db=db, network=network_in, empresa_id=current_user.active_empresa_id)
 
 @router.put("/dhcp-networks/{network_id}", response_model=DHCPNetworkResponse)
@@ -1571,7 +1630,8 @@ def update_dhcp_network(
     network = crud.crud_network.get_dhcp_network(db=db, network_id=network_id)
     if not network or network.empresa_id != current_user.active_empresa_id:
         raise HTTPException(status_code=404, detail="Rede DHCP não encontrada")
-    
+    # Permission: require router_manage to update DHCP networks
+    deps.permission_checker('router_manage')(db=db, current_user=current_user)
     return crud.crud_network.update_dhcp_network(db=db, db_network=network, network_in=network_in)
 
 @router.delete("/dhcp-networks/{network_id}")

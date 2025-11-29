@@ -14,7 +14,7 @@ def create_router(
     db: Session = Depends(deps.get_db),
     router_in: RouterCreate,
     current_user: models.Usuario = Depends(deps.get_current_active_user),
-    # _: bool = Depends(deps.permission_checker("router_manage"))
+    _: bool = Depends(deps.permission_checker("router_manage"))
 ):
     """
     Criar um novo roteador para a empresa do usuário atual.
@@ -28,7 +28,7 @@ def read_routers(
     skip: int = 0,
     limit: int = 100,
     current_user: models.Usuario = Depends(deps.get_current_active_user),
-    # _: bool = Depends(deps.permission_checker("router_view"))
+    _: bool = Depends(deps.permission_checker("router_view"))
 ):
     """
     Buscar todos os roteadores da empresa do usuário atual.

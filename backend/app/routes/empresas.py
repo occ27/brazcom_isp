@@ -123,6 +123,9 @@ def create_servico_for_empresa(
 ):
     """Cria um novo serviço para uma empresa."""
     _check_user_permission_for_empresa(empresa_id, current_user, db)
+    # Backend permission: require services_manage to create/update/delete services
+    from app.api import deps as _deps
+    _deps.permission_checker('services_manage')(db=db, current_user=current_user)
     return crud_servico.create_servico(db=db, servico_in=servico, empresa_id=empresa_id)
 
 @router.get("/{empresa_id}/servicos", response_model=List[servico_schema.ServicoResponse])
@@ -151,6 +154,8 @@ def update_servico_for_empresa(
 ):
     """Atualiza um serviço de uma empresa."""
     _check_user_permission_for_empresa(empresa_id, current_user, db)
+    from app.api import deps as _deps
+    _deps.permission_checker('services_manage')(db=db, current_user=current_user)
     db_servico = crud_servico.get_servico(db, servico_id=servico_id, empresa_id=empresa_id)
     if not db_servico:
         raise HTTPException(status_code=404, detail="Serviço não encontrado")
@@ -165,6 +170,8 @@ def delete_servico_from_empresa(
 ):
     """Deleta um serviço de uma empresa."""
     _check_user_permission_for_empresa(empresa_id, current_user, db)
+    from app.api import deps as _deps
+    _deps.permission_checker('services_manage')(db=db, current_user=current_user)
     db_servico = crud_servico.get_servico(db, servico_id=servico_id, empresa_id=empresa_id)
     if not db_servico:
         raise HTTPException(status_code=404, detail="Serviço não encontrado")

@@ -10,6 +10,7 @@ from app.schemas.empresa import EmpresaCreate, EmpresaUpdate, EmpresaResponse, U
 from app.schemas.nfcom import NFComCreate, NFComResponse, NFComListResponse, NFComUpdate, BulkEmitNFComRequest, BulkEmitNFComResponse
 from app.schemas import servico as servico_schema
 from app.routes.auth import get_current_active_superuser, get_current_active_user
+from app.api import deps
 from app.models.models import Usuario, Empresa, UsuarioEmpresa, NFCom
 from app.models import models
 from app.services.email_service import EmailService
@@ -151,6 +152,8 @@ def create_empresa_nfcom(
 ):
     """Cria uma nova NFCom para a empresa especificada."""
     _check_user_permission_for_empresa(empresa_id, current_user, db)
+    # Backend permission: require nfcom_manage to create NFComs
+    deps.permission_checker('nfcom_manage')(db=db, current_user=current_user)
     # Sanitiza todos os campos de entrada (strip + colapso de espaços múltiplos)
     try:
         raw = nfcom_in.model_dump()
@@ -171,6 +174,8 @@ def bulk_emit_nfcom_from_contracts(
 ):
     """Emite NFCom em massa para uma lista de contratos selecionados."""
     _check_user_permission_for_empresa(empresa_id, current_user, db)
+    # Backend permission: require nfcom_manage to emit NFComs in bulk
+    deps.permission_checker('nfcom_manage')(db=db, current_user=current_user)
 
     if not request.contract_ids:
         raise HTTPException(status_code=400, detail="Lista de contratos não pode estar vazia")
@@ -242,6 +247,8 @@ def bulk_email_nfcoms(
     Retorna imediatamente um job_id que pode ser consultado para acompanhar progresso.
     """
     _check_user_permission_for_empresa(empresa_id, current_user, db)
+    # Backend permission: require nfcom_manage to trigger bulk email jobs
+    deps.permission_checker('nfcom_manage')(db=db, current_user=current_user)
 
     if not nfcom_ids:
         raise HTTPException(status_code=400, detail="Lista de NFComs não pode estar vazia")
@@ -544,6 +551,8 @@ def update_empresa_nfcom(
     """Atualiza uma NFCom de uma empresa específica."""
     # 1. Valida a permissão do usuário para a empresa
     _check_user_permission_for_empresa(empresa_id, current_user, db)
+    # Backend permission: require nfcom_manage to update NFComs
+    deps.permission_checker('nfcom_manage')(db=db, current_user=current_user)
     # 2. O CRUD de update já busca a nota e verifica se ela existe
     try:
         raw = nfcom_in.model_dump()
@@ -563,6 +572,8 @@ def delete_empresa_nfcom(
     """Exclui uma NFCom de uma empresa específica (apenas se não estiver autorizada)."""
     # 1. Valida a permissão do usuário para a empresa
     _check_user_permission_for_empresa(empresa_id, current_user, db)
+    # Backend permission: require nfcom_manage to delete NFComs
+    deps.permission_checker('nfcom_manage')(db=db, current_user=current_user)
     # 2. Exclui a NFCom (o CRUD já verifica se pode ser excluída)
     crud_nfcom.delete_nfcom(db=db, nfcom_id=nfcom_id, empresa_id=empresa_id)
     return None
@@ -657,6 +668,8 @@ def create_servico_for_empresa(
 ):
     """Cria um novo serviço para uma empresa."""
     _check_user_permission_for_empresa(empresa_id, current_user, db)
+    # Backend permission: require services_manage to create/update/delete services
+    deps.permission_checker('services_manage')(db=db, current_user=current_user)
     return crud_servico.create_servico(db=db, servico_in=servico, empresa_id=empresa_id)
 
 @router.get("/{empresa_id}/servicos", response_model=List[servico_schema.ServicoResponse])
@@ -685,6 +698,7 @@ def update_servico_for_empresa(
 ):
     """Atualiza um serviço de uma empresa."""
     _check_user_permission_for_empresa(empresa_id, current_user, db)
+    deps.permission_checker('services_manage')(db=db, current_user=current_user)
     db_servico = crud_servico.get_servico(db, servico_id=servico_id, empresa_id=empresa_id)
     if not db_servico:
         raise HTTPException(status_code=404, detail="Serviço não encontrado")
@@ -699,6 +713,7 @@ def delete_servico_from_empresa(
 ):
     """Deleta um serviço de uma empresa."""
     _check_user_permission_for_empresa(empresa_id, current_user, db)
+    deps.permission_checker('services_manage')(db=db, current_user=current_user)
     db_servico = crud_servico.get_servico(db, servico_id=servico_id, empresa_id=empresa_id)
     if not db_servico:
         raise HTTPException(status_code=404, detail="Serviço não encontrado")
@@ -715,6 +730,8 @@ def transmitir_empresa_nfcom(
     """Transmite uma NFCom para o SEFAZ."""
     # Retorna também a empresa (usada para envio de email caso necessário)
     db_empresa = _check_user_permission_for_empresa(empresa_id, current_user, db)
+    # Backend permission: require nfcom_manage to transmit to SEFAZ
+    deps.permission_checker('nfcom_manage')(db=db, current_user=current_user)
     db_nfcom = crud_nfcom.get_nfcom(db, nfcom_id=nfcom_id, empresa_id=empresa_id)
     if db_nfcom is None:
         raise HTTPException(status_code=404, detail="NFCom não encontrada nesta empresa")

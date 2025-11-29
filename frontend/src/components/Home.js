@@ -1,3 +1,4 @@
+import { Typography, Box } from '@mui/material';
 import React from 'react';
 import { Link } from 'react-router-dom';
 
@@ -9,7 +10,6 @@ const Home = () => {
         <div className="max-w-7xl mx-auto px-1 sm:px-2 md:px-6 lg:px-8">
           <div className="flex justify-between items-center py-2 sm:py-3 md:py-4">
             <div className="flex items-center">
-              <h1 className="text-xs sm:text-lg md:text-xl lg:text-2xl font-bold text-indigo-600">Brazcom ISP Suite</h1>
             </div>
             <div className="flex items-center space-x-1 sm:space-x-2 md:space-x-3 lg:space-x-4">
               <Link
@@ -29,16 +29,60 @@ const Home = () => {
         </div>
       </header>
 
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: 'center',
+          justifyContent: 'center',
+          mt: 2,
+          px: 2,
+        }}
+      >
+        <Box
+          component="img"
+          src="/logo_retangular.PNG"
+          alt="Brazcom ISP Logo"
+          sx={{
+            height: { xs: 80, sm: 120, md: 150 },
+            width: 'auto',
+            mr: { xs: 0, sm: 2 },
+            mb: { xs: 1, sm: 0 },
+            display: 'block',
+          }}
+        />
+
+        {/*<Box sx={{ textAlign: { xs: 'center', sm: 'left' } }}>
+          <Box component="header">
+            <Typography
+              variant="h4"
+              component="div"
+              className="text-indigo-600"
+              sx={{ fontWeight: 900, lineHeight: 1 }}
+            >
+              Brazcom
+            </Typography>
+            <Typography
+              variant="subtitle1"
+              component="div"
+              className="text-indigo-600"
+              sx={{ fontWeight: 700, fontSize: { xs: '0.95rem', sm: '1.25rem' } }}
+            >
+              ISP Suite
+            </Typography>
+          </Box>
+        </Box>*/}
+      </Box>
+
       {/* Hero Section */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 md:py-12 lg:py-16">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-4 md:py-4 lg:py-4">
         <div className="text-center">
           <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-gray-900 mb-3 sm:mb-4 md:mb-6 leading-tight">
-            <span className="block">Emissão de NFCom</span>
-            <span className="text-indigo-600 block">para Empresas de Comunicação</span>
+            <span className="text-indigo-600 block">Gestão de Provedores de Internet</span>
           </h2>
           <p className="text-sm sm:text-base md:text-lg lg:text-xl text-gray-600 mb-4 sm:mb-6 md:mb-8 max-w-3xl mx-auto leading-relaxed">
-            Sistema completo e automatizado para emissão de Nota Fiscal de Comunicação.<br className="hidden sm:block" />
-            <span className="sm:hidden"> </span>Perfeito para rádios, TVs, jornais, revistas, provedores de internet, telecomunicações e todos os segmentos da indústria de comunicação.
+             Administração de aspectos técnicos, financeiros e operacionais, com o objetivo de otimizar serviços, reter clientes e garantir o crescimento do negócio.<br className="hidden sm:block" />
+             Gerencie planos, clientes e infraestrutura, o acompanhamento de indicadores de desempenho e a implementação de estratégias para melhorar a satisfação e fidelização dos clientes. 
           </p>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 md:gap-4 justify-center">
             <Link
@@ -59,67 +103,68 @@ const Home = () => {
         {/* Empresas Section */}
         <div className="mt-6 sm:mt-8 md:mt-12 lg:mt-20">
           <h3 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-center text-gray-900 mb-4 sm:mb-6 md:mb-8 lg:mb-12 px-0">
-            Para Todos os Segmentos de Comunicação
+            Principais áreas da gestão
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 lg:gap-8 px-0">
             <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-3 sm:mb-4">
                 <svg className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </div>
-              <h4 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 mb-2">Rádios e TVs</h4>
-              <p className="text-gray-600 text-sm sm:text-base">Emissão automática de NFCom para publicidade, patrocínios e transmissões.</p>
+              <h4 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 mb-2">Técnica e operacional</h4>
+              <p className="text-gray-600 text-sm sm:text-base">Gerenciar a infraestrutura de rede, monitorar conexões, configurar roteadores e lidar com o suporte técnico para resolver problemas de forma rápida.</p>
             </div>
 
             <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 rounded-lg flex items-center justify-center mb-3 sm:mb-4">
                 <svg className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h4 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 mb-2">Jornais e Revistas</h4>
-              <p className="text-gray-600 text-sm sm:text-base">Gestão fiscal completa para anúncios, assinaturas e distribuição de conteúdo.</p>
+              <h4 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 mb-2">Financeira</h4>
+              <p className="text-gray-600 text-sm sm:text-base">Controlar o fluxo de caixa, gerenciar faturas e inadimplência, planejar o orçamento e garantir que os valores cobrados estejam alinhados com os custos de instalação e manutenção.</p>
             </div>
 
             <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-3 sm:mb-4">
                 <svg className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                 </svg>
               </div>
-              <h4 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 mb-2">Provedores de Internet</h4>
-              <p className="text-gray-600 text-sm sm:text-base">Faturamento automático para planos de internet, hospedagem e serviços digitais.</p>
+              <h4 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 mb-2">Comercial e de relacionamento</h4>
+              <p className="text-gray-600 text-sm sm:text-base">Definir planos de serviço, negociar contratos, gerenciar o relacionamento com os clientes e criar estratégias para aumentar a retenção e a satisfação. </p>
             </div>
 
             <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
               <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mb-4">
                 <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                 </svg>
               </div>
-              <h4 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Telecomunicações</h4>
-              <p className="text-gray-600 text-sm sm:text-base">Emissão fiscal para telefonia fixa, móvel, VoIP e serviços de telecom.</p>
+              <h4 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Sucesso do cliente</h4>
+              <p className="text-gray-600 text-sm sm:text-base">Criar uma cultura de satisfação que vai além do atendimento de problemas, buscando garantir que o cliente obtenha valor máximo do serviço.</p>
             </div>
 
             <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
               <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mb-4">
                 <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <h4 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Agências de Publicidade</h4>
-              <p className="text-gray-600 text-sm sm:text-base">Gestão fiscal para campanhas publicitárias em múltiplos veículos de comunicação.</p>
+              <h4 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Documentação digital</h4>
+              <p className="text-gray-600 text-sm sm:text-base">Manter registros digitais de todos os processos, como a documentação da rede e do gerenciamento de ativos.</p>
             </div>
 
             <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-3 sm:mb-4">
                 <svg className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
-              <h4 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 mb-2">Outros Serviços</h4>
-              <p className="text-gray-600 text-sm sm:text-base">Streaming, podcasts, marketing digital, eventos e todos os serviços de comunicação.</p>
+              <h4 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 mb-2">Indicadores de desempenho</h4>
+              <p className="text-gray-600 text-sm sm:text-base">Acompanhar métricas de crescimento, taxa de cancelamento e satisfação do cliente para tomar decisões estratégicas.</p>
             </div>
           </div>
         </div>
@@ -127,7 +172,7 @@ const Home = () => {
         {/* Features Section */}
         <div className="mt-6 sm:mt-8 md:mt-12 lg:mt-20 px-0">
           <h3 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-center text-gray-900 mb-4 sm:mb-6 md:mb-8 lg:mb-12">
-            Por que escolher Brazcom NFCom?
+            Por que escolher Brazcom ISP Suite?
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 lg:gap-8">
             <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
@@ -147,7 +192,7 @@ const Home = () => {
                 </svg>
               </div>
               <h4 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 mb-2">Automação Completa</h4>
-              <p className="text-gray-600 text-sm sm:text-base">Emita NFCom automaticamente, integre com seu ERP e elimine processos manuais demorados.</p>
+              <p className="text-gray-600 text-sm sm:text-base">Emita NFCom automaticamente, limine processos manuais demorados.</p>
             </div>
 
             <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
@@ -474,9 +519,9 @@ const Home = () => {
 
         {/* CTA Section */}
         <div className="mt-8 sm:mt-12 md:mt-16 lg:mt-20 mx-0 bg-indigo-600 rounded-lg p-4 sm:p-6 md:p-8 text-center text-white">
-          <h3 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold mb-2 sm:mb-3 md:mb-4">Pronto para transformar sua gestão fiscal?</h3>
+          <h3 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold mb-2 sm:mb-3 md:mb-4">Pronto para transformar seu provedor?</h3>
           <p className="text-sm sm:text-base md:text-lg lg:text-xl mb-3 sm:mb-4 md:mb-6 opacity-90">
-            Junte-se a centenas de empresas de comunicação que já confiam no Brazcom NFCom
+            Junte-se a comunidade de provedores de comunicação que já confiam no Brazcom ISP Suite
           </p>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 md:gap-4 justify-center">
             <Link

@@ -8,6 +8,8 @@ from typing import Optional
 
 from app.core.config import settings
 from app.routes.auth import get_current_user
+from app.api import deps
+from app.core.database import get_db
 from app.models.models import Usuario
 
 router = APIRouter(
@@ -82,6 +84,13 @@ async def upload_empresa_logo(
         )
 
     try:
+        # Permission: require services_manage to upload company logos
+        db = next(get_db())
+        try:
+            deps.permission_checker('services_manage')(db=db, current_user=current_user)
+        finally:
+            db.close()
+
         file_path = _save_uploaded_file(file, "logos", empresa_id, use_empresa_subfolder=False)
         return JSONResponse(
             content={
@@ -114,6 +123,13 @@ async def upload_empresa_certificado(
         )
 
     try:
+        # Permission: require nfcom_manage to upload company certificates
+        db = next(get_db())
+        try:
+            deps.permission_checker('nfcom_manage')(db=db, current_user=current_user)
+        finally:
+            db.close()
+
         file_path = _save_uploaded_file(file, "certificates", empresa_id, use_certificates_dir=True)
         return JSONResponse(
             content={
@@ -136,6 +152,13 @@ async def delete_empresa_logo(
 
     - **empresa_id**: ID da empresa
     """
+    # Permission: require services_manage to delete company logos
+    db = next(get_db())
+    try:
+        deps.permission_checker('services_manage')(db=db, current_user=current_user)
+    finally:
+        db.close()
+
     logo_dir = Path(settings.UPLOAD_DIR) / "logos" / str(empresa_id)
 
     if not logo_dir.exists():
