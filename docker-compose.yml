@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Serviço do Banco de Dados MySQL
   db:
@@ -15,7 +13,7 @@ services:
       # Porta de produção: 3315 (host) -> 3306 (container)
       - "3315:3306"
     volumes:
-      - brazcom_data:/var/lib/mysql
+      - brazcom_db_data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-P", "3306", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
