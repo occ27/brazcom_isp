@@ -41,7 +41,7 @@ const Home = () => {
       >
         <Box
           component="img"
-          src="/logo_retangular.PNG"
+          src={process.env.PUBLIC_URL + '/logo_retangular.PNG'}
           alt="Brazcom ISP Logo"
           sx={{
             height: { xs: 80, sm: 120, md: 150 },
