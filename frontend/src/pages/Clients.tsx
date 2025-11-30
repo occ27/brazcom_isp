@@ -391,7 +391,17 @@ const Clients: React.FC = () => {
   const renderPagination = () => {
     if (isMobile) {
       return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, py: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          gap: 2, 
+          py: 3, 
+          mt: 2,
+          borderTop: '1px solid', 
+          borderColor: 'divider',
+          bgcolor: 'background.paper'
+        }}>
           <Pagination 
             count={Math.ceil(totalRows / rowsPerPage)} 
             page={page + 1} 
@@ -425,7 +435,12 @@ const Clients: React.FC = () => {
         onPageChange={handleChangePage}
         onRowsPerPageChange={handleTableRowsPerPageChange}
         labelRowsPerPage="Itens por página:"
-        sx={{ flexShrink: 0, borderTop: '1px solid', borderColor: 'divider' }}
+        sx={{ 
+          flexShrink: 0, 
+          borderTop: '1px solid', 
+          borderColor: 'divider',
+          bgcolor: 'background.paper'
+        }}
       />
     )
   }
@@ -477,9 +492,10 @@ const Clients: React.FC = () => {
         ) : (
           renderClientTable()
         )}
+        
+        {/* Pagination inside scrollable area */}
+        {!loading && renderPagination()}
       </Box>
-      
-      {!loading && renderPagination()}
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4">

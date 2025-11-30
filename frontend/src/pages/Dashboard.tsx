@@ -160,26 +160,27 @@ const Dashboard: React.FC = () => {
         src={process.env.PUBLIC_URL + '/logo_retangular.png'}
         alt="Brazcom ISP Logo"
         sx={{
-          height: { xs: 50, sm: 50, md: 80 },
+          height: { xs: 40, sm: 50, md: 60 },
           width: 'auto',
-          ml: { xs: 1, sm: 1 },
-          mb: { xs: 2, sm: 3 },
+          ml: { xs: 0, sm: 1 },
+          mb: { xs: 1, sm: 2, md: 3 },
           display: 'block',
+          maxWidth: '100%',
         }}
       />
 
       {/* Cards de estatísticas */}
-      <Grid container spacing={3} columns={10} sx={{ mb: 2 }}>
+      <Grid container spacing={2} sx={{ mb: 2 }}>
         {stats.map((stat, index) => (
-          <Grid item key={index} xs={10} sm={5} md={stat.title === 'Valor Total' ? 4 : 2}>
+          <Grid item key={index} xs={6} sm={6} md={3}>
             <Paper
               sx={{
-                p: 3,
+                p: { xs: 2, sm: 3 },
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 textAlign: 'center',
-                minHeight: 140,
+                minHeight: { xs: 100, sm: 120, md: 140 },
                   background: `linear-gradient(135deg, ${colorMap[stat.color].bg} 0%, #ffffff 100%)`,
                   border: `1px solid ${colorMap[stat.color].border}`,
               }}
@@ -210,19 +211,19 @@ const Dashboard: React.FC = () => {
       </Grid>
 
       {/* Gráficos */}
-      <Grid container spacing={3} sx={{ mb: 2 }}>
+      <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: 350 }}>
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+          <Paper sx={{ p: { xs: 2, sm: 3 }, height: { xs: 300, sm: 350 } }}>
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main', fontSize: { xs: '1rem', sm: '1.25rem' } }}>
               📊 Distribuição por Status das NFComs
             </Typography>
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height="80%">
               <PieChart>
                 <Pie
                   data={statusData}
                   cx="50%"
                   cy="50%"
-                  outerRadius={80}
+                  outerRadius={70}
                   fill="#8884d8"
                   dataKey="value"
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
@@ -237,15 +238,15 @@ const Dashboard: React.FC = () => {
           </Paper>
         </Grid>
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: 350 }}>
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+          <Paper sx={{ p: { xs: 2, sm: 3 }, height: { xs: 300, sm: 350 } }}>
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main', fontSize: { xs: '1rem', sm: '1.25rem' } }}>
               📈 Valores Mensais (R$)
             </Typography>
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height="80%">
               <BarChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
+                <XAxis dataKey="month" fontSize={12} />
+                <YAxis fontSize={12} />
                 <Tooltip formatter={(value) => [new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value as number), 'Valor']} />
                 <Legend />
                 <Bar dataKey="valor" fill="#2196f3" />
@@ -256,45 +257,45 @@ const Dashboard: React.FC = () => {
       </Grid>
 
       <Box sx={{ mt: 2 }}>
-        <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+        <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main', fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
           ⚡ Ações Rápidas
         </Typography>
         <Grid container spacing={2}>
           <Grid item xs={12} sm={6} md={4}>
-              <Paper sx={{ p: 3, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover', transform: 'translateY(-2px)', transition: 'all 0.2s' }, borderRadius: 2, boxShadow: 1 }} onClick={() => navigate('/nfcom?new=true')}>
+              <Paper sx={{ p: { xs: 2, sm: 3 }, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover', transform: 'translateY(-2px)', transition: 'all 0.2s' }, borderRadius: 2, boxShadow: 1 }} onClick={() => navigate('/nfcom?new=true')}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <DocumentTextIcon style={{ width: 24, height: 24, color: '#1976d2', stroke: '#1976d2', marginRight: 12 }} strokeWidth={1.5} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', fontSize: { xs: '1rem', sm: '1.125rem' } }}>
                   Emitir NFCom
                 </Typography>
               </Box>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.875rem' } }}>
                 Criar uma nova NFCom
               </Typography>
             </Paper>
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
-              <Paper sx={{ p: 3, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover', transform: 'translateY(-2px)', transition: 'all 0.2s' }, borderRadius: 2, boxShadow: 1 }} onClick={() => navigate('/clients')}>
+              <Paper sx={{ p: { xs: 2, sm: 3 }, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover', transform: 'translateY(-2px)', transition: 'all 0.2s' }, borderRadius: 2, boxShadow: 1 }} onClick={() => navigate('/clients')}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                   <UsersIcon style={{ width: 24, height: 24, color: '#2e7d32', stroke: '#2e7d32', marginRight: 12 }} strokeWidth={1.5} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', fontSize: { xs: '1rem', sm: '1.125rem' } }}>
                     Clientes
                 </Typography>
               </Box>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.875rem' } }}>
                 Gerenciar clientes e endereços
               </Typography>
             </Paper>
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
-              <Paper sx={{ p: 3, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover', transform: 'translateY(-2px)', transition: 'all 0.2s' }, borderRadius: 2, boxShadow: 1 }} onClick={() => navigate('/contracts')}>
+              <Paper sx={{ p: { xs: 2, sm: 3 }, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover', transform: 'translateY(-2px)', transition: 'all 0.2s' }, borderRadius: 2, boxShadow: 1 }} onClick={() => navigate('/contracts')}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <DocumentTextIcon style={{ width: 24, height: 24, color: '#f57c00', stroke: '#f57c00', marginRight: 12 }} strokeWidth={1.5} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', fontSize: { xs: '1rem', sm: '1.125rem' } }}>
                   Contratos
                 </Typography>
               </Box>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.875rem' } }}>
                 Gerenciar contratos e cobranças
               </Typography>
             </Paper>

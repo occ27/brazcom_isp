@@ -457,9 +457,10 @@ const Servicos: React.FC = () => {
         ) : (
           renderServiceTable()
         )}
+        
+        {/* Pagination inside scrollable area */}
+        {!loading && filteredServicos.length > 0 && renderPagination()}
       </Box>
-      
-      {!loading && filteredServicos.length > 0 && renderPagination()}
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

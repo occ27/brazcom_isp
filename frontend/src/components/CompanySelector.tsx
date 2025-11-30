@@ -27,7 +27,18 @@ const CompanySelector: React.FC = () => {
         console.debug('CompanySelector: /empresas response', res);
         // Aceitar multiple formatos: res.data, res.data.data, res.data.empresas
         const data = res.data && (res.data.data || res.data.empresas || res.data);
-        setCompanies(data || []);
+        const companyList = data || [];
+        setCompanies(companyList);
+
+        // Se não há empresa ativa selecionada e temos empresas disponíveis, selecionar a primeira automaticamente
+        if (!activeCompany && companyList.length > 0) {
+          const firstCompany = companyList[0];
+          try {
+            await setActiveCompany(firstCompany as any);
+          } catch (err) {
+            console.error('Erro ao selecionar empresa automaticamente', err);
+          }
+        }
       } catch (e) {
         console.error('Erro ao buscar empresas', e);
       } finally {
@@ -35,14 +46,13 @@ const CompanySelector: React.FC = () => {
       }
     };
     fetchCompanies();
-  }, []);
+  }, [activeCompany, setActiveCompany, enqueueSnackbar]);
 
   const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const id = Number(e.target.value);
     const selected = companies.find((c) => c.id === id) || null;
     try {
       await setActiveCompany(selected as any);
-      enqueueSnackbar('Empresa selecionada com sucesso', { variant: 'success' });
     } catch (err) {
       enqueueSnackbar('Erro ao selecionar empresa', { variant: 'error' });
     }
@@ -59,12 +69,17 @@ const CompanySelector: React.FC = () => {
           <div className="hidden md:block">
             <select
               onChange={handleChange}
-              value={activeCompany?.id ?? ''}
-              className="border rounded px-2 py-1 text-sm"
+              value={activeCompany?.id ?? (companies.length > 0 ? companies[0].id : '')}
+              className="border rounded px-2 py-1 text-sm md:max-w-64 lg:max-w-80 xl:max-w-96"
+              style={{ minWidth: '150px' }}
             >
-              <option value="">Selecione a empresa</option>
+              {companies.length === 0 && (
+                <option value="">Nenhuma empresa disponível</option>
+              )}
               {companies.map((c) => (
-                <option key={c.id} value={c.id}>{c.nome_fantasia || c.razao_social}</option>
+                <option key={c.id} value={c.id} title={c.nome_fantasia || c.razao_social}>
+                  {c.nome_fantasia || c.razao_social}
+                </option>
               ))}
             </select>
           </div>
@@ -73,12 +88,16 @@ const CompanySelector: React.FC = () => {
           <div className="md:hidden relative">
             <button
               onClick={() => setMobileOpen(true)}
-              className="bg-white border rounded px-3 py-1 text-sm flex items-center space-x-2"
+              className="bg-white border rounded px-3 py-1 text-sm flex items-center space-x-2 max-w-48 sm:max-w-64"
+              style={{ minWidth: '120px' }}
               aria-haspopup="dialog"
               aria-expanded={mobileOpen}
+              title={activeCompany?.nome_fantasia || activeCompany?.razao_social || (companies.length > 0 ? companies[0].nome_fantasia || companies[0].razao_social : 'Selecionar empresa')}
             >
-              <span>{activeCompany?.nome_fantasia || activeCompany?.razao_social || 'Selecionar empresa'}</span>
-              <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span className="truncate flex-1 text-left">
+                {activeCompany?.nome_fantasia || activeCompany?.razao_social || (companies.length > 0 ? companies[0].nome_fantasia || companies[0].razao_social : 'Selecionar empresa')}
+              </span>
+              <svg className="w-4 h-4 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
@@ -103,12 +122,16 @@ const CompanySelector: React.FC = () => {
                         }
                         setMobileOpen(false);
                       }}
-                      value={activeCompany?.id ?? ''}
+                      value={activeCompany?.id ?? (companies.length > 0 ? companies[0].id : '')}
                       className="w-full border rounded p-2"
                     >
-                      <option value="">Selecione a empresa</option>
+                      {companies.length === 0 && (
+                        <option value="">Nenhuma empresa disponível</option>
+                      )}
                       {companies.map((c) => (
-                        <option key={c.id} value={c.id}>{c.nome_fantasia || c.razao_social}</option>
+                        <option key={c.id} value={c.id} title={c.nome_fantasia || c.razao_social}>
+                          {c.nome_fantasia || c.razao_social}
+                        </option>
                       ))}
                     </select>
                   </div>

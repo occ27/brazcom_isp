@@ -327,15 +327,15 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
       }`}>
         {/* Top bar */}
         <header className="bg-white shadow-sm border-b border-gray-200">
-          <div className="flex items-center justify-between h-16 px-3 sm:px-4">
+          <div className="flex items-center justify-between h-14 sm:h-16 px-2 sm:px-3 md:px-4">
             <button
               onClick={handleDrawerToggle}
-              className="p-2 rounded-md text-gray-400 hover:text-gray-600 md:hidden"
+              className="p-1.5 sm:p-2 rounded-md text-gray-400 hover:text-gray-600 md:hidden"
             >
-              <Bars3Icon className="w-6 h-6" />
+              <Bars3Icon className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <div>
                 <CompanySelector />
               </div>
@@ -344,7 +344,7 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-3 sm:p-2 md:p-4">
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-2 sm:p-3 md:p-4 lg:p-6">
           {children}
         </main>
       </div>

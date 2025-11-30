@@ -32,6 +32,17 @@ export const CompanyProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
+      // Buscar empresas disponíveis primeiro
+      let companies: any[] = [];
+      try {
+        const res = await api.get('/empresas/');
+        const data = res.data && (res.data.data || res.data.empresas || res.data);
+        companies = Array.isArray(data) ? data : [];
+      } catch (e) {
+        console.error('Erro ao buscar empresas', e);
+        return;
+      }
+
       // Prioridade: backend preference, se disponível
       try {
         const resp = await api.get('/usuarios/me/active-empresa');
@@ -54,23 +65,16 @@ export const CompanyProvider = ({ children }: { children: ReactNode }) => {
         }
       }
 
-      // Se ainda não há, buscar empresas disponíveis e selecionar automaticamente a primeira
-      try {
-        const res = await api.get('/empresas/');
-        const data = res.data && (res.data.data || res.data.empresas || res.data);
-        if (Array.isArray(data) && data.length > 0) {
-          // Selecionar a primeira empresa e persistir no backend
-          const first = data[0];
-          try {
-            await api.post('/usuarios/me/active-empresa', { empresa_id: first.id });
-          } catch (e) {
-            // se persistir falhar, ainda definimos localmente para UX
-            console.warn('Falha ao persistir empresa ativa no backend, definindo localmente', e);
-          }
-          setActiveCompanyState(first);
+      // Se ainda não há empresa selecionada, selecionar automaticamente a primeira disponível
+      if (companies.length > 0) {
+        const first = companies[0];
+        try {
+          await api.post('/usuarios/me/active-empresa', { empresa_id: first.id });
+        } catch (e) {
+          // se persistir falhar, ainda definimos localmente para UX
+          console.warn('Falha ao persistir empresa ativa no backend, definindo localmente', e);
         }
-      } catch (e) {
-        // não fazer nada se a lista de empresas não puder ser obtida
+        setActiveCompanyState(first);
       }
     };
     init();

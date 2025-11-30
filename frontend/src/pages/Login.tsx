@@ -102,7 +102,7 @@ const Login: React.FC = () => {
         >
           <Box
             component="img"
-            src="/logo_retangular.PNG"
+            src={process.env.PUBLIC_URL + '/logo_retangular.png'}
             alt="Brazcom ISP Logo"
             sx={{
               height: { xs: 50, sm: 50, md: 80 },
