@@ -114,20 +114,6 @@ const Receivables: React.FC = () => {
     }
   };
 
-  const handleTestSicoob = async () => {
-    if (!activeCompany) return;
-    try {
-      const response = await receivableService.testSicoobIntegration(activeCompany.id);
-      setSnackbar({
-        open: true,
-        message: response.message,
-        severity: response.status === 'success' ? 'success' : 'error'
-      });
-    } catch (e) {
-      setSnackbar({ open: true, message: stringifyError(e) || 'Erro no teste do Sicoob', severity: 'error' });
-    }
-  };
-
   const handleChangePage = (_: any, newPage: number) => {
     setPage(newPage - 1);
   };
@@ -355,13 +341,6 @@ const Receivables: React.FC = () => {
       <Box sx={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 'bold' }}>Cobranças / Recebíveis</Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="outlined"
-            onClick={handleTestSicoob}
-            disabled={generating}
-          >
-            Testar Sicoob
-          </Button>
           <Button
             variant="contained"
             startIcon={generating ? <CircularProgress size={16} /> : <PlusIcon className="w-5 h-5" />}

@@ -142,8 +142,8 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
   };
 
   // Permissões para financeiro
-  permissionMap['bank-accounts'] = 'billing_view';
-  permissionMap['receivables'] = 'billing_view';
+  permissionMap['bank-accounts'] = 'bank_accounts_view';
+  permissionMap['receivables'] = 'receivables_view';
 
   const canViewItem = (path: PageType) => {
     const required = permissionMap[path as string];

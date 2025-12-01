@@ -25,8 +25,10 @@ PERMISSIONS: List[Tuple[str, str]] = [
     ("nfcom_manage", "Gerenciar emissão de NFCom"),
     ("clients_manage", "Gerenciar clientes"),
     ("services_manage", "Gerenciar serviços"),
-    ("contract_manage", "Gerenciar contratos (criar/editar/excluir/ativar/reset)")
-    ,("contract_view", "Visualizar contratos")
+    ("contract_manage", "Gerenciar contratos (criar/editar/excluir/ativar/reset)"),
+    ("contract_view", "Visualizar contratos"),
+    ("bank_accounts_view", "Visualizar contas bancárias"),
+    ("receivables_view", "Visualizar recebíveis"),
 ]
 
 ROLE_DEFINITIONS = {
@@ -83,7 +85,7 @@ def main():
                 role.permissions = viewer_perms
             elif rname == "Secretary":
                 secretary_perms = []
-                for key in ["clients_manage", "services_manage", "contract_manage"]:
+                for key in ["clients_manage", "services_manage", "contract_manage", "bank_accounts_view", "receivables_view", "receivables_manage"]:
                     p = perm_map.get(key)
                     if p:
                         secretary_perms.append(p)

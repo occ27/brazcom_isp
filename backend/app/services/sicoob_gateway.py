@@ -75,19 +75,8 @@ class SicoobGateway:
             "dataEmissao": dados_boleto.get("dataEmissao"),
             "dataVencimento": dados_boleto.get("dataVencimento"),
             "valor": dados_boleto.get("valor"),
-            "pagador": {
-                "numeroCpfCnpj": dados_boleto.get("cpfCnpjPagador"),
-                "nome": dados_boleto.get("nomePagador"),
-                "endereco": dados_boleto.get("enderecoPagador"),
-                "bairro": dados_boleto.get("bairroPagador"),
-                "cidade": dados_boleto.get("cidadePagador"),
-                "cep": dados_boleto.get("cepPagador"),
-                "uf": dados_boleto.get("ufPagador")
-            },
-            "beneficiario": {
-                "numeroCpfCnpj": dados_boleto.get("cpfCnpjBeneficiario"),
-                "nome": dados_boleto.get("nomeBeneficiario")
-            },
+            "pagador": dados_boleto.get("pagador", {}),
+            "beneficiario": dados_boleto.get("beneficiario", {}),
             "instrucoes": dados_boleto.get("instrucoes", []),
             "multa": dados_boleto.get("multa", 0),
             "juros": dados_boleto.get("juros", 0),

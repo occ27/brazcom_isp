@@ -132,7 +132,7 @@ def init_permissions(empresa_id: int, db: Session = Depends(get_db), current_use
     if not getattr(current_user, 'is_superuser', False):
         deps.permission_checker('permission_manage')(db=db, current_user=current_user)
     # Cria permissões se não existirem
-    perms = ['billing_view', 'billing_manage']
+    perms = ['bank_accounts_view', 'bank_accounts_manage', 'receivables_view', 'receivables_manage']
     created = []
     for p in perms:
         exists = db.query(Permission).filter(Permission.name == p).first()
@@ -148,7 +148,7 @@ def init_permissions(empresa_id: int, db: Session = Depends(get_db), current_use
 @router.get('/', response_model=List[BankAccountResponse])
 def list_bank_accounts(empresa_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     # Checa se usuário tem permissão de visualização
-    deps.permission_checker('billing_view')(db=db, current_user=current_user)
+    deps.permission_checker('bank_accounts_view')(db=db, current_user=current_user)
     items = db.query(BankAccount).filter(BankAccount.empresa_id == empresa_id).all()
     serialized = [_serialize(i, include_credentials=getattr(current_user, 'is_superuser', False)) for i in items]
     return serialized
@@ -156,7 +156,7 @@ def list_bank_accounts(empresa_id: int, db: Session = Depends(get_db), current_u
 
 @router.post('/', status_code=status.HTTP_201_CREATED)
 def create_bank_account(empresa_id: int, payload: BankAccountCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
-    deps.permission_checker('billing_manage')(db=db, current_user=current_user)
+    deps.permission_checker('bank_accounts_manage')(db=db, current_user=current_user)
     ba = BankAccount(
         empresa_id=empresa_id,
         bank=payload.bank,
@@ -188,7 +188,7 @@ def create_bank_account(empresa_id: int, payload: BankAccountCreate, db: Session
 
 @router.put('/{bank_account_id}', status_code=status.HTTP_200_OK)
 def update_bank_account(empresa_id: int, bank_account_id: int, payload: BankAccountUpdate, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
-    deps.permission_checker('billing_manage')(db=db, current_user=current_user)
+    deps.permission_checker('bank_accounts_manage')(db=db, current_user=current_user)
     ba = db.query(BankAccount).filter(BankAccount.id == bank_account_id, BankAccount.empresa_id == empresa_id).first()
     if not ba:
         raise HTTPException(status_code=404, detail='Bank account not found')
@@ -211,7 +211,7 @@ def update_bank_account(empresa_id: int, bank_account_id: int, payload: BankAcco
 
 @router.delete('/{bank_account_id}', status_code=status.HTTP_200_OK)
 def delete_bank_account(empresa_id: int, bank_account_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
-    deps.permission_checker('billing_manage')(db=db, current_user=current_user)
+    deps.permission_checker('bank_accounts_manage')(db=db, current_user=current_user)
     ba = db.query(BankAccount).filter(BankAccount.id == bank_account_id, BankAccount.empresa_id == empresa_id).first()
     if not ba:
         raise HTTPException(status_code=404, detail='Bank account not found')

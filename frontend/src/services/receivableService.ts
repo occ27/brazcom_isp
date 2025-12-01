@@ -47,8 +47,10 @@ const generateForCompany = async (empresaId: number, targetDate?: string) => {
   return resp.data as Receivable[];
 };
 
-const testSicoobIntegration = async (empresaId: number) => {
-  const resp = await api.post(`/receivables/test-sicoob/${empresaId}`);
+const testSicoobIntegration = async (empresaId: number, bankAccountId?: number) => {
+  const params: any = {};
+  if (bankAccountId) params.bank_account_id = bankAccountId;
+  const resp = await api.post(`/receivables/empresa/${empresaId}/test-sicoob`, null, { params });
   return resp.data;
 };
 

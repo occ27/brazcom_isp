@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Box, Paper, Typography, Button, IconButton, TextField, CircularProgress, Chip, Snackbar, Alert, useMediaQuery, useTheme, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination, Card, CardContent, Divider, Pagination, InputAdornment, MenuItem } from '@mui/material';
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon, PlayIcon } from '@heroicons/react/24/outline';
 import { useCompany } from '../contexts/CompanyContext';
 import bankAccountService from '../services/bankAccountService';
+import receivableService from '../services/receivableService';
 import { stringifyError } from '../utils/error';
 
 interface BankAccountCreate {
@@ -237,6 +238,19 @@ const BankAccounts: React.FC = () => {
     }
   };
 
+  const handleTestSicoob = async (bankAccount: BankAccount) => {
+    if (!activeCompany) return;
+    try {
+      setLoading(true);
+      const result = await receivableService.testSicoobIntegration(activeCompany.id, bankAccount.id);
+      setSnackbar({ open: true, message: result.message || 'Teste do Sicoob realizado com sucesso', severity: 'success' });
+    } catch (e) {
+      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao testar integração com Sicoob', severity: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleChangePage = (_: any, newPage: number) => {
     setPage(newPage - 1);
   };
@@ -289,6 +303,11 @@ const BankAccounts: React.FC = () => {
                 <IconButton size="small" onClick={() => handleDelete(ba)} title="Excluir">
                   <TrashIcon className="w-4 h-4 text-red-500" />
                 </IconButton>
+                {(ba.sicoob_client_id || ba.sicoob_access_token) && (
+                  <IconButton size="small" onClick={() => handleTestSicoob(ba)} title="Testar Sicoob" disabled={loading}>
+                    <PlayIcon className="w-4 h-4 text-green-500" />
+                  </IconButton>
+                )}
               </TableCell>
             </TableRow>
           ))}
@@ -319,6 +338,11 @@ const BankAccounts: React.FC = () => {
                 <IconButton size="small" onClick={() => handleDelete(ba)}>
                   <TrashIcon className="w-4 h-4 text-red-500" />
                 </IconButton>
+                {(ba.sicoob_client_id || ba.sicoob_access_token) && (
+                  <IconButton size="small" onClick={() => handleTestSicoob(ba)} disabled={loading}>
+                    <PlayIcon className="w-4 h-4 text-green-500" />
+                  </IconButton>
+                )}
               </Box>
             </Box>
             <Divider sx={{ mb: 2 }} />
