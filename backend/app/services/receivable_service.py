@@ -61,7 +61,7 @@ def generate_receivable_from_contract(db: Session, contrato: ServicoContratado, 
         amount=amount,
         discount=0.0,
         interest_percent=0.0,
-        fine_percent=contrato.multa_atraso_percentual or 0.0,
+        fine_percent=0.0,  # Will be set from bank account below
         status='PENDING'
     )
 
@@ -78,6 +78,10 @@ def generate_receivable_from_contract(db: Session, contrato: ServicoContratado, 
         logging.exception("Erro ao buscar conta bancária para geração de cobrança")
 
     if bank_account:
+        # Aplicar configurações de cobrança da conta bancária
+        recv.fine_percent = bank_account.multa_atraso_percentual or 0.0
+        recv.interest_percent = bank_account.juros_atraso_percentual or 0.0
+        
         # Popular referência à conta e snapshot (sem credenciais)
         recv.bank_account_id = bank_account.id
         try:
@@ -100,8 +104,13 @@ def generate_receivable_from_contract(db: Session, contrato: ServicoContratado, 
             "carteira": bank_account.carteira,
             "convenio": bank_account.convenio,
             "is_default": bool(bank_account.is_default),
+            "multa_atraso_percentual": bank_account.multa_atraso_percentual,
+            "juros_atraso_percentual": bank_account.juros_atraso_percentual,
         }
         recv.bank_account_snapshot = json.dumps(snapshot, default=str)
+    else:
+        # Fallback: usar configurações do contrato se não houver conta bancária
+        recv.fine_percent = contrato.multa_atraso_percentual or 0.0
 
     return recv
 

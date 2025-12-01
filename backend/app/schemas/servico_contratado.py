@@ -60,6 +60,9 @@ class ServicoContratadoBase(BaseModel):
     periodo_carencia: Optional[int] = Field(0, ge=0, description="Dias de carência após vencimento")
     multa_atraso_percentual: Optional[float] = Field(0.0, ge=0, le=100, description="Percentual de multa por atraso (%)")
 
+    # Relacionamento com conta bancária para cobrança
+    bank_account_id: Optional[int] = Field(None, description="ID da conta bancária para cobrança deste contrato")
+
     # Taxas adicionais
     taxa_instalacao: Optional[float] = Field(0.0, ge=0, description="Taxa única de instalação")
     taxa_instalacao_paga: Optional[bool] = Field(False, description="Se a taxa de instalação já foi cobrada")
@@ -168,6 +171,9 @@ class ServicoContratadoUpdate(BaseModel):
     periodo_carencia: Optional[int] = Field(None, ge=0)
     multa_atraso_percentual: Optional[float] = Field(None, ge=0, le=100)
 
+    # Relacionamento com conta bancária para cobrança
+    bank_account_id: Optional[int] = Field(None, description="ID da conta bancária para cobrança deste contrato")
+
     # Taxas adicionais
     taxa_instalacao: Optional[float] = Field(None, ge=0)
     taxa_instalacao_paga: Optional[bool] = None
@@ -255,6 +261,12 @@ class ServicoContratadoResponse(ServicoContratadoBase):
     cliente_uf: Optional[str] = None
     servico_descricao: Optional[str] = None
     servico_codigo: Optional[str] = None
+
+    # Relacionamento com conta bancária
+    bank_account_id: Optional[int] = None
+    bank_account_bank: Optional[str] = None
+    bank_account_agencia: Optional[str] = None
+    bank_account_conta: Optional[str] = None
 
     class Config:
         from_attributes = True

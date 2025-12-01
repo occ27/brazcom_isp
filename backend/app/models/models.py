@@ -551,6 +551,10 @@ class BankAccount(Base):
     # Credenciais específicas do Sicoob
     sicoob_client_id = Column(String(100), nullable=True)
     sicoob_access_token = Column(String(200), nullable=True)
+    
+    # Configurações de cobrança padrão
+    multa_atraso_percentual = Column(Float, nullable=True, default=2.0)  # % de multa por atraso
+    juros_atraso_percentual = Column(Float, nullable=True, default=1.0)  # % de juros por dia de atraso
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

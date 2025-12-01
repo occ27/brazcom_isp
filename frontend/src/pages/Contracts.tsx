@@ -13,6 +13,7 @@ import { useAuth } from '../contexts/AuthContext';
 import contratoService, { Contrato, ContratoListResponse } from '../services/contratoService';
 import clientService from '../services/clientService';
 import servicoService, { Servico } from '../services/servicoService';
+import bankAccountService, { BankAccount } from '../services/bankAccountService';
 import { routerService } from '../services/routerService';
 import { networkService } from '../services/networkService';
 import { Cliente, Router, RouterInterface, IPClass } from '../types';
@@ -136,6 +137,9 @@ const Contracts: React.FC = () => {
   const [servicos, setServicos] = useState<Servico[]>([]);
   const [servicoSearch, setServicoSearch] = useState('');
   const [servicoLoading, setServicoLoading] = useState(false);
+
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [bankAccountLoading, setBankAccountLoading] = useState(false);
 
   // Network configuration state
   const [routers, setRouters] = useState<Router[]>([]);
@@ -315,6 +319,13 @@ const Contracts: React.FC = () => {
     }
   }, [searchTerm, diaVencimentoMin, diaVencimentoMax, activeCompany]);
 
+  // Load bank accounts when activeCompany changes
+  useEffect(() => {
+    if (activeCompany) {
+      loadBankAccounts();
+    }
+  }, [activeCompany]);
+
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(isMobile ? newPage - 1 : newPage);
   };
@@ -341,6 +352,20 @@ const Contracts: React.FC = () => {
       setClients([]);
     } finally {
       setClientLoading(false);
+    }
+  }, [activeCompany]);
+
+  const loadBankAccounts = useCallback(async () => {
+    if (!activeCompany) return;
+    setBankAccountLoading(true);
+    try {
+      const response = await bankAccountService.listBankAccounts(activeCompany.id);
+      setBankAccounts(response || []);
+    } catch (error) {
+      console.error("Erro ao carregar contas bancárias:", error);
+      setBankAccounts([]);
+    } finally {
+      setBankAccountLoading(false);
     }
   }, [activeCompany]);
 
@@ -791,6 +816,7 @@ const Contracts: React.FC = () => {
       if (activeCompany) {
         loadClients('');
         loadServicos('');
+        loadBankAccounts();
         // Carregar dados de rede para novo contrato
         loadRouters();
       }
@@ -2012,6 +2038,28 @@ const Contracts: React.FC = () => {
                     Configurações de cobrança e qualidade do plano de internet.
                   </p>
                   <div className="mt-3 sm:mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Conta Bancária</InputLabel>
+                      <Select
+                        value={form.bank_account_id?.toString() || ''}
+                        label="Conta Bancária"
+                        onChange={(e: SelectChangeEvent) => handleInputChange('bank_account_id', e.target.value === '' ? undefined : parseInt(e.target.value))}
+                        disabled={bankAccountLoading}
+                      >
+                        <MenuItem value="">
+                          <em>Conta padrão da empresa</em>
+                        </MenuItem>
+                        {bankAccounts.map((bankAccount) => (
+                          <MenuItem key={bankAccount.id} value={bankAccount.id}>
+                            {bankAccount.bank} - Ag: {bankAccount.agencia} Conta: {bankAccount.conta}
+                            {bankAccount.is_default && ' (Padrão)'}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      <FormHelperText>
+                        Conta bancária para cobrança deste contrato. Se não selecionada, usa a conta padrão da empresa.
+                      </FormHelperText>
+                    </FormControl>
                     <TextField
                       label="Período de Carência (dias)"
                       type="number"

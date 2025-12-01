@@ -28,6 +28,9 @@ class EmpresaBase(BaseModel):
     regime_tributario: Optional[str] = Field(None, max_length=50)
     cnae_principal: Optional[str] = Field(None, max_length=10)
     
+    # Configuração de cobrança: conta bancária padrão (opcional)
+    default_bank_account_id: Optional[int] = Field(None, description="ID da conta bancária padrão para cobranças")
+    
     # Novos campos
     logo_url: Optional[str] = Field(None, max_length=500)
     # Campos sensíveis (não expostos por padrão nas respostas)
@@ -125,33 +128,45 @@ class EmpresaCreate(EmpresaBase):
     # Ambiente desejado para transmissão desta empresa. Valores permitidos: 'producao' ou 'homologacao'
     ambiente_nfcom: Optional[str] = Field('producao', max_length=20)
 
-class EmpresaResponse(EmpresaBase):
+class EmpresaResponse(BaseModel):
+    # Campos de EmpresaBase
+    razao_social: str = Field(..., max_length=255)
+    nome_fantasia: Optional[str] = Field(None, max_length=255)
+    cnpj: str = Field(..., max_length=18)
+    inscricao_estadual: Optional[str] = Field(None, max_length=20)
+    endereco: str = Field(..., max_length=255)
+    numero: str = Field(..., max_length=20)
+    complemento: Optional[str] = Field(None, max_length=100)
+    bairro: str = Field(..., max_length=100)
+    municipio: str = Field(..., max_length=100)
+    uf: str = Field(..., max_length=2)
+    codigo_ibge: str = Field(..., max_length=7)
+    cep: str = Field(..., max_length=9)
+    pais: str = Field('BRASIL', max_length=60)
+    codigo_pais: str = Field('1058', max_length=4)
+    telefone: Optional[str] = Field(None, max_length=20)
+    email: str = Field(..., max_length=255)
+    regime_tributario: Optional[str] = Field(None, max_length=50)
+    cnae_principal: Optional[str] = Field(None, max_length=10)
+    
+    # Configuração de cobrança: conta bancária padrão (opcional)
+    default_bank_account_id: Optional[int] = Field(None, description="ID da conta bancária padrão para cobranças")
+    
+    # Novos campos
+    logo_url: Optional[str] = Field(None, max_length=500)
+    
+    # Campos específicos de EmpresaResponse
     id: int
-    razao_social: str
-    nome_fantasia: Optional[str] = None
-    cnpj: str
-    inscricao_estadual: Optional[str] = None
-    endereco: str
-    numero: str
-    complemento: Optional[str] = None
-    bairro: str
-    municipio: str
-    uf: str
-    codigo_ibge: str
-    cep: str
-    telefone: Optional[str] = None
-    email: str
-    regime_tributario: Optional[str] = None
-    cnae_principal: Optional[str] = None
-    logo_url: Optional[str] = None
-    # Campos SMTP (exceto senha por segurança)
-    smtp_server: Optional[str] = None
-    smtp_port: Optional[int] = None
-    smtp_user: Optional[str] = None
     ambiente_nfcom: str
     is_active: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
+    
+    # Campos SMTP (exceto senha por segurança)
+    smtp_server: Optional[str] = None
+    smtp_port: Optional[int] = None
+    smtp_user: Optional[str] = None
+    
     class Config:
         from_attributes = True
 
@@ -192,6 +207,9 @@ class EmpresaUpdate(BaseModel):
     email: Optional[str] = Field(None, max_length=255)
     regime_tributario: Optional[str] = Field(None, max_length=50)
     cnae_principal: Optional[str] = Field(None, max_length=10)
+    
+    # Configuração de cobrança: conta bancária padrão (opcional)
+    default_bank_account_id: Optional[int] = Field(None, description="ID da conta bancária padrão para cobranças")
     
     # Novos campos
     logo_url: Optional[str] = Field(None, max_length=500)

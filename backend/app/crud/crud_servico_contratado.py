@@ -42,6 +42,92 @@ def get_servico_contratado(db: Session, contrato_id: int, empresa_id: int = None
     return q.first()
 
 
+def get_servico_contratado_with_relations(db: Session, contrato_id: int, empresa_id: int = None):
+    """Get a single servico contratado with related data for response"""
+    q = db.query(
+        models.ServicoContratado,
+        models.Cliente.nome_razao_social.label('cliente_nome'),
+        models.Cliente.cpf_cnpj.label('cliente_cpf_cnpj'),
+        models.Cliente.telefone.label('cliente_telefone'),
+        models.Cliente.inscricao_estadual.label('cliente_inscricao_estadual'),
+        models.Cliente.nome_razao_social.label('cliente_razao_social'),
+        models.EmpresaClienteEndereco.endereco.label('cliente_endereco'),
+        models.EmpresaClienteEndereco.numero.label('cliente_numero'),
+        models.EmpresaClienteEndereco.bairro.label('cliente_bairro'),
+        models.EmpresaClienteEndereco.municipio.label('cliente_municipio'),
+        models.EmpresaClienteEndereco.uf.label('cliente_uf'),
+        models.Servico.descricao.label('servico_descricao'),
+        models.Servico.codigo.label('servico_codigo'),
+        models.BankAccount.id.label('bank_account_id'),
+        models.BankAccount.bank.label('bank_account_bank'),
+        models.BankAccount.agencia.label('bank_account_agencia'),
+        models.BankAccount.conta.label('bank_account_conta')
+    ).join(
+        models.Cliente, models.ServicoContratado.cliente_id == models.Cliente.id
+    ).join(
+        models.Servico, models.ServicoContratado.servico_id == models.Servico.id
+    ).outerjoin(
+        models.EmpresaCliente,
+        and_(models.EmpresaCliente.cliente_id == models.Cliente.id,
+             models.EmpresaCliente.empresa_id == models.ServicoContratado.empresa_id)
+    ).outerjoin(
+        models.EmpresaClienteEndereco,
+        and_(models.EmpresaClienteEndereco.empresa_cliente_id == models.EmpresaCliente.id,
+             models.EmpresaClienteEndereco.is_principal == True)
+    ).outerjoin(
+        models.BankAccount, models.ServicoContratado.bank_account_id == models.BankAccount.id
+    ).filter(models.ServicoContratado.id == contrato_id)
+    
+    if empresa_id is not None:
+        q = q.filter(models.ServicoContratado.empresa_id == empresa_id)
+    
+    row = q.first()
+    if not row:
+        return None
+        
+    (
+        contrato,
+        cliente_nome,
+        cliente_cpf_cnpj,
+        cliente_telefone,
+        cliente_inscricao_estadual,
+        cliente_razao_social,
+        cliente_endereco,
+        cliente_numero,
+        cliente_bairro,
+        cliente_municipio,
+        cliente_uf,
+        servico_descricao,
+        servico_codigo,
+        bank_account_id,
+        bank_account_bank,
+        bank_account_agencia,
+        bank_account_conta
+    ) = row
+
+    contrato_dict = {
+        **{k: v for k, v in contrato.__dict__.items() if not k.startswith('_')},
+        'cliente_nome': cliente_nome,
+        'cliente_razao_social': cliente_razao_social,
+        'cliente_cpf_cnpj': cliente_cpf_cnpj,
+        'cliente_telefone': cliente_telefone,
+        'cliente_inscricao_estadual': cliente_inscricao_estadual,
+        'cliente_endereco': cliente_endereco,
+        'cliente_numero': cliente_numero,
+        'cliente_bairro': cliente_bairro,
+        'cliente_municipio': cliente_municipio,
+        'cliente_uf': cliente_uf,
+        'servico_descricao': servico_descricao,
+        'servico_codigo': servico_codigo,
+        'bank_account_id': bank_account_id,
+        'bank_account_bank': bank_account_bank,
+        'bank_account_agencia': bank_account_agencia,
+        'bank_account_conta': bank_account_conta
+    }
+    
+    return contrato_dict
+
+
 def get_servicos_contratados_by_empresa(db: Session, empresa_id: int = None, qstr: str = None, skip: int = 0, limit: int = 100, dia_vencimento_min: int = None, dia_vencimento_max: int = None):
     if limit is None:
         limit = 100
@@ -61,7 +147,11 @@ def get_servicos_contratados_by_empresa(db: Session, empresa_id: int = None, qst
         models.EmpresaClienteEndereco.municipio.label('cliente_municipio'),
         models.EmpresaClienteEndereco.uf.label('cliente_uf'),
         models.Servico.descricao.label('servico_descricao'),
-        models.Servico.codigo.label('servico_codigo')
+        models.Servico.codigo.label('servico_codigo'),
+        models.BankAccount.id.label('bank_account_id'),
+        models.BankAccount.bank.label('bank_account_bank'),
+        models.BankAccount.agencia.label('bank_account_agencia'),
+        models.BankAccount.conta.label('bank_account_conta')
     ).join(
         models.Cliente, models.ServicoContratado.cliente_id == models.Cliente.id
     ).join(
@@ -74,6 +164,8 @@ def get_servicos_contratados_by_empresa(db: Session, empresa_id: int = None, qst
         models.EmpresaClienteEndereco,
         and_(models.EmpresaClienteEndereco.empresa_cliente_id == models.EmpresaCliente.id,
              models.EmpresaClienteEndereco.is_principal == True)
+    ).outerjoin(
+        models.BankAccount, models.ServicoContratado.bank_account_id == models.BankAccount.id
     )
     if empresa_id is not None:
         q = q.filter(models.ServicoContratado.empresa_id == empresa_id)
@@ -109,7 +201,11 @@ def get_servicos_contratados_by_empresa(db: Session, empresa_id: int = None, qst
             cliente_municipio,
             cliente_uf,
             servico_descricao,
-            servico_codigo
+            servico_codigo,
+            bank_account_id,
+            bank_account_bank,
+            bank_account_agencia,
+            bank_account_conta
         ) = row
 
         contrato_dict = {
@@ -125,7 +221,11 @@ def get_servicos_contratados_by_empresa(db: Session, empresa_id: int = None, qst
             'cliente_municipio': cliente_municipio,
             'cliente_uf': cliente_uf,
             'servico_descricao': servico_descricao,
-            'servico_codigo': servico_codigo
+            'servico_codigo': servico_codigo,
+            'bank_account_id': bank_account_id,
+            'bank_account_bank': bank_account_bank,
+            'bank_account_agencia': bank_account_agencia,
+            'bank_account_conta': bank_account_conta
         }
         contratos.append(contrato_dict)
 

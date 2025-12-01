@@ -45,6 +45,9 @@ export interface Contrato {
   pppoe_username?: string;
   pppoe_password?: string;
 
+  // Relacionamento com conta bancária para cobrança
+  bank_account_id?: number;
+
   // Related data
   cliente_nome?: string;
   cliente_razao_social?: string;
@@ -54,6 +57,9 @@ export interface Contrato {
   cliente_uf?: string;
   servico_descricao?: string;
   servico_codigo?: string;
+  bank_account_bank?: string;
+  bank_account_agencia?: string;
+  bank_account_conta?: string;
 }
 
 export interface ContratoListResponse {

@@ -20,6 +20,7 @@ import {
   FormControl,
   InputLabel,
   Select,
+  SelectChangeEvent,
   useMediaQuery,
   useTheme
 } from '@mui/material';
@@ -32,6 +33,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { API_BASE_URL } from '../services/api';
 import { companyService, CompanyCreate, CompanyUpdate } from '../services/companyService';
+import bankAccountService, { BankAccount } from '../services/bankAccountService';
 import { stringifyError } from '../utils/error';
 import { Company } from '../types';
 import FileUploader from '../components/FileUploader';
@@ -50,6 +52,7 @@ const Companies: React.FC = () => {
   const [certificateFile, setCertificateFile] = useState<File | null>(null);
   const [testingSMTP, setTestingSMTP] = useState(false);
   const [smtpPasswordConfigured, setSmtpPasswordConfigured] = useState(false);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [formData, setFormData] = useState<CompanyCreate>({
     razao_social: '',
     nome_fantasia: '',
@@ -67,6 +70,9 @@ const Companies: React.FC = () => {
     email: '',        // Agora obrigatório
     regime_tributario: '',
     cnae_principal: '', // Novo campo opcional
+    
+    // Configuração de cobrança: conta bancária padrão (opcional)
+    default_bank_account_id: undefined,
     
     // Novos campos para logo, certificado e email
     logo_url: '',
@@ -110,6 +116,28 @@ const Companies: React.FC = () => {
     }
   };
 
+  const loadBankAccounts = async (empresaId: number) => {
+    try {
+      const data = await bankAccountService.listBankAccounts(empresaId);
+      setBankAccounts(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar contas bancárias:', error);
+      setSnackbar({
+        open: true,
+        message: 'Erro ao carregar contas bancárias',
+        severity: 'error'
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (editingCompany) {
+      loadBankAccounts(editingCompany.id);
+    } else {
+      setBankAccounts([]);
+    }
+  }, [editingCompany]);
+
   const handleOpenDialog = (company?: Company) => {
     if (company) {
       setEditingCompany(company);
@@ -131,6 +159,9 @@ const Companies: React.FC = () => {
         email: company.email || '',       // Agora obrigatório
         regime_tributario: company.regime_tributario || '',
         cnae_principal: company.cnae_principal || '', // Novo campo
+        
+        // Configuração de cobrança: conta bancária padrão (opcional)
+        default_bank_account_id: company.default_bank_account_id,
         
         // Novos campos
         logo_url: company.logo_url || '',
@@ -744,6 +775,7 @@ const Companies: React.FC = () => {
                 {[
                   { id: "basic", label: "Dados Básicos", icon: "📋", color: "blue" },
                   { id: "address", label: "Endereço", icon: "📍", color: "green" },
+                  { id: "billing", label: "Cobrança", icon: "💳", color: "teal" },
                   { id: "files", label: "Arquivos", icon: "📁", color: "purple" },
                   { id: "email", label: "E-mail", icon: "📧", color: "orange" },
                 ].map((tab) => (
@@ -1002,6 +1034,45 @@ const Companies: React.FC = () => {
                         helperText={errors.codigo_ibge || "Código do município"}
                         size="small"
                       />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "billing" && editingCompany && (
+                <div className="space-y-4 sm:space-y-6">
+                  <div className="bg-gradient-to-r from-teal-50 to-cyan-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-teal-100">
+                    <h3 className="text-lg sm:text-xl font-bold text-teal-800 mb-1 sm:mb-2 flex items-center">
+                      <span className="mr-2 text-base sm:text-lg">💳</span>
+                      <span className="text-sm sm:text-base">Configurações de Cobrança</span>
+                    </h3>
+                    <p className="text-xs sm:text-sm text-teal-600 hidden sm:block">
+                      Configure a conta bancária padrão para cobranças desta empresa.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <div>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Conta Bancária Padrão</InputLabel>
+                        <Select
+                          value={formData.default_bank_account_id?.toString() || ''}
+                          onChange={(e: SelectChangeEvent) => handleInputChange('default_bank_account_id', e.target.value === '' ? undefined : parseInt(e.target.value))}
+                          label="Conta Bancária Padrão"
+                        >
+                          <MenuItem value="">
+                            <em>Nenhuma</em>
+                          </MenuItem>
+                          {bankAccounts.map((bankAccount) => (
+                            <MenuItem key={bankAccount.id} value={bankAccount.id.toString()}>
+                              {bankAccount.bank} - {bankAccount.agencia}/{bankAccount.conta}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Conta bancária usada por padrão em novos contratos desta empresa.
+                      </p>
                     </div>
                   </div>
                 </div>

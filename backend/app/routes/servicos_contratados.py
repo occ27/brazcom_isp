@@ -33,13 +33,13 @@ def list_servicos_contratados(empresa_id: int = None, q: str = None, skip: int =
 
 @router.get("/{contrato_id}", response_model=sc_schema.ServicoContratadoResponse)
 def get_contrato(contrato_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
-    c = crud_servico_contratado.get_servico_contratado(db, contrato_id=contrato_id)
+    c = crud_servico_contratado.get_servico_contratado_with_relations(db, contrato_id=contrato_id)
     if not c:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
     # If contrato belongs to an empresa, check permission
-    if c.empresa_id:
+    if c.get('empresa_id'):
         user_empresas_ids = [e.empresa_id for e in current_user.empresas]
-        if c.empresa_id not in user_empresas_ids and not current_user.is_superuser:
+        if c['empresa_id'] not in user_empresas_ids and not current_user.is_superuser:
             raise HTTPException(status_code=403, detail="Usuário não tem permissão")
     return c
 

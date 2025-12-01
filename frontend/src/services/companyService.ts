@@ -19,6 +19,9 @@ export interface CompanyCreate {
   regime_tributario?: string;
   cnae_principal?: string; // Novo campo opcional
   
+  // Configuração de cobrança: conta bancária padrão (opcional)
+  default_bank_account_id?: number;
+  
   // Novos campos opcionais
   logo_url?: string;
   certificado_path?: string;
@@ -47,6 +50,9 @@ export interface CompanyUpdate {
   email?: string;
   regime_tributario?: string;
   cnae_principal?: string; // Novo campo opcional
+  
+  // Configuração de cobrança: conta bancária padrão (opcional)
+  default_bank_account_id?: number;
   
   // Novos campos
   logo_url?: string;

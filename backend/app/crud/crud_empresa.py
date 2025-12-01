@@ -32,6 +32,10 @@ def _decrypt_sensitive_fields(empresa: Empresa) -> SimpleNamespace:
         email=empresa.email,
         regime_tributario=empresa.regime_tributario,
         cnae_principal=empresa.cnae_principal,
+        
+        # Configuração de cobrança: conta bancária padrão
+        default_bank_account_id=empresa.default_bank_account_id,
+        
         logo_url=empresa.logo_url,
         # Campos SMTP (exceto senha por segurança)
         smtp_server=empresa.smtp_server,

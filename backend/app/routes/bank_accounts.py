@@ -1,6 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from datetime import datetime
 
@@ -35,6 +35,8 @@ class BankAccountResponse(BaseModel):
     gateway_credentials: Optional[str] = None
     sicoob_client_id: Optional[str] = None
     sicoob_access_token: Optional[str] = None
+    multa_atraso_percentual: Optional[float] = None
+    juros_atraso_percentual: Optional[float] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -59,6 +61,8 @@ class BankAccountCreate(BaseModel):
     gateway_credentials: Optional[str] = None
     sicoob_client_id: Optional[str] = None
     sicoob_access_token: Optional[str] = None
+    multa_atraso_percentual: Optional[float] = Field(2.0, ge=0, le=100, description="Percentual de multa por atraso (%)")
+    juros_atraso_percentual: Optional[float] = Field(1.0, ge=0, le=100, description="Percentual de juros por dia de atraso (%)")
 
 
 class BankAccountUpdate(BaseModel):
@@ -78,6 +82,8 @@ class BankAccountUpdate(BaseModel):
     gateway_credentials: Optional[str] = None
     sicoob_client_id: Optional[str] = None
     sicoob_access_token: Optional[str] = None
+    multa_atraso_percentual: Optional[float] = Field(None, ge=0, le=100, description="Percentual de multa por atraso (%)")
+    juros_atraso_percentual: Optional[float] = Field(None, ge=0, le=100, description="Percentual de juros por dia de atraso (%)")
 
 
 def _serialize(bank_account: BankAccount, include_credentials: bool = False):

@@ -54,6 +54,9 @@ export interface Company {
   regime_tributario?: string;
   cnae_principal?: string; // Novo campo opcional
   
+  // Configuração de cobrança: conta bancária padrão (opcional)
+  default_bank_account_id?: number;
+  
   // Novos campos para logo, certificado e email
   logo_url?: string;
   certificado_path?: string;
