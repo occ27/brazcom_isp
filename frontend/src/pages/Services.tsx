@@ -224,7 +224,18 @@ const Servicos: React.FC = () => {
   const renderPagination = () => {
     if (isMobile) {
       return (
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2, flexWrap: 'wrap', gap: 1 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mt: 2, 
+          flexWrap: 'wrap', 
+          gap: 1,
+          borderTop: '1px solid', 
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          py: 2
+        }}>
           <FormControl size="small" sx={{ minWidth: 120 }}>
             <InputLabel>Itens/pág.</InputLabel>
             <Select
@@ -258,7 +269,12 @@ const Servicos: React.FC = () => {
         onPageChange={handleChangePage}
         onRowsPerPageChange={handleTableRowsPerPageChange}
         labelRowsPerPage="Itens por página:"
-        sx={{ flexShrink: 0, borderTop: '1px solid', borderColor: 'divider' }}
+        sx={{ 
+          flexShrink: 0, 
+          borderTop: '1px solid', 
+          borderColor: 'divider',
+          bgcolor: 'background.paper'
+        }}
       />
     );
   };

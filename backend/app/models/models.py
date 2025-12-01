@@ -124,6 +124,9 @@ class Empresa(Base):
     dhcp_servers = relationship("DHCPServer", back_populates="empresa", cascade="all, delete-orphan")
     dhcp_networks = relationship("DHCPNetwork", back_populates="empresa", cascade="all, delete-orphan")
 
+    # Configuração de cobrança: conta bancária padrão (opcional)
+    default_bank_account_id = Column(Integer, ForeignKey("bank_accounts.id"), nullable=True)
+
     # Especifica explicitamente que esta relação usa a coluna user_id como FK
     usuario_criador = relationship(
         "Usuario",
@@ -423,6 +426,9 @@ class ServicoContratado(Base):
     router = relationship("Router")
     interface = relationship("RouterInterface")
     ip_class = relationship("IPClass")
+    
+    # Conta bancária vinculada ao contrato (opcional) — define a conta que será usada para cobranças deste contrato
+    bank_account_id = Column(Integer, ForeignKey("bank_accounts.id"), nullable=True)
 
 class NFComFatura(Base):
     """Modelo de Fatura/Cobrança da NFCom."""
@@ -437,6 +443,119 @@ class NFComFatura(Base):
     codigo_barras = Column(String(48), nullable=True)  # Linha digitável do código de barras (1-48 dígitos)
     
     nfcom = relationship("NFCom", back_populates="faturas")
+
+
+class BoletoStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    REGISTERED = "REGISTERED"
+    PRINTED = "PRINTED"
+    SENT = "SENT"
+    PAID = "PAID"
+    CANCELLED = "CANCELLED"
+    REJECTED = "REJECTED"
+
+
+class Bank(str, enum.Enum):
+    SICOB = "SICOB"
+    OUTRO = "OUTRO"
+
+
+class Receivable(Base):
+    """Modelo de contas a receber / boleto bancário.
+
+    Esta tabela armazena informações sobre cobranças geradas a partir de contratos
+    (ServiçoContratado) ou faturas (NFComFatura), além dos metadados necessários
+    para integração com registradoras de boletos (ex: SICOB).
+    """
+    __tablename__ = "receivables"
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
+    cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=False)
+    servico_contratado_id = Column(Integer, ForeignKey("servicos_contratados.id"), nullable=True)
+    nfcom_fatura_id = Column(Integer, ForeignKey("nfcom_faturas.id"), nullable=True)
+
+    tipo = Column(String(30), nullable=False, server_default='BOLETO')
+
+    # Valores e datas
+    issue_date = Column(DateTime(timezone=True), server_default=func.now())
+    due_date = Column(DateTime(timezone=True), nullable=False)
+    amount = Column(Float, nullable=False)
+    discount = Column(Float, nullable=True, default=0.0)
+    interest_percent = Column(Float, nullable=True, default=0.0)
+    fine_percent = Column(Float, nullable=True, default=0.0)
+
+    # Informações do boleto / registro bancário
+    bank = Column(SQLAlchemyEnum(Bank), nullable=False, server_default=Bank.SICOB.value)
+    carteira = Column(String(50), nullable=True)
+    agencia = Column(String(20), nullable=True)
+    conta = Column(String(50), nullable=True)
+    nosso_numero = Column(String(100), nullable=True)
+    bank_registration_id = Column(String(200), nullable=True)  # ID retornado pelo banco/registradora
+    codigo_barras = Column(String(100), nullable=True)
+    linha_digitavel = Column(String(200), nullable=True)
+
+    status = Column(SQLAlchemyEnum(BoletoStatus), nullable=False, server_default=BoletoStatus.PENDING.value)
+    registered_at = Column(DateTime(timezone=True), nullable=True)
+    printed_at = Column(DateTime(timezone=True), nullable=True)
+    sent_at = Column(DateTime(timezone=True), nullable=True)
+    paid_at = Column(DateTime(timezone=True), nullable=True)
+
+    registro_result = Column(Text, nullable=True)  # JSON/text with response from bank
+
+    # Snapshot of the bank account at time of generation (non-sensitive)
+    bank_account_snapshot = Column(Text, nullable=True)
+
+    # Provider-specific payload or response (to be filled after registration attempts)
+    bank_payload = Column(Text, nullable=True)
+
+    pdf_url = Column(String(500), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relacionamentos
+    empresa = relationship("Empresa")
+    cliente = relationship("Cliente")
+    servico_contratado = relationship("ServicoContratado")
+    nfcom_fatura = relationship("NFComFatura")
+    
+    # Banco/conta usado para esta cobrança (snapshot separado em Receivable)
+    bank_account_id = Column(Integer, ForeignKey("bank_accounts.id"), nullable=True)
+
+
+class BankAccount(Base):
+    """Contas bancárias / configurações de cobrança por empresa."""
+    __tablename__ = "bank_accounts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
+    bank = Column(String(50), nullable=False)  # ex: SICOB, BANCO_DO_BRASIL
+    codigo_banco = Column(String(10), nullable=True)
+    agencia = Column(String(20), nullable=True)
+    agencia_dv = Column(String(5), nullable=True)
+    conta = Column(String(50), nullable=True)
+    conta_dv = Column(String(5), nullable=True)
+    titular = Column(String(255), nullable=True)
+    cpf_cnpj_titular = Column(String(18), nullable=True)
+    carteira = Column(String(50), nullable=True)
+    convenio = Column(String(100), nullable=True)
+    nosso_numero_sequence = Column(Integer, nullable=True, default=1)
+    remittance_config = Column(Text, nullable=True)
+    instructions = Column(Text, nullable=True)
+    is_default = Column(Boolean, default=False)
+
+    # Campos sensíveis (armazenar criptografados usando utilities em app.core.security)
+    gateway_credentials = Column(String(1000), nullable=True)
+    
+    # Credenciais específicas do Sicoob
+    sicoob_client_id = Column(String(100), nullable=True)
+    sicoob_access_token = Column(String(200), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    empresa = relationship("Empresa", foreign_keys=[empresa_id])
 
 # Imports tardios para resolver dependências circulares
 from .network import Router

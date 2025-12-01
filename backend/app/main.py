@@ -16,6 +16,8 @@ from app.routes import radius
 from app.routes import subscriptions
 from app.routes import isp
 from app.routes import network
+from app.routes import receivables
+from app.routes import bank_accounts
 
 # A criação das tabelas será feita no evento de startup, após o DB ficar disponível
 
@@ -51,7 +53,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
-    redirect_slashes=False  # Desabilitado para evitar conflitos com proxy
+    redirect_slashes=True  # Habilitado para resolver problemas com barras finais nas URLs
 )
 
 
@@ -117,6 +119,8 @@ app.include_router(radius.router)
 app.include_router(subscriptions.router)
 app.include_router(isp.router)
 app.include_router(network.router)
+app.include_router(receivables.router)
+app.include_router(bank_accounts.router)
 
 @app.get("/")
 def read_root():

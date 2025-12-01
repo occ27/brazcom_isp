@@ -82,6 +82,15 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
       ]
     },
     {
+      name: 'Financeiro',
+      icon: DocumentTextIcon,
+      color: 'green',
+      items: [
+        { label: 'Contas Bancárias', icon: DocumentTextIcon, path: 'bank-accounts' as PageType, group: 'financeiro' },
+        { label: 'Cobranças', icon: DocumentTextIcon, path: 'receivables' as PageType, group: 'financeiro' },
+      ]
+    },
+    {
       name: 'Administração',
       icon: UserIcon,
       color: 'orange',
@@ -131,6 +140,10 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
     dhcp: 'dhcp_manage',
     reports: 'report_view'
   };
+
+  // Permissões para financeiro
+  permissionMap['bank-accounts'] = 'billing_view';
+  permissionMap['receivables'] = 'billing_view';
 
   const canViewItem = (path: PageType) => {
     const required = permissionMap[path as string];

@@ -22,6 +22,8 @@ import RouterInterfaces from './pages/RouterInterfaces';
 import IPClasses from './pages/IPClasses';
 import PPPoE from './pages/PPPoE';
 import DHCP from './pages/DHCP';
+import BankAccounts from './pages/BankAccounts';
+import Receivables from './pages/Receivables';
 import AuthenticatedLayout from './components/AuthenticatedLayout';
 import { PageType } from './types';
 
@@ -113,6 +115,8 @@ const AuthenticatedApp: React.FC<{ children: React.ReactNode }> = ({ children })
   if (path === '/contracts') return 'contracts';
     if (path === '/services') return 'services';
     if (path.startsWith('/nfcom')) return 'nfcom';
+    if (path === '/bank-accounts') return 'bank-accounts';
+    if (path === '/receivables') return 'receivables';
     if (path.startsWith('/users')) return 'users';
     if (path.startsWith('/roles')) return 'roles';
     if (path.startsWith('/permissions')) return 'permissions';
@@ -132,6 +136,8 @@ const AuthenticatedApp: React.FC<{ children: React.ReactNode }> = ({ children })
   else if (page === 'contracts') navigate('/contracts');
     else if (page === 'services') navigate('/services');
     else if (page === 'nfcom') navigate('/nfcom');
+      else if (page === 'bank-accounts') navigate('/bank-accounts');
+      else if (page === 'receivables') navigate('/receivables');
     else if (page === 'users') navigate('/users');
     else if (page === 'roles') navigate('/roles');
     else if (page === 'permissions') navigate('/permissions');
@@ -219,6 +225,26 @@ const AppContent: React.FC = () => {
           <ProtectedRoute>
             <AuthenticatedApp>
               <Services />
+            </AuthenticatedApp>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/bank-accounts"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedApp>
+              <BankAccounts />
+            </AuthenticatedApp>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/receivables"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedApp>
+              <Receivables />
             </AuthenticatedApp>
           </ProtectedRoute>
         }

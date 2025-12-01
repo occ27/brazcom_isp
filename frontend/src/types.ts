@@ -6,6 +6,8 @@ export type PageType =
   | 'contracts'
   | 'services'
   | 'nfcom'
+  | 'bank-accounts'
+  | 'receivables'
   | 'reports'
   | 'users'
   | 'roles'
