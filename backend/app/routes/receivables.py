@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import date, datetime
@@ -7,9 +7,8 @@ from pydantic import BaseModel
 from app.core.database import get_db
 from app.routes.auth import get_current_active_user
 from app.api import deps
-from app.models.models import Usuario
-from app.services.receivable_service import generate_monthly_receivables_for_company
-from app.models.models import Receivable
+from app.models.models import Usuario, Receivable
+from app.services.receivable_service import generate_receivables_for_company
 
 router = APIRouter(prefix="/receivables", tags=["Receivables"])
 
@@ -17,6 +16,8 @@ class ReceivableResponse(BaseModel):
     id: int
     empresa_id: int
     cliente_id: int
+    cliente_nome: Optional[str] = None
+    cliente_cpf_cnpj: Optional[str] = None
     servico_contratado_id: Optional[int] = None
     nfcom_fatura_id: Optional[int] = None
     tipo: str
@@ -75,13 +76,14 @@ def generate_for_company(empresa_id: int, target_date: date = None, db: Session 
     if target_date is None:
         target_date = date.today()
     # permission checks could be added here (empresa ownership)
-    created_receivables = generate_monthly_receivables_for_company(db, empresa_id, target_date)
+    created_receivables = generate_receivables_for_company(db, empresa_id, target_date)
+    db.commit()  # Commit explicitamente as mudanças
     # Converte os objetos Receivable para ReceivableResponse usando o método customizado
     return [ReceivableResponse.from_orm(r) for r in created_receivables]
 
 
 @router.post("/empresa/{empresa_id}/test-sicoob", status_code=status.HTTP_200_OK)
-async def test_sicoob_integration(empresa_id: int, bank_account_id: Optional[int] = None, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+async def test_sicoob_integration(empresa_id: int, bank_account_id: Optional[int] = None, bank_account_data: Optional[dict] = Body(None), db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     deps.permission_checker('receivables_manage')(db=db, current_user=current_user)
     """
     Endpoint de teste para integração com Sicoob.
@@ -104,16 +106,23 @@ async def test_sicoob_integration(empresa_id: int, bank_account_id: Optional[int
                 BankAccount.bank == "SICOB"
             ).first()
 
-        # Criar gateway com credenciais da conta ou usar padrão do sandbox
-        if sicoob_account and sicoob_account.sicoob_client_id and sicoob_account.sicoob_access_token:
-            gateway = SicoobGateway(
-                client_id=sicoob_account.sicoob_client_id,
-                access_token=sicoob_account.sicoob_access_token
-            )
-            using_custom_credentials = True
+        # Se dados enviados no corpo, priorizar para teste antes de salvar
+        if bank_account_data:
+            client_id = bank_account_data.get('sicoob_client_id')
+            access_token = bank_account_data.get('sicoob_access_token')
+            gateway = SicoobGateway(client_id=client_id, access_token=access_token) if (client_id and access_token) else SicoobGateway()
+            using_custom_credentials = bool(client_id and access_token)
         else:
-            gateway = SicoobGateway()  # Usa credenciais padrão do sandbox
-            using_custom_credentials = False
+            # Criar gateway com credenciais da conta ou usar padrão do sandbox
+            if sicoob_account and sicoob_account.sicoob_client_id and sicoob_account.sicoob_access_token:
+                gateway = SicoobGateway(
+                    client_id=sicoob_account.sicoob_client_id,
+                    access_token=sicoob_account.sicoob_access_token
+                )
+                using_custom_credentials = True
+            else:
+                gateway = SicoobGateway()  # Usa credenciais padrão do sandbox
+                using_custom_credentials = False
 
         # Verificar se temos dados reais da conta SICOB (não fictícios)
         def is_fictitious_data(value):
@@ -127,10 +136,17 @@ async def test_sicoob_integration(empresa_id: int, bank_account_id: Optional[int
                 return True
             return False
         
-        has_real_data = (sicoob_account and 
-                        sicoob_account.conta and not is_fictitious_data(sicoob_account.conta) and
-                        sicoob_account.agencia and not is_fictitious_data(sicoob_account.agencia) and
-                        sicoob_account.convenio and not is_fictitious_data(sicoob_account.convenio))
+        # Validar se os dados reais existem: priorizar dados enviados no body (antes de salvar), senão usar conta do DB
+        if bank_account_data:
+            conta_val = bank_account_data.get('conta')
+            agencia_val = bank_account_data.get('agencia')
+            convenio_val = bank_account_data.get('convenio')
+            has_real_data = (conta_val and not is_fictitious_data(conta_val) and agencia_val and not is_fictitious_data(agencia_val) and convenio_val and not is_fictitious_data(convenio_val))
+        else:
+            has_real_data = (sicoob_account and 
+                            sicoob_account.conta and not is_fictitious_data(sicoob_account.conta) and
+                            sicoob_account.agencia and not is_fictitious_data(sicoob_account.agencia) and
+                            sicoob_account.convenio and not is_fictitious_data(sicoob_account.convenio))
         
         if not has_real_data:
             return {
@@ -140,8 +156,13 @@ async def test_sicoob_integration(empresa_id: int, bank_account_id: Optional[int
             }
 
         # Buscar dados da conta SICOB para usar valores reais
-        numero_contrato = sicoob_account.convenio
-        conta_corrente = sicoob_account.conta
+        # Obter valores reais preferencialmente do body se fornecido
+        if bank_account_data:
+            numero_contrato = bank_account_data.get('convenio')
+            conta_corrente = bank_account_data.get('conta')
+        else:
+            numero_contrato = sicoob_account.convenio
+            conta_corrente = sicoob_account.conta
 
         # Dados de teste para o sandbox
         test_boleto = {
@@ -194,5 +215,21 @@ async def test_sicoob_integration(empresa_id: int, bank_account_id: Optional[int
 @router.get("/empresa/{empresa_id}", response_model=List[ReceivableResponse])
 def list_receivables(empresa_id: int, skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     deps.permission_checker('receivables_view')(db=db, current_user=current_user)
-    items = db.query(Receivable).filter(Receivable.empresa_id == empresa_id).offset(skip).limit(limit).all()
-    return [ReceivableResponse.from_orm(r) for r in items]
+    from app.models.models import Cliente
+    items = db.query(Receivable, Cliente.nome_razao_social, Cliente.cpf_cnpj)\
+        .join(Cliente, Receivable.cliente_id == Cliente.id)\
+        .filter(Receivable.empresa_id == empresa_id)\
+        .order_by(Receivable.id.desc())\
+        .offset(skip)\
+        .limit(limit)\
+        .all()
+    
+    # Converter para ReceivableResponse incluindo dados do cliente
+    result = []
+    for recv, cliente_nome, cliente_cpf_cnpj in items:
+        response = ReceivableResponse.from_orm(recv)
+        response.cliente_nome = cliente_nome
+        response.cliente_cpf_cnpj = cliente_cpf_cnpj
+        result.append(response)
+    
+    return result

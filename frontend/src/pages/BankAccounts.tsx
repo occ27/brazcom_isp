@@ -251,6 +251,19 @@ const BankAccounts: React.FC = () => {
     }
   };
 
+  const handleTestSicoobFromForm = async () => {
+    if (!activeCompany) return;
+    try {
+      setLoading(true);
+      const result = await receivableService.testSicoobIntegration(activeCompany.id, editingBankAccount?.id, formData);
+      setSnackbar({ open: true, message: result.message || 'Teste do Sicoob realizado com sucesso', severity: result.status === 'success' ? 'success' : result.status === 'warning' ? 'warning' : 'error' });
+    } catch (e) {
+      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao testar integração com Sicoob', severity: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleChangePage = (_: any, newPage: number) => {
     setPage(newPage - 1);
   };
@@ -631,6 +644,12 @@ const BankAccounts: React.FC = () => {
             </Box>
             <div className="p-6 border-t flex justify-end gap-4 flex-shrink-0">
               <Button onClick={handleClose}>Cancelar</Button>
+              {/* Testar Sicoob a partir do formulário (não salva) */}
+              {formData.bank === 'SICOB' && (
+                <Button onClick={() => handleTestSicoobFromForm()} color="info" variant="outlined" startIcon={<PlayIcon className="w-4 h-4" />}>
+                  Testar Sicoob
+                </Button>
+              )}
               <Button onClick={handleSubmit} variant="contained">Salvar</Button>
             </div>
           </div>

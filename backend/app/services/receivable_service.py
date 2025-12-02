@@ -121,9 +121,48 @@ def create_and_persist_receivable(db: Session, recv: Receivable) -> Receivable:
     return recv
 
 
-def generate_monthly_receivables_for_company(db: Session, empresa_id: int, target_date: date):
-    """Gera receivables para todos os contratos ativos de uma empresa para `target_date`.
+def should_generate_for_contract(contrato: ServicoContratado, target_date: date) -> bool:
+    """Verifica se deve gerar cobrança para o contrato na data alvo, baseado na periodicidade e dia_emissao."""
+    if not contrato.dia_emissao or not contrato.d_contrato_ini:
+        return False
 
+    # Verificar se o contrato já foi emitido recentemente (evitar duplicatas)
+    if contrato.last_emission:
+        # Para mensal, verificar se já foi emitido neste mês
+        if contrato.periodicidade == 'MENSAL':
+            if contrato.last_emission.year == target_date.year and contrato.last_emission.month == target_date.month:
+                return False
+        # Para outras periodicidades, verificar se já foi emitido no período atual
+        # Simplificar: não gerar se last_emission for no mesmo mês
+        if contrato.last_emission.year == target_date.year and contrato.last_emission.month == target_date.month:
+            return False
+
+    # Verificar dia de emissão
+    if target_date.day != contrato.dia_emissao:
+        return False
+
+    # Verificar periodicidade baseada na data de início
+    months_diff = (target_date.year - contrato.d_contrato_ini.year) * 12 + (target_date.month - contrato.d_contrato_ini.month)
+
+    if contrato.periodicidade == 'MENSAL':
+        return True  # Já verificou dia
+    elif contrato.periodicidade == 'BIMESTRAL':
+        return months_diff % 2 == 0
+    elif contrato.periodicidade == 'TRIMESTRAL':
+        return months_diff % 3 == 0
+    elif contrato.periodicidade == 'SEMESTRAL':
+        return months_diff % 6 == 0
+    elif contrato.periodicidade == 'ANUAL':
+        return months_diff % 12 == 0
+    else:
+        # Default: mensal
+        return True
+
+
+def generate_receivables_for_company(db: Session, empresa_id: int, target_date: date):
+    """Gera receivables para contratos elegíveis de uma empresa para `target_date`.
+
+    - Considera periodicidade e dia_emissao para determinar se deve gerar
     - Retorna a lista de objetos Receivable persistidos (sem commit automático)
     """
     contratos = db.query(ServicoContratado).filter(ServicoContratado.empresa_id == empresa_id, ServicoContratado.is_active == True).all()
@@ -132,8 +171,16 @@ def generate_monthly_receivables_for_company(db: Session, empresa_id: int, targe
         # pular contratos que ainda não começaram (d_contrato_ini no futuro)
         if c.d_contrato_ini and c.d_contrato_ini > target_date:
             continue
+        # pular contratos que já terminaram
+        if c.d_contrato_fim and c.d_contrato_fim < target_date:
+            continue
+        # verificar se deve gerar baseado na periodicidade
+        if not should_generate_for_contract(c, target_date):
+            continue
         # gerar
         recv = generate_receivable_from_contract(db, c, target_date)
         create_and_persist_receivable(db, recv)
+        # atualizar last_emission
+        c.last_emission = datetime.utcnow()
         created.append(recv)
     return created

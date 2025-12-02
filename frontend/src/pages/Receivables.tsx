@@ -9,6 +9,8 @@ interface Receivable {
   id: number;
   empresa_id: number;
   cliente_id: number;
+  cliente_nome?: string;
+  cliente_cpf_cnpj?: string;
   servico_contratado_id?: number;
   nfcom_fatura_id?: number;
   tipo: string;
@@ -61,7 +63,8 @@ const Receivables: React.FC = () => {
     if (!activeCompany) return;
     setLoading(true);
     try {
-      const data = await receivableService.listReceivables(activeCompany.id, page + 1, rowsPerPage);
+      const skip = page * rowsPerPage;
+      const data = await receivableService.listReceivables(activeCompany.id, skip, rowsPerPage);
       setReceivables(data || []);
     } catch (e) {
       setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao carregar cobranças', severity: 'error' });
@@ -168,6 +171,7 @@ const Receivables: React.FC = () => {
         <TableHead>
           <TableRow>
             <TableCell>ID</TableCell>
+            <TableCell>Cliente</TableCell>
             <TableCell>Vencimento</TableCell>
             <TableCell>Valor</TableCell>
             <TableCell>Status</TableCell>
@@ -180,6 +184,18 @@ const Receivables: React.FC = () => {
           {paginatedReceivables.map((r) => (
             <TableRow key={r.id}>
               <TableCell>{r.id}</TableCell>
+              <TableCell>
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    {r.cliente_nome || `Cliente ${r.cliente_id}`}
+                  </Typography>
+                  {r.cliente_cpf_cnpj && (
+                    <Typography variant="caption" color="text.secondary">
+                      {r.cliente_cpf_cnpj}
+                    </Typography>
+                  )}
+                </Box>
+              </TableCell>
               <TableCell>
                 {new Date(r.due_date).toLocaleDateString('pt-BR')}
               </TableCell>
@@ -221,6 +237,17 @@ const Receivables: React.FC = () => {
                 <Typography variant="h6" sx={{ mb: 1 }}>
                   Cobrança #{r.id}
                 </Typography>
+                <Box sx={{ mb: 1 }}>
+                  <Typography variant="body2" color="text.secondary">Cliente</Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                    {r.cliente_nome || `Cliente ${r.cliente_id}`}
+                  </Typography>
+                  {r.cliente_cpf_cnpj && (
+                    <Typography variant="body2" color="text.secondary">
+                      {r.cliente_cpf_cnpj}
+                    </Typography>
+                  )}
+                </Box>
                 <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
                   <Chip
                     label={getStatusLabel(r.status)}

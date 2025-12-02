@@ -4,6 +4,8 @@ export interface Receivable {
   id: number;
   empresa_id: number;
   cliente_id: number;
+  cliente_nome?: string;
+  cliente_cpf_cnpj?: string;
   servico_contratado_id?: number;
   nfcom_fatura_id?: number;
   tipo: string;
@@ -47,10 +49,10 @@ const generateForCompany = async (empresaId: number, targetDate?: string) => {
   return resp.data as Receivable[];
 };
 
-const testSicoobIntegration = async (empresaId: number, bankAccountId?: number) => {
+const testSicoobIntegration = async (empresaId: number, bankAccountId?: number, bankAccountData?: any) => {
   const params: any = {};
   if (bankAccountId) params.bank_account_id = bankAccountId;
-  const resp = await api.post(`/receivables/empresa/${empresaId}/test-sicoob`, null, { params });
+  const resp = await api.post(`/receivables/empresa/${empresaId}/test-sicoob`, bankAccountData || null, { params });
   return resp.data;
 };
 
