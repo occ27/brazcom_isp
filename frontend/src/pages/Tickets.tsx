@@ -69,6 +69,10 @@ const Tickets: React.FC = () => {
     is_internal: false
   });
 
+  // Status update states
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<StatusTicket | ''>('');
+
   const loadTickets = useCallback(async () => {
     if (!activeCompany) return;
 
@@ -149,6 +153,7 @@ const Tickets: React.FC = () => {
 
   const handleViewTicket = async (ticket: Ticket) => {
     setSelectedTicket(ticket);
+    setSelectedStatus(ticket.status); // Inicializar com o status atual
     try {
       const commentsData = await ticketService.getComments(ticket.id);
       setComments(commentsData);
@@ -187,6 +192,35 @@ const Tickets: React.FC = () => {
       loadTickets();
     } catch (err) {
       setError(stringifyError(err));
+    }
+  };
+
+  const handleStatusChange = (newStatus: StatusTicket) => {
+    setSelectedStatus(newStatus);
+  };
+
+  const handleUpdateStatus = async () => {
+    if (!selectedTicket || !selectedStatus || selectedStatus === selectedTicket.status) {
+      return;
+    }
+
+    setStatusUpdating(true);
+    try {
+      await ticketService.updateTicket(selectedTicket.id, { status: selectedStatus });
+      setSuccess('Status do ticket atualizado com sucesso!');
+      
+      // Atualizar o ticket selecionado com o novo status
+      setSelectedTicket({ ...selectedTicket, status: selectedStatus });
+      
+      // Recarregar a lista de tickets
+      loadTickets();
+      
+      // Reset do status selecionado
+      setSelectedStatus('');
+    } catch (err) {
+      setError(stringifyError(err));
+    } finally {
+      setStatusUpdating(false);
     }
   };
 
@@ -235,9 +269,27 @@ const Tickets: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" component="h1">
+    <Box sx={{ 
+      p: isMobile ? 1 : 3,
+      minHeight: '100vh',
+      width: '100%'
+    }}>
+      <Box 
+        display="flex" 
+        justifyContent="space-between" 
+        alignItems="center" 
+        mb={isMobile ? 2 : 3}
+        sx={{ 
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: isMobile ? 'flex-start' : 'center',
+          gap: isMobile ? 2 : 0
+        }}
+      >
+        <Typography 
+          variant={isMobile ? "h5" : "h4"} 
+          component="h1"
+          sx={{ width: isMobile ? '100%' : 'auto' }}
+        >
           Sistema de Suporte - Tickets
         </Typography>
         {hasPermission('tickets_manage') && (
@@ -245,6 +297,10 @@ const Tickets: React.FC = () => {
             variant="contained"
             startIcon={<PlusIcon className="w-5 h-5" />}
             onClick={() => setCreateDialogOpen(true)}
+            sx={{ 
+              width: isMobile ? '100%' : 'auto',
+              height: isMobile ? 48 : 'auto'
+            }}
           >
             Novo Ticket
           </Button>
@@ -252,8 +308,21 @@ const Tickets: React.FC = () => {
       </Box>
 
       {/* Filtros */}
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Box display="flex" gap={2} flexWrap="wrap" alignItems="center">
+      <Paper sx={{ 
+        p: isMobile ? 1.5 : 2, 
+        mb: isMobile ? 1.5 : 2,
+        mx: isMobile ? -1 : 0
+      }}>
+        <Box 
+          display="flex" 
+          gap={isMobile ? 1.5 : 2} 
+          flexWrap="wrap" 
+          alignItems="center"
+          sx={{ 
+            flexDirection: isMobile ? 'column' : 'row',
+            alignItems: isMobile ? 'stretch' : 'center'
+          }}
+        >
           <TextField
             label="Buscar"
             variant="outlined"
@@ -263,57 +332,96 @@ const Tickets: React.FC = () => {
             InputProps={{
               startAdornment: <MagnifyingGlassIcon className="w-4 h-4 mr-2" />,
             }}
-            sx={{ minWidth: 200 }}
+            sx={{ 
+              minWidth: isMobile ? '100%' : 200,
+              width: isMobile ? '100%' : 'auto',
+              '& .MuiInputBase-root': {
+                height: isMobile ? 48 : 'auto'
+              }
+            }}
           />
 
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={statusFilter}
-              label="Status"
-              onChange={(e) => setStatusFilter(e.target.value as StatusTicket)}
+          <Box 
+            display="flex" 
+            gap={isMobile ? 1.5 : 2} 
+            sx={{ 
+              flexDirection: isMobile ? 'column' : 'row',
+              width: isMobile ? '100%' : 'auto'
+            }}
+          >
+            <FormControl 
+              size="small" 
+              sx={{ 
+                minWidth: isMobile ? '100%' : 120,
+                '& .MuiInputBase-root': {
+                  height: isMobile ? 48 : 'auto'
+                }
+              }}
             >
-              <MenuItem value="">Todos</MenuItem>
-              <MenuItem value="ABERTO">Aberto</MenuItem>
-              <MenuItem value="EM_ANDAMENTO">Em Andamento</MenuItem>
-              <MenuItem value="AGUARDANDO_CLIENTE">Aguardando Cliente</MenuItem>
-              <MenuItem value="RESOLVIDO">Resolvido</MenuItem>
-              <MenuItem value="FECHADO">Fechado</MenuItem>
-              <MenuItem value="CANCELADO">Cancelado</MenuItem>
-            </Select>
-          </FormControl>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={statusFilter}
+                label="Status"
+                onChange={(e) => setStatusFilter(e.target.value as StatusTicket)}
+              >
+                <MenuItem value="">Todos</MenuItem>
+                <MenuItem value="ABERTO">Aberto</MenuItem>
+                <MenuItem value="EM_ANDAMENTO">Em Andamento</MenuItem>
+                <MenuItem value="AGUARDANDO_CLIENTE">Aguardando Cliente</MenuItem>
+                <MenuItem value="RESOLVIDO">Resolvido</MenuItem>
+                <MenuItem value="FECHADO">Fechado</MenuItem>
+                <MenuItem value="CANCELADO">Cancelado</MenuItem>
+              </Select>
+            </FormControl>
 
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>Prioridade</InputLabel>
-            <Select
-              value={prioridadeFilter}
-              label="Prioridade"
-              onChange={(e) => setPrioridadeFilter(e.target.value as PrioridadeTicket)}
+            <FormControl 
+              size="small" 
+              sx={{ 
+                minWidth: isMobile ? '100%' : 120,
+                '& .MuiInputBase-root': {
+                  height: isMobile ? 48 : 'auto'
+                }
+              }}
             >
-              <MenuItem value="">Todas</MenuItem>
-              <MenuItem value="BAIXA">Baixa</MenuItem>
-              <MenuItem value="NORMAL">Normal</MenuItem>
-              <MenuItem value="ALTA">Alta</MenuItem>
-              <MenuItem value="URGENTE">Urgente</MenuItem>
-            </Select>
-          </FormControl>
+              <InputLabel>Prioridade</InputLabel>
+              <Select
+                value={prioridadeFilter}
+                label="Prioridade"
+                onChange={(e) => setPrioridadeFilter(e.target.value as PrioridadeTicket)}
+              >
+                <MenuItem value="">Todas</MenuItem>
+                <MenuItem value="BAIXA">Baixa</MenuItem>
+                <MenuItem value="NORMAL">Normal</MenuItem>
+                <MenuItem value="ALTA">Alta</MenuItem>
+                <MenuItem value="URGENTE">Urgente</MenuItem>
+              </Select>
+            </FormControl>
 
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>Categoria</InputLabel>
-            <Select
-              value={categoriaFilter}
-              label="Categoria"
-              onChange={(e) => setCategoriaFilter(e.target.value as CategoriaTicket)}
+            <FormControl 
+              size="small" 
+              sx={{ 
+                minWidth: isMobile ? '100%' : 120,
+                '& .MuiInputBase-root': {
+                  height: isMobile ? 48 : 'auto'
+                }
+              }}
             >
-              <MenuItem value="">Todas</MenuItem>
-              <MenuItem value="TECNICO">Técnico</MenuItem>
-              <MenuItem value="COBRANCA">Cobrança</MenuItem>
-              <MenuItem value="INSTALACAO">Instalação</MenuItem>
-              <MenuItem value="SUPORTE">Suporte</MenuItem>
-              <MenuItem value="CANCELAMENTO">Cancelamento</MenuItem>
-              <MenuItem value="OUTRO">Outro</MenuItem>
-            </Select>
-          </FormControl>
+              <InputLabel>Categoria</InputLabel>
+              <Select
+                value={categoriaFilter}
+                label="Categoria"
+                onChange={(e) => setCategoriaFilter(e.target.value as CategoriaTicket)}
+              >
+                <MenuItem value="">Todas</MenuItem>
+                <MenuItem value="TECNICO">Técnico</MenuItem>
+                <MenuItem value="COBRANCA">Cobrança</MenuItem>
+                <MenuItem value="INSTALACAO">Instalação</MenuItem>
+                <MenuItem value="SUPORTE">Suporte</MenuItem>
+                <MenuItem value="CANCELAMENTO">Cancelamento</MenuItem>
+                <MenuItem value="OUTRO">Outro</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
 
           <Button
             variant="outlined"
@@ -324,6 +432,11 @@ const Tickets: React.FC = () => {
               setCategoriaFilter('');
             }}
             startIcon={<XMarkIcon className="w-4 h-4" />}
+            sx={{ 
+              width: isMobile ? '100%' : 'auto',
+              mt: isMobile ? 1 : 0,
+              height: isMobile ? 48 : 'auto'
+            }}
           >
             Limpar
           </Button>
@@ -331,12 +444,113 @@ const Tickets: React.FC = () => {
       </Paper>
 
       {/* Tabela de Tickets */}
-      <Paper>
+      <Paper sx={{ 
+        mx: isMobile ? -1 : 0,
+        borderRadius: isMobile ? 0 : 1
+      }}>
         {loading ? (
           <Box display="flex" justifyContent="center" p={4}>
             <CircularProgress />
           </Box>
+        ) : isMobile ? (
+          // Layout mobile com cards
+          <Box sx={{ p: isMobile ? 1.5 : 2 }}>
+            {tickets.map((ticket) => (
+              <Card key={ticket.id} sx={{ 
+                mb: 1.5,
+                borderRadius: 2,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                '&:hover': {
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.15)'
+                },
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: 180
+              }}>
+                <CardContent sx={{ 
+                  p: 2,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  height: '100%'
+                }}>
+                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
+                    <Typography 
+                      variant="h6" 
+                      sx={{ 
+                        fontSize: '1.1rem',
+                        fontWeight: 600,
+                        lineHeight: 1.3,
+                        pr: 1
+                      }}
+                    >
+                      #{ticket.id} - {ticket.titulo}
+                    </Typography>
+                  </Box>
+                  
+                  <Box display="flex" gap={1} mb={1.5} flexWrap="wrap">
+                    <Chip
+                      icon={getStatusIcon(ticket.status)}
+                      label={ticket.status.replace('_', ' ')}
+                      color={getStatusColor(ticket.status)}
+                      size="small"
+                      sx={{ fontSize: '0.75rem' }}
+                    />
+                    <Chip
+                      label={ticket.prioridade}
+                      color={getPrioridadeColor(ticket.prioridade)}
+                      size="small"
+                      sx={{ fontSize: '0.75rem' }}
+                    />
+                    <Chip 
+                      label={ticket.categoria} 
+                      size="small" 
+                      sx={{ fontSize: '0.75rem' }}
+                    />
+                  </Box>
+
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary" 
+                    mb={1}
+                    sx={{ fontSize: '0.875rem' }}
+                  >
+                    <strong>Cliente:</strong> {ticket.cliente_nome || 'N/A'}
+                  </Typography>
+
+                  <Box 
+                    display="flex" 
+                    justifyContent="space-between" 
+                    alignItems="center"
+                    sx={{ mt: 'auto' }}
+                  >
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary"
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      <strong>Criado em:</strong> {new Date(ticket.created_at).toLocaleDateString('pt-BR')}
+                    </Typography>
+                    <IconButton 
+                      onClick={() => handleViewTicket(ticket)} 
+                      size="small"
+                      sx={{ 
+                        p: 0.5,
+                        color: 'primary.main',
+                        '&:hover': {
+                          backgroundColor: 'primary.light',
+                          color: 'primary.contrastText'
+                        }
+                      }}
+                    >
+                      <ChatBubbleLeftIcon className="w-4 h-4" />
+                    </IconButton>
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
         ) : (
+          // Layout desktop com tabela
           <>
             <TableContainer>
               <Table>
@@ -403,17 +617,55 @@ const Tickets: React.FC = () => {
                 setRowsPerPage(parseInt(event.target.value, 10));
                 setPage(0);
               }}
-              labelRowsPerPage="Linhas por página"
+              labelRowsPerPage={isMobile ? "Linhas" : "Linhas por página"}
+              sx={{
+                '.MuiTablePagination-toolbar': {
+                  flexWrap: isMobile ? 'wrap' : 'nowrap',
+                  gap: isMobile ? 1 : 0,
+                  minHeight: isMobile ? 48 : 'auto'
+                },
+                '.MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows': {
+                  fontSize: isMobile ? '0.75rem' : '0.875rem'
+                }
+              }}
             />
           </>
         )}
       </Paper>
 
       {/* Dialog para criar ticket */}
-      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Criar Novo Ticket</DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Dialog 
+        open={createDialogOpen} 
+        onClose={() => setCreateDialogOpen(false)} 
+        maxWidth="md" 
+        fullWidth
+        fullScreen={isMobile}
+        sx={{
+          '& .MuiDialog-paper': {
+            margin: isMobile ? 0 : 32,
+            width: isMobile ? '100%' : 'auto',
+            maxWidth: isMobile ? 'none' : 'md',
+            height: isMobile ? '100%' : 'auto'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          pb: isMobile ? 1 : 2,
+          fontSize: isMobile ? '1.25rem' : '1.5rem'
+        }}>
+          Criar Novo Ticket
+        </DialogTitle>
+        <DialogContent sx={{ 
+          p: isMobile ? 2 : 3,
+          flex: 1,
+          overflow: 'auto'
+        }}>
+          <Box sx={{ 
+            pt: isMobile ? 1 : 2, 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: isMobile ? 2 : 2 
+          }}>
             <TextField
               label="Título"
               fullWidth
@@ -422,20 +674,36 @@ const Tickets: React.FC = () => {
               required
               error={formErrors.titulo}
               helperText={formErrors.titulo ? "O título é obrigatório" : ""}
+              sx={{
+                '& .MuiInputBase-root': {
+                  height: isMobile ? 56 : 'auto'
+                }
+              }}
             />
             <TextField
               label="Descrição"
               fullWidth
               multiline
-              rows={4}
+              rows={isMobile ? 4 : 4}
               value={newTicket.descricao}
               onChange={(e) => setNewTicket({ ...newTicket, descricao: e.target.value })}
               required
               error={formErrors.descricao}
               helperText={formErrors.descricao ? "A descrição é obrigatória" : ""}
             />
-            <Box display="flex" gap={2}>
-              <FormControl fullWidth>
+            <Box 
+              display="flex" 
+              gap={isMobile ? 2 : 2}
+              sx={{ flexDirection: isMobile ? 'column' : 'row' }}
+            >
+              <FormControl 
+                fullWidth
+                sx={{
+                  '& .MuiInputBase-root': {
+                    height: isMobile ? 56 : 'auto'
+                  }
+                }}
+              >
                 <InputLabel>Prioridade</InputLabel>
                 <Select
                   value={newTicket.prioridade}
@@ -448,7 +716,14 @@ const Tickets: React.FC = () => {
                   <MenuItem value="URGENTE">Urgente</MenuItem>
                 </Select>
               </FormControl>
-              <FormControl fullWidth>
+              <FormControl 
+                fullWidth
+                sx={{
+                  '& .MuiInputBase-root': {
+                    height: isMobile ? 56 : 'auto'
+                  }
+                }}
+              >
                 <InputLabel>Categoria</InputLabel>
                 <Select
                   value={newTicket.categoria}
@@ -464,125 +739,361 @@ const Tickets: React.FC = () => {
                 </Select>
               </FormControl>
             </Box>
-            <ClientAutocomplete
-              value={newTicket.cliente}
-              onChange={(cliente) => setNewTicket({ ...newTicket, cliente })}
-              label="Cliente"
-              placeholder="Digite nome, CPF/CNPJ, email ou telefone..."
-              required={true}
-              error={formErrors.cliente}
-              helperText={formErrors.cliente ? "A seleção de um cliente é obrigatória" : ""}
-            />
+            <Box sx={{
+              '& .MuiInputBase-root': {
+                height: isMobile ? 56 : 'auto'
+              }
+            }}>
+              <ClientAutocomplete
+                value={newTicket.cliente}
+                onChange={(cliente) => setNewTicket({ ...newTicket, cliente })}
+                label="Cliente"
+                placeholder="Digite nome, CPF/CNPJ, email ou telefone..."
+                required={true}
+                error={formErrors.cliente}
+                helperText={formErrors.cliente ? "A seleção de um cliente é obrigatória" : ""}
+              />
+            </Box>
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateDialogOpen(false)}>Cancelar</Button>
-          <Button onClick={handleCreateTicket} variant="contained">
-            Criar Ticket
+        <DialogActions sx={{ 
+          flexDirection: 'row', 
+          gap: 1,
+          p: isMobile ? 2 : 3,
+          pt: isMobile ? 1 : 3,
+          justifyContent: 'space-between'
+        }}>
+          <Button 
+            onClick={() => setCreateDialogOpen(false)}
+            sx={{ minWidth: 'auto', px: 2 }}
+          >
+            <XMarkIcon className="w-4 h-4" />
+          </Button>
+          <Button 
+            onClick={handleCreateTicket} 
+            variant="contained"
+            sx={{ minWidth: 'auto', px: 2 }}
+          >
+            <PlusIcon className="w-4 h-4" />
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Dialog para ver detalhes do ticket */}
-      <Dialog open={detailDialogOpen} onClose={() => setDetailDialogOpen(false)} maxWidth="lg" fullWidth>
-        <DialogTitle>
+      <Dialog 
+        open={detailDialogOpen} 
+        onClose={() => setDetailDialogOpen(false)} 
+        maxWidth="lg" 
+        fullWidth
+        fullScreen={isMobile}
+        sx={{
+          '& .MuiDialog-paper': {
+            margin: isMobile ? 0 : 32,
+            width: isMobile ? '100%' : 'auto',
+            maxWidth: isMobile ? 'none' : 'lg',
+            height: isMobile ? '100%' : 'auto'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          pb: isMobile ? 1 : 2,
+          fontSize: isMobile ? '1.25rem' : '1.5rem'
+        }}>
           Ticket #{selectedTicket?.id} - {selectedTicket?.titulo}
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ 
+          p: isMobile ? 2 : 3,
+          flex: 1,
+          overflow: 'auto'
+        }}>
           {selectedTicket && (
-            <Box sx={{ pt: 2 }}>
-              <Box display="flex" gap={2} mb={2}>
+            <Box sx={{ pt: isMobile ? 1 : 2 }}>
+              <Box 
+                display="flex" 
+                gap={1} 
+                mb={isMobile ? 2 : 2}
+                sx={{ 
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  flexWrap: 'wrap'
+                }}
+              >
                 <Chip
                   icon={getStatusIcon(selectedTicket.status)}
                   label={selectedTicket.status.replace('_', ' ')}
                   color={getStatusColor(selectedTicket.status)}
+                  size="small"
+                  sx={{ 
+                    fontSize: isMobile ? '0.7rem' : '0.75rem',
+                    height: isMobile ? 24 : 28,
+                    '& .MuiChip-icon': {
+                      fontSize: isMobile ? '0.875rem' : '1rem'
+                    }
+                  }}
                 />
                 <Chip
                   label={selectedTicket.prioridade}
                   color={getPrioridadeColor(selectedTicket.prioridade)}
+                  size="small"
+                  sx={{ 
+                    fontSize: isMobile ? '0.7rem' : '0.75rem',
+                    height: isMobile ? 24 : 28
+                  }}
                 />
-                <Chip label={selectedTicket.categoria} />
+                <Chip 
+                  label={selectedTicket.categoria} 
+                  size="small" 
+                  sx={{ 
+                    fontSize: isMobile ? '0.7rem' : '0.75rem',
+                    height: isMobile ? 24 : 28
+                  }}
+                />
               </Box>
 
-              <Typography variant="body1" mb={2}>
+              <Typography 
+                variant="body1" 
+                mb={isMobile ? 2 : 2}
+                sx={{ fontSize: isMobile ? '1rem' : '1rem' }}
+              >
                 <strong>Descrição:</strong> {selectedTicket.descricao}
               </Typography>
 
-              <Box display="flex" gap={4} mb={2}>
-                <Typography variant="body2">
+              <Box 
+                display="flex" 
+                gap={isMobile ? 1 : 4} 
+                mb={isMobile ? 2 : 2}
+                sx={{ 
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  flexWrap: 'wrap'
+                }}
+              >
+                <Typography 
+                  variant="body2"
+                  sx={{ 
+                    fontSize: isMobile ? '0.75rem' : '0.875rem',
+                    flex: isMobile ? '1 1 100%' : 'none'
+                  }}
+                >
                   <strong>Cliente:</strong> {selectedTicket.cliente_nome || 'N/A'}
                 </Typography>
-                <Typography variant="body2">
+                <Typography 
+                  variant="body2"
+                  sx={{ 
+                    fontSize: isMobile ? '0.75rem' : '0.875rem',
+                    flex: isMobile ? '1 1 45%' : 'none'
+                  }}
+                >
                   <strong>Criado por:</strong> {selectedTicket.criado_por_nome}
                 </Typography>
-                <Typography variant="body2">
+                <Typography 
+                  variant="body2"
+                  sx={{ 
+                    fontSize: isMobile ? '0.75rem' : '0.875rem',
+                    flex: isMobile ? '1 1 45%' : 'none'
+                  }}
+                >
                   <strong>Criado em:</strong> {new Date(selectedTicket.created_at).toLocaleString('pt-BR')}
                 </Typography>
               </Box>
 
-              <Divider sx={{ my: 2 }} />
+              {/* Seção de alteração de status */}
+              {hasPermission('tickets_manage') && (
+                <Box sx={{ 
+                  mb: isMobile ? 2 : 3, 
+                  p: isMobile ? 1.5 : 2, 
+                  border: '1px solid #e0e0e0', 
+                  borderRadius: 1 
+                }}>
+                  <Typography 
+                    variant="h6" 
+                    mb={isMobile ? 1.5 : 2}
+                    sx={{ fontSize: isMobile ? '1.1rem' : '1.25rem' }}
+                  >
+                    Alterar Status
+                  </Typography>
+                  <Box 
+                    display="flex" 
+                    gap={isMobile ? 1.5 : 2} 
+                    alignItems="center"
+                    sx={{ 
+                      flexDirection: isMobile ? 'column' : 'row',
+                      alignItems: isMobile ? 'stretch' : 'center'
+                    }}
+                  >
+                    <FormControl 
+                      size="small" 
+                      sx={{ 
+                        minWidth: isMobile ? '100%' : 200,
+                        width: isMobile ? '100%' : 'auto',
+                        '& .MuiInputBase-root': {
+                          height: isMobile ? 48 : 'auto'
+                        }
+                      }}
+                    >
+                      <InputLabel>Status</InputLabel>
+                      <Select
+                        value={selectedStatus}
+                        label="Status"
+                        onChange={(e) => handleStatusChange(e.target.value as StatusTicket)}
+                      >
+                        <MenuItem value="ABERTO">Aberto</MenuItem>
+                        <MenuItem value="EM_ANDAMENTO">Em Andamento</MenuItem>
+                        <MenuItem value="AGUARDANDO_CLIENTE">Aguardando Cliente</MenuItem>
+                        <MenuItem value="RESOLVIDO">Resolvido</MenuItem>
+                        <MenuItem value="FECHADO">Fechado</MenuItem>
+                        <MenuItem value="CANCELADO">Cancelado</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <Button 
+                      variant="outlined" 
+                      size="small"
+                      onClick={handleUpdateStatus}
+                      disabled={statusUpdating}
+                      sx={{ 
+                        width: isMobile ? '100%' : 'auto',
+                        height: isMobile ? 48 : 'auto',
+                        mt: isMobile ? 1 : 0
+                      }}
+                    >
+                      {statusUpdating ? <CircularProgress size={16} /> : 'Atualizar'}
+                    </Button>
+                  </Box>
+                </Box>
+              )}
 
-              <Typography variant="h6" mb={2}>Comentários</Typography>
+              <Divider sx={{ my: isMobile ? 1.5 : 2 }} />
 
-              <List>
+              <Typography 
+                variant="h6" 
+                mb={isMobile ? 1.5 : 2}
+                sx={{ fontSize: isMobile ? '1.1rem' : '1.25rem' }}
+              >
+                Comentários
+              </Typography>
+
+              <List sx={{ 
+                width: '100%',
+                bgcolor: 'background.paper',
+                borderRadius: 1,
+                p: isMobile ? 1 : 0
+              }}>
                 {comments.map((comment) => (
-                  <ListItem key={comment.id} alignItems="flex-start">
-                    <ListItemAvatar>
-                      <Avatar>
-                        <UserIcon className="w-4 h-4" />
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <Typography variant="subtitle2">
-                            Comentário #{comment.id}
-                          </Typography>
-                          {comment.is_internal && (
-                            <Chip label="Interno" size="small" color="warning" />
-                          )}
-                        </Box>
-                      }
-                      secondary={
-                        <>
-                          <Typography variant="body2" color="text.secondary">
-                            {new Date(comment.created_at).toLocaleString('pt-BR')}
-                          </Typography>
-                          {comment.comentario}
-                        </>
-                      }
-                    />
+                  <ListItem
+                    key={comment.id}
+                    alignItems="flex-start"
+                    sx={{
+                      px: isMobile ? 1.5 : 2,
+                      py: isMobile ? 1.5 : 2,
+                      borderBottom: '1px solid #f0f0f0',
+                      '&:last-child': { borderBottom: 'none' }
+                    }}
+                  >
+                    <Box sx={{ width: '100%' }}>
+                      {/* Primeira linha: Avatar + Data/Hora + Chip Interno */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <Avatar sx={{
+                          width: isMobile ? 28 : 32,
+                          height: isMobile ? 28 : 32,
+                          flexShrink: 0
+                        }}>
+                          <UserIcon className="w-3 h-3" />
+                        </Avatar>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}
+                        >
+                          {new Date(comment.created_at).toLocaleString('pt-BR')}
+                        </Typography>
+                        {comment.is_internal && (
+                          <Chip
+                            label="Interno"
+                            size="small"
+                            color="warning"
+                            sx={{ fontSize: '0.65rem', height: 18, ml: 'auto' }}
+                          />
+                        )}
+                      </Box>
+
+                      {/* Conteúdo do comentário - usando todo o espaço */}
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontSize: isMobile ? '0.8rem' : '0.875rem',
+                          color: 'text.primary',
+                          lineHeight: 1.4
+                        }}
+                      >
+                        {comment.comentario}
+                      </Typography>
+                    </Box>
                   </ListItem>
                 ))}
               </List>
 
-              <Divider sx={{ my: 2 }} />
+              <Divider sx={{ my: isMobile ? 1.5 : 2 }} />
 
-              <Typography variant="h6" mb={2}>Adicionar Comentário</Typography>
-              <Box display="flex" flexDirection="column" gap={2}>
+              <Typography 
+                variant="h6" 
+                mb={isMobile ? 1.5 : 2}
+                sx={{ fontSize: isMobile ? '1.1rem' : '1.25rem' }}
+              >
+                Adicionar Comentário
+              </Typography>
+              <Box display="flex" flexDirection="column" gap={isMobile ? 1.5 : 2}>
                 <TextField
                   label="Comentário"
                   multiline
-                  rows={3}
+                  rows={isMobile ? 3 : 3}
                   fullWidth
                   value={newComment.comentario}
                   onChange={(e) => setNewComment({ ...newComment, comentario: e.target.value })}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      fontSize: isMobile ? '0.875rem' : '1rem'
+                    }
+                  }}
                 />
-                <Box display="flex" alignItems="center" gap={2}>
+                <Box 
+                  display="flex" 
+                  alignItems="center" 
+                  gap={isMobile ? 1.5 : 2}
+                  sx={{ 
+                    flexDirection: isMobile ? 'column' : 'row',
+                    alignItems: isMobile ? 'flex-start' : 'center'
+                  }}
+                >
                   <FormControlLabel
                     control={
                       <Checkbox
                         checked={newComment.is_internal}
                         onChange={(e) => setNewComment({ ...newComment, is_internal: e.target.checked })}
+                        sx={{ 
+                          '& .MuiSvgIcon-root': {
+                            fontSize: isMobile ? 20 : 24
+                          }
+                        }}
                       />
                     }
                     label="Comentário interno"
+                    sx={{
+                      '& .MuiFormControlLabel-label': {
+                        fontSize: isMobile ? '0.875rem' : '1rem'
+                      }
+                    }}
                   />
                   <Button
                     variant="contained"
                     onClick={handleAddComment}
                     disabled={!newComment.comentario.trim()}
                     startIcon={<ChatBubbleLeftIcon className="w-4 h-4" />}
+                    sx={{ 
+                      width: isMobile ? '100%' : 'auto',
+                      height: isMobile ? 48 : 'auto',
+                      mt: isMobile ? 1 : 0,
+                      fontSize: isMobile ? '0.875rem' : '0.875rem'
+                    }}
                   >
                     Adicionar Comentário
                   </Button>
@@ -591,17 +1102,28 @@ const Tickets: React.FC = () => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ 
+          flexDirection: 'row', 
+          gap: 1,
+          p: isMobile ? 2 : 3,
+          pt: isMobile ? 1 : 3,
+          justifyContent: 'space-between'
+        }}>
           {hasPermission('tickets_manage') && selectedTicket && (
             <Button 
               onClick={() => handleDeleteTicket(selectedTicket)} 
               color="error" 
               startIcon={<TrashIcon className="w-4 h-4" />}
+              sx={{ minWidth: 'auto', px: 2 }}
             >
-              Excluir Ticket
             </Button>
           )}
-          <Button onClick={() => setDetailDialogOpen(false)}>Fechar</Button>
+          <Button 
+            onClick={() => setDetailDialogOpen(false)}
+            sx={{ minWidth: 'auto', px: 2 }}
+          >
+            <XMarkIcon className="w-4 h-4" />
+          </Button>
         </DialogActions>
       </Dialog>
 
