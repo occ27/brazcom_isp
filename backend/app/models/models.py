@@ -561,6 +561,95 @@ class BankAccount(Base):
 
     empresa = relationship("Empresa", foreign_keys=[empresa_id])
 
+# ===== MODELOS DE SUPORTE/TICKETS =====
+
+class StatusTicket(str, enum.Enum):
+    """Status possíveis para um ticket de suporte."""
+    ABERTO = "ABERTO"
+    EM_ANDAMENTO = "EM_ANDAMENTO"
+    AGUARDANDO_CLIENTE = "AGUARDANDO_CLIENTE"
+    RESOLVIDO = "RESOLVIDO"
+    FECHADO = "FECHADO"
+    CANCELADO = "CANCELADO"
+
+
+class PrioridadeTicket(str, enum.Enum):
+    """Níveis de prioridade para tickets."""
+    BAIXA = "BAIXA"
+    NORMAL = "NORMAL"
+    ALTA = "ALTA"
+    URGENTE = "URGENTE"
+
+
+class CategoriaTicket(str, enum.Enum):
+    """Categorias de tickets de suporte."""
+    TECNICO = "TECNICO"
+    COBRANCA = "COBRANCA"
+    INSTALACAO = "INSTALACAO"
+    SUPORTE = "SUPORTE"
+    CANCELAMENTO = "CANCELAMENTO"
+    OUTRO = "OUTRO"
+
+
+class Ticket(Base):
+    """Modelo de Ticket de Suporte."""
+    __tablename__ = "tickets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
+    cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=True)  # Opcional para tickets internos
+    criado_por_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    atribuido_para_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    titulo = Column(String(255), nullable=False)
+    descricao = Column(Text, nullable=False)
+    status = Column(SQLAlchemyEnum(StatusTicket), nullable=False, default=StatusTicket.ABERTO)
+    prioridade = Column(SQLAlchemyEnum(PrioridadeTicket), nullable=False, default=PrioridadeTicket.NORMAL)
+    categoria = Column(SQLAlchemyEnum(CategoriaTicket), nullable=False, default=CategoriaTicket.SUPORTE)
+
+    # Campos de resolução
+    resolucao = Column(Text, nullable=True)
+    resolvido_em = Column(DateTime(timezone=True), nullable=True)
+    resolvido_por_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    # Campos de tempo
+    prazo_resolucao = Column(DateTime(timezone=True), nullable=True)
+    tempo_gasto_minutos = Column(Integer, default=0)  # Tempo total gasto em minutos
+
+    # Metadata
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relacionamentos
+    empresa = relationship("Empresa", backref="tickets")
+    cliente = relationship("Cliente", backref="tickets")
+    criado_por = relationship("Usuario", foreign_keys=[criado_por_id], backref="tickets_criados")
+    atribuido_para = relationship("Usuario", foreign_keys=[atribuido_para_id], backref="tickets_atribuidos")
+    resolvido_por = relationship("Usuario", foreign_keys=[resolvido_por_id], backref="tickets_resolvidos")
+    comentarios = relationship("TicketComment", back_populates="ticket", cascade="all, delete-orphan")
+
+
+class TicketComment(Base):
+    """Modelo de Comentário em Ticket."""
+    __tablename__ = "ticket_comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=False)
+    usuario_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    comentario = Column(Text, nullable=False)
+    is_internal = Column(Boolean, default=False)  # Comentário interno (não visível para cliente)
+
+    # Metadata
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relacionamentos
+    ticket = relationship("Ticket", back_populates="comentarios")
+    usuario = relationship("Usuario", backref="comentarios_ticket")
+
+
 # Imports tardios para resolver dependências circulares
 from .network import Router
 from .access_control import Role, Permission

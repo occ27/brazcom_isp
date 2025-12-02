@@ -276,3 +276,17 @@ class ClienteListResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Schema para autocomplete de clientes
+class ClienteAutocomplete(BaseModel):
+    id: int
+    nome_razao_social: str
+    cpf_cnpj: Optional[str] = None
+    idOutros: Optional[str] = None
+    tipo_pessoa: TipoPessoa
+    email: Optional[str] = None
+    telefone: Optional[str] = None
+
+    class Config:
+        from_attributes = True

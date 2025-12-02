@@ -10,6 +10,7 @@ from app.schemas.cliente import (
     ClienteUpdate,
     ClienteResponse,
     ClienteListResponse,
+    ClienteAutocomplete,
 )
 from app.routes.auth import get_current_active_user
 from app.api import deps
@@ -379,3 +380,53 @@ def read_cliente(
 
     client_dict['enderecos'] = enderecos
     return client_dict
+
+
+@router.get("/autocomplete/{empresa_id}", response_model=List[ClienteAutocomplete])
+def autocomplete_clientes(
+    empresa_id: int,
+    q: str = "",
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Retorna lista de clientes para autocomplete com busca por nome, CPF/CNPJ, email ou telefone."""
+    db_empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
+    if not db_empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+
+    # Verifica permissão
+    user_empresas_ids = [e.empresa_id for e in current_user.empresas]
+    if empresa_id not in user_empresas_ids and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Usuário não tem permissão para ver os clientes desta empresa")
+
+    # Buscar clientes com paginação limitada para autocomplete
+    from sqlalchemy import select
+    subquery = select(crud_cliente.EmpresaCliente.cliente_id).where(crud_cliente.EmpresaCliente.empresa_id == empresa_id).scalar_subquery()
+    
+    query = (
+        db.query(crud_cliente.Cliente)
+        .filter(
+            crud_cliente.Cliente.is_active == True,
+            or_(
+                # Clientes com associações EmpresaCliente
+                crud_cliente.Cliente.id.in_(subquery),
+                # Clientes legacy (diretamente associados via empresa_id)
+                crud_cliente.Cliente.empresa_id == empresa_id
+            )
+        )
+    )
+
+    if q:
+        query = query.filter(
+            or_(
+                crud_cliente.Cliente.nome_razao_social.ilike(f"%{q}%"),
+                crud_cliente.Cliente.cpf_cnpj.ilike(f"%{q}%"),
+                crud_cliente.Cliente.idOutros.ilike(f"%{q}%"),
+                crud_cliente.Cliente.email.ilike(f"%{q}%"),
+                crud_cliente.Cliente.telefone.ilike(f"%{q}%")
+            )
+        )
+
+    clientes = query.limit(limit).all()
+    return clientes

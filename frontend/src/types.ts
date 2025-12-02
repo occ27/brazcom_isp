@@ -8,6 +8,7 @@ export type PageType =
   | 'nfcom'
   | 'bank-accounts'
   | 'receivables'
+  | 'tickets'
   | 'reports'
   | 'users'
   | 'roles'
@@ -261,4 +262,86 @@ export interface DHCPNetwork {
   empresa?: Company;
   router?: Router;
   dhcp_server?: DHCPServer;
+}
+
+// ===== TIPOS DE TICKETS/SUPORTE =====
+
+export type StatusTicket = 'ABERTO' | 'EM_ANDAMENTO' | 'AGUARDANDO_CLIENTE' | 'RESOLVIDO' | 'FECHADO' | 'CANCELADO';
+export type PrioridadeTicket = 'BAIXA' | 'NORMAL' | 'ALTA' | 'URGENTE';
+export type CategoriaTicket = 'TECNICO' | 'COBRANCA' | 'INSTALACAO' | 'SUPORTE' | 'CANCELAMENTO' | 'OUTRO';
+
+export interface Ticket {
+  id: number;
+  empresa_id: number;
+  cliente_id?: number;
+  criado_por_id: number;
+  atribuido_para_id?: number;
+  titulo: string;
+  descricao: string;
+  status: StatusTicket;
+  prioridade: PrioridadeTicket;
+  categoria: CategoriaTicket;
+  resolucao?: string;
+  resolvido_em?: string;
+  resolvido_por_id?: number;
+  prazo_resolucao?: string;
+  tempo_gasto_minutos: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+  // Dados relacionados
+  cliente_nome?: string;
+  criado_por_nome: string;
+  atribuido_para_nome?: string;
+  resolvido_por_nome?: string;
+  comentarios_count: number;
+}
+
+export interface TicketComment {
+  id: number;
+  ticket_id: number;
+  usuario_id: number;
+  comentario: string;
+  is_internal: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface TicketStats {
+  total_tickets: number;
+  tickets_abertos: number;
+  tickets_em_andamento: number;
+  tickets_resolvidos: number;
+  tickets_fechados: number;
+  tickets_hoje: number;
+  tickets_semana: number;
+  tickets_mes: number;
+  tempo_medio_resolucao_horas?: number;
+}
+
+export interface TicketCreate {
+  titulo: string;
+  descricao: string;
+  prioridade: PrioridadeTicket;
+  categoria: CategoriaTicket;
+  cliente_id?: number;
+  atribuido_para_id?: number;
+  prazo_resolucao?: string;
+}
+
+export interface TicketUpdate {
+  titulo?: string;
+  descricao?: string;
+  status?: StatusTicket;
+  prioridade?: PrioridadeTicket;
+  categoria?: CategoriaTicket;
+  atribuido_para_id?: number;
+  resolucao?: string;
+  prazo_resolucao?: string;
+  tempo_gasto_minutos?: number;
+}
+
+export interface TicketCommentCreate {
+  comentario: string;
+  is_internal: boolean;
 }

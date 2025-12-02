@@ -29,6 +29,9 @@ PERMISSIONS: List[Tuple[str, str]] = [
     ("contract_view", "Visualizar contratos"),
     ("bank_accounts_view", "Visualizar contas bancárias"),
     ("receivables_view", "Visualizar recebíveis"),
+    ("receivables_manage", "Gerenciar recebíveis"),
+    ("tickets_manage", "Gerenciar tickets de suporte"),
+    ("tickets_view", "Visualizar tickets de suporte"),
 ]
 
 ROLE_DEFINITIONS = {
@@ -85,14 +88,14 @@ def main():
                 role.permissions = viewer_perms
             elif rname == "Secretary":
                 secretary_perms = []
-                for key in ["clients_manage", "services_manage", "contract_manage", "bank_accounts_view", "receivables_view", "receivables_manage"]:
+                for key in ["clients_manage", "services_manage", "contract_manage", "bank_accounts_view", "receivables_view", "receivables_manage", "tickets_manage", "tickets_view"]:
                     p = perm_map.get(key)
                     if p:
                         secretary_perms.append(p)
                 role.permissions = secretary_perms
             elif rname == "Technical":
                 tech_perms = []
-                for key in ["contract_view"]:
+                for key in ["contract_view", "router_view", "radius_view", "tickets_manage", "tickets_view"]:
                     p = perm_map.get(key)
                     if p:
                         tech_perms.append(p)

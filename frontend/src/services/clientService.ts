@@ -47,6 +47,16 @@ export interface ClientResponse extends ClientCreate {
   enderecos?: ClienteEnderecoResponse[];
 }
 
+export interface ClientAutocomplete {
+  id: number;
+  nome_razao_social: string;
+  cpf_cnpj?: string;
+  idOutros?: string;
+  tipo_pessoa: 'F' | 'J';
+  email?: string;
+  telefone?: string;
+}
+
 export interface ClientListResponse {
   total: number;
   clientes: ClientResponse[];
@@ -96,6 +106,12 @@ export const clientService = {
   async deleteClient(empresaId: number, id: number, removeOrphan: boolean = false): Promise<void> {
     const q = removeOrphan ? `?empresa_id=${empresaId}&remove_orphan_cliente=true` : `?empresa_id=${empresaId}`;
     await api.delete(`/clientes/${id}${q}`);
+  },
+
+  async autocompleteClients(empresaId: number, q: string, limit: number = 10): Promise<ClientAutocomplete[]> {
+    const params: any = { q, limit };
+    const response = await api.get(`/clientes/autocomplete/${empresaId}`, { params });
+    return response.data;
   },
 
   // Address management (per-association)

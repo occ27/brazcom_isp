@@ -88,6 +88,7 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
       items: [
         { label: 'Contas Bancárias', icon: DocumentTextIcon, path: 'bank-accounts' as PageType, group: 'financeiro' },
         { label: 'Cobranças', icon: DocumentTextIcon, path: 'receivables' as PageType, group: 'financeiro' },
+        { label: 'Suporte/Tickets', icon: DocumentTextIcon, path: 'tickets' as PageType, group: 'financeiro' },
       ]
     },
     {
@@ -144,6 +145,7 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
   // Permissões para financeiro
   permissionMap['bank-accounts'] = 'bank_accounts_view';
   permissionMap['receivables'] = 'receivables_view';
+  permissionMap['tickets'] = 'tickets_view';
 
   const canViewItem = (path: PageType) => {
     const required = permissionMap[path as string];
