@@ -12,6 +12,7 @@ interface AppUser {
   ativo?: boolean; // Mantido para compatibilidade
   tipo?: 'admin' | 'user'; // Mantido para compatibilidade
   active_empresa_id?: number;
+  cliente_id?: number; // Para identificar usuários que são clientes
   created_at: string;
   updated_at: string;
 }
@@ -28,6 +29,7 @@ interface AuthContextType {
   loadUserInfo: () => Promise<void>;
   hasPermission: (name: string) => boolean;
   reloadPermissions: () => Promise<void>;
+  isClientUser: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -59,20 +61,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loadUserInfo = async () => {
+    console.log('🔥 LOADUSERINFO STARTED');
     try {
       const userData = await authService.getCurrentUser();
+      console.log('📦 USER DATA RECEIVED:', userData);
       setUser(userData);
-      // load aggregated permissions for the user
-      try {
-        const perms = await userService.listUserPermissions(userData.id);
-        setPermissions(perms || []);
-      } catch (e) {
-        console.warn('Não foi possível carregar permissões do usuário', e);
+
+      // Aguardar um tick para garantir que o estado foi atualizado
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      // Se for usuário cliente (cliente_id presente) pular carregamento de permissões
+      if (userData.cliente_id !== undefined && userData.cliente_id !== null) {
         setPermissions([]);
+      } else {
+        // load aggregated permissions for the user (apenas para usuários administrativos)
+        try {
+          const perms = await userService.listUserPermissions(userData.id);
+          setPermissions(perms || []);
+        } catch (e) {
+          console.warn('Não foi possível carregar permissões do usuário', e);
+          setPermissions([]);
+        }
       }
       setIsAuthenticated(true);
+
     } catch (error) {
-      console.error('Erro ao carregar informações do usuário:', error);
+      console.error('❌ ERRO LOAD USER INFO:', error);
       // Token pode estar expirado, fazer logout
       logout();
     } finally {
@@ -90,6 +104,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const isClientUser = () => {
+    return user ? user.cliente_id !== null && user.cliente_id !== undefined : false;
+  };
+
   const hasPermission = (name: string) => {
     if (!user) return false;
     if (user.is_superuser) return true;
@@ -104,6 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await authService.login(username, password);
       // Após login bem-sucedido, carregar informações do usuário
       await loadUserInfo();
+
     } catch (error: any) {
       setError(error.message || 'Erro ao fazer login');
       throw error;
@@ -133,7 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
   };
 
-  const value: AuthContextType = {
+  const value = {
     isAuthenticated,
     user,
     loading,
@@ -145,6 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadUserInfo,
     hasPermission,
     reloadPermissions,
+    isClientUser,
   };
 
   return (

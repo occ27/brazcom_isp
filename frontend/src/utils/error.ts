@@ -36,7 +36,13 @@ export function stringifyError(e: any): string {
             'ip_class_id': 'Classe IP',
             'mac_address': 'Endereço MAC',
             'assigned_ip': 'IP Atribuído',
-            'metodo_autenticacao': 'Método de Autenticação'
+            'metodo_autenticacao': 'Método de Autenticação',
+            'cpf_cnpj': 'CPF/CNPJ',
+            'password': 'Senha',
+            'new_password': 'Nova Senha',
+            'confirm_password': 'Confirmação de Senha',
+            'empresa_id': 'ID da Empresa',
+            'reset_code': 'Código de Redefinição'
           };
           
           const friendlyFieldName = fieldNames[field] || field;
@@ -46,10 +52,30 @@ export function stringifyError(e: any): string {
             return `${friendlyFieldName} é obrigatório`;
           }
           if (d.msg.includes('should be greater than or equal to')) {
-            return `${friendlyFieldName} deve ser maior ou igual a ${d.msg.split(' ').pop()}`;
+            const minValue = d.msg.split(' ').pop();
+            return `${friendlyFieldName} deve ter pelo menos ${minValue} caracteres`;
           }
           if (d.msg.includes('should be less than or equal to')) {
-            return `${friendlyFieldName} deve ser menor ou igual a ${d.msg.split(' ').pop()}`;
+            const maxValue = d.msg.split(' ').pop();
+            return `${friendlyFieldName} deve ter no máximo ${maxValue} caracteres`;
+          }
+          if (d.msg === 'String should have at least 6 characters') {
+            return `${friendlyFieldName} deve ter pelo menos 6 caracteres`;
+          }
+          if (d.msg === 'String should have at least 8 characters') {
+            return `${friendlyFieldName} deve ter pelo menos 8 caracteres`;
+          }
+          if (d.msg === 'the string is too short') {
+            return `${friendlyFieldName} é muito curta`;
+          }
+          if (d.msg === 'the string is too long') {
+            return `${friendlyFieldName} é muito longa`;
+          }
+          if (d.msg === 'value is not a valid email address') {
+            return `${friendlyFieldName} deve ser um endereço de email válido`;
+          }
+          if (d.msg === 'value is not a valid integer') {
+            return `${friendlyFieldName} deve ser um número inteiro válido`;
           }
           if (d.type === 'value_error' && d.ctx?.error) {
             // Para erros de validators customizados

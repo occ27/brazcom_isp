@@ -19,6 +19,8 @@ from app.routes import network
 from app.routes import receivables
 from app.routes import bank_accounts
 from app.routes import tickets
+from app.routes import client_portal
+from app.routes import client_auth
 
 # A criação das tabelas será feita no evento de startup, após o DB ficar disponível
 
@@ -123,6 +125,8 @@ app.include_router(network.router)
 app.include_router(receivables.router)
 app.include_router(bank_accounts.router)
 app.include_router(tickets.router)
+app.include_router(client_portal.router)
+app.include_router(client_auth.router)
 
 @app.get("/")
 def read_root():

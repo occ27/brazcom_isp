@@ -273,3 +273,36 @@ def delete_empresa_cliente(db: Session, empresa_id: int, cliente_id: int, remove
                 db.delete(cliente)
                 db.commit()
     return True
+
+
+def get_cliente_by_cpf_cnpj_and_empresa(db: Session, cpf_cnpj: str, empresa_id: int):
+    """Busca cliente por CPF/CNPJ e empresa (considerando a constraint única)."""
+    # Primeiro tenta buscar exatamente como fornecido
+    cliente = db.query(Cliente).filter(
+        Cliente.empresa_id == empresa_id,
+        Cliente.cpf_cnpj == cpf_cnpj
+    ).first()
+
+    if cliente:
+        return cliente
+
+    # Se não encontrou, tenta com a versão limpa (somente dígitos)
+    cpf_cnpj_clean = ''.join(filter(str.isdigit, cpf_cnpj))
+    if cpf_cnpj_clean != cpf_cnpj:  # Só busca se for diferente
+        cliente = db.query(Cliente).filter(
+            Cliente.empresa_id == empresa_id,
+            Cliente.cpf_cnpj == cpf_cnpj_clean
+        ).first()
+        if cliente:
+            return cliente
+
+    # Se ainda não encontrou, tenta buscar por versões formatadas
+    # (para casos onde o CPF está armazenado formatado mas a entrada não está)
+    if len(cpf_cnpj_clean) == 11:  # CPF
+        cpf_formatado = f"{cpf_cnpj_clean[:3]}.{cpf_cnpj_clean[3:6]}.{cpf_cnpj_clean[6:9]}-{cpf_cnpj_clean[9:]}"
+        cliente = db.query(Cliente).filter(
+            Cliente.empresa_id == empresa_id,
+            Cliente.cpf_cnpj == cpf_formatado
+        ).first()
+
+    return cliente

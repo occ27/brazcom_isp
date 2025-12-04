@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator, root_validator
+from pydantic import BaseModel, Field, validator, model_validator
 from typing import Optional, List
 from datetime import datetime
 import re
@@ -46,6 +46,12 @@ class ClienteBase(BaseModel):
     inscricao_estadual: Optional[str] = Field(None, max_length=20)
     email: Optional[str] = Field(None, max_length=255)
     telefone: Optional[str] = Field(None, max_length=20)
+    # Campos de autenticação
+    password_hash: Optional[str] = Field(None, description="Hash da senha para autenticação no portal")
+    reset_token: Optional[str] = Field(None, description="Token para reset de senha")
+    reset_token_expires: Optional[datetime] = Field(None, description="Data de expiração do token de reset")
+    email_verified: Optional[bool] = Field(False, description="Se o email foi verificado")
+    last_login: Optional[datetime] = Field(None, description="Último login do cliente")
 
     def format_cpf_cnpj(cls, v):
         if v:
@@ -55,6 +61,8 @@ class ClienteBase(BaseModel):
 
 class ClienteCreate(ClienteBase):
     enderecos: List[ClienteEnderecoBase] = []
+    # Campos opcionais para criação com senha
+    password: Optional[str] = Field(None, min_length=6, description="Senha para autenticação no portal")
 
     def clean_and_upper_name(cls, v):
         """Remover espaços duplos, strip e converter nome/razão social para maiúsculas."""
@@ -201,6 +209,9 @@ class ClienteUpdate(BaseModel):
     email: Optional[str] = Field(None, max_length=255)
     telefone: Optional[str] = Field(None, max_length=20)
     is_active: Optional[bool] = None
+    # Campos de autenticação opcionais para update
+    password: Optional[str] = Field(None, min_length=6, description="Nova senha para autenticação no portal")
+    email_verified: Optional[bool] = Field(None, description="Se o email foi verificado")
 
     def clean_string_fields(cls, v):
         if isinstance(v, str):
@@ -248,23 +259,18 @@ class ClienteResponse(ClienteBase):
             return v.value
         return str(v)
 
-    @validator('enderecos', always=True)
-    def use_new_address_model_if_available(cls, v, values):
-        # v is the value from the legacy 'enderecos' relationship
-        # values contains the other model fields, including 'empresa_associations'
-        
-        # If legacy addresses exist, use them (for backward compatibility)
-        if v:
-            return v
+    @model_validator(mode='after')
+    def use_new_address_model_if_available(self):
+        # Use new address model if available, otherwise use legacy addresses
+        if self.enderecos:
+            return self
 
         # Otherwise, populate from the new association model
-        if 'empresa_associations' in values:
-            all_enderecos = []
-            for assoc in values['empresa_associations']:
-                all_enderecos.extend(assoc.enderecos)
-            return all_enderecos
-            
-        return v
+        all_enderecos = []
+        for assoc in self.empresa_associations:
+            all_enderecos.extend(assoc.enderecos)
+        self.enderecos = all_enderecos
+        return self
 
     class Config:
         from_attributes = True
@@ -290,3 +296,39 @@ class ClienteAutocomplete(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Schemas para autenticação de clientes no portal
+
+class ClienteLogin(BaseModel):
+    cpf_cnpj: str = Field(..., description="CPF ou CNPJ do cliente")
+    password: str = Field(..., description="Senha do cliente")
+    empresa_id: Optional[int] = Field(None, description="ID da empresa (opcional se houver apenas uma)")
+
+class ClienteAuthResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    cliente: dict  # Dados básicos do cliente
+    empresa: dict  # Dados básicos da empresa
+
+class ClienteForgotPassword(BaseModel):
+    cpf_cnpj: str = Field(..., description="CPF ou CNPJ do cliente")
+    email: str = Field(..., description="Email do cliente para validação")
+    empresa_id: Optional[int] = Field(None, description="ID da empresa")
+
+class ClienteResetPassword(BaseModel):
+    cpf_cnpj: str = Field(..., description="CPF ou CNPJ do cliente")
+    reset_code: str = Field(..., description="Código de reset enviado por email")
+    new_password: str = Field(..., min_length=6, description="Nova senha")
+    empresa_id: Optional[int] = Field(None, description="ID da empresa")
+
+class ClienteSetPassword(BaseModel):
+    password: str = Field(..., min_length=6, description="Nova senha")
+    confirm_password: str = Field(..., min_length=6, description="Confirmação da senha")
+
+    @model_validator(mode='after')
+    def passwords_match(self):
+        if self.password != self.confirm_password:
+            raise ValueError('As senhas não coincidem')
+        return self

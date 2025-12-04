@@ -41,6 +41,7 @@ export interface ClienteEnderecoResponse {
 export interface ClientResponse extends ClientCreate {
   id: number;
   empresa_id: number;
+  idOutros?: string;
   is_active: boolean;
   created_at: string;
   updated_at?: string;
@@ -89,6 +90,16 @@ export const clientService = {
 
   async getClient(id: number): Promise<ClientResponse> {
     const response = await api.get(`/clientes/${id}`);
+    return response.data;
+  },
+
+  async getCurrentClient(): Promise<ClientResponse> {
+    const response = await api.get('/client-portal/cliente');
+    return response.data;
+  },
+
+  async getCurrentCompany(): Promise<any> {
+    const response = await api.get('/client-portal/empresa');
     return response.data;
   },
 

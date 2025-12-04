@@ -1,11 +1,12 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
+import { ThemeProvider, createTheme, CssBaseline, Box, CircularProgress } from '@mui/material';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CompanyProvider } from './contexts/CompanyContext';
 import { SnackbarProvider } from 'notistack';
 import Home from './components/Home';
 import Login from './pages/Login';
+import ClientLogin from './pages/ClientLogin';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Companies from './pages/Companies';
@@ -25,8 +26,48 @@ import DHCP from './pages/DHCP';
 import BankAccounts from './pages/BankAccounts';
 import Receivables from './pages/Receivables';
 import Tickets from './pages/Tickets';
+import ClientPortal from './pages/ClientPortal';
 import AuthenticatedLayout from './components/AuthenticatedLayout';
 import { PageType } from './types';
+
+// Componente para redirecionar usuários baseado no tipo
+const RedirectHandler: React.FC = () => {
+  const { isAuthenticated, user, isClientUser } = useAuth();
+  const navigate = useNavigate();
+
+  React.useEffect(() => {
+    console.log('🔄 REDIRECT HANDLER:', {
+      isAuthenticated,
+      user: user?.full_name,
+      isClient: isClientUser(),
+    });
+
+    // Só fazer redirecionamento se estiver autenticado E tiver dados do usuário
+    if (isAuthenticated && user) {
+      if (isClientUser()) {
+        console.log('✅ CLIENT USER, REDIRECTING TO CLIENT PORTAL...');
+        navigate('/client-portal', { replace: true });
+      } else {
+        console.log('✅ ADMIN USER, REDIRECTING TO DASHBOARD...');
+        navigate('/dashboard', { replace: true });
+      }
+    } else {
+      console.log('⏳ CONDITIONS NOT MET', { isAuthenticated, hasUser: !!user });
+    }
+  }, [isAuthenticated, user, navigate, isClientUser]);
+
+  // Se não estiver autenticado, mostra a landing page
+  if (!isAuthenticated) {
+    return <Home />;
+  }
+
+  // Enquanto redireciona, mostra loading
+  return (
+    <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+      <CircularProgress />
+    </Box>
+  );
+};
 
 // Tema personalizado para NFCom
 const theme = createTheme({
@@ -100,7 +141,7 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     </div>;
   }
 
-  return !isAuthenticated ? <>{children}</> : <Navigate to="/dashboard" />;
+  return !isAuthenticated ? <>{children}</> : <Navigate to="/" />;
 };
 
 // Layout para páginas autenticadas
@@ -165,12 +206,20 @@ const AuthenticatedApp: React.FC<{ children: React.ReactNode }> = ({ children })
 const AppContent: React.FC = () => {
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
+      <Route path="/" element={<RedirectHandler />} />
       <Route
         path="/login"
         element={
           <PublicRoute>
             <Login />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/client-login"
+        element={
+          <PublicRoute>
+            <ClientLogin />
           </PublicRoute>
         }
       />
@@ -189,6 +238,14 @@ const AppContent: React.FC = () => {
             <AuthenticatedApp>
               <Dashboard />
             </AuthenticatedApp>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/client-portal"
+        element={
+          <ProtectedRoute>
+            <ClientPortal />
           </ProtectedRoute>
         }
       />

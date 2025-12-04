@@ -11,6 +11,7 @@ export interface User {
   ativo?: boolean; // Mantido para compatibilidade
   tipo?: 'admin' | 'user'; // Mantido para compatibilidade
   active_empresa_id?: number;
+  cliente_id?: number; // Para identificar usuários que são clientes
   created_at: string;
   updated_at: string;
 }
@@ -62,9 +63,30 @@ api.interceptors.response.use(
       window.location.pathname !== '/login' &&
       localStorage.getItem('token')
     ) {
-      console.log('authService: Token inválido/expirado, fazendo logout');
-      logout();
-      window.location.href = '/';
+        // Não forçar logout automático para 401s originados de endpoints
+        // que podem ser acessados por tokens de cliente (por exemplo,
+        // listagem de empresas ou endpoints do client-portal). Esses 401
+        // normalmente significam que o token é de cliente e está tentando
+        // acessar um endpoint admin-only — nesse caso não queremos quebrar
+        // a UX do portal redirecionando o usuário para a home.
+        const reqUrl = error.config?.url || '';
+        const doNotLogoutPrefixes = [
+          '/empresas',
+          '/access',
+          '/client-portal',
+          '/client-auth',
+          '/usuarios/me/active-empresa',
+        ];
+
+        const shouldSkipLogout = doNotLogoutPrefixes.some((p) => reqUrl.startsWith(p) || reqUrl.includes(p));
+
+        if (shouldSkipLogout) {
+          console.log('authService: 401 recebido em endpoint não-admin, não forçando logout (cliente) =>', reqUrl);
+        } else {
+          console.log('authService: Token inválido/expirado, fazendo logout');
+          logout();
+          window.location.href = '/';
+        }
     }
     return Promise.reject(error);
   }
@@ -131,6 +153,37 @@ export async function register(userData: RegisterData): Promise<void> {
   }
 }
 
+export async function clientLogin(cpf_cnpj: string, password: string, empresa_id: number): Promise<LoginResponse> {
+  try {
+    const response = await api.post('/client-auth/login', {
+      cpf_cnpj,
+      password,
+      empresa_id,
+    });
+
+    // Store token in localStorage
+    localStorage.setItem('token', response.data.access_token);
+
+    return response.data;
+  } catch (error: any) {
+    // Log for debugging in the browser console (helps diagnose CORS / network issues)
+    try {
+      // eslint-disable-next-line no-console
+      console.error('authService.clientLogin error object:', error);
+      // eslint-disable-next-line no-console
+      console.error('authService.clientLogin error.request:', error?.request);
+      // eslint-disable-next-line no-console
+      console.error('authService.clientLogin error.response:', error?.response);
+    } catch (e) {}
+
+    if (error.response) {
+      throw new Error(error.response.data.detail || 'Login failed');
+    } else {
+      throw new Error('Network error');
+    }
+  }
+}
+
 export function logout() {
   // Limpar token de autenticação
   localStorage.removeItem('token');
@@ -153,22 +206,42 @@ export function setAuthToken(token: string) {
 
 export async function getCurrentUser(): Promise<User> {
   try {
-    const response = await api.get('/usuarios/me');
-    // Mapear os campos do backend para o formato esperado pelo frontend
-    const userData = response.data;
-    return {
-      id: userData.id,
-      email: userData.email,
-      full_name: userData.full_name,
-      nome: userData.full_name, // Campo de compatibilidade
-      is_superuser: userData.is_superuser,
-      is_active: userData.is_active,
-      ativo: userData.is_active, // Campo de compatibilidade
-      tipo: userData.is_superuser ? 'admin' : 'user', // Campo de compatibilidade
-      active_empresa_id: userData.active_empresa_id,
-      created_at: userData.created_at,
-      updated_at: userData.updated_at,
-    };
+    // Primeiro tentar o endpoint de cliente
+    try {
+      const response = await api.get('/client-auth/me');
+      const clienteData = response.data;
+      return {
+        id: clienteData.id,
+        email: clienteData.email,
+        full_name: clienteData.nome_razao_social,
+        nome: clienteData.nome_razao_social,
+        is_superuser: false, // Clientes não são superusuários
+        is_active: true, // Assumir ativo se conseguiu logar
+        ativo: true,
+        tipo: 'user',
+        active_empresa_id: undefined, // Clientes não têm empresa ativa no mesmo sentido
+        cliente_id: clienteData.id, // O próprio ID do cliente
+        created_at: '', // Não disponível
+        updated_at: '',
+      };
+    } catch (clientError) {
+      // Se falhar, tentar o endpoint de usuários (admin)
+      const response = await api.get('/usuarios/me');
+      const userData = response.data;
+      return {
+        id: userData.id,
+        email: userData.email,
+        full_name: userData.full_name,
+        nome: userData.full_name,
+        is_superuser: userData.is_superuser,
+        is_active: userData.is_active,
+        ativo: userData.is_active,
+        tipo: userData.is_superuser ? 'admin' : 'user',
+        active_empresa_id: userData.active_empresa_id,
+        created_at: userData.created_at,
+        updated_at: userData.updated_at,
+      };
+    }
   } catch (error: any) {
     if (error.response?.status === 401) {
       logout();

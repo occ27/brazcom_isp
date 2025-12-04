@@ -48,6 +48,7 @@ class Usuario(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     empresas = relationship("UsuarioEmpresa", back_populates="usuario")
+    # cliente = relationship("Cliente", back_populates="usuario")  # Removed - separate auth flows
 
 class PasswordResetToken(Base):
     """Token/código de redefinição de senha enviado por email."""
@@ -61,6 +62,19 @@ class PasswordResetToken(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     usuario = relationship("Usuario")
+
+class PasswordResetTokenCliente(Base):
+    """Token/código de redefinição de senha para clientes enviado por email."""
+    __tablename__ = "password_reset_tokens_cliente"
+
+    id = Column(Integer, primary_key=True, index=True)
+    cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=False)
+    code = Column(String(20), nullable=False, index=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    used = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    cliente = relationship("Cliente")
 
 class Empresa(Base):
     """Modelo de Empresa emissora de NFCom."""
@@ -209,6 +223,14 @@ class Cliente(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+    # Campos de autenticação para portal do cliente
+    password_hash = Column(String(255), nullable=True)
+    reset_token = Column(String(255), nullable=True)
+    reset_token_expires = Column(DateTime(timezone=True), nullable=True)
+    email_verified = Column(Boolean, default=False)
+    last_login = Column(DateTime(timezone=True), nullable=True)
+    last_password_reset_request = Column(DateTime(timezone=True), nullable=True)
+
     # Legacy: cliente podia apontar para uma única empresa (mantido para migração)
     empresa = relationship("Empresa", back_populates="clientes")
     # Associações com empresas (nova modelagem)
@@ -216,6 +238,7 @@ class Cliente(Base):
     nfcoms = relationship("NFCom", back_populates="cliente")
     servicos_contratados = relationship("ServicoContratado", back_populates="cliente", cascade="all, delete-orphan")
     radius_user = relationship("RadiusUser", back_populates="cliente", uselist=False)
+    # usuario = relationship("Usuario", back_populates="cliente", uselist=False)  # Removed - separate auth flows
 
 # relação inversa: EmpresaCliente.enderecos back_populates
 EmpresaCliente.enderecos = relationship("EmpresaClienteEndereco", back_populates="empresa_cliente", cascade="all, delete-orphan")

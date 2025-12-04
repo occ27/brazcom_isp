@@ -13,6 +13,12 @@ const Home = () => {
             </div>
             <div className="flex items-center space-x-1 sm:space-x-2 md:space-x-3 lg:space-x-4">
               <Link
+                to="/client-login"
+                className="text-blue-600 hover:text-blue-800 font-medium text-xs sm:text-sm md:text-base px-1 sm:px-2 md:px-3 py-1 sm:py-2 border border-blue-600 rounded-md"
+              >
+                Portal do Cliente
+              </Link>
+              <Link
                 to="/login"
                 className="text-indigo-600 hover:text-indigo-800 font-medium text-xs sm:text-sm md:text-base px-1 sm:px-2 md:px-3 py-1 sm:py-2"
               >
@@ -85,6 +91,12 @@ const Home = () => {
              Gerencie planos, clientes e infraestrutura, o acompanhamento de indicadores de desempenho e a implementação de estratégias para melhorar a satisfação e fidelização dos clientes. 
           </p>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 md:gap-4 justify-center">
+            <Link
+              to="/client-login"
+              className="bg-blue-600 text-white px-4 sm:px-6 md:px-8 py-2 sm:py-3 rounded-lg text-sm sm:text-base md:text-lg font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Portal do Cliente
+            </Link>
             <Link
               to="/register"
               className="bg-indigo-600 text-white px-4 sm:px-6 md:px-8 py-2 sm:py-3 rounded-lg text-sm sm:text-base md:text-lg font-semibold hover:bg-indigo-700 transition-colors"
@@ -581,7 +593,19 @@ const Home = () => {
             </div>
           </div>
           <div className="border-t border-gray-700 mt-4 sm:mt-6 md:mt-8 pt-4 sm:pt-6 md:pt-8 text-center text-gray-400 text-xs sm:text-sm">
-            <p>© 2025 Brazcom NFCom. Todos os direitos reservados. Desenvolvido por Brazcom Engenharia de Software.</p>
+            <div className="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-4">
+              <Box
+                component="img"
+                src={process.env.PUBLIC_URL + '/logo_brazcom_sem_texto_escuro.svg'}
+                alt="Brazcom Engenharia de Software Logo"
+                sx={{
+                  height: { xs: 24, sm: 32 },
+                  width: 'auto',
+                  //filter: 'brightness(0) invert(1)', // Para tornar branco no fundo escuro
+                }}
+              />
+              <p>© 2025 Brazcom ISP Suite. Todos os direitos reservados. Desenvolvido por Brazcom Engenharia de Software.</p>
+            </div>
             <div className="mt-2 sm:mt-3 md:mt-4 flex flex-col sm:flex-row justify-center space-y-1 sm:space-y-0 sm:space-x-4 md:space-x-6">
               <a href="#" className="hover:text-white text-xs sm:text-sm">Política de Privacidade</a>
               <a href="#" className="hover:text-white text-xs sm:text-sm">Termos de Uso</a>

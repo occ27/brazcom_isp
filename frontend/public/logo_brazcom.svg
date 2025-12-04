@@ -1,0 +1,31 @@
+<svg id="brazcom-logo-modern" width="400" height="120" viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <!-- Gradiente Digital Vibrante -->
+        <linearGradient id="tech-gradient-software" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#005BEA;stop-opacity:1"/> <!-- Azul Profundo -->
+            <stop offset="100%" style="stop-color:#00C6FB;stop-opacity:1"/> <!-- Ciano Brilhante -->
+        </linearGradient>
+    </defs>
+
+    <!-- Símbolo "B" Isométrico/Tech -->
+    <g transform="translate(20, 20)">
+        <!-- Parte vertical (tronco) -->
+        <path d="M10,0 L40,15 L40,85 L10,70 Z" fill="url(#tech-gradient-software)"/>
+        <path d="M10,70 L40,85 L30,90 L0,75 Z" fill="#0046b5"/> <!-- Sombra base -->
+        <path d="M0,5 L10,0 L10,70 L0,75 Z" fill="#00378b"/> <!-- Sombra lateral -->
+        
+        <!-- Loop Superior -->
+        <path d="M40,15 L70,0 C85,7.5 85,22.5 70,30 L40,45 Z" fill="url(#tech-gradient-software)" opacity="0.9"/>
+        <path d="M70,30 C85,22.5 85,7.5 70,0 L70,5 C80,12.5 80,22.5 70,30 Z" fill="#00C6FB"/> <!-- Borda de luz -->
+
+        <!-- Loop Inferior -->
+        <path d="M40,45 L75,27.5 C95,37.5 95,57.5 75,67.5 L40,85 Z" fill="url(#tech-gradient-software)" opacity="0.8"/>
+        <path d="M75,67.5 C95,57.5 95,37.5 75,27.5 L75,32.5 C90,42.5 90,57.5 75,67.5 Z" fill="#00C6FB"/> <!-- Borda de luz -->
+    </g>
+
+    <!-- Texto -->
+    <g transform="translate(120, 30)">
+        <text x="0" y="40" font-family="'Montserrat', sans-serif" font-weight="800" font-size="42" fill="#1A202C" letter-spacing="1">BRAZCOM</text>
+        <text x="2" y="70" font-family="'Roboto Mono', monospace" font-weight="400" font-size="16" fill="#4A5568" letter-spacing="2">ENGENHARIA DE SOFTWARE</text>
+    </g>
+</svg>

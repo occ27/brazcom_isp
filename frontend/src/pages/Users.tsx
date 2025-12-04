@@ -38,6 +38,8 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
 import userService, { Usuario, UsuarioCreate, UsuarioUpdate, Role } from '../services/userService';
+import clientService from '../services/clientService';
+// Cliente (Portal) association removed from Users page
 
 const Users: React.FC = () => {
   const { user: currentUser } = useAuth();
@@ -47,22 +49,47 @@ const Users: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingUser, setEditingUser] = useState<Usuario | null>(null);
-  const [formData, setFormData] = useState<UsuarioCreate>({
+  const [formData, setFormData] = useState<UsuarioCreate & { cliente_id?: number }>({
     nome: '',
     email: '',
     password: '',
-    is_superuser: false
+    is_superuser: false,
+    cliente_id: undefined
   });
 
   const [rolesList, setRolesList] = useState<Role[]>([]);
   const [assignedRoles, setAssignedRoles] = useState<Role[]>([]);
   const [roleToAssign, setRoleToAssign] = useState<number | string>('');
+  const [selectedClient, setSelectedClient] = useState<any | null>(null);
+  // cliente association removed
 
   // Verificar permissões
   const canManageUsers = currentUser?.is_superuser ||
     (activeCompany && currentUser &&
      // Verificar se é admin da empresa selecionada (isso seria checado no backend)
      true); // Por enquanto, assumimos que se tem empresa selecionada, pode gerenciar
+
+  const loadClientById = async (clientId: number) => {
+    try {
+      const clients = await clientService.getClientsByCompany(activeCompany?.id || 0, 1, 50, `id:${clientId}`);
+      if (clients.clientes && clients.clientes.length > 0) {
+        const client = clients.clientes[0];
+        setSelectedClient({
+          id: client.id,
+          nome_razao_social: client.nome_razao_social,
+          cpf_cnpj: client.cpf_cnpj,
+          idOutros: client.idOutros,
+          tipo_pessoa: client.tipo_pessoa,
+          email: client.email,
+          telefone: client.telefone
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar cliente:', error);
+    }
+  };
+
+  // client lookup removed
 
   useEffect(() => {
     if (activeCompany && canManageUsers) {
@@ -79,7 +106,16 @@ const Users: React.FC = () => {
       setLoading(true);
       setError(null);
       const usersData = await userService.getUsersByEmpresa(activeCompany.id);
-      setUsers(usersData);
+      // carregar roles atribuídas para cada usuário para exibir o tipo corretamente
+      const usersWithRoles = await Promise.all((usersData || []).map(async (u: any) => {
+        try {
+          const roles = await userService.getUserRoles(u.id);
+          return { ...u, roles };
+        } catch (e) {
+          return { ...u, roles: [] };
+        }
+      }));
+      setUsers(usersWithRoles);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Erro ao carregar usuários');
     } finally {
@@ -271,6 +307,7 @@ const Users: React.FC = () => {
                   <TableCell>Email</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Nível de Acesso</TableCell>
+                  <TableCell>Tipo</TableCell>
                   <TableCell align="right">Ações</TableCell>
                 </TableRow>
               </TableHead>
@@ -293,6 +330,29 @@ const Users: React.FC = () => {
                           label="Superusuário"
                           color="primary"
                           size="small"
+                        />
+                      ) : (
+                        <Chip
+                          label="Usuário"
+                          variant="outlined"
+                          size="small"
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {user.is_superuser ? (
+                        <Chip
+                          label="Administrador"
+                          color="warning"
+                          size="small"
+                          variant="outlined"
+                        />
+                      ) : ((user as any).roles && (user as any).roles.length > 0) ? (
+                        <Chip
+                          label={(user as any).roles.map((r: any) => r.name).join(', ')}
+                          color="info"
+                          size="small"
+                          variant="outlined"
                         />
                       ) : (
                         <Chip
@@ -363,6 +423,9 @@ const Users: React.FC = () => {
               required={!editingUser}
               helperText={editingUser ? "Deixe em branco para manter a senha atual" : ""}
             />
+            
+                {/* Cliente (Portal do Cliente) removed from user form */}
+            
             {currentUser?.is_superuser && (
               <FormControlLabel
                 control={
