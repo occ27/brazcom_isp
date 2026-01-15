@@ -480,6 +480,7 @@ class BoletoStatus(str, enum.Enum):
 
 class Bank(str, enum.Enum):
     SICOB = "SICOB"
+    SICREDI = "SICREDI"
     OUTRO = "OUTRO"
 
 
@@ -574,6 +575,11 @@ class BankAccount(Base):
     # Credenciais específicas do Sicoob
     sicoob_client_id = Column(String(100), nullable=True)
     sicoob_access_token = Column(String(200), nullable=True)
+    
+    # Credenciais específicas do Sicredi (CNAB 240)
+    sicredi_codigo_beneficiario = Column(String(20), nullable=True)  # Código do beneficiário
+    sicredi_posto = Column(String(10), nullable=True)  # Posto de atendimento
+    sicredi_byte_id = Column(String(1), nullable=True)  # Byte de identificação
     
     # Configurações de cobrança padrão
     multa_atraso_percentual = Column(Float, nullable=True, default=2.0)  # % de multa por atraso

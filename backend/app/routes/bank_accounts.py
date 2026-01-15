@@ -35,6 +35,9 @@ class BankAccountResponse(BaseModel):
     gateway_credentials: Optional[str] = None
     sicoob_client_id: Optional[str] = None
     sicoob_access_token: Optional[str] = None
+    sicredi_codigo_beneficiario: Optional[str] = None
+    sicredi_posto: Optional[str] = None
+    sicredi_byte_id: Optional[str] = None
     multa_atraso_percentual: Optional[float] = None
     juros_atraso_percentual: Optional[float] = None
     created_at: datetime
@@ -61,6 +64,9 @@ class BankAccountCreate(BaseModel):
     gateway_credentials: Optional[str] = None
     sicoob_client_id: Optional[str] = None
     sicoob_access_token: Optional[str] = None
+    sicredi_codigo_beneficiario: Optional[str] = None
+    sicredi_posto: Optional[str] = Field(None, description="Posto de atendimento SICREDI (AA)")
+    sicredi_byte_id: Optional[str] = Field(None, description="Byte de identificação SICREDI")
     multa_atraso_percentual: Optional[float] = Field(2.0, ge=0, le=100, description="Percentual de multa por atraso (%)")
     juros_atraso_percentual: Optional[float] = Field(1.0, ge=0, le=100, description="Percentual de juros por dia de atraso (%)")
 
@@ -82,6 +88,9 @@ class BankAccountUpdate(BaseModel):
     gateway_credentials: Optional[str] = None
     sicoob_client_id: Optional[str] = None
     sicoob_access_token: Optional[str] = None
+    sicredi_codigo_beneficiario: Optional[str] = None
+    sicredi_posto: Optional[str] = Field(None, description="Posto de atendimento SICREDI (AA)")
+    sicredi_byte_id: Optional[str] = Field(None, description="Byte de identificação SICREDI")
     multa_atraso_percentual: Optional[float] = Field(None, ge=0, le=100, description="Percentual de multa por atraso (%)")
     juros_atraso_percentual: Optional[float] = Field(None, ge=0, le=100, description="Percentual de juros por dia de atraso (%)")
 
@@ -119,9 +128,15 @@ def _serialize(bank_account: BankAccount, include_credentials: bool = False):
     if include_credentials:
         out['sicoob_client_id'] = bank_account.sicoob_client_id
         out['sicoob_access_token'] = bank_account.sicoob_access_token
+        out['sicredi_codigo_beneficiario'] = bank_account.sicredi_codigo_beneficiario
+        out['sicredi_posto'] = bank_account.sicredi_posto
+        out['sicredi_byte_id'] = bank_account.sicredi_byte_id
     else:
         out['sicoob_client_id'] = None
         out['sicoob_access_token'] = None
+        out['sicredi_codigo_beneficiario'] = None
+        out['sicredi_posto'] = None
+        out['sicredi_byte_id'] = None
     
     return out
 
@@ -180,6 +195,11 @@ def create_bank_account(empresa_id: int, payload: BankAccountCreate, db: Session
     ba.sicoob_client_id = payload.sicoob_client_id
     ba.sicoob_access_token = payload.sicoob_access_token
     
+    # Credenciais do Sicredi
+    ba.sicredi_codigo_beneficiario = payload.sicredi_codigo_beneficiario
+    ba.sicredi_posto = payload.sicredi_posto
+    ba.sicredi_byte_id = payload.sicredi_byte_id
+    
     db.add(ba)
     db.commit()
     db.refresh(ba)
@@ -198,8 +218,8 @@ def update_bank_account(empresa_id: int, bank_account_id: int, payload: BankAcco
             continue
         if field == 'gateway_credentials':
             ba.gateway_credentials = encrypt_sensitive_data(val)
-        elif field in ['sicoob_client_id', 'sicoob_access_token']:
-            # Campos do Sicoob não são criptografados
+        elif field in ['sicoob_client_id', 'sicoob_access_token', 'sicredi_codigo_beneficiario', 'sicredi_posto', 'sicredi_byte_id']:
+            # Campos do Sicoob e Sicredi não são criptografados
             setattr(ba, field, val)
         else:
             setattr(ba, field, val)
@@ -207,6 +227,77 @@ def update_bank_account(empresa_id: int, bank_account_id: int, payload: BankAcco
     db.commit()
     db.refresh(ba)
     return _serialize(ba, include_credentials=getattr(current_user, 'is_superuser', False))
+
+
+@router.delete('/{bank_account_id}', status_code=status.HTTP_200_OK)
+def delete_bank_account(empresa_id: int, bank_account_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+    deps.permission_checker('bank_accounts_manage')(db=db, current_user=current_user)
+    ba = db.query(BankAccount).filter(BankAccount.id == bank_account_id, BankAccount.empresa_id == empresa_id).first()
+    if not ba:
+        raise HTTPException(status_code=404, detail='Bank account not found')
+    db.delete(ba)
+    db.commit()
+    return {'ok': True}
+
+
+@router.post('/{bank_account_id}/generate-sicredi-remittance', status_code=status.HTTP_200_OK)
+def generate_sicredi_remittance(
+    empresa_id: int, 
+    bank_account_id: int, 
+    receivable_ids: Optional[List[int]] = None,
+    db: Session = Depends(get_db), 
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """
+    Gera arquivo de remessa CNAB 240 para SICREDI com boletos pendentes.
+    
+    Args:
+        empresa_id: ID da empresa
+        bank_account_id: ID da conta bancária SICREDI
+        receivable_ids: Lista opcional de IDs de receivables específicos
+    
+    Returns:
+        Informações sobre o arquivo gerado
+    """
+    deps.permission_checker('bank_accounts_manage')(db=db, current_user=current_user)
+    
+    from app.services.billing_service import BillingService
+    
+    # Verificar se a conta é SICREDI
+    ba = db.query(BankAccount).filter(
+        BankAccount.id == bank_account_id,
+        BankAccount.empresa_id == empresa_id
+    ).first()
+    
+    if not ba:
+        raise HTTPException(status_code=404, detail='Conta bancária não encontrada')
+    
+    if ba.bank != "SICREDI":
+        raise HTTPException(
+            status_code=400, 
+            detail=f'Esta operação é apenas para contas SICREDI. Banco atual: {ba.bank}'
+        )
+    
+    # Gerar arquivo de remessa
+    filepath = BillingService.generate_sicredi_remittance_file(
+        db=db,
+        empresa_id=empresa_id,
+        bank_account_id=bank_account_id,
+        receivable_ids=receivable_ids
+    )
+    
+    if not filepath:
+        raise HTTPException(
+            status_code=400,
+            detail='Não foi possível gerar o arquivo de remessa. Verifique se há boletos pendentes.'
+        )
+    
+    return {
+        'status': 'success',
+        'message': 'Arquivo de remessa SICREDI gerado com sucesso',
+        'filepath': filepath,
+        'download_url': f'/uploads/remessas/{filepath.split("/")[-1]}'
+    }
 
 
 @router.delete('/{bank_account_id}', status_code=status.HTTP_200_OK)
