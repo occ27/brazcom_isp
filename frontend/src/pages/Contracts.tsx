@@ -417,7 +417,7 @@ const Contracts: React.FC = () => {
     if (ipClass) {
       try {
         // Busca IPs já em uso para esta classe IP
-        const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || '';
+        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
         const usedIPsResponse = await fetch(`${apiBaseUrl}/network/ip-classes/${ipClass.id}/used-ips/`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,

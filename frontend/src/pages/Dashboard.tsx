@@ -157,7 +157,7 @@ const Dashboard: React.FC = () => {
       {/* Header com logo */}
       <Box
         component="img"
-        src={process.env.PUBLIC_URL + '/logo_retangular.png'}
+        src={'/logo_retangular.png'}
         alt="Brazcom ISP Logo"
         sx={{
           height: { xs: 40, sm: 50, md: 60 },

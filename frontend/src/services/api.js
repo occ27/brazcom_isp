@@ -13,7 +13,7 @@ import axios from 'axios';
 //   REACT_APP_API_BASE_URL=/api
 //   Apache faz proxy reverso: /api -> http://localhost:8013
 //
-const REACT_APP_API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+const REACT_APP_API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const computeApiBase = () => {
   if (REACT_APP_API_BASE_URL) {

@@ -47,7 +47,7 @@ const Home = () => {
       >
         <Box
           component="img"
-          src={process.env.PUBLIC_URL + '/logo_retangular.png'}
+          src={'/logo_retangular.png'}
           alt="Brazcom ISP Logo"
           sx={{
             height: { xs: 80, sm: 120, md: 150 },
@@ -596,7 +596,7 @@ const Home = () => {
             <div className="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-4">
               <Box
                 component="img"
-                src={process.env.PUBLIC_URL + '/logo_brazcom_sem_texto_escuro.svg'}
+                src={'/logo_brazcom_sem_texto_escuro.svg'}
                 alt="Brazcom Engenharia de Software Logo"
                 sx={{
                   height: { xs: 24, sm: 32 },
