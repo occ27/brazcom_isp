@@ -61,6 +61,7 @@
     ]
   },
   "devDependencies": {
+    "@types/jest": "^29.5.0",
     "@types/jquery": "^3.5.33",
     "@vitejs/plugin-react": "^4.2.0",
     "autoprefixer": "^10.4.16",

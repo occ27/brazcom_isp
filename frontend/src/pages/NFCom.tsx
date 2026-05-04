@@ -564,7 +564,7 @@ const NFCom: React.FC = () => {
       const token = localStorage.getItem('token');
       // Usa a instância axios configurada que já tem a baseURL correta
       const resp = await api.post(`/empresas/${rejectionModal.empresaId}/nfcom/${rejectionModal.nfId}/download_debug`, { path: filePath }, { responseType: 'blob' });
-      const blob = new Blob([resp.data], { type: resp.headers['content-type'] || 'application/octet-stream' });
+      const blob = new Blob([resp.data], { type: (resp.headers['content-type'] as string) || 'application/octet-stream' });
       const link = document.createElement('a');
       link.href = window.URL.createObjectURL(blob);
       link.download = filename || (filePath.split('/').pop() || 'file.bin');
