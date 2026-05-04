@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     BRAZCOM_SMTP_SERVER: str = "smtp.gmail.com"
     BRAZCOM_SMTP_PORT: int = 587
     BRAZCOM_SMTP_USERNAME: str = "brazcom.contato@gmail.com"
-    BRAZCOM_SMTP_PASSWORD: str = "nvnwobdqgfsfmfbb"
+    BRAZCOM_SMTP_PASSWORD: str = "aroqlawfcadndkob"
 
     @property
     def cors_origins_list(self) -> List[str]:
