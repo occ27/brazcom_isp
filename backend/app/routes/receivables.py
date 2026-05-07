@@ -42,6 +42,10 @@ class ReceivableResponse(BaseModel):
     paid_at: Optional[str] = None
     registro_result: Optional[str] = None
     pdf_url: Optional[str] = None
+    bb_boleto_numero: Optional[str] = None
+    bb_boleto_url: Optional[str] = None
+    bb_pix_qrcode: Optional[str] = None
+    bb_pix_txid: Optional[str] = None
     bank_account_id: Optional[int] = None
     bank_account_snapshot: Optional[str] = None
     bank_payload: Optional[str] = None

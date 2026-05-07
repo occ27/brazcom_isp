@@ -1,82 +1,78 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { Box, Paper, Typography, Button, IconButton, TextField, CircularProgress, Chip, Snackbar, Alert, useMediaQuery, useTheme, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination, Card, CardContent, Divider, Pagination, InputAdornment, MenuItem, Tooltip } from '@mui/material';
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon, PlayIcon } from '@heroicons/react/24/outline';
+import { 
+  Box, Paper, Typography, Button, IconButton, TextField, 
+  CircularProgress, Chip, Snackbar, Alert, useMediaQuery, 
+  useTheme, Table, TableBody, TableCell, TableContainer, 
+  TableHead, TableRow, Card, CardContent, Divider, 
+  InputAdornment, MenuItem, Tooltip, Tabs, Tab,
+  Dialog, DialogTitle, DialogContent, DialogActions,
+  FormControlLabel, Checkbox, Grid, Select, FormControl, InputLabel
+} from '@mui/material';
+import { 
+  PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, 
+  XMarkIcon, PlayIcon, ArrowDownTrayIcon, ArrowUpTrayIcon,
+  DocumentDuplicateIcon, CheckCircleIcon, InformationCircleIcon,
+  ArrowPathIcon, CloudIcon, ArrowTopRightOnSquareIcon, QrCodeIcon
+} from '@heroicons/react/24/outline';
 import { useCompany } from '../contexts/CompanyContext';
-import bankAccountService from '../services/bankAccountService';
-import receivableService from '../services/receivableService';
+import bankAccountService, { BankAccount } from '../services/bankAccountService';
 import { stringifyError } from '../utils/error';
 
-interface BankAccountCreate {
-  bank: string;
-  codigo_banco?: string;
-  agencia?: string;
-  agencia_dv?: string;
-  conta?: string;
-  conta_dv?: string;
-  titular?: string;
-  cpf_cnpj_titular?: string;
-  carteira?: string;
-  convenio?: string;
-  remittance_config?: string;
-  instructions?: string;
-  is_default?: boolean;
-  gateway_credentials?: string;
-  sicoob_client_id?: string;
-  sicoob_access_token?: string;
-  sicredi_codigo_beneficiario?: string;
-  sicredi_posto?: string;
-  sicredi_byte_id?: string;
-  multa_atraso_percentual?: number;
-  juros_atraso_percentual?: number;
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
 }
 
-interface BankAccount {
-  id: number;
-  empresa_id: number;
-  bank: string;
-  codigo_banco?: string;
-  agencia?: string;
-  agencia_dv?: string;
-  conta?: string;
-  conta_dv?: string;
-  titular?: string;
-  cpf_cnpj_titular?: string;
-  carteira?: string;
-  convenio?: string;
-  nosso_numero_sequence?: number;
-  remittance_config?: string;
-  instructions?: string;
-  is_default?: boolean;
-  gateway_credentials?: string;
-  sicoob_client_id?: string;
-  sicoob_access_token?: string;
-  sicredi_codigo_beneficiario?: string;
-  sicredi_posto?: string;
-  sicredi_byte_id?: string;
-  multa_atraso_percentual?: number;
-  juros_atraso_percentual?: number;
-  created_at: string;
-  updated_at?: string;
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`bank-tabpanel-${index}`}
+      aria-labelledby={`bank-tab-${index}`}
+      {...other}
+      style={{ height: '100%' }}
+    >
+      {value === index && (
+        <Box sx={{ py: 3, height: '100%' }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
 }
 
 const BankAccounts: React.FC = () => {
   const { activeCompany } = useCompany();
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
+  // State
+  const [tabValue, setTabValue] = useState(0);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
-  const [editingBankAccount, setEditingBankAccount] = useState<BankAccount | null>(null);
-
-  // Pagination state
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-
-  // Search state
+  const [openDialog, setOpenDialog] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
+  
+  // Boletos Tab State
+  const [selectedAccount, setSelectedAccount] = useState<number | ''>('');
+  const [boletos, setBoletos] = useState<any[]>([]);
+  const [boletoLoading, setBoletoLoading] = useState(false);
+  const [selectedBoletoIds, setSelectedBoletoIds] = useState<number[]>([]);
+  const [boletoStatus, setBoletoStatus] = useState<string>('');
+  
+  // Retorno Tab State
+  const [retornoFile, setRetornoFile] = useState<File | null>(null);
+  const [retornoLoading, setRetornoLoading] = useState(false);
+  const [retornoResult, setRetornoResult] = useState<any>(null);
 
-  const [formData, setFormData] = useState<BankAccountCreate>({
+  // Form State
+  const [formData, setFormData] = useState<Partial<BankAccount>>({
     bank: 'SICOB',
+    name: '',
     codigo_banco: '756',
     agencia: '',
     agencia_dv: '',
@@ -85,21 +81,29 @@ const BankAccounts: React.FC = () => {
     titular: '',
     cpf_cnpj_titular: '',
     carteira: '',
+    carteira_variacao: '',
     convenio: '',
-    remittance_config: '',
-    instructions: '',
+    cnab_version: '240',
+    instrucao1: '',
+    instrucao2: '',
+    dias_protesto: 0,
+    dias_baixa: 0,
     is_default: false,
-    gateway_credentials: '',
+    is_active: true,
+    multa_atraso_percentual: 2.0,
+    juros_atraso_percentual: 1.0,
     sicoob_client_id: '',
     sicoob_access_token: '',
     sicredi_codigo_beneficiario: '',
     sicredi_posto: '',
     sicredi_byte_id: '',
-    multa_atraso_percentual: 2.0,
-    juros_atraso_percentual: 1.0
+    bb_client_id: '',
+    bb_client_secret: '',
+    bb_app_key: '',
+    bb_sandbox: true
   });
+  
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
 
   const loadBankAccounts = useCallback(async () => {
     if (!activeCompany) return;
@@ -107,12 +111,15 @@ const BankAccounts: React.FC = () => {
     try {
       const data = await bankAccountService.listBankAccounts(activeCompany.id);
       setBankAccounts(data || []);
+      if (data && data.length > 0 && !selectedAccount) {
+        setSelectedAccount(data[0].id);
+      }
     } catch (e) {
       setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao carregar contas bancárias', severity: 'error' });
     } finally {
       setLoading(false);
     }
-  }, [activeCompany]);
+  }, [activeCompany, selectedAccount]);
 
   useEffect(() => {
     if (activeCompany) {
@@ -120,740 +127,515 @@ const BankAccounts: React.FC = () => {
     }
   }, [activeCompany, loadBankAccounts]);
 
-  // Filter bank accounts based on search term
-  const filteredBankAccounts = useMemo(() => {
-    if (!searchTerm) return bankAccounts;
-    const term = searchTerm.toLowerCase();
-    return bankAccounts.filter(ba =>
-      ba.bank?.toLowerCase().includes(term) ||
-      ba.agencia?.toLowerCase().includes(term) ||
-      ba.conta?.toLowerCase().includes(term) ||
-      ba.titular?.toLowerCase().includes(term) ||
-      ba.convenio?.toLowerCase().includes(term)
-    );
-  }, [bankAccounts, searchTerm]);
+  const loadBoletos = useCallback(async () => {
+    if (!activeCompany || !selectedAccount) return;
+    setBoletoLoading(true);
+    try {
+      const data = await bankAccountService.listBoletos(activeCompany.id, selectedAccount as number, { 
+        status: boletoStatus || undefined,
+        per_page: 50 
+      });
+      setBoletos(data.data || []);
+      setSelectedBoletoIds([]);
+    } catch (e) {
+      setSnackbar({ open: true, message: 'Erro ao carregar boletos', severity: 'error' });
+    } finally {
+      setBoletoLoading(false);
+    }
+  }, [activeCompany, selectedAccount, boletoStatus]);
 
-  // Paginate filtered results
-  const paginatedBankAccounts = useMemo(() => {
-    const start = page * rowsPerPage;
-    const end = start + rowsPerPage;
-    return filteredBankAccounts.slice(start, end);
-  }, [filteredBankAccounts, page, rowsPerPage]);
+  useEffect(() => {
+    if (tabValue === 1 && selectedAccount) {
+      loadBoletos();
+    }
+  }, [tabValue, selectedAccount, loadBoletos]);
+
+  const handleTabChange = (_: any, newValue: number) => {
+    setTabValue(newValue);
+  };
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => {
       const newData = { ...prev, [field]: value };
-      // Auto-fill codigo_banco based on bank selection
       if (field === 'bank') {
-        if (value === 'SICOB') {
-          newData.codigo_banco = '756';
-        } else if (value === 'SICREDI') {
-          newData.codigo_banco = '748';
-        } else {
-          newData.codigo_banco = '';
-        }
+        if (value === 'SICOB') newData.codigo_banco = '756';
+        else if (value === 'SICREDI') newData.codigo_banco = '748';
+        else if (value === 'BANCO DO BRASIL' || value === 'BANCO_DO_BRASIL') newData.codigo_banco = '001';
       }
       return newData;
     });
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
   };
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-    if (!formData.bank?.trim()) newErrors.bank = 'Banco é obrigatório';
-    if (!formData.agencia?.trim()) newErrors.agencia = 'Agência é obrigatória';
-    if (!formData.conta?.trim()) newErrors.conta = 'Conta é obrigatória';
-    if (!formData.titular?.trim()) newErrors.titular = 'Titular é obrigatório';
-
-    // Validações específicas por banco
-    if (formData.bank === 'SICREDI') {
-      if (!formData.carteira?.trim()) newErrors.carteira = 'Carteira é obrigatória para SICREDI';
-      if (!formData.convenio?.trim()) newErrors.convenio = 'Convênio é obrigatório para SICREDI';
-      if (!formData.sicredi_codigo_beneficiario?.trim()) newErrors.sicredi_codigo_beneficiario = 'Código do beneficiário é obrigatório para SICREDI';
-      if (!formData.sicredi_posto?.trim()) newErrors.sicredi_posto = 'Posto é obrigatório para SICREDI';
-      if (!formData.sicredi_byte_id?.trim()) newErrors.sicredi_byte_id = 'Byte ID é obrigatório para SICREDI';
-    } else if (formData.bank === 'SICOB') {
-      if (!formData.sicoob_client_id?.trim()) newErrors.sicoob_client_id = 'Client ID é obrigatório para SICOOB';
-      if (!formData.sicoob_access_token?.trim()) newErrors.sicoob_access_token = 'Access Token é obrigatório para SICOOB';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async () => {
-    if (!activeCompany || !validateForm()) return;
-
+  const handleSave = async () => {
+    if (!activeCompany) return;
     try {
-      if (editingBankAccount) {
-        await bankAccountService.updateBankAccount(activeCompany.id, editingBankAccount.id, formData);
-        setSnackbar({ open: true, message: 'Conta bancária atualizada com sucesso', severity: 'success' });
+      if (editingAccount) {
+        await bankAccountService.updateBankAccount(activeCompany.id, editingAccount.id, formData);
+        setSnackbar({ open: true, message: 'Conta atualizada com sucesso', severity: 'success' });
       } else {
         await bankAccountService.createBankAccount(activeCompany.id, formData);
-        setSnackbar({ open: true, message: 'Conta bancária criada com sucesso', severity: 'success' });
+        setSnackbar({ open: true, message: 'Conta criada com sucesso', severity: 'success' });
       }
-      handleClose();
+      setOpenDialog(false);
       loadBankAccounts();
     } catch (e) {
-      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao salvar conta bancária', severity: 'error' });
+      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao salvar conta', severity: 'error' });
     }
   };
 
-  const handleOpen = (bankAccount?: BankAccount) => {
-    if (bankAccount) {
-      setEditingBankAccount(bankAccount);
-      const bank = bankAccount.bank || 'SICOB';
-      let codigo_banco = bankAccount.codigo_banco || '';
-      if (!codigo_banco) {
-        if (bank === 'SICOB') {
-          codigo_banco = '756';
-        } else if (bank === 'SICREDI') {
-          codigo_banco = '748';
-        }
+  const handleRegisterBB = async () => {
+    if (!activeCompany || !selectedAccount || selectedBoletoIds.length === 0) return;
+    try {
+      const res = await bankAccountService.registerBoletosApi(activeCompany.id, selectedAccount as number, selectedBoletoIds);
+      const successCount = res.results.filter((r: any) => r.ok).length;
+      const errorCount = res.results.filter((r: any) => !r.ok).length;
+      
+      if (errorCount === 0) {
+        setSnackbar({ open: true, message: `${successCount} boleto(s) registrado(s) com sucesso no BB`, severity: 'success' });
+      } else {
+        setSnackbar({ open: true, message: `${successCount} sucesso, ${errorCount} erro(s).`, severity: 'warning' });
       }
-      setFormData({
-        bank: bank,
-        codigo_banco: codigo_banco,
-        agencia: bankAccount.agencia || '',
-        agencia_dv: bankAccount.agencia_dv || '',
-        conta: bankAccount.conta || '',
-        conta_dv: bankAccount.conta_dv || '',
-        titular: bankAccount.titular || '',
-        cpf_cnpj_titular: bankAccount.cpf_cnpj_titular || '',
-        carteira: bankAccount.carteira || '',
-        convenio: bankAccount.convenio || '',
-        remittance_config: bankAccount.remittance_config || '',
-        instructions: bankAccount.instructions || '',
-        is_default: bankAccount.is_default || false,
-        gateway_credentials: '', // Não mostrar credenciais existentes por segurança
-        sicoob_client_id: bankAccount.sicoob_client_id || '',
-        sicoob_access_token: bankAccount.sicoob_access_token || '',
-        sicredi_codigo_beneficiario: bankAccount.sicredi_codigo_beneficiario || '',
-        sicredi_posto: bankAccount.sicredi_posto || '',
-        sicredi_byte_id: bankAccount.sicredi_byte_id || '',
-        multa_atraso_percentual: bankAccount.multa_atraso_percentual || 2.0,
-        juros_atraso_percentual: bankAccount.juros_atraso_percentual || 1.0
-      });
-    } else {
-      setEditingBankAccount(null);
-      setFormData({
-        bank: 'SICOB',
-        codigo_banco: '756',
-        agencia: '',
-        agencia_dv: '',
-        conta: '',
-        conta_dv: '',
-        titular: '',
-        cpf_cnpj_titular: '',
-        carteira: '',
-        convenio: '',
-        remittance_config: '',
-        instructions: '',
-        is_default: false,
-        gateway_credentials: '',
-        sicoob_client_id: '',
-        sicoob_access_token: ''
-      });
-    }
-    setOpen(true);
-  };
-
-  const handleClose = () => {
-    setOpen(false);
-    setEditingBankAccount(null);
-    setFormData({
-      bank: 'SICOB',
-      codigo_banco: '756',
-      agencia: '',
-      agencia_dv: '',
-      conta: '',
-      conta_dv: '',
-      titular: '',
-      cpf_cnpj_titular: '',
-      carteira: '',
-      convenio: '',
-      remittance_config: '',
-      instructions: '',
-      is_default: false,
-      gateway_credentials: '',
-      sicoob_client_id: '',
-      sicoob_access_token: '',
-      sicredi_codigo_beneficiario: '',
-      sicredi_posto: '',
-      sicredi_byte_id: '',
-      multa_atraso_percentual: 2.0,
-      juros_atraso_percentual: 1.0
-    });
-    setErrors({});
-  };
-
-  const handleDelete = async (bankAccount: BankAccount) => {
-    if (!activeCompany || !window.confirm(`Excluir conta bancária "${bankAccount.titular}"?`)) return;
-    try {
-      await bankAccountService.deleteBankAccount(activeCompany.id, bankAccount.id);
-      setSnackbar({ open: true, message: 'Conta bancária excluída com sucesso', severity: 'success' });
-      loadBankAccounts();
+      loadBoletos();
     } catch (e) {
-      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao excluir conta bancária', severity: 'error' });
+      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao registrar boletos no BB', severity: 'error' });
     }
   };
 
-  const handleTestSicoob = async (bankAccount: BankAccount) => {
-    if (!activeCompany) return;
+  const handleCancelBoletoBB = async (receivableId: number) => {
+    if (!activeCompany || !selectedAccount || !window.confirm('Deseja solicitar a baixa deste boleto na API do BB?')) return;
     try {
-      setLoading(true);
-      const result = await receivableService.testSicoobIntegration(activeCompany.id, bankAccount.id);
-      setSnackbar({ open: true, message: result.message || 'Teste do Sicoob realizado com sucesso', severity: 'success' });
+      await bankAccountService.cancelBoletoApi(activeCompany.id, selectedAccount as number, receivableId);
+      setSnackbar({ open: true, message: 'Baixa solicitada com sucesso', severity: 'success' });
+      loadBoletos();
     } catch (e) {
-      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao testar integração com Sicoob', severity: 'error' });
+      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao cancelar boleto', severity: 'error' });
+    }
+  };
+
+  const handleUploadRetorno = async () => {
+    if (!activeCompany || !selectedAccount || !retornoFile) return;
+    setRetornoLoading(true);
+    setRetornoResult(null);
+    try {
+      const res = await bankAccountService.uploadRetorno(activeCompany.id, selectedAccount as number, retornoFile);
+      setRetornoResult(res);
+      setSnackbar({ open: true, message: 'Arquivo de retorno processado', severity: 'success' });
+    } catch (e) {
+      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao processar retorno', severity: 'error' });
     } finally {
-      setLoading(false);
+      setRetornoLoading(false);
     }
   };
 
-  const handleTestSicoobFromForm = async () => {
-    if (!activeCompany) return;
-    try {
-      setLoading(true);
-      const result = await receivableService.testSicoobIntegration(activeCompany.id, editingBankAccount?.id, formData);
-      setSnackbar({ open: true, message: result.message || 'Teste do Sicoob realizado com sucesso', severity: result.status === 'success' ? 'success' : result.status === 'warning' ? 'warning' : 'error' });
-    } catch (e) {
-      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao testar integração com Sicoob', severity: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleChangePage = (_: any, newPage: number) => {
-    setPage(newPage - 1);
-  };
-
-  const handleTableRowsPerPageChange = (event: any) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  const handleMobileRowsPerPageChange = (event: any) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  const renderBankAccountTable = () => (
-    <TableContainer>
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>Banco</TableCell>
-            <TableCell sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>Agência/Conta</TableCell>
-            <TableCell sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>Titular</TableCell>
-            <TableCell sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>Convênio</TableCell>
-            <TableCell sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>Status</TableCell>
-            <TableCell sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>Ações</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {paginatedBankAccounts.map((ba) => (
-            <TableRow key={ba.id} hover>
-              <TableCell>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Chip label={ba.bank} color="primary" size="small" />
-                  {ba.bank === 'SICREDI' && (ba.sicredi_codigo_beneficiario || ba.sicredi_posto) && (
-                    <Chip label="CNAB" color="info" size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />
-                  )}
-                  {ba.bank === 'SICOB' && (ba.sicoob_client_id) && (
-                    <Chip label="API" color="secondary" size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />
-                  )}
-                </Box>
-              </TableCell>
-              <TableCell sx={{ fontSize: '0.875rem' }}>
-                {ba.agencia && ba.conta ? `${ba.agencia}${ba.agencia_dv || ''} / ${ba.conta}${ba.conta_dv || ''}` : '-'}
-              </TableCell>
-              <TableCell sx={{ fontSize: '0.875rem', maxWidth: 200 }}>
-                <Typography sx={{ fontSize: '0.875rem' }} noWrap>
-                  {ba.titular || '-'}
-                </Typography>
-              </TableCell>
-              <TableCell sx={{ fontSize: '0.875rem' }}>{ba.convenio || '-'}</TableCell>
-              <TableCell>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  {ba.is_default ? (
-                    <Chip label="Padrão" color="success" size="small" sx={{ fontSize: '0.7rem', height: 20 }} />
-                  ) : (
-                    <Chip label="Normal" color="default" size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />
-                  )}
-                </Box>
-              </TableCell>
-              <TableCell>
-                <Box sx={{ display: 'flex', gap: 0.5 }}>
-                  <IconButton size="small" onClick={() => handleOpen(ba)} title="Editar" sx={{ p: 0.5 }}>
-                    <PencilIcon className="w-4 h-4" />
-                  </IconButton>
-                  <IconButton size="small" onClick={() => handleDelete(ba)} title="Excluir" sx={{ p: 0.5 }}>
-                    <TrashIcon className="w-4 h-4 text-red-500" />
-                  </IconButton>
-                  {(ba.sicoob_client_id || ba.sicoob_access_token) && (
-                    <IconButton size="small" onClick={() => handleTestSicoob(ba)} title="Testar Sicoob" disabled={loading} sx={{ p: 0.5 }}>
-                      <PlayIcon className="w-4 h-4 text-green-500" />
-                    </IconButton>
-                  )}
-                </Box>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
+  const currentAccount = useMemo(() => 
+    bankAccounts.find(a => a.id === selectedAccount), 
+    [bankAccounts, selectedAccount]
   );
 
-  const renderBankAccountCards = () => (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {paginatedBankAccounts.map((ba) => (
-        <Card key={ba.id} sx={{ borderRadius: 2 }}>
-          <CardContent sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography variant="h6" sx={{ mb: 1, fontSize: '1rem', wordBreak: 'break-word' }}>
-                  {ba.titular || 'Conta sem titular'}
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-                  <Chip label={ba.bank} color="primary" size="small" />
-                  {ba.is_default && <Chip label="Padrão" color="success" size="small" />}
-                  {ba.bank === 'SICREDI' && (ba.sicredi_codigo_beneficiario || ba.sicredi_posto) && (
-                    <Chip label="CNAB 240" color="info" size="small" variant="outlined" />
-                  )}
-                  {ba.bank === 'SICOB' && (ba.sicoob_client_id) && (
-                    <Chip label="API" color="secondary" size="small" variant="outlined" />
-                  )}
-                </Box>
-              </Box>
-              <Box sx={{ display: 'flex', gap: 0.5, ml: 1 }}>
-                <IconButton size="small" onClick={() => handleOpen(ba)} sx={{ p: 1 }}>
-                  <PencilIcon className="w-4 h-4" />
-                </IconButton>
-                <IconButton size="small" onClick={() => handleDelete(ba)} sx={{ p: 1 }}>
-                  <TrashIcon className="w-4 h-4 text-red-500" />
-                </IconButton>
-                {(ba.sicoob_client_id || ba.sicoob_access_token) && (
-                  <IconButton size="small" onClick={() => handleTestSicoob(ba)} disabled={loading} sx={{ p: 1 }}>
-                    <PlayIcon className="w-4 h-4 text-green-500" />
-                  </IconButton>
-                )}
-              </Box>
-            </Box>
-            <Divider sx={{ mb: 2 }} />
-            <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 1 }}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
-                <Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>Agência</Typography>
-                  <Typography variant="body1" sx={{ fontSize: '0.875rem', fontWeight: 500 }}>
-                    {ba.agencia ? `${ba.agencia}${ba.agencia_dv || ''}` : '-'}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>Conta</Typography>
-                  <Typography variant="body1" sx={{ fontSize: '0.875rem', fontWeight: 500 }}>
-                    {ba.conta ? `${ba.conta}${ba.conta_dv || ''}` : '-'}
-                  </Typography>
-                </Box>
-              </Box>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
-                <Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>Convênio</Typography>
-                  <Typography variant="body1" sx={{ fontSize: '0.875rem' }}>{ba.convenio || '-'}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>Carteira</Typography>
-                  <Typography variant="body1" sx={{ fontSize: '0.875rem' }}>{ba.carteira || '-'}</Typography>
-                </Box>
-              </Box>
-            </Box>
-            {/* Mostrar informações específicas do banco em mobile */}
-            {isMobile && (
-              <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                {ba.bank === 'SICREDI' && (ba.sicredi_codigo_beneficiario || ba.sicredi_posto || ba.sicredi_byte_id) && (
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                      Beneficiário: {ba.sicredi_codigo_beneficiario || '-'} | Posto: {ba.sicredi_posto || '-'} | Byte: {ba.sicredi_byte_id || '-'}
-                    </Typography>
-                  </Box>
-                )}
-                {ba.bank === 'SICOB' && ba.sicoob_client_id && (
-                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                    API Sicoob configurada
-                  </Typography>
-                )}
-              </Box>
-            )}
-          </CardContent>
-        </Card>
-      ))}
-    </Box>
-  );
-
-  const renderPagination = () => {
-    if (isMobile) {
-      return (
-        <Box sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          mt: 2,
-          flexWrap: 'wrap',
-          gap: 1,
-          borderTop: '1px solid',
-          borderColor: 'divider',
-          bgcolor: 'background.paper',
-          py: 2
-        }}>
-          <TextField
-            select
-            size="small"
-            value={rowsPerPage}
-            onChange={handleMobileRowsPerPageChange}
-            sx={{ minWidth: 120 }}
-          >
-            <MenuItem value={5}>5</MenuItem>
-            <MenuItem value={10}>10</MenuItem>
-            <MenuItem value={25}>25</MenuItem>
-          </TextField>
-          <Pagination
-            count={Math.max(1, Math.ceil(filteredBankAccounts.length / rowsPerPage))}
-            page={page + 1}
-            onChange={handleChangePage}
-            size="small"
-            color="primary"
-          />
-        </Box>
-      );
-    }
-
-    return (
-      <TablePagination
-        rowsPerPageOptions={[5, 10, 25, 50, 100]}
-        component="div"
-        count={filteredBankAccounts.length}
-        rowsPerPage={rowsPerPage}
-        page={page}
-        onPageChange={(_, newPage) => setPage(newPage)}
-        onRowsPerPageChange={handleTableRowsPerPageChange}
-        labelRowsPerPage="Itens por página:"
-        sx={{
-          flexShrink: 0,
-          borderTop: '1px solid',
-          borderColor: 'divider',
-          bgcolor: 'background.paper'
-        }}
-      />
-    );
-  };
-
-  if (!activeCompany) {
-    return (
-      <Paper sx={{ p: isMobile ? 3 : 4, textAlign: 'center', m: isMobile ? 1 : 0 }}>
-        <Typography variant="h6">Nenhuma empresa ativa</Typography>
-        <Typography variant="body2" color="text.secondary">Selecione uma empresa para gerenciar as contas bancárias.</Typography>
-      </Paper>
-    );
-  }
+  const isBB = currentAccount?.bank === 'BANCO DO BRASIL' || currentAccount?.bank === 'BANCO_DO_BRASIL';
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', gap: isMobile ? 2 : 0, mb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 'bold', fontSize: isMobile ? '1.25rem' : '1.5rem' }}>Contas Bancárias</Typography>
-        <Button variant="contained" startIcon={<PlusIcon className="w-5 h-5" />} onClick={() => handleOpen()} fullWidth={isMobile}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 2 }}>
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h5" sx={{ fontWeight: 700, color: 'primary.main' }}>
+          Gestão Bancária e Cobranças
+        </Typography>
+        <Button 
+          variant="contained" 
+          startIcon={<PlusIcon className="w-5 h-5" />}
+          onClick={() => {
+            setEditingAccount(null);
+            setFormData({ bank: 'SICOB', is_active: true, bb_sandbox: true });
+            setOpenDialog(true);
+          }}
+          sx={{ borderRadius: 2 }}
+        >
           Nova Conta
         </Button>
       </Box>
 
-      {/* Search Bar */}
-      <Box sx={{ flexShrink: 0, mb: 2 }}>
-        <TextField
-          fullWidth
-          size={isMobile ? "small" : "medium"}
-          variant="outlined"
-          placeholder={isMobile ? "Buscar contas..." : "Buscar por banco, agência, conta, titular ou convênio..."}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />
-              </InputAdornment>
-            ),
-            endAdornment: searchTerm ? (
-              <InputAdornment position="end">
-                <IconButton size="small" onClick={() => setSearchTerm('')}>
-                  <XMarkIcon className="w-4 h-4" />
-                </IconButton>
-              </InputAdornment>
-            ) : null
-          }}
-          sx={{
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 2,
-            }
-          }}
-        />
-      </Box>
+      <Paper sx={{ borderRadius: 3, overflow: 'hidden', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+        <Tabs 
+          value={tabValue} 
+          onChange={handleTabChange} 
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 1 }}
+        >
+          <Tab label="Contas Bancárias" icon={<CheckCircleIcon className="w-5 h-5" />} iconPosition="start" />
+          <Tab label="Boletos / API" icon={<DocumentDuplicateIcon className="w-5 h-5" />} iconPosition="start" />
+          <Tab label="Remessa" icon={<ArrowDownTrayIcon className="w-5 h-5" />} iconPosition="start" />
+          <Tab label="Retorno" icon={<ArrowUpTrayIcon className="w-5 h-5" />} iconPosition="start" />
+        </Tabs>
 
-      <Box sx={{ flexGrow: 1, overflow: 'auto', p: isMobile ? 0.5 : 0 }}>
-        {loading && !open ? (
-          <Box sx={{ display: 'flex', flexGrow: 1, justifyContent: 'center', alignItems: 'center', p: isMobile ? 2 : 0 }}>
-            <CircularProgress />
+        {/* Tab 0: Contas */}
+        <TabPanel value={tabValue} index={0}>
+          <Box sx={{ px: 2 }}>
+            {loading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}><CircularProgress /></Box>
+            ) : (
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 600 }}>Banco</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Agência/Conta</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Nome/Titular</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>API BB</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }} align="right">Ações</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {bankAccounts.map(acc => (
+                      <TableRow key={acc.id} hover>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Chip label={acc.bank} size="small" color="primary" variant="outlined" />
+                            {acc.is_default && <Chip label="Padrão" size="small" color="success" />}
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          {acc.agencia}-{acc.agencia_dv} / {acc.conta}-{acc.conta_dv}
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{acc.name || '-'}</Typography>
+                          <Typography variant="caption" color="text.secondary">{acc.titular}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          {(acc.bank === 'BANCO DO BRASIL' || acc.bank === 'BANCO_DO_BRASIL') ? (
+                            <Chip 
+                              label={acc.bb_sandbox ? 'Sandbox' : 'Produção'} 
+                              size="small" 
+                              color={acc.bb_sandbox ? 'warning' : 'success'} 
+                              icon={<CloudIcon className="w-3 h-3" />}
+                            />
+                          ) : '-'}
+                        </TableCell>
+                        <TableCell align="right">
+                          <IconButton onClick={() => {
+                            setEditingAccount(acc);
+                            setFormData({ ...acc, bb_client_secret: '' });
+                            setOpenDialog(true);
+                          }}><PencilIcon className="w-4 h-4" /></IconButton>
+                          <IconButton color="error" onClick={() => {
+                            if (window.confirm('Excluir esta conta?')) {
+                              bankAccountService.deleteBankAccount(activeCompany!.id, acc.id).then(() => loadBankAccounts());
+                            }
+                          }}><TrashIcon className="w-4 h-4" /></IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </Box>
-        ) : filteredBankAccounts.length === 0 ? (
-          <Paper sx={{ p: isMobile ? 3 : 4, textAlign: 'center', m: isMobile ? 1 : 0 }}>
-            <Typography variant="h6" color="text.secondary">
-              {searchTerm ? 'Nenhuma conta bancária encontrada' : 'Nenhuma conta bancária cadastrada'}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {searchTerm ? 'Tente ajustar os termos da busca' : 'Clique em "Nova Conta" para adicionar a primeira conta bancária'}
-            </Typography>
-          </Paper>
-        ) : isMobile ? (
-          renderBankAccountCards()
-        ) : (
-          renderBankAccountTable()
-        )}
+        </TabPanel>
 
-        {/* Pagination inside scrollable area */}
-        {!loading && filteredBankAccounts.length > 0 && renderPagination()}
-      </Box>
-
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
-          <div role="dialog" aria-modal="true" className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl flex flex-col overflow-hidden mx-1 sm:mx-2" style={{ maxHeight: isMobile ? '95vh' : '90vh' }}>
-            <div className="p-4 sm:p-6 border-b flex-shrink-0">
-              <Typography variant="h6" className="text-sm sm:text-base">{editingBankAccount ? 'Editar Conta Bancária' : 'Nova Conta Bancária'}</Typography>
-            </div>
-            <Box sx={{ p: isMobile ? 2 : 3, overflowY: 'auto', maxHeight: isMobile ? 'calc(95vh - 120px)' : 'calc(90vh - 140px)' }}>
-              <Alert severity="info" sx={{ mb: 2, fontSize: isMobile ? '0.875rem' : '1rem' }}>
-                <Typography variant="body2" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
-                  <strong>Campos obrigatórios:</strong> Agência, Conta e Titular são sempre obrigatórios. 
-                  {formData.bank === 'SICREDI' && ' Para SICREDI: Carteira, Convênio e configurações específicas são obrigatórios.'}
-                  {formData.bank === 'SICOB' && ' Para SICOOB: Client ID e Access Token são obrigatórios.'}
-                </Typography>
-              </Alert>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <TextField
-                  select
-                  label="Banco"
-                  value={formData.bank}
-                  onChange={e => handleInputChange('bank', e.target.value)}
-                  fullWidth
-                  error={!!errors.bank}
-                  helperText={errors.bank}
+        {/* Tab 1: Boletos / API */}
+        <TabPanel value={tabValue} index={1}>
+          <Box sx={{ px: 2 }}>
+            <Box sx={{ mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>Conta Bancária</InputLabel>
+                <Select
+                  value={selectedAccount}
+                  label="Conta Bancária"
+                  onChange={(e) => setSelectedAccount(e.target.value as number)}
                 >
-                  <MenuItem value="SICOB">SICOOB</MenuItem>
-                  <MenuItem value="SICREDI">SICREDI</MenuItem>
-                </TextField>
-                <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 2 }}>
-                  <TextField
-                    label="Código do Banco"
-                    value={formData.codigo_banco}
-                    onChange={e => handleInputChange('codigo_banco', e.target.value)}
-                    fullWidth
-                    InputProps={{
-                      readOnly: true,
-                    }}
-                    helperText="Preenchido automaticamente com base no banco selecionado"
-                  />
-                </Box>
-                <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr 2fr 1fr', gap: 2 }}>
-                  <TextField
-                    label="Agência *"
-                    value={formData.agencia}
-                    onChange={e => handleInputChange('agencia', e.target.value)}
-                    fullWidth
-                    error={!!errors.agencia}
-                    helperText={errors.agencia}
-                  />
-                  <TextField
-                    label="DV"
-                    value={formData.agencia_dv}
-                    onChange={e => handleInputChange('agencia_dv', e.target.value)}
-                    fullWidth
-                  />
-                  <TextField
-                    label="Conta *"
-                    value={formData.conta}
-                    onChange={e => handleInputChange('conta', e.target.value)}
-                    fullWidth
-                    error={!!errors.conta}
-                    helperText={errors.conta}
-                  />
-                  <TextField
-                    label="DV"
-                    value={formData.conta_dv}
-                    onChange={e => handleInputChange('conta_dv', e.target.value)}
-                    fullWidth
-                  />
-                </Box>
-                <TextField
-                  label="Titular *"
-                  value={formData.titular}
-                  onChange={e => handleInputChange('titular', e.target.value)}
-                  fullWidth
-                  error={!!errors.titular}
-                  helperText={errors.titular}
-                />
-                <TextField
-                  label="CPF/CNPJ do Titular"
-                  value={formData.cpf_cnpj_titular}
-                  onChange={e => handleInputChange('cpf_cnpj_titular', e.target.value)}
-                  fullWidth
-                />
-                <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 2 }}>
-                  <TextField
-                    label={formData.bank === 'SICREDI' ? "Carteira *" : "Carteira"}
-                    value={formData.carteira}
-                    onChange={e => handleInputChange('carteira', e.target.value)}
-                    fullWidth
-                    error={!!errors.carteira}
-                    helperText={errors.carteira}
-                  />
-                  <TextField
-                    label={formData.bank === 'SICREDI' ? "Convênio *" : "Convênio"}
-                    value={formData.convenio}
-                    onChange={e => handleInputChange('convenio', e.target.value)}
-                    fullWidth
-                    error={!!errors.convenio}
-                    helperText={errors.convenio}
-                  />
-                </Box>
-                <TextField
-                  label="Configuração de Remessa"
-                  value={formData.remittance_config}
-                  onChange={e => handleInputChange('remittance_config', e.target.value)}
-                  fullWidth
-                  multiline
-                  rows={2}
-                />
-                
-                {/* Configurações de cobrança comuns */}
-                <Box sx={{ mt: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1, bgcolor: 'background.paper' }}>
-                  <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
-                    ⚙️ Configurações de Cobrança
-                  </Typography>
-                  <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 2 }}>
-                    <TextField
-                      label="Multa por Atraso (%)"
-                      type="number"
-                      value={formData.multa_atraso_percentual}
-                      onChange={e => handleInputChange('multa_atraso_percentual', parseFloat(e.target.value) || 0)}
-                      fullWidth
-                      inputProps={{ min: 0, max: 100, step: 0.1 }}
-                      helperText="Percentual de multa por atraso"
-                    />
-                    <TextField
-                      label="Juros por Dia (%)"
-                      type="number"
-                      value={formData.juros_atraso_percentual}
-                      onChange={e => handleInputChange('juros_atraso_percentual', parseFloat(e.target.value) || 0)}
-                      fullWidth
-                      inputProps={{ min: 0, max: 100, step: 0.01 }}
-                      helperText="Percentual de juros por dia de atraso"
-                    />
-                  </Box>
-                </Box>
-                
-                {/* Campos específicos do Sicoob */}
-                {formData.bank === 'SICOB' && (
-                  <Box sx={{ mt: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1, bgcolor: 'background.paper' }}>
-                    <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
-                      🔐 Credenciais Sicoob
-                    </Typography>
-                    <TextField
-                      label="Client ID do Sicoob *"
-                      value={formData.sicoob_client_id}
-                      onChange={e => handleInputChange('sicoob_client_id', e.target.value)}
-                      fullWidth
-                      sx={{ mb: 2 }}
-                      error={!!errors.sicoob_client_id}
-                      helperText={errors.sicoob_client_id || "Client ID fornecido pelo Sicoob"}
-                    />
-                    <TextField
-                      label="Access Token do Sicoob *"
-                      value={formData.sicoob_access_token}
-                      onChange={e => handleInputChange('sicoob_access_token', e.target.value)}
-                      fullWidth
-                      type="password"
-                      error={!!errors.sicoob_access_token}
-                      helperText={errors.sicoob_access_token || "Access Token fornecido pelo Sicoob"}
-                    />
-                  </Box>
-                )}
+                  {bankAccounts.map(a => (
+                    <MenuItem key={a.id} value={a.id}>{a.name || a.bank}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={boletoStatus}
+                  label="Status"
+                  onChange={(e) => setBoletoStatus(e.target.value)}
+                >
+                  <MenuItem value="">Todos</MenuItem>
+                  <MenuItem value="PENDING">Pendente</MenuItem>
+                  <MenuItem value="REGISTERED">Registrado</MenuItem>
+                  <MenuItem value="PAID">Pago</MenuItem>
+                </Select>
+              </FormControl>
 
-                {/* Campos específicos do Sicredi */}
-                {formData.bank === 'SICREDI' && (
-                  <Box sx={{ mt: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1, bgcolor: 'background.paper' }}>
-                    <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
-                      🔐 Configurações Sicredi
-                    </Typography>
-                    <TextField
-                      label="Código do Beneficiário *"
-                      value={formData.sicredi_codigo_beneficiario}
-                      onChange={e => handleInputChange('sicredi_codigo_beneficiario', e.target.value)}
-                      fullWidth
-                      sx={{ mb: 2 }}
-                      error={!!errors.sicredi_codigo_beneficiario}
-                      helperText={errors.sicredi_codigo_beneficiario || "Código do beneficiário fornecido pelo Sicredi"}
-                    />
-                    <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 2 }}>
-                      <TextField
-                        label="Posto de Atendimento *"
-                        value={formData.sicredi_posto}
-                        onChange={e => handleInputChange('sicredi_posto', e.target.value)}
-                        fullWidth
-                        error={!!errors.sicredi_posto}
-                        helperText={errors.sicredi_posto || "Posto de atendimento (AA)"}
-                      />
-                      <TextField
-                        label="Byte de Identificação *"
-                        value={formData.sicredi_byte_id}
-                        onChange={e => handleInputChange('sicredi_byte_id', e.target.value)}
-                        fullWidth
-                        error={!!errors.sicredi_byte_id}
-                        helperText={errors.sicredi_byte_id || "Byte de identificação"}
-                      />
-                    </Box>
-                  </Box>
-                )}
-              </Box>
+              <Button 
+                variant="outlined" 
+                startIcon={<ArrowPathIcon className="w-4 h-4" />}
+                onClick={loadBoletos}
+                disabled={!selectedAccount || boletoLoading}
+              >
+                Atualizar
+              </Button>
+
+              <Box sx={{ flexGrow: 1 }} />
+
+              {isBB && (
+                <Button 
+                  variant="contained" 
+                  color="secondary"
+                  startIcon={<CloudIcon className="w-4 h-4" />}
+                  onClick={handleRegisterBB}
+                  disabled={selectedBoletoIds.length === 0}
+                >
+                  Registrar via API BB ({selectedBoletoIds.length})
+                </Button>
+              )}
             </Box>
-            <div className={`p-4 sm:p-6 border-t flex ${isMobile ? 'justify-center' : 'justify-end'} flex-shrink-0`}>
-              <div className={`flex ${isMobile ? 'gap-2' : 'gap-2'}`}>
-                <Tooltip title="Cancelar">
-                  <IconButton onClick={handleClose} color="default" size="large">
-                    <XMarkIcon className="w-5 h-5" />
-                  </IconButton>
-                </Tooltip>
-                {/* Testar Sicoob a partir do formulário (não salva) */}
-                {formData.bank === 'SICOB' && (
-                  <Tooltip title="Testar Sicoob">
-                    <IconButton onClick={() => handleTestSicoobFromForm()} color="info" size="large" disabled={loading}>
-                      <PlayIcon className="w-5 h-5" />
-                    </IconButton>
-                  </Tooltip>
-                )}
-                <Tooltip title="Salvar">
-                  <IconButton onClick={handleSubmit} color="primary" size="large" sx={{ bgcolor: 'primary.main', color: 'white', '&:hover': { bgcolor: 'primary.dark' } }}>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </IconButton>
-                </Tooltip>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
-      <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}>
-        <Alert onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} severity={snackbar.severity} sx={{ width: '100%' }}>{snackbar.message}</Alert>
+            <TableContainer component={Paper} variant="outlined">
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell padding="checkbox">
+                      <Checkbox 
+                        checked={selectedBoletoIds.length === boletos.length && boletos.length > 0}
+                        indeterminate={selectedBoletoIds.length > 0 && selectedBoletoIds.length < boletos.length}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedBoletoIds(boletos.map(b => b.id));
+                          else setSelectedBoletoIds([]);
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>Cliente</TableCell>
+                    <TableCell>Vencimento</TableCell>
+                    <TableCell align="right">Valor</TableCell>
+                    <TableCell>Nosso Número</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell align="right">BB API</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {boletoLoading ? (
+                    <TableRow><TableCell colSpan={7} align="center" sx={{ py: 3 }}><CircularProgress size={24} /></TableCell></TableRow>
+                  ) : boletos.length === 0 ? (
+                    <TableRow><TableCell colSpan={7} align="center" sx={{ py: 3 }}>Nenhum boleto encontrado</TableCell></TableRow>
+                  ) : boletos.map(b => (
+                    <TableRow key={b.id} hover>
+                      <TableCell padding="checkbox">
+                        <Checkbox 
+                          checked={selectedBoletoIds.includes(b.id)}
+                          onChange={() => {
+                            setSelectedBoletoIds(prev => prev.includes(b.id) ? prev.filter(id => id !== b.id) : [...prev, b.id]);
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>{b.cliente_nome}</TableCell>
+                      <TableCell>{new Date(b.due_date).toLocaleDateString()}</TableCell>
+                      <TableCell align="right">{b.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
+                      <TableCell sx={{ fontFamily: 'monospace' }}>{b.nosso_numero || '-'}</TableCell>
+                      <TableCell>
+                        <Chip label={b.status} size="small" color={b.status === 'PAID' ? 'success' : b.status === 'REGISTERED' ? 'primary' : 'default'} />
+                      </TableCell>
+                      <TableCell align="right">
+                        {b.bb_boleto_url && (
+                          <Tooltip title="Abrir Boleto PDF">
+                            <IconButton size="small" onClick={() => window.open(b.bb_boleto_url, '_blank')}>
+                              <ArrowTopRightOnSquareIcon className="w-4 h-4 text-blue-500" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {b.bb_pix_qrcode && (
+                          <Tooltip title="PIX QR Code">
+                            <IconButton size="small" onClick={() => {
+                              navigator.clipboard.writeText(b.bb_pix_qrcode);
+                              setSnackbar({ open: true, message: 'PIX Copia e Cola copiado!', severity: 'success' });
+                            }}>
+                              <QrCodeIcon className="w-4 h-4 text-green-500" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {b.bb_boleto_numero && b.status !== 'PAID' && (
+                          <Tooltip title="Cancelar/Baixar API BB">
+                            <IconButton size="small" color="error" onClick={() => handleCancelBoletoBB(b.id)}>
+                              <TrashIcon className="w-4 h-4" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+        </TabPanel>
+
+        {/* Tab 2: Remessa */}
+        <TabPanel value={tabValue} index={2}>
+          <Box sx={{ px: 2, textAlign: 'center', py: 5 }}>
+            <Typography variant="h6">Arquivos de Remessa (CNAB)</Typography>
+            <Typography color="text.secondary" sx={{ mb: 3 }}>Gere arquivos de remessa para registro manual em bancos sem integração por API.</Typography>
+            <Button variant="outlined" startIcon={<ArrowDownTrayIcon className="w-5 h-5" />}>
+              Gerar Remessa CNAB
+            </Button>
+          </Box>
+        </TabPanel>
+
+        {/* Tab 3: Retorno */}
+        <TabPanel value={tabValue} index={3}>
+          <Box sx={{ px: 2, maxWidth: 600, mx: 'auto', py: 3 }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>Importar Arquivo de Retorno</Typography>
+            <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', backgroundColor: '#f9fafb' }}>
+              <input
+                accept=".ret,.TXT"
+                style={{ display: 'none' }}
+                id="retorno-file-upload"
+                type="file"
+                onChange={(e) => setRetornoFile(e.target.files?.[0] || null)}
+              />
+              <label htmlFor="retorno-file-upload">
+                <Button variant="outlined" component="span" startIcon={<ArrowUpTrayIcon className="w-5 h-5" />} sx={{ mb: 2 }}>
+                  {retornoFile ? retornoFile.name : 'Selecionar Arquivo .RET'}
+                </Button>
+              </label>
+              
+              {retornoFile && (
+                <Box sx={{ mt: 2 }}>
+                  <Button 
+                    variant="contained" 
+                    fullWidth 
+                    onClick={handleUploadRetorno}
+                    disabled={retornoLoading || !selectedAccount}
+                  >
+                    {retornoLoading ? <CircularProgress size={20} /> : 'Processar Agora'}
+                  </Button>
+                </Box>
+              )}
+            </Paper>
+
+            {retornoResult && (
+              <Box sx={{ mt: 3 }}>
+                <Alert severity="success">
+                  {retornoResult.message || 'Processamento concluído'}
+                </Alert>
+              </Box>
+            )}
+          </Box>
+        </TabPanel>
+      </Paper>
+
+      {/* Dialog for Create/Edit */}
+      <Dialog 
+        open={openDialog} 
+        onClose={() => setOpenDialog(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          {editingAccount ? 'Editar Conta Bancária' : 'Nova Conta Bancária'}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                select
+                fullWidth
+                label="Banco"
+                value={formData.bank}
+                onChange={e => handleInputChange('bank', e.target.value)}
+                error={!!errors.bank}
+              >
+                <MenuItem value="SICOB">SICOOB (API)</MenuItem>
+                <MenuItem value="SICREDI">SICREDI (CNAB/API)</MenuItem>
+                <MenuItem value="BANCO DO BRASIL">BANCO DO BRASIL (API)</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Nome da Configuração"
+                value={formData.name}
+                onChange={e => handleInputChange('name', e.target.value)}
+              />
+            </Grid>
+
+            <Grid item xs={6} md={4}>
+              <TextField fullWidth label="Agência" value={formData.agencia} onChange={e => handleInputChange('agencia', e.target.value)} />
+            </Grid>
+            <Grid item xs={6} md={2}>
+              <TextField fullWidth label="DV" value={formData.agencia_dv} onChange={e => handleInputChange('agencia_dv', e.target.value)} />
+            </Grid>
+            <Grid item xs={6} md={4}>
+              <TextField fullWidth label="Conta" value={formData.conta} onChange={e => handleInputChange('conta', e.target.value)} />
+            </Grid>
+            <Grid item xs={6} md={2}>
+              <TextField fullWidth label="DV" value={formData.conta_dv} onChange={e => handleInputChange('conta_dv', e.target.value)} />
+            </Grid>
+
+            <Grid item xs={12} md={8}>
+              <TextField fullWidth label="Titular" value={formData.titular} onChange={e => handleInputChange('titular', e.target.value)} />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField fullWidth label="CPF/CNPJ Titular" value={formData.cpf_cnpj_titular} onChange={e => handleInputChange('cpf_cnpj_titular', e.target.value)} />
+            </Grid>
+
+            <Grid item xs={12}><Divider><Chip label="Configurações de Boleto" size="small" /></Divider></Grid>
+
+            <Grid item xs={4}>
+              <TextField fullWidth label="Carteira" value={formData.carteira} onChange={e => handleInputChange('carteira', e.target.value)} />
+            </Grid>
+            <Grid item xs={4}>
+              <TextField fullWidth label="Variação" value={formData.carteira_variacao} onChange={e => handleInputChange('carteira_variacao', e.target.value)} />
+            </Grid>
+            <Grid item xs={4}>
+              <TextField fullWidth label="Convênio" value={formData.convenio} onChange={e => handleInputChange('convenio', e.target.value)} />
+            </Grid>
+
+            <Grid item xs={6}>
+              <TextField fullWidth label="Instrução 1" value={formData.instrucao1} onChange={e => handleInputChange('instrucao1', e.target.value)} />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField fullWidth label="Instrução 2" value={formData.instrucao2} onChange={e => handleInputChange('instrucao2', e.target.value)} />
+            </Grid>
+
+            {(formData.bank === 'BANCO DO BRASIL' || formData.bank === 'BANCO_DO_BRASIL') && (
+              <>
+                <Grid item xs={12}><Divider><Chip label="Credenciais API BB" size="small" /></Divider></Grid>
+                <Grid item xs={12}>
+                  <TextField fullWidth label="Client ID" value={formData.bb_client_id} onChange={e => handleInputChange('bb_client_id', e.target.value)} />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField fullWidth type="password" label="Client Secret" value={formData.bb_client_secret} onChange={e => handleInputChange('bb_client_secret', e.target.value)} placeholder="Deixe em branco para manter o atual" />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField fullWidth label="App Key (Developer Key)" value={formData.bb_app_key} onChange={e => handleInputChange('bb_app_key', e.target.value)} />
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={<Checkbox checked={formData.bb_sandbox} onChange={e => handleInputChange('bb_sandbox', e.target.checked)} />}
+                    label="Ambiente Sandbox (Homologação)"
+                  />
+                </Grid>
+              </>
+            )}
+
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={<Checkbox checked={formData.is_default} onChange={e => handleInputChange('is_default', e.target.checked)} />}
+                label="Conta Padrão da Empresa"
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setOpenDialog(false)}>Cancelar</Button>
+          <Button onClick={handleSave} variant="contained" sx={{ borderRadius: 2 }}>Salvar Alterações</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={6000} 
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
     </Box>
   );

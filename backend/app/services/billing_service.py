@@ -43,6 +43,8 @@ class BillingService:
                 return await BillingService._register_sicoob(db, receivable, bank_account)
             elif bank_account.bank == "SICREDI":
                 return await BillingService._register_sicredi(db, receivable, bank_account)
+            elif bank_account.bank in ["BANCO_DO_BRASIL", "BANCO DO BRASIL"]:
+                return await BillingService._register_bb(db, receivable, bank_account)
             else:
                 logger.info(f"Conta bancária {bank_account.id} não suporta registro automático: {bank_account.bank}")
                 return False
@@ -398,3 +400,42 @@ class BillingService:
             logger.error(f"Erro ao consultar status do boleto: {str(e)}")
 
         return None
+    @staticmethod
+    async def _register_bb(db: Session, receivable: Receivable, bank_account: BankAccount) -> bool:
+        """Registra boleto via API Banco do Brasil."""
+        try:
+            from app.services.bb_api_service import registrar_boleto
+            
+            resp = registrar_boleto(db=db, bank_account=bank_account, receivable=receivable, usar_pix=True)
+            
+            if resp:
+                receivable.bb_boleto_numero = resp.get("numero")
+                receivable.bb_boleto_url = resp.get("textoUrl")
+                qr = resp.get("qrCode") or {}
+                receivable.bb_pix_qrcode = qr.get("emv") or qr.get("url")
+                receivable.bb_pix_txid = qr.get("txId")
+                
+                receivable.nosso_numero = resp.get("numero")
+                receivable.linha_digitavel = resp.get("codigoLinhaDigitavel")
+                receivable.status = "REGISTERED"
+                receivable.registered_at = datetime.utcnow()
+                receivable.bank_payload = json.dumps(resp, default=str)
+                
+                db.commit()
+                logger.info(f"Boleto BB {receivable.id} registrado com sucesso: {receivable.bb_boleto_numero}")
+                return True
+                
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Erro ao registrar boleto via BB: {str(e)}")
+            # Tenta marcar como falha em uma transação limpa
+            try:
+                db.begin_nested()
+                receivable.status = "REGISTRATION_FAILED"
+                receivable.registro_result = str(e)[:500]
+                db.commit()
+            except:
+                db.rollback()
+            return False
+        
+        return False

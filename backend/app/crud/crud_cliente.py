@@ -3,6 +3,7 @@ from sqlalchemy import or_, String
 from app.models.models import Cliente, EmpresaCliente, EmpresaClienteEndereco
 from app.schemas.cliente import ClienteCreate, ClienteUpdate
 from app.core.validators import clean_string
+from app.core.security import get_password_hash
 
 def get_cliente(db: Session, cliente_id: int):
     return db.query(Cliente).filter(Cliente.id == cliente_id).first()
@@ -49,6 +50,19 @@ def create_cliente(db: Session, cliente: ClienteCreate, empresa_id: int, created
     except Exception:
         pass
     cliente_data = cliente.model_dump(exclude={"enderecos"})
+    
+    # Normalização global: strip, remove espaços duplos e converte para maiúsculo (exceto município e campos de senha/token)
+    exclude_normalization = {"municipio","email", "password", "password_hash", "reset_token"}
+    for key, value in cliente_data.items():
+        if isinstance(value, str) and key not in exclude_normalization and value:
+            cliente_data[key] = clean_string(value).upper()
+    
+    # Se houver senha, gera o hash e remove o campo 'password' que não existe no modelo Cliente
+    if "password" in cliente_data and cliente_data["password"]:
+        cliente_data["password_hash"] = get_password_hash(cliente_data["password"])
+    
+    if "password" in cliente_data:
+        del cliente_data["password"]
 
     # Procurar cliente global por CPF/CNPJ
     cpf_cnpj = cliente_data.get('cpf_cnpj')
@@ -96,6 +110,20 @@ def create_cliente(db: Session, cliente: ClienteCreate, empresa_id: int, created
 
 def update_cliente(db: Session, db_obj: Cliente, obj_in: ClienteUpdate):
     update_data = obj_in.model_dump(exclude_unset=True)
+    
+    # Normalização global: strip, remove espaços duplos e converte para maiúsculo (exceto município e campos de senha/token)
+    exclude_normalization = {"municipio", "email","password", "password_hash", "reset_token"}
+    for key, value in update_data.items():
+        if isinstance(value, str) and key not in exclude_normalization and value:
+            update_data[key] = clean_string(value).upper()
+    
+    # Se houver senha, gera o hash e remove o campo 'password'
+    if "password" in update_data and update_data["password"]:
+        update_data["password_hash"] = get_password_hash(update_data["password"])
+    
+    if "password" in update_data:
+        del update_data["password"]
+
     for field in update_data:
         setattr(db_obj, field, update_data[field])
     db.add(db_obj)
@@ -139,29 +167,17 @@ def create_endereco_for_empresa_cliente(db: Session, empresa_id: int, cliente_id
         raise ValueError("Associação empresa-cliente não encontrada")
     # sanitize and normalize some fields
     endereco_data['empresa_cliente_id'] = empresa_cliente.id
+    
+    # Normalização global: strip, remove espaços duplos e converte para maiúsculo (exceto município)
+    for key, value in endereco_data.items():
+        if isinstance(value, str) and key != "municipio" and value:
+            endereco_data[key] = clean_string(value).upper()
+
     try:
         if 'cep' in endereco_data and endereco_data['cep']:
             endereco_data['cep'] = ''.join([c for c in str(endereco_data['cep']) if c.isdigit()])
-        if 'uf' in endereco_data and endereco_data['uf']:
-            endereco_data['uf'] = str(endereco_data['uf']).upper()
         if 'codigo_ibge' in endereco_data and endereco_data['codigo_ibge']:
             endereco_data['codigo_ibge'] = ''.join([c for c in str(endereco_data['codigo_ibge']) if c.isdigit()])
-        # normalize textual address fields: endereco, complemento, bairro -> trimmed, single spaces, UPPER
-        if 'endereco' in endereco_data and endereco_data.get('endereco'):
-            try:
-                endereco_data['endereco'] = clean_string(str(endereco_data['endereco'])).upper()
-            except Exception:
-                pass
-        if 'complemento' in endereco_data and endereco_data.get('complemento'):
-            try:
-                endereco_data['complemento'] = clean_string(str(endereco_data['complemento'])).upper()
-            except Exception:
-                pass
-        if 'bairro' in endereco_data and endereco_data.get('bairro'):
-            try:
-                endereco_data['bairro'] = clean_string(str(endereco_data['bairro'])).upper()
-            except Exception:
-                pass
     except Exception:
         pass
 
@@ -191,38 +207,20 @@ def update_endereco_for_empresa_cliente(db: Session, endereco_id: int, empresa_i
     sanitized: dict = {}
     for k, v in (update_data or {}).items():
         if k in allowed:
+            # Normalização global: strip, remove espaços duplos e converte para maiúsculo (exceto município)
+            if isinstance(v, str) and k != "municipio" and v:
+                v = clean_string(v).upper()
             sanitized[k] = v
 
-    # normalize common fields
+    # normalize specific numeric fields
     if 'cep' in sanitized and sanitized['cep'] is not None:
         try:
             sanitized['cep'] = ''.join([c for c in str(sanitized['cep']) if c.isdigit()])
         except Exception:
             pass
-    if 'uf' in sanitized and sanitized['uf'] is not None:
-        try:
-            sanitized['uf'] = str(sanitized['uf']).upper()
-        except Exception:
-            pass
     if 'codigo_ibge' in sanitized and sanitized['codigo_ibge'] is not None:
         try:
             sanitized['codigo_ibge'] = ''.join([c for c in str(sanitized['codigo_ibge']) if c.isdigit()])
-        except Exception:
-            pass
-    # normalize textual address fields: endereco, complemento, bairro -> trimmed, single spaces, UPPER
-    if 'endereco' in sanitized and sanitized.get('endereco') is not None:
-        try:
-            sanitized['endereco'] = clean_string(str(sanitized['endereco'])).upper()
-        except Exception:
-            pass
-    if 'complemento' in sanitized and sanitized.get('complemento') is not None:
-        try:
-            sanitized['complemento'] = clean_string(str(sanitized['complemento'])).upper()
-        except Exception:
-            pass
-    if 'bairro' in sanitized and sanitized.get('bairro') is not None:
-        try:
-            sanitized['bairro'] = clean_string(str(sanitized['bairro'])).upper()
         except Exception:
             pass
 

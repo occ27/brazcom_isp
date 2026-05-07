@@ -476,11 +476,13 @@ class BoletoStatus(str, enum.Enum):
     PAID = "PAID"
     CANCELLED = "CANCELLED"
     REJECTED = "REJECTED"
+    REGISTRATION_FAILED = "REGISTRATION_FAILED"
 
 
 class Bank(str, enum.Enum):
     SICOB = "SICOB"
     SICREDI = "SICREDI"
+    BANCO_DO_BRASIL = "BANCO DO BRASIL"
     OUTRO = "OUTRO"
 
 
@@ -510,7 +512,7 @@ class Receivable(Base):
     fine_percent = Column(Float, nullable=True, default=0.0)
 
     # Informações do boleto / registro bancário
-    bank = Column(SQLAlchemyEnum(Bank), nullable=False, server_default=Bank.SICOB.value)
+    bank = Column(String(50), nullable=False, server_default='SICOB')
     carteira = Column(String(50), nullable=True)
     agencia = Column(String(20), nullable=True)
     conta = Column(String(50), nullable=True)
@@ -519,7 +521,7 @@ class Receivable(Base):
     codigo_barras = Column(String(100), nullable=True)
     linha_digitavel = Column(String(200), nullable=True)
 
-    status = Column(SQLAlchemyEnum(BoletoStatus), nullable=False, server_default=BoletoStatus.PENDING.value)
+    status = Column(String(30), nullable=False, server_default='PENDING')
     registered_at = Column(DateTime(timezone=True), nullable=True)
     printed_at = Column(DateTime(timezone=True), nullable=True)
     sent_at = Column(DateTime(timezone=True), nullable=True)
@@ -534,6 +536,12 @@ class Receivable(Base):
     bank_payload = Column(Text, nullable=True)
 
     pdf_url = Column(String(500), nullable=True)
+
+    # Banco do Brasil específicos (Agrobraz pattern)
+    bb_boleto_numero = Column(String(50), nullable=True)
+    bb_boleto_url = Column(String(1000), nullable=True)
+    bb_pix_qrcode = Column(Text, nullable=True)
+    bb_pix_txid = Column(String(100), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -568,6 +576,18 @@ class BankAccount(Base):
     remittance_config = Column(Text, nullable=True)
     instructions = Column(Text, nullable=True)
     is_default = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+
+    # Nome identificador da conta
+    name = Column(String(100), nullable=True)
+    
+    # Campos para boletos/CNAB
+    cnab_version = Column(String(10), nullable=True)
+    carteira_variacao = Column(String(10), nullable=True)
+    instrucao1 = Column(String(255), nullable=True)
+    instrucao2 = Column(String(255), nullable=True)
+    dias_protesto = Column(Integer, nullable=True, default=0)
+    dias_baixa = Column(Integer, nullable=True, default=0)
 
     # Campos sensíveis (armazenar criptografados usando utilities em app.core.security)
     gateway_credentials = Column(String(1000), nullable=True)
@@ -581,6 +601,12 @@ class BankAccount(Base):
     sicredi_posto = Column(String(10), nullable=True)  # Posto de atendimento
     sicredi_byte_id = Column(String(1), nullable=True)  # Byte de identificação
     
+    # Campos Banco do Brasil (Agrobraz pattern)
+    bb_client_id = Column(String(255), nullable=True)
+    bb_client_secret = Column(String(500), nullable=True)
+    bb_app_key = Column(String(255), nullable=True)
+    bb_sandbox = Column(Boolean, default=True)
+
     # Configurações de cobrança padrão
     multa_atraso_percentual = Column(Float, nullable=True, default=2.0)  # % de multa por atraso
     juros_atraso_percentual = Column(Float, nullable=True, default=1.0)  # % de juros por dia de atraso
