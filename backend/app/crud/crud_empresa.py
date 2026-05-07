@@ -44,6 +44,8 @@ def _decrypt_sensitive_fields(empresa: Empresa) -> SimpleNamespace:
         ambiente_nfcom=getattr(empresa, 'ambiente_nfcom', 'producao'),
         user_id=empresa.user_id,
         is_active=empresa.is_active,
+        suspension_message=empresa.suspension_message,
+        suspension_url=empresa.suspension_url,
         created_at=empresa.created_at,
         updated_at=empresa.updated_at,
         # Flags para indicar presença de configuração sensível (sem expor valores)

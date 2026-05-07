@@ -72,6 +72,10 @@ export interface Company {
   is_active: boolean;
   created_at: string;
   updated_at?: string;
+  
+  // Mensagem de suspensão personalizada (ISP)
+  suspension_message?: string;
+  suspension_url?: string;
 }
 
 export interface Cliente {

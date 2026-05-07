@@ -15,6 +15,33 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/servicos-contratados", tags=["ServicosContratados"])
 
+@router.get("/public/aviso/empresa/{empresa_id}")
+def get_public_suspension_notice_by_empresa(empresa_id: int, request: Request, db: Session = Depends(get_db)):
+    """Busca informações públicas da empresa e tenta identificar o cliente pelo IP."""
+    empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+    
+    client_ip = request.client.host
+    logger.info(f"Requisição de aviso de suspensão para empresa {empresa_id} vinda do IP {client_ip}")
+    
+    # Tenta encontrar o contrato vinculado a este IP nesta empresa
+    contrato = db.query(ServicoContratado).filter(
+        ServicoContratado.empresa_id == empresa_id,
+        ServicoContratado.assigned_ip == client_ip
+    ).first()
+    
+    return {
+        "cliente_nome": contrato.cliente.razao_social if contrato and contrato.cliente else None,
+        "empresa_nome": empresa.razao_social,
+        "empresa_fantasia": empresa.nome_fantasia,
+        "empresa_logo": empresa.logo_url,
+        "empresa_telefone": empresa.telefone,
+        "suspension_message": empresa.suspension_message
+    }
+
+
+@router.get("/public/aviso/{contrato_id}")
 
 @router.get("/", response_model=List[sc_schema.ServicoContratadoResponse])
 def list_servicos_contratados(empresa_id: int = None, q: str = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user), response: Response = None):

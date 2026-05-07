@@ -1047,7 +1047,7 @@ const Companies: React.FC = () => {
                 </div>
               )}
 
-              {activeTab === "billing" && editingCompany && (
+              {activeTab === "billing" && (
                 <div className="space-y-4 sm:space-y-6">
                   <div className="bg-gradient-to-r from-teal-50 to-cyan-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-teal-100">
                     <h3 className="text-lg sm:text-xl font-bold text-teal-800 mb-1 sm:mb-2 flex items-center">

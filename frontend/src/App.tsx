@@ -251,11 +251,11 @@ const AppContent: React.FC = () => {
         }
       />
       <Route
-        path="/notice/suspension"
+        path="/aviso"
         element={<SuspensionNotice />}
       />
       <Route
-        path="/notice/suspension/:empresaId"
+        path="/aviso/:empresaId"
         element={<SuspensionNotice />}
       />
       <Route

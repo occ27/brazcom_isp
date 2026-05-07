@@ -32,6 +32,10 @@ export interface CompanyCreate {
   smtp_password?: string;
   // Preferência de ambiente para transmissão NFCom: 'producao' | 'homologacao'
   ambiente_nfcom?: string;
+  
+  // Mensagem de suspensão personalizada (ISP)
+  suspension_message?: string;
+  suspension_url?: string;
 }
 
 export interface CompanyUpdate {
@@ -65,6 +69,10 @@ export interface CompanyUpdate {
   ambiente_nfcom?: string;
   
   is_active?: boolean;
+  
+  // Mensagem de suspensão personalizada (ISP)
+  suspension_message?: string;
+  suspension_url?: string;
 }
 
 export const companyService = {
