@@ -27,6 +27,7 @@ import BankAccounts from './pages/BankAccounts';
 import Receivables from './pages/Receivables';
 import Tickets from './pages/Tickets';
 import ClientPortal from './pages/ClientPortal';
+import SuspensionNotice from './pages/SuspensionNotice';
 import AuthenticatedLayout from './components/AuthenticatedLayout';
 import { PageType } from './types';
 
@@ -248,6 +249,14 @@ const AppContent: React.FC = () => {
             <ClientPortal />
           </ProtectedRoute>
         }
+      />
+      <Route
+        path="/notice/suspension"
+        element={<SuspensionNotice />}
+      />
+      <Route
+        path="/notice/suspension/:empresaId"
+        element={<SuspensionNotice />}
       />
       <Route
         path="/companies"

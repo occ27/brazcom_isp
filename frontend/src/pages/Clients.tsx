@@ -439,7 +439,9 @@ const Clients: React.FC = () => {
           flexShrink: 0, 
           borderTop: '1px solid', 
           borderColor: 'divider',
-          bgcolor: 'background.paper'
+          bgcolor: 'background.paper',
+          '.MuiTablePagination-toolbar': { justifyContent: 'flex-start' },
+          '.MuiTablePagination-spacer': { display: 'none' }
         }}
       />
     )

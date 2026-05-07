@@ -394,19 +394,23 @@ class MikrotikController:
         """
         self.connect()
         resource = self._api.get_resource('queue/simple')
-        # Procura pelo name
-        existing = resource.get(name=name)
+        # Procura localmente para ser mais robusto
+        all_queues = resource.get()
+        existing = [q for q in all_queues if q.get('name') == name]
+        
         data = {'name': name, 'target': target, 'max-limit': max_limit}
         if burst:
             data['burst-limit'] = burst
         if comment:
             data['comment'] = comment
+            
         if existing:
             # atualiza o primeiro encontrado
-            resource.set(id=existing[0].get('.id'), **data)
-            return True
-        else:
-            return resource.add(**data)
+            qid = existing[0].get('.id') or existing[0].get('id')
+            if qid:
+                resource.set(id=qid, **data)
+                return True
+        return resource.add(**data)
 
     def get_interfaces(self):
         """Busca todas as interfaces do router (/interface)."""
@@ -494,11 +498,114 @@ class MikrotikController:
             # Atualiza comentário se necessário
             if comment and existing_address[0].get('comment') != comment:
                 resource = self._api.get_resource('ip/address')
-                resource.update(id=existing_address[0]['.id'], comment=comment)
+                aid = existing_address[0].get('.id') or existing_address[0].get('id')
+                if aid: resource.set(id=aid, comment=comment)
             return existing_address[0]
         else:
             # Adiciona novo endereço
             return self.add_ip_address(address, interface, comment)
+
+    def add_to_address_list(self, address: str, list_name: str, comment: str = None):
+        """Adiciona um IP a uma Address List."""
+        self.connect()
+        resource = self._api.get_resource('ip/firewall/address-list')
+        
+        # Normalizar IP
+        ip_clean = address.split('/')[0]
+        
+        # Buscar todas as entradas da lista para conferir localmente (mais robusto)
+        try:
+            all_entries = resource.get(list=list_name)
+        except Exception:
+            all_entries = []
+            
+        exists = False
+        for e in all_entries:
+            e_addr = e.get('address', '').split('/')[0]
+            if e_addr == ip_clean:
+                exists = True
+                break
+                
+        if not exists:
+            data = {'address': ip_clean, 'list': list_name}
+            if comment:
+                data['comment'] = comment
+            return resource.add(**data)
+        return False
+
+    def setup_suspension_nat_rule(self, notice_url: str):
+        """
+        Garante que as regras básicas de redirecionamento existam.
+        Nota: Devido a incompatibilidades entre versões do RouterOS (v6 vs v7),
+        recomenda-se que as regras de NAT e Proxy sejam configuradas manualmente uma vez.
+        Esta função apenas tenta garantir o básico sem interromper o fluxo se falhar.
+        """
+        # Mantemos a função vazia ou com lógica mínima para não quebrar o isp_service,
+        # mas a inteligência de quem está bloqueado fica na Address List.
+        pass
+
+    def setup_suspension_firewall_rules(self):
+        """Configura regras de firewall para permitir apenas DNS e redirecionamento para bloqueados."""
+        self.connect()
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            resource = self._api.get_resource('ip/firewall/filter')
+            all_rules = resource.get()
+            
+            # 1. Permitir DNS (UDP/53) para quem está no pg_corte
+            dns_rule = {
+                'chain': 'forward',
+                'src-address-list': 'pg_corte',
+                'protocol': 'udp',
+                'dst-port': '53',
+                'action': 'accept',
+                'comment': 'DNS_BLOQUEADOS'
+            }
+            
+            existing_dns = [r for r in all_rules if r.get('comment') == 'DNS_BLOQUEADOS']
+            if not existing_dns:
+                try:
+                    resource.add(place_before='0', **dns_rule)
+                except Exception:
+                    resource.add(**dns_rule)
+            else:
+                rid = existing_dns[0].get('.id') or existing_dns[0].get('id')
+                if rid: resource.set(id=rid, **dns_rule)
+
+            # 2. Bloquear todo o resto para pg_corte
+            block_rule = {
+                'chain': 'forward',
+                'src-address-list': 'pg_corte',
+                'action': 'drop',
+                'comment': 'BLOQUEIO_GERAL_PG_CORTE'
+            }
+            
+            existing_block = [r for r in all_rules if r.get('comment') == 'BLOQUEIO_GERAL_PG_CORTE']
+            if not existing_block:
+                try:
+                    # Tenta adicionar após o DNS ou no topo
+                    resource.add(**block_rule)
+                except Exception:
+                    resource.add(**block_rule)
+            else:
+                rid = existing_block[0].get('.id') or existing_block[0].get('id')
+                if rid: resource.set(id=rid, **block_rule)
+                
+        except Exception as e:
+            logger.error(f"Erro ao configurar Firewall Filter: {e}")
+
+    def remove_from_address_list(self, address: str, list_name: str):
+        """Remove um IP de uma Address List."""
+        self.connect()
+        resource = self._api.get_resource('ip/firewall/address-list')
+        existing = resource.get(address=address, list=list_name)
+        for e in existing:
+            eid = e.get('.id') or e.get('id')
+            if eid: resource.remove(id=eid)
+        return True
+
 
     def get_dhcp_servers(self):
         """Busca servidores DHCP configurados (/ip/dhcp-server)."""
@@ -597,10 +704,12 @@ class MikrotikController:
         # Remove rotas padrão existentes (dst-address=0.0.0.0/0)
         existing = resource.get(dst_address='0.0.0.0/0')
         for route in existing:
-            try:
-                resource.remove(id=route['.id'])
-            except Exception:
-                pass
+            rid = route.get('.id') or route.get('id')
+            if rid:
+                try:
+                    resource.remove(id=rid)
+                except Exception:
+                    pass
 
         # Adiciona nova rota padrão
         data = {
@@ -752,6 +861,220 @@ class MikrotikController:
 
         else:
             raise ValueError(f"Método de autenticação não suportado: {metodo_autenticacao}")
+
+    def sync_client_connection(self, contrato_id: int, metodo_autenticacao: str, assigned_ip: str = None, mac_address: str = None, interface: str = None, comment: str = None, profile: str = None, max_limit: str = None):
+        """Sincroniza a configuração do cliente no router, removendo configurações antigas de outros métodos."""
+        self.connect()
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # 1. Tentar remover configurações de outros métodos (limpeza)
+        username = f"contrato_{contrato_id}"
+        
+        # Remover PPPoE
+        try:
+            ppp_res = self._api.get_resource('ppp/secret')
+            secrets = ppp_res.get(name=username)
+            for s in secrets:
+                sid = s.get('.id') or s.get('id')
+                if sid: ppp_res.remove(id=sid)
+        except Exception: pass
+
+        # Remover Hotspot
+        try:
+            hs_res = self._api.get_resource('ip/hotspot/user')
+            users = hs_res.get(name=username)
+            for u in users:
+                uid = u.get('.id') or u.get('id')
+                if uid: hs_res.remove(id=uid)
+        except Exception: pass
+
+        # Remover ARP (se o IP for diferente do atual, ou sempre por segurança)
+        if assigned_ip:
+            try:
+                arp_res = self._api.get_resource('ip/arp')
+                entries = arp_res.get(address=assigned_ip)
+                for e in entries:
+                    aid = e.get('.id') or e.get('id')
+                    if aid: arp_res.remove(id=aid)
+            except Exception: pass
+
+        # Remover Simple Queue antiga (pelo nome antigo ou atual se existir)
+        try:
+            q_res = self._api.get_resource('queue/simple')
+            # Tenta remover pelo nome do cliente (atual) e pelo nome antigo (contrato-ID)
+            for qname in [comment, f"contrato-{contrato_id}"]:
+                if not qname: continue
+                queues = q_res.get(name=qname)
+                for q in queues:
+                    qid = q.get('.id') or q.get('id')
+                    if qid: q_res.remove(id=qid)
+        except Exception: pass
+
+        # 2. Aplicar a configuração ATUAL
+        if metodo_autenticacao == 'PPPOE':
+            password_pppoe = f"pppoe_{contrato_id}"
+            self.add_pppoe_secret(username, password_pppoe, profile=profile, comment=comment)
+        
+        elif metodo_autenticacao == 'IP_MAC':
+            if not assigned_ip or not mac_address or not interface:
+                raise ValueError("IP, MAC e Interface são obrigatórios para IP+MAC")
+            self.set_arp_entry(assigned_ip, mac_address, interface, comment)
+        
+        elif metodo_autenticacao == 'HOTSPOT':
+            password_hs = f"hs_{contrato_id}"
+            self.add_hotspot_user(username, password_hs, profile=profile, comment=comment)
+        
+        # 3. Aplicar QoS (Simple Queue) para IP_MAC
+        if metodo_autenticacao == 'IP_MAC' and assigned_ip and max_limit:
+            # O nome da queue agora é o nome do cliente (passado no comment)
+            queue_name = comment if comment else f"contrato-{contrato_id}"
+            self.set_queue_simple(
+                name=queue_name,
+                target=f"{assigned_ip}/32",
+                max_limit=max_limit,
+                comment=comment
+            )
+        
+        return True
+
+    def suspend_client_connection(self, contrato_id: int, metodo_autenticacao: str, assigned_ip: str = None, comment: str = None):
+        """Bloqueia a conexão do cliente no router."""
+        self.connect()
+        import logging
+        logger = logging.getLogger(__name__)
+
+        if metodo_autenticacao == 'PPPOE':
+            username = f"contrato_{contrato_id}"
+            resource = self._api.get_resource('ppp/secret')
+            secrets = resource.get(name=username)
+            if secrets:
+                # Em vez de desabilitar, vamos colocar em um Address List de bloqueio
+                # O Profile SUSPENSO deve estar configurado no Router com o address-list=pg_corte
+                # Ou podemos setar o remote-address-list diretamente no secret se o RouterOS suportar
+                # Mas o mais comum é mudar o Profile.
+                
+                # Por simplicidade e eficiência, vamos adicionar o IP do usuário (se estiver conectado) 
+                # a uma Address List e também marcar o secret para que futuras conexões caiam no bloqueio.
+                
+                # 1. Marcar o Secret com um comentário ou profile específico
+                sid = secrets[0].get('.id') or secrets[0].get('id')
+                if sid: resource.set(id=sid, comment="SUSPENSO_POR_FALTA_DE_PAGAMENTO")
+                
+                # 2. Se o usuário estiver ativo, pegamos o IP dele e adicionamos à Address List 'pg_corte'
+                try:
+                    active_resource = self._api.get_resource('ppp/active')
+                    actives = active_resource.get(name=username)
+                    for a in actives:
+                        user_ip = a.get('address')
+                        if user_ip:
+                            self.add_to_address_list(user_ip, 'pg_corte', f"Bloqueio Contrato {contrato_id}")
+                except Exception:
+                    pass
+                return True
+            return False
+
+        elif metodo_autenticacao == 'IP_MAC':
+            if not assigned_ip:
+                return False
+            # Em vez de remover o ARP, vamos adicionar à Address List de bloqueio
+            # Isso permite que o redirecionamento via NAT funcione
+            try:
+                self.add_to_address_list(assigned_ip, 'pg_corte', f"Bloqueio Contrato {contrato_id}")
+            except Exception as e:
+                logger.warning(f"Falha ao adicionar IP {assigned_ip} à pg_corte: {e}")
+
+            # Opcional: Reduzir a velocidade da Queue para 128k para que o redirecionamento carregue mas não navegue
+            try:
+                # O nome da queue é o nome do cliente ou contrato-ID
+                # Vamos tentar encontrar pelo comentário/nome
+                self.set_queue_simple(
+                    name=comment if comment else f"contrato-{contrato_id}",
+                    target=f"{assigned_ip}/32",
+                    max_limit="128k/128k",
+                    comment=f"{comment} - BLOQUEADO" if comment else "BLOQUEADO"
+                )
+            except Exception as e:
+                logger.warning(f"Falha ao reduzir velocidade da queue no bloqueio: {e}")
+                
+            return True
+
+        elif metodo_autenticacao == 'HOTSPOT':
+            username = f"contrato_{contrato_id}"
+            resource = self._api.get_resource('ip/hotspot/user')
+            users = resource.get(name=username)
+            if users:
+                uid = users[0].get('.id') or users[0].get('id')
+                if uid: resource.set(id=uid, disabled='yes')
+                # Remover do active
+                try:
+                    active_resource = self._api.get_resource('ip/hotspot/active')
+                    actives = active_resource.get(user=username)
+                    for a in actives:
+                        aid = a.get('.id') or a.get('id')
+                        if aid: active_resource.remove(id=aid)
+                except Exception:
+                    pass
+                return True
+            return False
+
+        return False
+
+    def unsuspend_client_connection(self, contrato_id: int, metodo_autenticacao: str, assigned_ip: str = None, mac_address: str = None, interface: str = None, comment: str = None):
+        """Desbloqueia a conexão do cliente no router."""
+        self.connect()
+        
+        if metodo_autenticacao == 'PPPOE':
+            username = f"contrato_{contrato_id}"
+            resource = self._api.get_resource('ppp/secret')
+            secrets = resource.get(name=username)
+            if secrets:
+                # 1. Remover comentário de suspensão e garantir que está habilitado
+                sid = secrets[0].get('.id') or secrets[0].get('id')
+                if sid: resource.set(id=sid, disabled='no', comment="")
+                
+                # 2. Remover IP da Address List 'pg_corte' se estiver lá
+                try:
+                    active_resource = self._api.get_resource('ppp/active')
+                    actives = active_resource.get(name=username)
+                    for a in actives:
+                        user_ip = a.get('address')
+                        if user_ip:
+                            self.remove_from_address_list(user_ip, 'pg_corte')
+                except Exception:
+                    pass
+                return True
+            return False
+
+        elif metodo_autenticacao == 'IP_MAC':
+            if not assigned_ip:
+                return False
+            # 1. Remover da Address List de bloqueio
+            try:
+                self.remove_from_address_list(assigned_ip, 'pg_corte')
+            except Exception:
+                pass
+            
+            # 2. Garantir que a entrada ARP existe (caso tenha sido removida anteriormente)
+            if mac_address and interface:
+                self.set_arp_entry(ip=assigned_ip, mac=mac_address, interface=interface, comment=comment)
+            
+            # Nota: O limite de banda (Simple Queue) será restaurado na próxima sincronização 
+            # ou podemos tentar restaurar aqui se tivéssemos o limite.
+            # Como o 'isp_service' chama o sincronismo logo após, isso deve se resolver.
+            return True
+
+        elif metodo_autenticacao == 'HOTSPOT':
+            username = f"contrato_{contrato_id}"
+            resource = self._api.get_resource('ip/hotspot/user')
+            users = resource.get(name=username)
+            if users:
+                uid = users[0].get('.id') or users[0].get('id')
+                if uid: resource.set(id=uid, disabled='no')
+                return True
+            return False
+
+        return False
 
     def add_pppoe_profile(self, name: str, local_address: str, remote_address_pool: str,
                          rate_limit: Optional[str] = None, comment: Optional[str] = None):

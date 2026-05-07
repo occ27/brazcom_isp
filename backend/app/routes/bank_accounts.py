@@ -2,7 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, date
 
 from app.core.database import get_db
 from app.routes.auth import get_current_active_user
@@ -307,6 +307,9 @@ def list_boletos(
     empresa_id: int, 
     bank_account_id: int, 
     status: Optional[str] = None, 
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    date_type: str = "due_date",
     page: int = 1, 
     per_page: int = 25, 
     db: Session = Depends(get_db), 
@@ -321,6 +324,13 @@ def list_boletos(
     
     if status:
         query = query.filter(Receivable.status == status)
+        
+    filter_field = Receivable.issue_date if date_type == "issue_date" else Receivable.due_date
+    
+    if start_date:
+        query = query.filter(filter_field >= start_date)
+    if end_date:
+        query = query.filter(filter_field <= end_date)
         
     total = query.count()
     items = query.order_by(Receivable.id.desc()).offset((page - 1) * per_page).limit(per_page).all()

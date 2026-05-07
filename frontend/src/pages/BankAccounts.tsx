@@ -6,7 +6,8 @@ import {
   TableHead, TableRow, Card, CardContent, Divider, 
   InputAdornment, MenuItem, Tooltip, Tabs, Tab,
   Dialog, DialogTitle, DialogContent, DialogActions,
-  FormControlLabel, Checkbox, Grid, Select, FormControl, InputLabel
+  FormControlLabel, Checkbox, Grid, Select, FormControl, InputLabel,
+  TablePagination
 } from '@mui/material';
 import { 
   PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, 
@@ -49,7 +50,7 @@ const BankAccounts: React.FC = () => {
   const theme = useTheme();
   
   // State
-  const [tabValue, setTabValue] = useState(0);
+  const [tabValue, setTabValue] = useState(1);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
@@ -63,6 +64,12 @@ const BankAccounts: React.FC = () => {
   const [boletoLoading, setBoletoLoading] = useState(false);
   const [selectedBoletoIds, setSelectedBoletoIds] = useState<number[]>([]);
   const [boletoStatus, setBoletoStatus] = useState<string>('');
+  const [boletoStartDate, setBoletoStartDate] = useState('');
+  const [boletoEndDate, setBoletoEndDate] = useState('');
+  const [boletoDateType, setBoletoDateType] = useState('due_date');
+  const [boletoPage, setBoletoPage] = useState(0);
+  const [boletoRowsPerPage, setBoletoRowsPerPage] = useState(50);
+  const [boletoTotal, setBoletoTotal] = useState(0);
   
   // Retorno Tab State
   const [retornoFile, setRetornoFile] = useState<File | null>(null);
@@ -133,16 +140,25 @@ const BankAccounts: React.FC = () => {
     try {
       const data = await bankAccountService.listBoletos(activeCompany.id, selectedAccount as number, { 
         status: boletoStatus || undefined,
-        per_page: 50 
+        start_date: boletoStartDate || undefined,
+        end_date: boletoEndDate || undefined,
+        date_type: boletoDateType,
+        page: boletoPage + 1,
+        per_page: boletoRowsPerPage
       });
       setBoletos(data.data || []);
+      setBoletoTotal(data.total || 0);
       setSelectedBoletoIds([]);
     } catch (e) {
       setSnackbar({ open: true, message: 'Erro ao carregar boletos', severity: 'error' });
     } finally {
       setBoletoLoading(false);
     }
-  }, [activeCompany, selectedAccount, boletoStatus]);
+  }, [activeCompany, selectedAccount, boletoStatus, boletoStartDate, boletoEndDate, boletoDateType, boletoPage, boletoRowsPerPage]);
+
+  useEffect(() => {
+    setBoletoPage(0);
+  }, [selectedAccount, boletoStatus, boletoStartDate, boletoEndDate, boletoDateType]);
 
   useEffect(() => {
     if (tabValue === 1 && selectedAccount) {
@@ -370,6 +386,21 @@ const BankAccounts: React.FC = () => {
                 </Select>
               </FormControl>
 
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Filtrar por</InputLabel>
+                <Select
+                  value={boletoDateType}
+                  label="Filtrar por"
+                  onChange={(e) => setBoletoDateType(e.target.value)}
+                >
+                  <MenuItem value="due_date">Vencimento</MenuItem>
+                  <MenuItem value="issue_date">Emissão</MenuItem>
+                </Select>
+              </FormControl>
+
+              <TextField type="date" label="Início" size="small" value={boletoStartDate} onChange={(e) => setBoletoStartDate(e.target.value)} InputLabelProps={{ shrink: true }} />
+              <TextField type="date" label="Fim" size="small" value={boletoEndDate} onChange={(e) => setBoletoEndDate(e.target.value)} InputLabelProps={{ shrink: true }} />
+
               <Button 
                 variant="outlined" 
                 startIcon={<ArrowPathIcon className="w-4 h-4" />}
@@ -409,6 +440,7 @@ const BankAccounts: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell>Cliente</TableCell>
+                    <TableCell>Emissão</TableCell>
                     <TableCell>Vencimento</TableCell>
                     <TableCell align="right">Valor</TableCell>
                     <TableCell>Nosso Número</TableCell>
@@ -432,7 +464,8 @@ const BankAccounts: React.FC = () => {
                         />
                       </TableCell>
                       <TableCell>{b.cliente_nome}</TableCell>
-                      <TableCell>{new Date(b.due_date).toLocaleDateString()}</TableCell>
+                      <TableCell>{new Date(b.issue_date).toLocaleDateString('pt-BR')}</TableCell>
+                      <TableCell>{new Date(b.due_date).toLocaleDateString('pt-BR')}</TableCell>
                       <TableCell align="right">{b.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
                       <TableCell sx={{ fontFamily: 'monospace' }}>{b.nosso_numero || '-'}</TableCell>
                       <TableCell>
@@ -469,6 +502,20 @@ const BankAccounts: React.FC = () => {
                 </TableBody>
               </Table>
             </TableContainer>
+            <TablePagination 
+              component="div" 
+              count={boletoTotal} 
+              rowsPerPage={boletoRowsPerPage} 
+              page={boletoPage} 
+              onPageChange={(_, p) => setBoletoPage(p)} 
+              onRowsPerPageChange={(e) => { setBoletoRowsPerPage(parseInt(e.target.value, 10)); setBoletoPage(0); }} 
+              labelRowsPerPage="Itens por página:"
+              labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count !== -1 ? count : `mais de ${to}`}`}
+              sx={{ 
+                '.MuiTablePagination-toolbar': { justifyContent: 'flex-start' },
+                '.MuiTablePagination-spacer': { display: 'none' }
+              }}
+            />
           </Box>
         </TabPanel>
 

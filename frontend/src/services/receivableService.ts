@@ -41,12 +41,14 @@ export interface Receivable {
   updated_at?: string;
 }
 
-const listReceivables = async (empresaId: number, skip = 0, limit = 100, startDate?: string, endDate?: string) => {
-  const params: any = { skip, limit };
+const listReceivables = async (empresaId: number, page = 1, perPage = 25, startDate?: string, endDate?: string, dateType = 'due_date', status?: string, search?: string) => {
+  const params: any = { page, per_page: perPage, date_type: dateType };
   if (startDate) params.start_date = startDate;
   if (endDate) params.end_date = endDate;
+  if (status) params.status = status;
+  if (search) params.search = search;
   const resp = await api.get(`/receivables/empresa/${empresaId}`, { params });
-  return resp.data as Receivable[];
+  return resp.data as { data: Receivable[], total: number };
 };
 
 const generateForCompany = async (empresaId: number, targetDate?: string) => {

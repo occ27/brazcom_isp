@@ -7,7 +7,7 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination, Pagination,
   Checkbox, Tabs, Tab, FormHelperText
 } from '@mui/material';
-import { PlusIcon, PencilIcon, TrashIcon, DocumentTextIcon, EyeIcon, MagnifyingGlassIcon, PlayIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon, DocumentTextIcon, EyeIcon, MagnifyingGlassIcon, PlayIcon, ArrowPathIcon, CloudArrowUpIcon, PauseIcon } from '@heroicons/react/24/outline';
 import { useCompany } from '../contexts/CompanyContext';
 import { useAuth } from '../contexts/AuthContext';
 import contratoService, { Contrato, ContratoListResponse } from '../services/contratoService';
@@ -545,9 +545,28 @@ const Contracts: React.FC = () => {
                       </Tooltip>
                     )}
                     {c.status === 'ATIVO' && (
-                      <Tooltip title="Resetar Conexão">
-                        <IconButton size="small" onClick={() => resetConnection(c)} color="warning">
-                          <ArrowPathIcon className="w-5 h-5" />
+                      <>
+                        <Tooltip title="Resetar Conexão">
+                          <IconButton size="small" onClick={() => resetConnection(c)} color="warning">
+                            <ArrowPathIcon className="w-5 h-5" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Sincronizar com Router (Full Sync)">
+                          <IconButton size="small" onClick={() => syncRouter(c)} color="primary">
+                            <CloudArrowUpIcon className="w-5 h-5" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Bloquear/Suspender">
+                          <IconButton size="small" onClick={() => suspenderServico(c)} color="error">
+                            <PauseIcon className="w-5 h-5" />
+                          </IconButton>
+                        </Tooltip>
+                      </>
+                    )}
+                    {c.status === 'SUSPENSO' && (
+                      <Tooltip title="Desbloquear/Ativar">
+                        <IconButton size="small" onClick={() => ativarServico(c)} color="success">
+                          <PlayIcon className="w-5 h-5" />
                         </IconButton>
                       </Tooltip>
                     )}
@@ -671,9 +690,28 @@ const Contracts: React.FC = () => {
                       </Tooltip>
                     )}
                     {c.status === 'ATIVO' && (
-                      <Tooltip title="Resetar Conexão">
-                        <IconButton size="small" onClick={() => resetConnection(c)} color="warning">
-                          <ArrowPathIcon className="w-4 h-4" />
+                      <>
+                        <Tooltip title="Resetar Conexão">
+                          <IconButton size="small" onClick={() => resetConnection(c)} color="warning">
+                            <ArrowPathIcon className="w-4 h-4" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Sincronizar com Router">
+                          <IconButton size="small" onClick={() => syncRouter(c)} color="primary">
+                            <CloudArrowUpIcon className="w-4 h-4" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Bloquear">
+                          <IconButton size="small" onClick={() => suspenderServico(c)} color="error">
+                            <PauseIcon className="w-4 h-4" />
+                          </IconButton>
+                        </Tooltip>
+                      </>
+                    )}
+                    {c.status === 'SUSPENSO' && (
+                      <Tooltip title="Desbloquear">
+                        <IconButton size="small" onClick={() => ativarServico(c)} color="success">
+                          <PlayIcon className="w-4 h-4" />
                         </IconButton>
                       </Tooltip>
                     )}
@@ -1247,6 +1285,27 @@ const Contracts: React.FC = () => {
       setSnackbar({ open: true, message: 'Conexão resetada com sucesso!', severity: 'success' });
     } catch (e) {
       setSnackbar({ open: true, message: 'Erro ao resetar conexão', severity: 'error' });
+    }
+  };
+
+  const syncRouter = async (c: Contrato) => {
+    if (!window.confirm('Deseja realizar uma sincronização completa com o roteador? Isso irá remover configurações antigas e re-aplicar as atuais.')) return;
+    try {
+      await contratoService.syncRouter(c.id);
+      setSnackbar({ open: true, message: 'Configurações sincronizadas com sucesso!', severity: 'success' });
+    } catch (e) {
+      setSnackbar({ open: true, message: 'Erro ao sincronizar com roteador', severity: 'error' });
+    }
+  };
+
+  const suspenderServico = async (c: Contrato) => {
+    if (!window.confirm('Tem certeza que deseja bloquear/suspender este serviço? O cliente será redirecionado para a página de aviso.')) return;
+    try {
+      await contratoService.suspenderServico(c.id);
+      setSnackbar({ open: true, message: 'Serviço bloqueado com sucesso!', severity: 'warning' });
+      load();
+    } catch (e) {
+      setSnackbar({ open: true, message: 'Erro ao bloquear serviço', severity: 'error' });
     }
   };
 

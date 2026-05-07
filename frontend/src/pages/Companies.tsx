@@ -84,7 +84,11 @@ const Companies: React.FC = () => {
     smtp_password: ''
     ,
     // Preferência de ambiente padrão
-    ambiente_nfcom: 'producao'
+    ambiente_nfcom: 'producao',
+    
+    // Mensagem de suspensão personalizada (ISP)
+    suspension_message: '',
+    suspension_url: ''
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [snackbar, setSnackbar] = useState({
@@ -175,7 +179,9 @@ const Companies: React.FC = () => {
         // empty and show a helper message. The backend will not overwrite
         // the stored password when an empty value is submitted.
         smtp_password: '',
-        ambiente_nfcom: company.ambiente_nfcom || 'producao'
+        ambiente_nfcom: company.ambiente_nfcom || 'producao',
+        suspension_message: company.suspension_message || '',
+        suspension_url: company.suspension_url || ''
       });
     } else {
       setEditingCompany(null);
@@ -206,7 +212,9 @@ const Companies: React.FC = () => {
         smtp_user: '',
         smtp_password: ''
         ,
-        ambiente_nfcom: 'producao'
+        ambiente_nfcom: 'producao',
+        suspension_message: '',
+        suspension_url: ''
       });
     }
     setErrors({});
@@ -1073,6 +1081,33 @@ const Companies: React.FC = () => {
                       <p className="text-xs text-gray-500 mt-1">
                         Conta bancária usada por padrão em novos contratos desta empresa.
                       </p>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <TextField
+                        fullWidth
+                        label="Mensagem de Suspensão"
+                        multiline
+                        rows={3}
+                        value={formData.suspension_message || ''}
+                        onChange={(e) => handleInputChange('suspension_message', e.target.value)}
+                        placeholder="Mensagem para exibir ao usuário suspenso..."
+                        size="small"
+                        helperText="Mensagem personalizada para exibir na página de aviso de bloqueio por falta de pagamento."
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <TextField
+                        fullWidth
+                        label="URL de Aviso de Suspensão"
+                        variant="outlined"
+                        value={formData.suspension_url || ''}
+                        onChange={(e) => handleInputChange('suspension_url', e.target.value)}
+                        placeholder="http://seuprovedor.com.br/aviso"
+                        size="small"
+                        helperText="Se vazio, usará a página padrão do sistema."
+                      />
                     </div>
                   </div>
                 </div>

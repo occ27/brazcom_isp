@@ -10,7 +10,8 @@ logger = logging.getLogger(__name__)
 from app.core.database import get_db
 from app.routes.auth import get_current_active_user
 from app.api import deps
-from app.models.models import Usuario, Receivable
+from app.models.models import Usuario, Receivable, BankAccount
+from app.services import isp_service
 from app.services.receivable_service import generate_receivables_for_company
 
 router = APIRouter(prefix="/receivables", tags=["Receivables"])
@@ -219,42 +220,62 @@ async def test_sicoob_integration(empresa_id: int, bank_account_id: Optional[int
         }
 
 
-@router.get("/empresa/{empresa_id}", response_model=List[ReceivableResponse])
+@router.get("/empresa/{empresa_id}")
 def list_receivables(
     empresa_id: int, 
-    skip: int = 0, 
-    limit: int = 100, 
+    page: int = 1,
+    per_page: int = 25,
+    status: Optional[str] = None,
+    search: Optional[str] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
+    date_type: str = "due_date",
     db: Session = Depends(get_db), 
     current_user: Usuario = Depends(get_current_active_user)
 ):
     deps.permission_checker('receivables_view')(db=db, current_user=current_user)
     from app.models.models import Cliente
+    from sqlalchemy import or_
     
     query = db.query(Receivable, Cliente.nome_razao_social, Cliente.cpf_cnpj)\
         .join(Cliente, Receivable.cliente_id == Cliente.id)\
         .filter(Receivable.empresa_id == empresa_id)
     
-    if start_date:
-        query = query.filter(Receivable.due_date >= start_date)
-    if end_date:
-        query = query.filter(Receivable.due_date <= end_date)
+    if status:
+        query = query.filter(Receivable.status == status)
         
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            or_(
+                Cliente.nome_razao_social.ilike(search_term),
+                Cliente.cpf_cnpj.ilike(search_term),
+                Receivable.nosso_numero.ilike(search_term),
+                Receivable.id.cast(db.String).ilike(search_term)
+            )
+        )
+    
+    filter_field = Receivable.issue_date if date_type == "issue_date" else Receivable.due_date
+    
+    if start_date:
+        query = query.filter(filter_field >= start_date)
+    if end_date:
+        query = query.filter(filter_field <= end_date)
+        
+    total = query.count()
     items = query.order_by(Receivable.id.desc())\
-        .offset(skip)\
-        .limit(limit)\
+        .offset((page - 1) * per_page)\
+        .limit(per_page)\
         .all()
     
-    # Converter para ReceivableResponse incluindo dados do cliente
     result = []
     for recv, cliente_nome, cliente_cpf_cnpj in items:
-        response = ReceivableResponse.from_orm(recv)
-        response.cliente_nome = cliente_nome
-        response.cliente_cpf_cnpj = cliente_cpf_cnpj
+        response = ReceivableResponse.from_orm(recv).dict()
+        response['cliente_nome'] = cliente_nome
+        response['cliente_cpf_cnpj'] = cliente_cpf_cnpj
         result.append(response)
     
-    return result
+    return {"data": result, "total": total}
 @router.put("/{receivable_id}/settle", response_model=ReceivableResponse)
 def settle_receivable(receivable_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     """Marca uma cobrança como paga manualmente."""
@@ -265,11 +286,31 @@ def settle_receivable(receivable_id: int, db: Session = Depends(get_db), current
     
     recv.status = 'PAID'
     recv.paid_at = datetime.utcnow()
+    
+    # Se for boleto BB registrado, solicita a baixa (cancelamento) no banco
+    if recv.bank == 'BANCO_DO_BRASIL' and recv.bb_boleto_numero:
+        try:
+            from app.services import bb_api_service
+            bank_account = db.query(BankAccount).filter(BankAccount.id == recv.bank_account_id).first()
+            if bank_account:
+                bb_api_service.solicitar_baixa(bank_account, recv.bb_boleto_numero)
+                logger.info(f"Baixa solicitada no BB para boleto {recv.bb_boleto_numero} devido a pagamento manual")
+        except Exception as e:
+            logger.error(f"Erro ao solicitar baixa no BB para boleto {recv.bb_boleto_numero}: {e}")
+
+    # Se a cobrança estiver vinculada a um contrato ISP, realiza o desbloqueio automático
+    if recv.servico_contratado_id:
+        try:
+            isp_service.process_unblock_if_needed(db, recv.servico_contratado_id)
+        except Exception as e:
+            logger.error(f"Erro ao processar desbloqueio automático ISP para contrato {recv.servico_contratado_id}: {e}")
+
     db.commit()
     db.refresh(recv)
     return ReceivableResponse.from_orm(recv)
 
 class ReceivableCreate(BaseModel):
+    empresa_id: int
     cliente_id: int
     due_date: date
     amount: float
@@ -288,8 +329,13 @@ def create_manual_receivable(
     from app.models.models import BankAccount, Bank
     import json
 
+    # Validar se o usuário tem acesso a esta empresa
+    user_empresas_ids = [e.empresa_id for e in current_user.empresas]
+    if payload.empresa_id not in user_empresas_ids and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Usuário não tem acesso a esta empresa")
+
     recv = Receivable(
-        empresa_id=current_user.empresa_id,
+        empresa_id=payload.empresa_id,
         cliente_id=payload.cliente_id,
         issue_date=datetime.utcnow(),
         due_date=datetime.combine(payload.due_date, datetime.min.time()),

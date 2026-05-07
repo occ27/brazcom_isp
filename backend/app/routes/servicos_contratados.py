@@ -1,14 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from typing import List
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.routes.auth import get_current_active_user
 from app.api import deps
-from app.models.models import Usuario
+from app.models.models import Usuario, Empresa, ServicoContratado
 from app.schemas import servico_contratado as sc_schema
+from app.schemas.empresa import EmpresaPublicResponse
 from app.crud import crud_servico_contratado, crud_empresa
 from app.mikrotik.controller import MikrotikController
+import logging
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/servicos-contratados", tags=["ServicosContratados"])
 
@@ -328,6 +331,16 @@ def ativar_servico(contrato_id: int, db: Session = Depends(get_db), current_user
             cliente_nome = cliente_db.nome_razao_social
 
     # Verificar se o contrato pode ser ativado
+    if c.status == sc_schema.StatusContrato.SUSPENSO:
+        # Se estiver suspenso, chamamos a lógica de desbloqueio
+        from app.services import isp_service
+        success = isp_service.process_unblock_if_needed(db, contrato_id)
+        if success:
+            db.commit()
+            return crud_servico_contratado.get_servico_contratado(db, contrato_id=contrato_id)
+        else:
+            raise HTTPException(status_code=500, detail="Erro ao desbloquear contrato")
+
     if c.status != sc_schema.StatusContrato.PENDENTE_INSTALACAO:
         raise HTTPException(status_code=400, detail=f"Contrato não pode ser ativado. Status atual: {c.status}")
 
@@ -403,7 +416,7 @@ def ativar_servico(contrato_id: int, db: Session = Depends(get_db), current_user
             if not c.assigned_ip or not c.mac_address:
                 raise Exception("IP e MAC são obrigatórios para método IP_MAC")
 
-            comment = f"Contrato {c.id} - {cliente_nome}"
+            comment = cliente_nome
             logger.info(f"Configurando ARP entry: IP={c.assigned_ip}, MAC={c.mac_address}, Interface={interface_db.nome}, Comment={comment}")
             try:
                 mk.set_arp_entry(
@@ -421,7 +434,7 @@ def ativar_servico(contrato_id: int, db: Session = Depends(get_db), current_user
             # Para PPPoE, criar usuário no servidor PPPoE
             username = f"contrato_{c.id}"
             password_pppoe = f"pppoe_{c.id}"
-            comment = f"Contrato {c.id} - {cliente_nome}"
+            comment = cliente_nome
 
             logger.info(f"Configurando usuário PPPoE: {username}, Comment={comment}")
             try:
@@ -476,7 +489,7 @@ def ativar_servico(contrato_id: int, db: Session = Depends(get_db), current_user
             # Para Hotspot, criar usuário no servidor Hotspot
             username = f"contrato_{c.id}"
             password_hotspot = f"hotspot_{c.id}"
-            comment = f"Contrato {c.id} - {cliente_nome}"
+            comment = cliente_nome
 
             logger.info(f"Configurando usuário Hotspot: {username}, Comment={comment}")
             try:
@@ -498,9 +511,9 @@ def ativar_servico(contrato_id: int, db: Session = Depends(get_db), current_user
         # Configurar QoS (limite de banda) se o serviço tiver limite definido
         # Nota: Para PPPOE, o controle de banda é feito no perfil PPPoE, não em queue separada
         if servico and hasattr(servico, 'max_limit') and servico.max_limit and c.metodo_autenticacao == 'IP_MAC':
-            queue_name = f"contrato-{c.id}"
+            queue_name = cliente_nome
             target_ip = c.assigned_ip
-            comment = f"Contrato {c.id} - {cliente_nome} - {servico.max_limit}"
+            comment = cliente_nome
 
             logger.info(f"Configurando QoS: {queue_name}, target={target_ip}, limit={servico.max_limit}, Comment={comment}")
             try:
@@ -665,3 +678,129 @@ def reset_client_connection(contrato_id: int, db: Session = Depends(get_db), cur
                 logger.info("Conexão com router fechada")
             except Exception as close_exc:
                 logger.error(f"Erro ao fechar conexão com router: {str(close_exc)}")
+
+
+@router.post("/{contrato_id}/sync-router", response_model=dict)
+def sync_router_config(contrato_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+    """Sincroniza todas as configurações do contrato com o roteador (Limpa e Re-aplica)."""
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # permission check
+    deps.permission_checker('contract_manage')(db=db, current_user=current_user)
+
+    c = crud_servico_contratado.get_servico_contratado(db, contrato_id=contrato_id)
+    if not c:
+        raise HTTPException(status_code=404, detail="Contrato não encontrado")
+
+    # Verificar se o contrato tem router configurado
+    if not c.router_id:
+        raise HTTPException(status_code=400, detail="Contrato deve ter router configurado")
+
+    # Buscar informações do router
+    from app.crud import crud_router
+    router_db = crud_router.get_router(db, router_id=c.router_id, empresa_id=c.empresa_id)
+    if not router_db:
+        raise HTTPException(status_code=404, detail="Router não encontrado")
+
+    # Buscar informações da interface
+    from app.models.network import RouterInterface
+    interface_db = db.query(RouterInterface).filter(RouterInterface.id == c.interface_id).first()
+    interface_nome = interface_db.nome if interface_db else None
+
+    # Buscar informações do cliente para logging
+    cliente_nome = "Cliente"
+    if c.cliente_id:
+        from app.crud import crud_cliente
+        cliente_db = crud_cliente.get_cliente(db, cliente_id=c.cliente_id)
+        if cliente_db:
+            cliente_nome = cliente_db.nome_razao_social
+
+    # Configurar router
+    mk = None
+    try:
+        from app.core.security import decrypt_password
+        try:
+            password = decrypt_password(router_db.senha) if router_db.senha else ""
+        except Exception:
+            password = router_db.senha if router_db.senha else ""
+
+        mk = MikrotikController(
+            host=router_db.ip,
+            username=router_db.usuario,
+            password=password,
+            port=router_db.porta or 8728
+        )
+
+        comment = cliente_nome
+        
+        # Buscar profile se necessário (para PPPoE/Hotspot)
+        profile_name = None
+        if c.servico_id:
+            from app.crud import crud_servico
+            servico = crud_servico.get_servico(db, servico_id=c.servico_id, empresa_id=c.empresa_id)
+            if servico and getattr(servico, 'ppp_profile_id', None):
+                from app.models.network import PPPProfile
+                ppp_profile = db.query(PPPProfile).filter(PPPProfile.id == servico.ppp_profile_id).first()
+                if ppp_profile:
+                    profile_name = ppp_profile.nome
+
+        max_limit = servico.max_limit if servico and getattr(servico, 'max_limit', None) else None
+
+        mk.sync_client_connection(
+            contrato_id=c.id,
+            metodo_autenticacao=c.metodo_autenticacao,
+            assigned_ip=c.assigned_ip,
+            mac_address=c.mac_address,
+            interface=interface_nome,
+            comment=comment,
+            profile=profile_name,
+            max_limit=max_limit
+        )
+
+        return {"success": True, "message": "Configurações sincronizadas com sucesso na RB"}
+
+    except Exception as exc:
+        logger.error(f"Erro ao sincronizar contrato {contrato_id}: {str(exc)}")
+        raise HTTPException(status_code=500, detail=f"Erro na sincronização: {str(exc)}")
+    finally:
+        if mk:
+            mk.close()
+
+
+@router.put("/{contrato_id}/suspender", response_model=sc_schema.ServicoContratadoResponse)
+def suspender_servico(contrato_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+    """Suspende um serviço contratado, mudando o status para SUSPENSO e enviando comando de bloqueio para o router."""
+    from app.services import isp_service
+    
+    # permission check
+    deps.permission_checker('contract_manage')(db=db, current_user=current_user)
+
+    success = isp_service.process_block_if_needed(db, contrato_id)
+    if not success:
+        # Tentar buscar o contrato para ver se ele já estava suspenso ou não existe
+        c = crud_servico_contratado.get_servico_contratado(db, contrato_id=contrato_id)
+        if not c:
+            raise HTTPException(status_code=404, detail="Contrato não encontrado")
+        return c
+
+    db.commit()
+    return crud_servico_contratado.get_servico_contratado(db, contrato_id=contrato_id)
+
+
+@router.get("/whoami", response_model=EmpresaPublicResponse)
+def who_am_i(request: Request, db: Session = Depends(get_db)):
+    """Detecta qual empresa o cliente pertence baseado no seu IP de origem."""
+    client_ip = request.client.host
+    
+    # Localizar contrato pelo assigned_ip
+    # Nota: client_ip pode vir formatado como ::ffff:10.0.0.1 em alguns ambientes
+    ip_clean = client_ip.replace("::ffff:", "")
+    
+    contrato = db.query(ServicoContratado).filter(ServicoContratado.assigned_ip == ip_clean).first()
+    if contrato:
+        return db.query(Empresa).filter(Empresa.id == contrato.empresa_id).first()
+    
+    # Se não encontrar por IP, talvez o cliente não esteja na base ou o IP mudou
+    logger.warning(f"Não foi possível identificar contrato para o IP: {ip_clean}")
+    raise HTTPException(status_code=404, detail="Não foi possível identificar seu contrato automaticamente")

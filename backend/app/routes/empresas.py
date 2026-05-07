@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from app.core.database import get_db
 from app.crud import crud_empresa, crud_usuario, crud_nfcom, crud_servico
-from app.schemas.empresa import EmpresaCreate, EmpresaUpdate, EmpresaResponse, UsuarioEmpresaCreate, SMTPTest, EmpresaIn
+from app.schemas.empresa import EmpresaCreate, EmpresaUpdate, EmpresaResponse, UsuarioEmpresaCreate, SMTPTest, EmpresaIn, EmpresaPublicResponse
 from app.schemas.nfcom import NFComCreate, NFComResponse, NFComListResponse
 from app.schemas import servico as servico_schema
 from app.routes.auth import get_current_active_superuser, get_current_active_user
@@ -231,3 +231,12 @@ def test_smtp_config(
             result = EmailService.test_smtp_connection(db_empresa)
     
     return result
+
+
+@router.get("/public/{empresa_id}", response_model=EmpresaPublicResponse)
+def get_public_empresa_info(empresa_id: int, db: Session = Depends(get_db)):
+    """Obtém informações públicas de uma empresa (para página de aviso de suspensão)."""
+    db_empresa = db.query(Empresa).filter(Empresa.id == empresa_id, Empresa.is_active == True).first()
+    if not db_empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+    return db_empresa

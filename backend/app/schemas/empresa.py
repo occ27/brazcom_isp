@@ -31,6 +31,10 @@ class EmpresaBase(BaseModel):
     # Configuração de cobrança: conta bancária padrão (opcional)
     default_bank_account_id: Optional[int] = Field(None, description="ID da conta bancária padrão para cobranças")
     
+    # Mensagem de suspensão personalizada (ISP)
+    suspension_message: Optional[str] = Field(None, description="Mensagem personalizada para avisar sobre suspensão")
+    suspension_url: Optional[str] = Field(None, max_length=500, description="URL personalizada para redirecionamento de suspensão")
+
     # Novos campos
     logo_url: Optional[str] = Field(None, max_length=500)
     # Campos sensíveis (não expostos por padrão nas respostas)
@@ -154,6 +158,8 @@ class EmpresaResponse(BaseModel):
     
     # Novos campos
     logo_url: Optional[str] = Field(None, max_length=500)
+    suspension_message: Optional[str] = Field(None)
+    suspension_url: Optional[str] = Field(None)
     
     # Campos específicos de EmpresaResponse
     id: int
@@ -167,6 +173,17 @@ class EmpresaResponse(BaseModel):
     smtp_port: Optional[int] = None
     smtp_user: Optional[str] = None
     
+    class Config:
+        from_attributes = True
+
+class EmpresaPublicResponse(BaseModel):
+    razao_social: str
+    nome_fantasia: Optional[str]
+    logo_url: Optional[str]
+    telefone: Optional[str]
+    suspension_message: Optional[str]
+    suspension_url: Optional[str]
+
     class Config:
         from_attributes = True
 
@@ -213,6 +230,8 @@ class EmpresaUpdate(BaseModel):
     
     # Novos campos
     logo_url: Optional[str] = Field(None, max_length=500)
+    suspension_message: Optional[str] = Field(None)
+    suspension_url: Optional[str] = Field(None, max_length=500)
     certificado_path: Optional[str] = Field(None, max_length=500)
     certificado_senha: Optional[str] = Field(None, max_length=500)
     smtp_server: Optional[str] = Field(None, max_length=255)

@@ -277,6 +277,8 @@ def build_boleto_context(db: Session, recv: Receivable) -> dict:
 
     return {
         "id": recv.id,
+        "pix_qrcode": recv.bb_pix_qrcode,
+        "pix_txid": recv.bb_pix_txid,
         "numero_documento": str(recv.id),
         "banco_codigo": banco_cod,
         "cedente_nome": empresa.razao_social if empresa else "EMPRESA",

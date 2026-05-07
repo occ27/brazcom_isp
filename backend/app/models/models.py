@@ -114,6 +114,10 @@ class Empresa(Base):
     # Valor padrão: 'producao' (compatível com comportamento anterior quando AMBIENTE_PRODUCAO=True)
     ambiente_nfcom = Column(String(20), nullable=False, server_default='producao')
     
+    # Mensagem de suspensão personalizada (ISP)
+    suspension_message = Column(Text, nullable=True)
+    suspension_url = Column(String(500), nullable=True)
+    
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False) # Usuário que cadastrou a empresa
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

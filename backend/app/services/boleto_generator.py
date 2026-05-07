@@ -7,6 +7,7 @@ Copiado do sistema Agrobraz para garantir paridade total.
 from __future__ import annotations
 
 import io
+import logging
 from typing import Optional
 
 from reportlab.pdfgen import canvas as rl_canvas
@@ -173,6 +174,25 @@ def _barcode_image(code: str, narrow_mm: float = 0.38, wide_mm: float = 0.95,
             draw.rectangle([x, 0, x + bw - 1, h - 1], fill=0)
         x += bw
 
+    return img
+
+
+def _qrcode_image(data: str, size_mm: float = 30.0) -> 'PIL.Image.Image':
+    """Gera imagem QR Code via qrcode library."""
+    try:
+        import qrcode
+    except ImportError:
+        return None
+
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=10,
+        border=1,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
     return img
 
 
@@ -372,13 +392,39 @@ def _draw_ficha(c, ctx: dict, logo_path: Optional[str], y0: float):
     # Texto das instruções
     instrucoes_text = ctx.get('instrucoes', '').replace('<br>', '\n').replace('<br/>', '\n')
     inst_y = y + LBL_H / mm + 2.0
+    
+    pix_qr = ctx.get('pix_qrcode')
+    has_pix = bool(pix_qr)
+    
     for line in instrucoes_text.split('\n'):
         c.setFont('Helvetica', 7)
         c.setFillColorRGB(0, 0, 0)
-        c.drawString(x0 + 1.5 * mm, _yt(inst_y + 2.5), line.strip())
+        # Reduzir largura se tiver PIX para não sobrepor
+        max_inst_w = (LC - 35 * mm) if has_pix else (LC - 2 * mm)
+        c.drawString(x0 + 1.5 * mm, _yt(inst_y + 2.5), line.strip()[:80 if has_pix else 120])
         inst_y += 4.5
         if inst_y > y + H_INST - 4:
             break
+
+    # QR Code do PIX
+    if has_pix:
+        try:
+            qr_img = _qrcode_image(pix_qr)
+            if qr_img:
+                buf = io.BytesIO()
+                qr_img.save(buf, format='PNG')
+                buf.seek(0)
+                img_reader = ImageReader(buf)
+                qr_size = 30 * mm
+                qr_x = x0 + LC - qr_size - 2 * mm
+                qr_y = _yt(y + H_INST - 2) + 2 * mm
+                c.drawImage(img_reader, qr_x, qr_y, width=qr_size, height=qr_size)
+                
+                # Legenda do PIX
+                c.setFont('Helvetica-Bold', 7)
+                c.drawCentredString(qr_x + qr_size/2, qr_y + qr_size + 1 * mm, "PAGUE COM PIX")
+        except Exception as e:
+            logging.error(f"Erro ao desenhar QR Code PIX: {e}")
 
     # Deduções (coluna direita)
     dy = y

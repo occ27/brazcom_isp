@@ -100,14 +100,22 @@ const contratoService = {
     const response = await api.delete(`/servicos-contratados/empresa/${empresaId}/${contratoId}`);
     return response.data;
   },
-  ativarServico: async (contratoId: number) => {
-    const response = await api.put(`/servicos-contratados/${contratoId}/ativar`);
+  ativarServico: async (id: number) => {
+    const response = await api.put(`/servicos-contratados/${id}/ativar`);
     return response.data;
   },
-  resetConnection: async (contratoId: number) => {
-    const response = await api.put(`/servicos-contratados/${contratoId}/reset-connection`);
+  suspenderServico: async (id: number) => {
+    const response = await api.put(`/servicos-contratados/${id}/suspender`);
     return response.data;
-  }
+  },
+  resetConnection: async (id: number) => {
+    const response = await api.put(`/servicos-contratados/${id}/reset-connection`);
+    return response.data;
+  },
+  syncRouter: async (id: number) => {
+    const response = await api.post(`/servicos-contratados/${id}/sync-router`);
+    return response.data;
+  },
 };
 
 export default contratoService;
