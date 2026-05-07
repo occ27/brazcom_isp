@@ -461,8 +461,8 @@ async def register_boletos_api(
     results = []
     for r in receivables:
         try:
-            success = await BillingService._register_bb(db, r, ba)
-            results.append({"id": r.id, "ok": success, "error": None if success else "Falha no registro"})
+            success, error_msg = await BillingService._register_bb(db, r, ba)
+            results.append({"id": r.id, "ok": success, "error": None if success else error_msg})
         except Exception as e:
             results.append({"id": r.id, "ok": False, "error": str(e)})
             

@@ -217,13 +217,28 @@ async def test_sicoob_integration(empresa_id: int, bank_account_id: Optional[int
 
 
 @router.get("/empresa/{empresa_id}", response_model=List[ReceivableResponse])
-def list_receivables(empresa_id: int, skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+def list_receivables(
+    empresa_id: int, 
+    skip: int = 0, 
+    limit: int = 100, 
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    db: Session = Depends(get_db), 
+    current_user: Usuario = Depends(get_current_active_user)
+):
     deps.permission_checker('receivables_view')(db=db, current_user=current_user)
     from app.models.models import Cliente
-    items = db.query(Receivable, Cliente.nome_razao_social, Cliente.cpf_cnpj)\
+    
+    query = db.query(Receivable, Cliente.nome_razao_social, Cliente.cpf_cnpj)\
         .join(Cliente, Receivable.cliente_id == Cliente.id)\
-        .filter(Receivable.empresa_id == empresa_id)\
-        .order_by(Receivable.id.desc())\
+        .filter(Receivable.empresa_id == empresa_id)
+    
+    if start_date:
+        query = query.filter(Receivable.due_date >= start_date)
+    if end_date:
+        query = query.filter(Receivable.due_date <= end_date)
+        
+    items = query.order_by(Receivable.id.desc())\
         .offset(skip)\
         .limit(limit)\
         .all()
@@ -237,3 +252,32 @@ def list_receivables(empresa_id: int, skip: int = 0, limit: int = 100, db: Sessi
         result.append(response)
     
     return result
+@router.put("/{receivable_id}/settle", response_model=ReceivableResponse)
+def settle_receivable(receivable_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+    """Marca uma cobrança como paga manualmente."""
+    deps.permission_checker('receivables_manage')(db=db, current_user=current_user)
+    recv = db.query(Receivable).filter(Receivable.id == receivable_id).first()
+    if not recv:
+        raise HTTPException(status_code=404, detail="Cobrança não encontrada")
+    
+    recv.status = 'PAID'
+    recv.paid_at = datetime.utcnow()
+    db.commit()
+    db.refresh(recv)
+    return ReceivableResponse.from_orm(recv)
+
+
+@router.delete("/{receivable_id}")
+def cancel_receivable(receivable_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+    """Cancela/remove uma cobrança."""
+    deps.permission_checker('receivables_manage')(db=db, current_user=current_user)
+    recv = db.query(Receivable).filter(Receivable.id == receivable_id).first()
+    if not recv:
+        raise HTTPException(status_code=404, detail="Cobrança não encontrada")
+    
+    if recv.status == 'PAID':
+        raise HTTPException(status_code=400, detail="Não é possível cancelar uma cobrança já paga")
+    
+    recv.status = 'CANCELLED'
+    db.commit()
+    return {"message": "Cobrança cancelada com sucesso"}

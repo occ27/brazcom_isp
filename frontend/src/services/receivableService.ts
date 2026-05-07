@@ -30,6 +30,10 @@ export interface Receivable {
   paid_at?: string;
   registro_result?: string;
   pdf_url?: string;
+  bb_boleto_numero?: string;
+  bb_boleto_url?: string;
+  bb_pix_qrcode?: string;
+  bb_pix_txid?: string;
   bank_account_id?: number;
   bank_account_snapshot?: string;
   bank_payload?: string;
@@ -37,8 +41,11 @@ export interface Receivable {
   updated_at?: string;
 }
 
-const listReceivables = async (empresaId: number, skip = 0, limit = 100) => {
-  const resp = await api.get(`/receivables/empresa/${empresaId}`, { params: { skip, limit } });
+const listReceivables = async (empresaId: number, skip = 0, limit = 100, startDate?: string, endDate?: string) => {
+  const params: any = { skip, limit };
+  if (startDate) params.start_date = startDate;
+  if (endDate) params.end_date = endDate;
+  const resp = await api.get(`/receivables/empresa/${empresaId}`, { params });
   return resp.data as Receivable[];
 };
 
@@ -56,10 +63,22 @@ const testSicoobIntegration = async (empresaId: number, bankAccountId?: number, 
   return resp.data;
 };
 
+const settleReceivable = async (receivableId: number) => {
+  const resp = await api.put(`/receivables/${receivableId}/settle`);
+  return resp.data;
+};
+
+const cancelReceivable = async (receivableId: number) => {
+  const resp = await api.delete(`/receivables/${receivableId}`);
+  return resp.data;
+};
+
 const receivableService = {
   listReceivables,
   generateForCompany,
   testSicoobIntegration,
+  settleReceivable,
+  cancelReceivable,
 };
 
 export default receivableService;

@@ -189,12 +189,18 @@ const BankAccounts: React.FC = () => {
     try {
       const res = await bankAccountService.registerBoletosApi(activeCompany.id, selectedAccount as number, selectedBoletoIds);
       const successCount = res.results.filter((r: any) => r.ok).length;
-      const errorCount = res.results.filter((r: any) => !r.ok).length;
+      const errors = res.results.filter((r: any) => !r.ok);
+      const errorCount = errors.length;
       
       if (errorCount === 0) {
         setSnackbar({ open: true, message: `${successCount} boleto(s) registrado(s) com sucesso no BB`, severity: 'success' });
       } else {
-        setSnackbar({ open: true, message: `${successCount} sucesso, ${errorCount} erro(s).`, severity: 'warning' });
+        const firstError = errors[0]?.error || 'Erro desconhecido';
+        setSnackbar({ 
+          open: true, 
+          message: errorCount === 1 ? `Erro: ${firstError}` : `${successCount} sucesso, ${errorCount} erro(s). Primeiro erro: ${firstError}`, 
+          severity: 'error' 
+        });
       }
       loadBoletos();
     } catch (e) {

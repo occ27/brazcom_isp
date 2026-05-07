@@ -401,7 +401,7 @@ class BillingService:
 
         return None
     @staticmethod
-    async def _register_bb(db: Session, receivable: Receivable, bank_account: BankAccount) -> bool:
+    async def _register_bb(db: Session, receivable: Receivable, bank_account: BankAccount) -> tuple[bool, str]:
         """Registra boleto via API Banco do Brasil."""
         try:
             from app.services.bb_api_service import registrar_boleto
@@ -423,19 +423,20 @@ class BillingService:
                 
                 db.commit()
                 logger.info(f"Boleto BB {receivable.id} registrado com sucesso: {receivable.bb_boleto_numero}")
-                return True
+                return True, "Sucesso"
                 
         except Exception as e:
             db.rollback()
-            logger.error(f"Erro ao registrar boleto via BB: {str(e)}")
+            error_msg = str(e)
+            logger.error(f"Erro ao registrar boleto via BB: {error_msg}")
             # Tenta marcar como falha em uma transação limpa
             try:
                 db.begin_nested()
                 receivable.status = "REGISTRATION_FAILED"
-                receivable.registro_result = str(e)[:500]
+                receivable.registro_result = error_msg[:500]
                 db.commit()
             except:
                 db.rollback()
-            return False
+            return False, error_msg
         
-        return False
+        return False, "Resposta vazia da API"
