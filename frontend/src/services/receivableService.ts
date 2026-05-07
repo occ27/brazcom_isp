@@ -73,12 +73,25 @@ const cancelReceivable = async (receivableId: number) => {
   return resp.data;
 };
 
+const createReceivable = async (data: any) => {
+  const resp = await api.post('/receivables/', data);
+  return resp.data as Receivable;
+};
+
+const printReceivable = async (receivableId: number) => {
+  const resp = await api.get(`/receivables/${receivableId}/print`, { responseType: 'blob' });
+  const blob = new Blob([resp.data], { type: 'application/pdf' });
+  return window.URL.createObjectURL(blob);
+};
+
 const receivableService = {
   listReceivables,
   generateForCompany,
   testSicoobIntegration,
   settleReceivable,
   cancelReceivable,
+  createReceivable,
+  printReceivable,
 };
 
 export default receivableService;

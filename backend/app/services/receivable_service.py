@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 import calendar
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -184,3 +185,116 @@ def generate_receivables_for_company(db: Session, empresa_id: int, target_date: 
         c.last_emission = datetime.utcnow()
         created.append(recv)
     return created
+def build_boleto_context(db: Session, recv: Receivable) -> dict:
+    """Prepara o dicionário de contexto para o gerador de PDF."""
+    from app.models.models import Cliente, Empresa, BankAccount
+    cliente = db.query(Cliente).filter(Cliente.id == recv.cliente_id).first()
+    empresa = db.query(Empresa).filter(Empresa.id == recv.empresa_id).first()
+    
+    # Pegar dados da conta bancária (preferir snapshot se existir)
+    ba_data = {}
+    if recv.bank_account_snapshot:
+        try:
+            ba_data = json.loads(recv.bank_account_snapshot)
+        except:
+            pass
+    
+    if not ba_data and recv.bank_account_id:
+        ba = db.query(BankAccount).filter(BankAccount.id == recv.bank_account_id).first()
+        if ba:
+            ba_data = {
+                "bank": ba.bank,
+                "codigo_banco": ba.codigo_banco,
+                "agencia": ba.agencia,
+                "agencia_dv": ba.agencia_dv,
+                "conta": ba.conta,
+                "conta_dv": ba.conta_dv,
+                "carteira": ba.carteira,
+                "convenio": ba.convenio,
+            }
+
+    # Endereço do cliente
+    from app.models.models import EmpresaCliente, EmpresaClienteEndereco
+    emp_cli = db.query(EmpresaCliente).filter(
+        EmpresaCliente.cliente_id == recv.cliente_id,
+        EmpresaCliente.empresa_id == recv.empresa_id
+    ).first()
+    addr_str = ""
+    mun_uf = ""
+    cep = ""
+    if emp_cli:
+        addr = db.query(EmpresaClienteEndereco).filter(
+            EmpresaClienteEndereco.empresa_cliente_id == emp_cli.id,
+            EmpresaClienteEndereco.is_principal == True
+        ).first()
+        if addr:
+            addr_str = f"{addr.endereco}, {addr.bairro}"
+            mun_uf = f"{addr.municipio}/{addr.uf}"
+            cep = addr.cep
+
+    # Instruções formatadas estilo Agrobraz
+    if recv.bank in ['BANCO DO BRASIL', 'BANCO_DO_BRASIL', '001']:
+        banco_cod = '001-9'
+        juros_dia = (recv.amount * (recv.interest_percent / 100)) / 30
+        multa_val = recv.amount * (recv.fine_percent / 100)
+        instrucoes = f"APÓS VENCIMENTO COBRAR JUROS DE R$ {juros_dia:,.2f} AO DIA.\n" \
+                     f"COBRAR MULTA DE R$ {multa_val:,.2f}.\n" \
+                     f"NÃO RECEBER APÓS 30 DIAS DO VENCIMENTO."
+    elif recv.bank in ['SICREDI', '748']:
+        banco_cod = '748-X'
+        instrucoes = f"Após o vencimento cobrar multa de {recv.fine_percent}% e juros de {recv.interest_percent}% ao mês."
+    else:
+        banco_cod = ba_data.get('codigo_banco', '000-0')
+        instrucoes = f"Após o vencimento cobrar multa de {recv.fine_percent}% e juros de {recv.interest_percent}% ao mês."
+
+    # Se for BB, usar dados específicos se disponíveis e formatar como Agrobraz
+    nosso_numero = recv.nosso_numero or recv.bb_boleto_numero or str(recv.id)
+    convenio = ba_data.get('convenio', '')
+    
+    if (recv.bank == 'BANCO DO BRASIL' or recv.bank == 'BANCO_DO_BRASIL' or recv.bank == '001') and '/' not in nosso_numero:
+        if convenio:
+            nosso_numero = f"{convenio}/{nosso_numero.zfill(10)}"
+
+    linha_digitavel = recv.linha_digitavel or ""
+    barcode = recv.codigo_barras or ""
+    
+    # Se não tiver linha digitável mas for BB, podemos tentar calcular se tivermos os dados
+    if not linha_digitavel and (recv.bank in ['BANCO DO BRASIL', 'BANCO_DO_BRASIL', '001']):
+        from app.services.boleto_service import compute_fator_vencimento, compute_valor_str, compute_campo_livre, compute_barcode44, compute_linha_digitavel
+        try:
+            fator = compute_fator_vencimento(recv.due_date.date())
+            valor = compute_valor_str(Decimal(str(recv.amount)))
+            # No BB em homologação, o nosso número seq costuma ser o final do nosso_numero
+            seq = nosso_numero.split('/')[-1] if '/' in nosso_numero else nosso_numero
+            campo = compute_campo_livre('001', ba_data.get('agencia',''), ba_data.get('conta',''), convenio, ba_data.get('carteira','17'), seq)
+            barcode = compute_barcode44('001', '9', fator, valor, campo)
+            linha_digitavel = compute_linha_digitavel(barcode)
+        except Exception as e:
+            logging.error(f"Erro ao calcular linha digitável BB: {e}")
+
+    agencia = f"{ba_data.get('agencia','')}-{ba_data.get('agencia_dv','')}" if ba_data.get('agencia_dv') else ba_data.get('agencia','')
+    conta = f"{ba_data.get('conta','')}-{ba_data.get('conta_dv','')}" if ba_data.get('conta_dv') else ba_data.get('conta','')
+
+    return {
+        "id": recv.id,
+        "numero_documento": str(recv.id),
+        "banco_codigo": banco_cod,
+        "cedente_nome": empresa.razao_social if empresa else "EMPRESA",
+        "cedente_cnpj": empresa.cnpj if empresa else "",
+        "agencia_conta": f"{agencia} / {conta}",
+        "nosso_numero": nosso_numero,
+        "data_vencimento": recv.due_date.strftime('%d/%m/%Y'),
+        "data_emissao": recv.issue_date.strftime('%d/%m/%Y'),
+        "valor": f"{recv.amount:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
+        "sacado_nome": cliente.nome_razao_social if cliente else "CLIENTE",
+        "sacado_documento": cliente.cpf_cnpj if cliente else "",
+        "sacado_endereco": addr_str,
+        "sacado_municipio": mun_uf.split('/')[0] if '/' in mun_uf else mun_uf,
+        "sacado_cep": cep,
+        "sacado_uf": mun_uf.split('/')[-1] if '/' in mun_uf else "",
+        "carteira": ba_data.get('carteira', '17'),
+        "local_pagamento": "Pagável em qualquer banco até o vencimento",
+        "instrucoes": instrucoes,
+        "linha_digitavel": linha_digitavel,
+        "barcode44": barcode
+    }

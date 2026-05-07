@@ -622,6 +622,26 @@ const BankAccounts: React.FC = () => {
               </>
             )}
 
+            <Grid item xs={12}><Divider><Chip label="Regras de Atraso" size="small" /></Divider></Grid>
+            <Grid item xs={6}>
+              <TextField 
+                fullWidth 
+                label="Multa por Atraso (%)" 
+                type="number"
+                value={formData.multa_atraso_percentual} 
+                onChange={e => handleInputChange('multa_atraso_percentual', parseFloat(e.target.value))} 
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField 
+                fullWidth 
+                label="Juros Mensal (%)" 
+                type="number"
+                value={formData.juros_atraso_percentual} 
+                onChange={e => handleInputChange('juros_atraso_percentual', parseFloat(e.target.value))} 
+              />
+            </Grid>
+
             <Grid item xs={12}>
               <FormControlLabel
                 control={<Checkbox checked={formData.is_default} onChange={e => handleInputChange('is_default', e.target.checked)} />}

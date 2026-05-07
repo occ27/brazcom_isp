@@ -70,7 +70,7 @@ def _nosso_numero_seq(nosso_numero_raw: str, convenio: str) -> str:
     return '000' + conv7 + seq10
 
 def get_access_token(bank_account_id: int, client_id: str, client_secret: str,
-                     sandbox: bool = True, company=None) -> str:
+                     app_key: str, sandbox: bool = True, company=None) -> str:
     now = time.time()
     cached = _token_cache.get(bank_account_id)
     if cached:
@@ -81,13 +81,21 @@ def get_access_token(bank_account_id: int, client_id: str, client_secret: str,
     url = _OAUTH_URL[sandbox]
     try:
         with _make_http_client(sandbox, company) as client:
+            headers = {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Developer-Application-Key': app_key
+            }
             resp = client.post(
                 url,
-                data={'grant_type': 'client_credentials', 'scope': 'cobrancas.boletos-info cobrancas.boletos-requisicao'},
+                data={'grant_type': 'client_credentials'},
                 auth=(client_id, client_secret),
-                headers={'Content-Type': 'application/x-www-form-urlencoded'},
+                headers=headers,
             )
         resp.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        error_body = exc.response.text
+        logger.error(f'BB OAuth erro HTTP {exc.response.status_code}: {error_body}')
+        raise ValueError(f'Falha na autenticação BB ({exc.response.status_code}): {error_body}')
     except Exception as exc:
         logger.error(f'BB OAuth erro: {str(exc)}')
         raise ValueError(f'Falha na autenticação BB: {str(exc)}')
@@ -120,7 +128,7 @@ def registrar_boleto(
     except:
         client_secret_dec = client_secret
 
-    token = get_access_token(ba.id, client_id, client_secret_dec, sandbox)
+    token = get_access_token(ba.id, client_id, client_secret_dec, app_key, sandbox)
 
     # Dados do cliente
     cliente = db.query(Cliente).filter(Cliente.id == receivable.cliente_id).first()
@@ -264,7 +272,7 @@ def solicitar_baixa(
     except:
         client_secret_dec = client_secret
 
-    token = get_access_token(ba.id, client_id, client_secret_dec, sandbox)
+    token = get_access_token(ba.id, client_id, client_secret_dec, app_key, sandbox)
     
     convenio = (ba.convenio or '').strip()
     if sandbox:

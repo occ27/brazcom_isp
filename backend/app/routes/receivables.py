@@ -4,6 +4,9 @@ from typing import List, Optional
 from datetime import date, datetime
 from pydantic import BaseModel
 
+import logging
+logger = logging.getLogger(__name__)
+
 from app.core.database import get_db
 from app.routes.auth import get_current_active_user
 from app.api import deps
@@ -266,10 +269,84 @@ def settle_receivable(receivable_id: int, db: Session = Depends(get_db), current
     db.refresh(recv)
     return ReceivableResponse.from_orm(recv)
 
+class ReceivableCreate(BaseModel):
+    cliente_id: int
+    due_date: date
+    amount: float
+    bank_account_id: Optional[int] = None
+    fine_percent: float = 0.0
+    interest_percent: float = 0.0
+
+@router.post("/", response_model=ReceivableResponse)
+def create_manual_receivable(
+    payload: ReceivableCreate,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Cria uma cobrança manual para um cliente."""
+    deps.permission_checker('receivables_manage')(db=db, current_user=current_user)
+    from app.models.models import BankAccount, Bank
+    import json
+
+    recv = Receivable(
+        empresa_id=current_user.empresa_id,
+        cliente_id=payload.cliente_id,
+        issue_date=datetime.utcnow(),
+        due_date=datetime.combine(payload.due_date, datetime.min.time()),
+        amount=payload.amount,
+        fine_percent=payload.fine_percent,
+        interest_percent=payload.interest_percent,
+        status='PENDING',
+        tipo='BOLETO'
+    )
+
+    if payload.bank_account_id:
+        ba = db.query(BankAccount).filter(BankAccount.id == payload.bank_account_id).first()
+        if ba:
+            recv.bank_account_id = ba.id
+            recv.bank = ba.bank
+            snapshot = {
+                "id": ba.id, "bank": ba.bank, "codigo_banco": ba.codigo_banco,
+                "agencia": ba.agencia, "agencia_dv": ba.agencia_dv,
+                "conta": ba.conta, "conta_dv": ba.conta_dv,
+                "carteira": ba.carteira, "convenio": ba.convenio
+            }
+            recv.bank_account_snapshot = json.dumps(snapshot, default=str)
+
+    db.add(recv)
+    db.commit()
+    db.refresh(recv)
+    return ReceivableResponse.from_orm(recv)
+
+
+@router.get("/{receivable_id}/print")
+def print_receivable(receivable_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+    """Gera o PDF do boleto com layout Agrobraz."""
+    deps.permission_checker('receivables_view')(db=db, current_user=current_user)
+    recv = db.query(Receivable).filter(Receivable.id == receivable_id).first()
+    if not recv:
+        raise HTTPException(status_code=404, detail="Cobrança não encontrada")
+    
+    from app.services.receivable_service import build_boleto_context
+    from app.services.boleto_generator import generate_boleto_pdf
+    from fastapi.responses import Response
+
+    context = build_boleto_context(db, recv)
+    pdf_bytes = generate_boleto_pdf(context)
+    
+    recv.printed_at = datetime.utcnow()
+    db.commit()
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=boleto_{receivable_id}.pdf"}
+    )
+
 
 @router.delete("/{receivable_id}")
 def cancel_receivable(receivable_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
-    """Cancela/remove uma cobrança."""
+    """Cancela uma cobrança e solicita baixa no banco se estiver registrada."""
     deps.permission_checker('receivables_manage')(db=db, current_user=current_user)
     recv = db.query(Receivable).filter(Receivable.id == receivable_id).first()
     if not recv:
@@ -278,6 +355,19 @@ def cancel_receivable(receivable_id: int, db: Session = Depends(get_db), current
     if recv.status == 'PAID':
         raise HTTPException(status_code=400, detail="Não é possível cancelar uma cobrança já paga")
     
+    # Se estiver registrado no BB, tentar baixar via API
+    if recv.status == 'REGISTERED' and (recv.bank == 'BANCO DO BRASIL' or recv.bank == 'BANCO_DO_BRASIL'):
+        from app.services.bb_api_service import solicitar_baixa
+        from app.models.models import BankAccount
+        ba = db.query(BankAccount).filter(BankAccount.id == recv.bank_account_id).first()
+        if ba and recv.bb_boleto_numero:
+            try:
+                ok = solicitar_baixa(ba, recv.bb_boleto_numero)
+                if not ok:
+                    logger.warning(f"Falha ao solicitar baixa do boleto {recv.id} no BB")
+            except Exception as e:
+                logger.error(f"Erro ao cancelar boleto {recv.id} no BB: {e}")
+
     recv.status = 'CANCELLED'
     db.commit()
     return {"message": "Cobrança cancelada com sucesso"}

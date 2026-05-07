@@ -5,7 +5,8 @@ import {
   useTheme, Table, TableBody, TableCell, TableContainer, 
   TableHead, TableRow, TablePagination, Card, CardContent, 
   Divider, InputAdornment, MenuItem, Tabs, Tab, Checkbox,
-  Tooltip, Menu, Dialog, DialogTitle, DialogContent, DialogActions
+  Tooltip, Menu, Dialog, DialogTitle, DialogContent, DialogActions,
+  Autocomplete, Grid
 } from '@mui/material';
 import { 
   PlusIcon, MagnifyingGlassIcon, XMarkIcon, 
@@ -13,23 +14,25 @@ import {
   EllipsisVerticalIcon, TrashIcon, 
   ArrowPathIcon, CloudIcon, QrCodeIcon,
   ArrowTopRightOnSquareIcon,
-  InformationCircleIcon
+  InformationCircleIcon,
+  PrinterIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline';
 import { useCompany } from '../contexts/CompanyContext';
 import receivableService, { Receivable } from '../services/receivableService';
-import bankAccountService from '../services/bankAccountService';
+import bankAccountService, { BankAccount } from '../services/bankAccountService';
 import { stringifyError } from '../utils/error';
+import api from '../services/authService';
 
 const Receivables: React.FC = () => {
   const { activeCompany } = useCompany();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   // State
   const [receivables, setReceivables] = useState<Receivable[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [tabValue, setTabValue] = useState(0); // 0: Todos, 1: Pendentes, 2: Registrados, 3: Pagos, 4: Falhas
+  const [tabValue, setTabValue] = useState(0); 
   
   // Selection
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -48,12 +51,28 @@ const Receivables: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedReceivable, setSelectedReceivable] = useState<Receivable | null>(null);
   const [errorDialog, setErrorDialog] = useState<{open: boolean, msg: string}>({ open: false, msg: '' });
+  
+  // Modals
+  const [openCreate, setOpenCreate] = useState(false);
+  const [openDetails, setOpenDetails] = useState(false);
+  const [openPdfModal, setOpenPdfModal] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  
+  // Data for Form
+  const [clients, setClients] = useState<any[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [formData, setFormData] = useState({
+    cliente_id: '',
+    amount: '',
+    due_date: new Date().toISOString().split('T')[0],
+    bank_account_id: '',
+  });
 
   const loadReceivables = useCallback(async () => {
     if (!activeCompany) return;
     setLoading(true);
     try {
-      const data = await receivableService.listReceivables(activeCompany.id, 0, 500, startDate, endDate);
+      const data = await receivableService.listReceivables(activeCompany.id, 0, 1000, startDate, endDate);
       setReceivables(data || []);
     } catch (e) {
       setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao carregar cobranças', severity: 'error' });
@@ -62,60 +81,88 @@ const Receivables: React.FC = () => {
     }
   }, [activeCompany, startDate, endDate]);
 
+  const loadFormData = useCallback(async () => {
+    if (!activeCompany) return;
+    try {
+      const [clientsRes, accountsRes] = await Promise.all([
+        api.get(`/clientes/?empresa_id=${activeCompany.id}&limit=500`),
+        bankAccountService.listBankAccounts(activeCompany.id)
+      ]);
+      setClients(clientsRes.data || []);
+      setBankAccounts(accountsRes || []);
+      if (accountsRes.length > 0) {
+        setFormData(prev => ({ ...prev, bank_account_id: accountsRes[0].id.toString() }));
+      }
+    } catch (e) {
+      console.error('Erro ao carregar dados do formulário', e);
+    }
+  }, [activeCompany]);
+
   useEffect(() => {
     if (activeCompany) {
       loadReceivables();
+      loadFormData();
     }
-  }, [activeCompany, loadReceivables]);
+  }, [activeCompany, loadReceivables, loadFormData]);
 
   // Filter Logic
   const filteredReceivables = useMemo(() => {
     let result = receivables;
-    
-    // Tab Filter
     if (tabValue === 1) result = result.filter(r => r.status === 'PENDING');
     else if (tabValue === 2) result = result.filter(r => r.status === 'REGISTERED');
     else if (tabValue === 3) result = result.filter(r => r.status === 'PAID');
     else if (tabValue === 4) result = result.filter(r => r.status === 'REGISTRATION_FAILED');
     
-    // Search Filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(r =>
         r.id.toString().includes(term) ||
         (r.cliente_nome || '').toLowerCase().includes(term) ||
-        (r.nosso_numero || '').toLowerCase().includes(term) ||
-        (r.bank || '').toLowerCase().includes(term)
+        (r.nosso_numero || '').toLowerCase().includes(term)
       );
     }
-    
     return result;
   }, [receivables, tabValue, searchTerm]);
 
-  // Pagination Logic
   const paginatedReceivables = useMemo(() => {
     const start = page * rowsPerPage;
     return filteredReceivables.slice(start, start + rowsPerPage);
   }, [filteredReceivables, page, rowsPerPage]);
 
-  const handleGenerate = useCallback(async () => {
+  const handleGenerate = async () => {
     if (!activeCompany) return;
     setGenerating(true);
     try {
-      const created = await receivableService.generateForCompany(activeCompany.id);
-      setSnackbar({ open: true, message: `${created?.length || 0} cobranças geradas com sucesso`, severity: 'success' });
+      await receivableService.generateForCompany(activeCompany.id);
+      setSnackbar({ open: true, message: 'Processamento de geração concluído', severity: 'success' });
       loadReceivables();
     } catch (e) {
-      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao gerar cobranças', severity: 'error' });
+      setSnackbar({ open: true, message: stringifyError(e), severity: 'error' });
     } finally {
       setGenerating(false);
     }
-  }, [activeCompany, loadReceivables]);
+  };
+
+  const handleCreateManual = async () => {
+    try {
+      await receivableService.createReceivable({
+        ...formData,
+        amount: parseFloat(formData.amount),
+        cliente_id: parseInt(formData.cliente_id),
+        bank_account_id: parseInt(formData.bank_account_id)
+      });
+      setSnackbar({ open: true, message: 'Cobrança criada com sucesso', severity: 'success' });
+      setOpenCreate(false);
+      loadReceivables();
+    } catch (e) {
+      setSnackbar({ open: true, message: stringifyError(e), severity: 'error' });
+    }
+  };
 
   const handleSettle = async (id: number) => {
     try {
       await receivableService.settleReceivable(id);
-      setSnackbar({ open: true, message: 'Cobrança marcada como paga', severity: 'success' });
+      setSnackbar({ open: true, message: 'Cobrança baixada manualmente', severity: 'success' });
       loadReceivables();
     } catch (e) {
       setSnackbar({ open: true, message: stringifyError(e), severity: 'error' });
@@ -124,10 +171,10 @@ const Receivables: React.FC = () => {
   };
 
   const handleCancel = async (id: number) => {
-    if (!window.confirm('Deseja realmente cancelar esta cobrança?')) return;
+    if (!window.confirm('Confirmar cancelamento desta cobrança? (Será solicitada baixa no banco se registrada)')) return;
     try {
       await receivableService.cancelReceivable(id);
-      setSnackbar({ open: true, message: 'Cobrança cancelada', severity: 'success' });
+      setSnackbar({ open: true, message: 'Solicitação de cancelamento enviada', severity: 'success' });
       loadReceivables();
     } catch (e) {
       setSnackbar({ open: true, message: stringifyError(e), severity: 'error' });
@@ -135,32 +182,30 @@ const Receivables: React.FC = () => {
     setAnchorEl(null);
   };
 
-  const handleBatchRegisterBB = async () => {
-    if (!activeCompany || selectedIds.length === 0) return;
-    
-    // Precisamos de uma conta bancária BB para registrar. 
-    // Vamos assumir que o backend sabe qual usar ou pegamos a primeira disponível do BB.
+  const handlePrint = async (id: number) => {
     setLoading(true);
     try {
-      // Buscar contas para achar uma do BB
-      const accounts = await bankAccountService.listBankAccounts(activeCompany.id);
-      const bbAccount = accounts.find(a => a.bank === 'BANCO DO BRASIL' || a.bank === 'BANCO_DO_BRASIL');
-      
+      const url = await receivableService.printReceivable(id);
+      setPdfUrl(url);
+      setOpenPdfModal(true);
+    } catch (e) {
+      setSnackbar({ open: true, message: 'Erro ao gerar PDF', severity: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBatchRegisterBB = async () => {
+    if (!activeCompany || selectedIds.length === 0) return;
+    setLoading(true);
+    try {
+      const bbAccount = bankAccounts.find(a => a.bank.includes('BRASIL'));
       if (!bbAccount) {
-        setSnackbar({ open: true, message: 'Nenhuma conta do Banco do Brasil configurada para registro API', severity: 'error' });
-        setLoading(false);
+        setSnackbar({ open: true, message: 'Nenhuma conta do Banco do Brasil encontrada', severity: 'error' });
         return;
       }
-
-      const res = await bankAccountService.registerBoletosApi(activeCompany.id, bbAccount.id, selectedIds);
-      const successCount = res.results.filter((r: any) => r.ok).length;
-      const errorCount = res.results.filter((r: any) => !r.ok).length;
-      
-      if (errorCount === 0) {
-        setSnackbar({ open: true, message: `${successCount} boletos registrados com sucesso`, severity: 'success' });
-      } else {
-        setSnackbar({ open: true, message: `${successCount} sucesso, ${errorCount} erro(s).`, severity: 'warning' });
-      }
+      await bankAccountService.registerBoletosApi(activeCompany.id, bbAccount.id, selectedIds);
+      setSnackbar({ open: true, message: 'Processamento em lote finalizado', severity: 'success' });
       setSelectedIds([]);
       loadReceivables();
     } catch (e) {
@@ -176,59 +221,32 @@ const Receivables: React.FC = () => {
     if (s === 'REGISTERED') return <Chip label="Registrado" size="small" color="primary" />;
     if (s === 'PENDING') return <Chip label="Pendente" size="small" color="warning" />;
     if (s === 'CANCELLED') return <Chip label="Cancelado" size="small" color="default" />;
-    if (s === 'REGISTRATION_FAILED') return (
-      <Tooltip title="Clique para ver o erro">
-        <Chip 
-          label="Falha no Registro" 
-          size="small" 
-          color="error" 
-          onClick={(e) => {
-            e.stopPropagation();
-            const r = receivables.find(x => x.status === status); // This is wrong, should pass the receivable
-          }}
-        />
-      </Tooltip>
-    );
     return <Chip label={status} size="small" />;
   };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 2 }}>
-      {/* Header */}
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="h5" sx={{ fontWeight: 700, color: 'primary.main' }}>
-          Gestão de Cobranças
+          Financeiro / Recebíveis
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           {selectedIds.length > 0 && (
-            <Button 
-              variant="contained" 
-              color="secondary"
-              startIcon={<CloudIcon className="w-5 h-5" />}
-              onClick={handleBatchRegisterBB}
-            >
+            <Button variant="contained" color="secondary" startIcon={<CloudIcon className="w-5 h-5" />} onClick={handleBatchRegisterBB}>
               Registrar Selecionados ({selectedIds.length})
             </Button>
           )}
-          <Button 
-            variant="contained" 
-            startIcon={generating ? <CircularProgress size={20} color="inherit" /> : <PlusIcon className="w-5 h-5" />}
-            onClick={handleGenerate}
-            disabled={generating}
-            sx={{ borderRadius: 2 }}
-          >
-            Gerar Cobranças do Mês
+          <Button variant="outlined" startIcon={<PlusIcon className="w-5 h-5" />} onClick={() => setOpenCreate(true)}>
+            Nova Cobrança
+          </Button>
+          <Button variant="contained" startIcon={generating ? <CircularProgress size={20} color="inherit" /> : <PlusIcon className="w-5 h-5" />} onClick={handleGenerate} disabled={generating}>
+            Gerar Automático
           </Button>
         </Box>
       </Box>
 
       <Paper sx={{ borderRadius: 3, overflow: 'hidden', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Tabs */}
-        <Tabs 
-          value={tabValue} 
-          onChange={(_, v) => { setTabValue(v); setPage(0); }} 
-          sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 1 }}
-        >
+        <Tabs value={tabValue} onChange={(_, v) => { setTabValue(v); setPage(0); }} sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
           <Tab label="Todos" />
           <Tab label="Pendentes" />
           <Tab label="Registrados" />
@@ -236,150 +254,60 @@ const Receivables: React.FC = () => {
           <Tab label="Falhas" />
         </Tabs>
 
-        {/* Search & Actions */}
         <Box sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
           <TextField
             sx={{ flexGrow: 1, minWidth: 200 }}
             size="small"
-            placeholder="Buscar por cliente, nosso número ou ID..."
+            placeholder="Buscar por cliente ou número..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />
-                </InputAdornment>
-              ),
-              endAdornment: searchTerm && (
-                <IconButton size="small" onClick={() => setSearchTerm('')}>
-                  <XMarkIcon className="w-4 h-4" />
-                </IconButton>
-              )
-            }}
+            InputProps={{ startAdornment: <InputAdornment position="start"><MagnifyingGlassIcon className="w-5 h-5 text-gray-400" /></InputAdornment> }}
           />
-          
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <TextField
-              type="date"
-              label="Início"
-              size="small"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              sx={{ width: 150 }}
-            />
-            <TextField
-              type="date"
-              label="Fim"
-              size="small"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              sx={{ width: 150 }}
-            />
-            {(startDate || endDate) && (
-              <IconButton size="small" onClick={() => { setStartDate(''); setEndDate(''); }}>
-                <XMarkIcon className="w-4 h-4" />
-              </IconButton>
-            )}
-          </Box>
-
-          <IconButton onClick={loadReceivables} disabled={loading}>
-            <ArrowPathIcon className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-          </IconButton>
+          <TextField type="date" label="Início" size="small" value={startDate} onChange={(e) => setStartDate(e.target.value)} InputLabelProps={{ shrink: true }} />
+          <TextField type="date" label="Fim" size="small" value={endDate} onChange={(e) => setEndDate(e.target.value)} InputLabelProps={{ shrink: true }} />
+          <IconButton onClick={loadReceivables} disabled={loading}><ArrowPathIcon className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} /></IconButton>
         </Box>
 
-        {/* Table */}
         <TableContainer sx={{ flexGrow: 1 }}>
           <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
-                <TableCell padding="checkbox">
-                  <Checkbox 
-                    checked={selectedIds.length === paginatedReceivables.length && paginatedReceivables.length > 0}
-                    indeterminate={selectedIds.length > 0 && selectedIds.length < paginatedReceivables.length}
-                    onChange={(e) => {
-                      if (e.target.checked) setSelectedIds(paginatedReceivables.map(r => r.id));
-                      else setSelectedIds([]);
-                    }}
-                  />
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>ID</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Cliente</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Vencimento</TableCell>
-                <TableCell sx={{ fontWeight: 600 }} align="right">Valor</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Banco</TableCell>
-                <TableCell sx={{ fontWeight: 600 }} align="right">Ações</TableCell>
+                <TableCell padding="checkbox"><Checkbox onChange={(e) => setSelectedIds(e.target.checked ? paginatedReceivables.map(r => r.id) : [])} /></TableCell>
+                <TableCell>ID</TableCell>
+                <TableCell>Cliente</TableCell>
+                <TableCell>Vencimento</TableCell>
+                <TableCell align="right">Valor</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Banco</TableCell>
+                <TableCell align="right">Ações</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading && filteredReceivables.length === 0 ? (
                 <TableRow><TableCell colSpan={8} align="center" sx={{ py: 5 }}><CircularProgress /></TableCell></TableRow>
-              ) : paginatedReceivables.length === 0 ? (
-                <TableRow><TableCell colSpan={8} align="center" sx={{ py: 5 }}>Nenhuma cobrança encontrada</TableCell></TableRow>
               ) : paginatedReceivables.map(r => (
                 <TableRow key={r.id} hover>
                   <TableCell padding="checkbox">
-                    <Checkbox 
-                      checked={selectedIds.includes(r.id)}
-                      onChange={() => setSelectedIds(prev => prev.includes(r.id) ? prev.filter(id => id !== r.id) : [...prev, r.id])}
-                    />
+                    <Checkbox checked={selectedIds.includes(r.id)} onChange={() => setSelectedIds(prev => prev.includes(r.id) ? prev.filter(id => id !== r.id) : [...prev, r.id])} />
                   </TableCell>
                   <TableCell>{r.id}</TableCell>
                   <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{r.cliente_nome || '-'}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{r.cliente_nome}</Typography>
                     <Typography variant="caption" color="text.secondary">{r.cliente_cpf_cnpj}</Typography>
                   </TableCell>
                   <TableCell>{new Date(r.due_date).toLocaleDateString('pt-BR')}</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600 }}>
-                    {r.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </TableCell>
+                  <TableCell align="right">{(r.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
                   <TableCell>
                     {r.status === 'REGISTRATION_FAILED' ? (
-                      <Tooltip title="Ver erro de registro">
-                        <Chip 
-                          label="Falha" 
-                          size="small" 
-                          color="error" 
-                          variant="outlined"
-                          onClick={() => setErrorDialog({ open: true, msg: r.registro_result || 'Erro desconhecido' })}
-                          sx={{ cursor: 'pointer' }}
-                        />
-                      </Tooltip>
+                      <Chip label="Falha" size="small" color="error" variant="outlined" onClick={() => setErrorDialog({ open: true, msg: r.registro_result || '' })} sx={{ cursor: 'pointer' }} />
                     ) : getStatusChip(r.status)}
                   </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Typography variant="caption" sx={{ fontWeight: 600 }}>{r.bank}</Typography>
-                      {r.nosso_numero && <Typography variant="caption" color="text.secondary">({r.nosso_numero})</Typography>}
-                    </Box>
-                  </TableCell>
+                  <TableCell><Typography variant="caption" sx={{ fontWeight: 600 }}>{r.bank}</Typography></TableCell>
                   <TableCell align="right">
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                      {r.bb_boleto_url && (
-                        <Tooltip title="Ver PDF">
-                          <IconButton size="small" onClick={() => window.open(r.bb_boleto_url, '_blank')}>
-                            <ArrowTopRightOnSquareIcon className="w-4 h-4 text-blue-500" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {r.bb_pix_qrcode && (
-                        <Tooltip title="Copiar PIX">
-                          <IconButton size="small" onClick={() => {
-                            navigator.clipboard.writeText(r.bb_pix_qrcode!);
-                            setSnackbar({ open: true, message: 'PIX copiado!', severity: 'success' });
-                          }}>
-                            <QrCodeIcon className="w-4 h-4 text-green-500" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      <IconButton size="small" onClick={(e) => {
-                        setAnchorEl(e.currentTarget);
-                        setSelectedReceivable(r);
-                      }}>
-                        <EllipsisVerticalIcon className="w-5 h-5" />
-                      </IconButton>
+                      <IconButton size="small" onClick={() => handlePrint(r.id)} title="Imprimir Boleto"><PrinterIcon className="w-4 h-4" /></IconButton>
+                      {r.bb_pix_qrcode && <IconButton size="small" color="success" onClick={() => { navigator.clipboard.writeText(r.bb_pix_qrcode!); setSnackbar({ open: true, message: 'PIX Copiado', severity: 'success' }); }} title="PIX"><QrCodeIcon className="w-4 h-4" /></IconButton>}
+                      <IconButton size="small" onClick={(e) => { setAnchorEl(e.currentTarget); setSelectedReceivable(r); }}><EllipsisVerticalIcon className="w-5 h-5" /></IconButton>
                     </Box>
                   </TableCell>
                 </TableRow>
@@ -387,58 +315,96 @@ const Receivables: React.FC = () => {
             </TableBody>
           </Table>
         </TableContainer>
-
-        <TablePagination
-          rowsPerPageOptions={[10, 25, 50, 100]}
-          component="div"
-          count={filteredReceivables.length}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={(_, p) => setPage(p)}
-          onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-          labelRowsPerPage="Itens por página:"
-        />
+        <TablePagination component="div" count={filteredReceivables.length} rowsPerPage={rowsPerPage} page={page} onPageChange={(_, p) => setPage(p)} onRowsPerPageChange={(e) => setRowsPerPage(parseInt(e.target.value, 10))} />
       </Paper>
 
-      {/* Row Actions Menu */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={() => setAnchorEl(null)}
-      >
-        <MenuItem onClick={() => handleSettle(selectedReceivable!.id)} disabled={selectedReceivable?.status === 'PAID'}>
-          <CheckCircleIcon className="w-4 h-4 mr-2 text-green-500" /> Baixar Manualmente
-        </MenuItem>
-        <MenuItem onClick={() => handleCancel(selectedReceivable!.id)} disabled={selectedReceivable?.status === 'PAID'}>
-          <TrashIcon className="w-4 h-4 mr-2 text-red-500" /> Cancelar Cobrança
-        </MenuItem>
-        <Divider />
-        <MenuItem onClick={() => setAnchorEl(null)}>
-          <InformationCircleIcon className="w-4 h-4 mr-2" /> Ver Detalhes
-        </MenuItem>
+      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
+        <MenuItem onClick={() => { setOpenDetails(true); setAnchorEl(null); }}><EyeIcon className="w-4 h-4 mr-2" /> Detalhes</MenuItem>
+        <MenuItem onClick={() => handleSettle(selectedReceivable!.id)} disabled={selectedReceivable?.status === 'PAID'}><CheckCircleIcon className="w-4 h-4 mr-2 text-green-500" /> Baixar</MenuItem>
+        <MenuItem onClick={() => handleCancel(selectedReceivable!.id)} disabled={selectedReceivable?.status === 'PAID'}><TrashIcon className="w-4 h-4 mr-2 text-red-500" /> Cancelar</MenuItem>
       </Menu>
 
-      {/* Error Dialog */}
-      <Dialog open={errorDialog.open} onClose={() => setErrorDialog({ ...errorDialog, open: false })}>
-        <DialogTitle sx={{ color: 'error.main', display: 'flex', alignItems: 'center', gap: 1 }}>
-          <InformationCircleIcon className="w-6 h-6" /> Detalhes do Erro de Registro
+      {/* Modal PDF */}
+      <Dialog open={openPdfModal} onClose={() => { setOpenPdfModal(false); setPdfUrl(null); }} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Visualização do Boleto
+          <IconButton onClick={() => { setOpenPdfModal(false); setPdfUrl(null); }}><XMarkIcon className="w-6 h-6" /></IconButton>
         </DialogTitle>
-        <DialogContent dividers>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', bgcolor: '#f5f5f5', p: 2, borderRadius: 1 }}>
-            {errorDialog.msg}
-          </Typography>
+        <DialogContent sx={{ p: 0, height: '80vh' }}>
+          {pdfUrl ? (
+            <iframe src={pdfUrl} width="100%" height="100%" style={{ border: 'none' }} title="Boleto PDF" />
+          ) : (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}><CircularProgress /></Box>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setErrorDialog({ ...errorDialog, open: false })}>Fechar</Button>
+          <Button onClick={() => { setOpenPdfModal(false); setPdfUrl(null); }}>Fechar</Button>
+          <Button variant="contained" onClick={() => window.open(pdfUrl!, '_blank')}>Abrir em Nova Aba</Button>
         </DialogActions>
       </Dialog>
 
-      <Snackbar 
-        open={snackbar.open} 
-        autoHideDuration={6000} 
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-      >
-        <Alert severity={snackbar.severity} sx={{ borderRadius: 2 }}>{snackbar.message}</Alert>
+      {/* Modal Nova Cobrança */}
+      <Dialog open={openCreate} onClose={() => setOpenCreate(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Lançar Cobrança Manual</DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <Autocomplete
+                options={clients}
+                getOptionLabel={(o) => `${o.nome_razao_social} (${o.cpf_cnpj})`}
+                onChange={(_, v) => setFormData({ ...formData, cliente_id: v?.id?.toString() || '' })}
+                renderInput={(p) => <TextField {...p} label="Cliente" fullWidth size="small" />}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField label="Valor (R$)" fullWidth size="small" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: e.target.value })} />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField type="date" label="Vencimento" fullWidth size="small" value={formData.due_date} onChange={(e) => setFormData({ ...formData, due_date: e.target.value })} InputLabelProps={{ shrink: true }} />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField select label="Conta Bancária" fullWidth size="small" value={formData.bank_account_id} onChange={(e) => setFormData({ ...formData, bank_account_id: e.target.value })}>
+                {bankAccounts.map(a => <MenuItem key={a.id} value={a.id.toString()}>{a.bank} - {a.titular}</MenuItem>)}
+              </TextField>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenCreate(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={handleCreateManual}>Salvar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal Detalhes */}
+      <Dialog open={openDetails} onClose={() => setOpenDetails(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Detalhes da Cobrança #{selectedReceivable?.id}</DialogTitle>
+        <DialogContent dividers>
+          {selectedReceivable && (
+            <Grid container spacing={2}>
+              <Grid item xs={12}><Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Cliente: {selectedReceivable.cliente_nome}</Typography></Grid>
+              <Grid item xs={6}><Typography variant="body2">Nosso Número: {selectedReceivable.nosso_numero || '-'}</Typography></Grid>
+              <Grid item xs={6}><Typography variant="body2">Status: {selectedReceivable.status}</Typography></Grid>
+              <Grid item xs={12}><Divider sx={{ my: 1 }} /></Grid>
+              <Grid item xs={12}>
+                <Typography variant="caption" color="text.secondary">Linha Digitável:</Typography>
+                <Typography variant="body2" sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{selectedReceivable.linha_digitavel || 'Não gerada'}</Typography>
+              </Grid>
+              {selectedReceivable.registro_result && (
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="text.secondary">Resultado do Banco:</Typography>
+                  <pre style={{ fontSize: '11px', background: '#f5f5f5', padding: '8px' }}>{selectedReceivable.registro_result}</pre>
+                </Grid>
+              )}
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDetails(false)}>Fechar</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
     </Box>
   );
