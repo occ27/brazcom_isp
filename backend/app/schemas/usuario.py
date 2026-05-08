@@ -38,6 +38,9 @@ class UsuarioResponse(UsuarioBase):
     class Config:
         from_attributes = True
 
+class UsuarioWithEmpresaAdmin(UsuarioResponse):
+    is_admin: bool = False
+
 # Schemas para Token
 
 class Token(BaseModel):

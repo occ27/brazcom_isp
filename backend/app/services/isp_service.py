@@ -55,6 +55,7 @@ def process_unblock_if_needed(db: Session, contrato_id: int):
                 if contrato.cliente:
                     cliente_nome = contrato.cliente.nome_razao_social
 
+                # Desbloquear primário (remover da pg_corte e regras estritas)
                 success = mk.unsuspend_client_connection(
                     contrato_id=contrato.id,
                     metodo_autenticacao=contrato.metodo_autenticacao,
@@ -63,6 +64,34 @@ def process_unblock_if_needed(db: Session, contrato_id: int):
                     interface=interface_name,
                     comment=cliente_nome
                 )
+
+                # Restaurar a banda original (Simple Queue e DHCP) com base no serviço
+                if success and contrato.servico_id:
+                    profile_name = None
+                    max_limit = None
+                    from app.crud import crud_servico
+                    servico = crud_servico.get_servico(db, servico_id=contrato.servico_id, empresa_id=contrato.empresa_id)
+                    if servico:
+                        max_limit = getattr(servico, 'max_limit', None)
+                        if getattr(servico, 'ppp_profile_id', None):
+                            from app.models.network import PPPProfile
+                            ppp_profile = db.query(PPPProfile).filter(PPPProfile.id == servico.ppp_profile_id).first()
+                            if ppp_profile:
+                                profile_name = ppp_profile.nome
+                    
+                    # Força a atualização da velocidade
+                    if max_limit or contrato.metodo_autenticacao == 'IP_MAC':
+                        mk.sync_client_connection(
+                            contrato_id=contrato.id,
+                            metodo_autenticacao=contrato.metodo_autenticacao,
+                            assigned_ip=contrato.assigned_ip,
+                            mac_address=contrato.mac_address,
+                            interface=interface_name,
+                            comment=cliente_nome,
+                            profile=profile_name,
+                            max_limit=max_limit
+                        )
+                
                 mk.close()
                 if success:
                     logger.info(f"Contrato {contrato_id} desbloqueado com sucesso no router {router_db.ip}")

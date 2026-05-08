@@ -49,18 +49,25 @@ const Users: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingUser, setEditingUser] = useState<Usuario | null>(null);
-  const [formData, setFormData] = useState<UsuarioCreate & { cliente_id?: number }>({
+  const [formData, setFormData] = useState<UsuarioCreate & { is_admin: boolean }>({
     nome: '',
     email: '',
     password: '',
     is_superuser: false,
-    cliente_id: undefined
+    is_admin: false
   });
 
   const [rolesList, setRolesList] = useState<Role[]>([]);
   const [assignedRoles, setAssignedRoles] = useState<Role[]>([]);
   const [roleToAssign, setRoleToAssign] = useState<number | string>('');
   const [selectedClient, setSelectedClient] = useState<any | null>(null);
+  
+  // Estados para associação de usuário existente
+  const [openAssociateDialog, setOpenAssociateDialog] = useState(false);
+  const [associateData, setAssociateData] = useState({
+    email: '',
+    is_admin: false
+  });
   // cliente association removed
 
   // Verificar permissões
@@ -130,7 +137,8 @@ const Users: React.FC = () => {
         nome: user.full_name || (user as any).nome || '',
         email: user.email,
         password: '', // Não preencher senha na edição
-        is_superuser: user.is_superuser
+        is_superuser: user.is_superuser,
+        is_admin: user.is_admin || false
       });
       // carregar roles e roles atribuídas para este usuário
       loadRoles();
@@ -141,7 +149,8 @@ const Users: React.FC = () => {
         nome: '',
         email: '',
         password: '',
-        is_superuser: false
+        is_superuser: false,
+        is_admin: false
       });
       // carregar roles disponíveis para atribuição
       loadRoles();
@@ -196,6 +205,8 @@ const Users: React.FC = () => {
           updateData.password = formData.password;
         }
         await userService.updateUser(editingUser.id, updateData);
+        // atualizar status de admin na empresa
+        await userService.associateUserToEmpresa(activeCompany.id, editingUser.id, undefined, formData.is_admin);
         // atualizar roles caso tenha seleção
         if (roleToAssign && roleToAssign !== '') {
           await userService.assignRole(Number(roleToAssign), editingUser.id, activeCompany?.id);
@@ -203,8 +214,14 @@ const Users: React.FC = () => {
           setRoleToAssign('');
         }
       } else {
-        // Criar novo usuário
+        // Criar novo usuário e associar à empresa
         const created = await userService.createUserForEmpresa(activeCompany.id, formData);
+        
+        // Se foi marcado como admin, atualizar a associação (pois o endpoint de criação padrão cria como não-admin)
+        if (formData.is_admin) {
+          await userService.associateUserToEmpresa(activeCompany.id, created.id, undefined, true);
+        }
+
         if (roleToAssign && roleToAssign !== '') {
           await userService.assignRole(Number(roleToAssign), created.id, activeCompany?.id);
           setRoleToAssign('');
@@ -225,6 +242,27 @@ const Users: React.FC = () => {
       await loadUsers();
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Erro ao excluir usuário');
+    }
+  };
+
+  const handleAssociateSubmit = async () => {
+    if (!activeCompany || !associateData.email) return;
+
+    try {
+      setLoading(true);
+      await userService.associateUserToEmpresa(
+        activeCompany.id, 
+        undefined, 
+        associateData.email, 
+        associateData.is_admin
+      );
+      await loadUsers();
+      setOpenAssociateDialog(false);
+      setAssociateData({ email: '', is_admin: false });
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Erro ao associar usuário. Verifique se o e-mail está correto e se o usuário já possui conta.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -260,14 +298,24 @@ const Users: React.FC = () => {
         <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
           Usuários
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<PlusIcon className="w-5 h-5" />}
-          onClick={() => handleOpenDialog()}
-          sx={{ py: 1.5 }}
-        >
-          Novo Usuário
-        </Button>
+        <Stack direction="row" spacing={2}>
+          <Button
+            variant="outlined"
+            startIcon={<UserIcon className="w-5 h-5" />}
+            onClick={() => setOpenAssociateDialog(true)}
+            sx={{ py: 1.5 }}
+          >
+            Vincular Existente
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<PlusIcon className="w-5 h-5" />}
+            onClick={() => handleOpenDialog()}
+            sx={{ py: 1.5 }}
+          >
+            Novo Usuário
+          </Button>
+        </Stack>
       </Box>
 
       {error && (
@@ -342,10 +390,17 @@ const Users: React.FC = () => {
                     <TableCell>
                       {user.is_superuser ? (
                         <Chip
-                          label="Administrador"
+                          icon={<ShieldCheckIcon className="w-4 h-4" />}
+                          label="Super Admin"
+                          color="error"
+                          size="small"
+                        />
+                      ) : user.is_admin ? (
+                        <Chip
+                          icon={<ShieldCheckIcon className="w-4 h-4" />}
+                          label="Admin Empresa"
                           color="warning"
                           size="small"
-                          variant="outlined"
                         />
                       ) : ((user as any).roles && (user as any).roles.length > 0) ? (
                         <Chip
@@ -356,7 +411,7 @@ const Users: React.FC = () => {
                         />
                       ) : (
                         <Chip
-                          label="Usuário"
+                          label="Operador"
                           variant="outlined"
                           size="small"
                         />
@@ -426,17 +481,17 @@ const Users: React.FC = () => {
             
                 {/* Cliente (Portal do Cliente) removed from user form */}
             
-            {currentUser?.is_superuser && (
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={formData.is_superuser}
-                    onChange={(e) => setFormData({ ...formData, is_superuser: e.target.checked })}
-                  />
-                }
-                label="Superusuário"
-              />
-            )}
+            {/* O acesso de Superusuário (Global) foi removido da interface por segurança, sendo restrito apenas a desenvolvedores via banco de dados */}
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={formData.is_admin}
+                  onChange={(e) => setFormData({ ...formData, is_admin: e.target.checked })}
+                />
+              }
+              label="Administrador da Empresa (Acesso Total Local)"
+            />
             {/* Roles */}
             <Box>
               <InputLabel sx={{ mb: 1 }}>Roles</InputLabel>
@@ -485,6 +540,45 @@ const Users: React.FC = () => {
             disabled={!formData.nome || !formData.email || (!editingUser && !formData.password)}
           >
             {editingUser ? 'Atualizar' : 'Criar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog para associar usuário existente */}
+      <Dialog open={openAssociateDialog} onClose={() => setOpenAssociateDialog(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Vincular Usuário Existente</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Typography variant="body2" color="text.secondary">
+              Informe o e-mail de um usuário que já possui cadastro no sistema para vinculá-lo a esta empresa.
+            </Typography>
+            <TextField
+              label="E-mail do Usuário"
+              type="email"
+              value={associateData.email}
+              onChange={(e) => setAssociateData({ ...associateData, email: e.target.value })}
+              fullWidth
+              autoFocus
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={associateData.is_admin}
+                  onChange={(e) => setAssociateData({ ...associateData, is_admin: e.target.checked })}
+                />
+              }
+              label="Administrador da Empresa (Acesso Total)"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenAssociateDialog(false)}>Cancelar</Button>
+          <Button 
+            onClick={handleAssociateSubmit} 
+            variant="contained" 
+            disabled={!associateData.email || loading}
+          >
+            {loading ? 'Processando...' : 'Vincular'}
           </Button>
         </DialogActions>
       </Dialog>

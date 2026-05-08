@@ -111,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hasPermission = (name: string) => {
     if (!user) return false;
     if (user.is_superuser) return true;
+    if (permissions.includes('*')) return true;
     return permissions.includes(name);
   };
 

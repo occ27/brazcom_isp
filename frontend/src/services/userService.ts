@@ -20,6 +20,7 @@ export interface Usuario {
   email: string;
   is_active: boolean;
   is_superuser: boolean;
+  is_admin?: boolean;
   active_empresa_id?: number;
   created_at: string;
   updated_at: string;
@@ -58,9 +59,10 @@ class UserService {
     return response.data;
   }
 
-  async associateUserToEmpresa(empresaId: number, usuarioId: number, isAdmin: boolean = false): Promise<{ message: string }> {
+  async associateUserToEmpresa(empresaId: number, usuarioId?: number, email?: string, isAdmin: boolean = false): Promise<{ message: string }> {
     const response = await api.post(`/usuarios/empresa/${empresaId}/associate`, {
       usuario_id: usuarioId,
+      email: email,
       is_admin: isAdmin
     });
     return response.data;

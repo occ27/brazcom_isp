@@ -212,6 +212,18 @@ def list_user_permissions(user_id: int, db: Session = Depends(get_db), current_u
     à mesma empresa ativa do `current_user`.
     """
     empresa_id = getattr(current_user, 'active_empresa_id', None)
+    
+    # Se o usuário for admin da empresa ativa, ele ganha todas as permissões implicitamente
+    if empresa_id:
+        from app.models.models import UsuarioEmpresa
+        is_admin = db.query(UsuarioEmpresa).filter(
+            UsuarioEmpresa.usuario_id == user_id,
+            UsuarioEmpresa.empresa_id == empresa_id,
+            UsuarioEmpresa.is_admin == True
+        ).first()
+        if is_admin:
+            return ['*']
+
     ura = user_role_association
     rows = db.execute(ura.select().where(ura.c.user_id == user_id)).fetchall()
     perms = set()

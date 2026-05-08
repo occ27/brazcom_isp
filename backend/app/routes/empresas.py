@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response
+# pyrefly: ignore [missing-import]
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
@@ -74,8 +75,12 @@ def update_empresa(
 ):
     """Atualiza uma empresa."""
     db_empresa = _check_user_permission_for_empresa(empresa_id, current_user, db)
-    if not current_user.is_superuser and db_empresa.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Acesso negado para atualização")
+    
+    # Permitir atualização se for super_admin, o criador original ou admin da empresa
+    is_admin = any(assoc.empresa_id == empresa_id and assoc.is_admin for assoc in current_user.empresas)
+    
+    if not current_user.is_superuser and db_empresa.user_id != current_user.id and not is_admin:
+        raise HTTPException(status_code=403, detail="Acesso negado para atualização. Requer privilégios de administrador da empresa.")
     return crud_empresa.update_empresa(db=db, db_obj=db_empresa, obj_in=empresa)
 
 @router.delete("/{empresa_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -322,6 +322,55 @@ class MikrotikController:
         
         return resource.add(**data)
 
+    def set_dhcp_lease(self, ip: str, mac: str, comment: Optional[str] = None):
+        """Adiciona/atualiza entrada de Lease Estático no DHCP (`/ip/dhcp-server/lease`)."""
+        import logging
+        logger = logging.getLogger(__name__)
+        self.connect()
+        try:
+            resource = self._api.get_resource('ip/dhcp-server/lease')
+            # Verifica se já existe lease para o IP ou MAC
+            entries = resource.get(address=ip)
+            if not entries:
+                entries = resource.get(mac_address=mac)
+            
+            data = {'address': ip, 'mac-address': mac}
+            if comment:
+                data['comment'] = comment
+
+            if entries:
+                entry_id = entries[0].get('.id') or entries[0].get('id')
+                if entries[0].get('dynamic') == 'true':
+                    # Se era dinâmico, primeiro temos que torná-lo estático ou remover e recriar
+                    resource.remove(id=entry_id)
+                    return resource.add(**data)
+                else:
+                    return resource.set(id=entry_id, **data)
+            else:
+                return resource.add(**data)
+        except Exception as e:
+            logger.error(f"Falha ao configurar DHCP Lease para {ip}: {e}")
+            pass # Lidar graciosamente se o DHCP não estiver configurado
+
+    def remove_dhcp_lease(self, ip: str, mac: Optional[str] = None):
+        """Remove entrada(s) de Lease no DHCP por IP e opcionalmente MAC."""
+        import logging
+        logger = logging.getLogger(__name__)
+        self.connect()
+        try:
+            resource = self._api.get_resource('ip/dhcp-server/lease')
+            entries = resource.get(address=ip)
+            for e in entries:
+                if mac and e.get('mac-address') != mac:
+                    continue
+                eid = e.get('.id') or e.get('id')
+                if eid:
+                    resource.remove(id=eid)
+        except Exception as e:
+            logger.error(f"Falha ao remover DHCP Lease para {ip}: {e}")
+            pass
+
+
     def set_arp_entry(self, ip: str, mac: str, interface: Optional[str] = None, comment: Optional[str] = None):
         """Adiciona/atualiza entrada ARP (`/ip/arp`).
 
@@ -530,8 +579,15 @@ class MikrotikController:
             data = {'address': ip_clean, 'list': list_name}
             if comment:
                 data['comment'] = comment
-            return resource.add(**data)
-        return False
+            
+            try:
+                resource.add(**data)
+                return True
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Falha ao adicionar na address-list: {e}")
+                return False
+        return True
 
     def setup_suspension_nat_rule(self, notice_url: str):
         """
@@ -544,8 +600,8 @@ class MikrotikController:
         # mas a inteligência de quem está bloqueado fica na Address List.
         pass
 
-    def setup_suspension_firewall_rules(self):
-        """Configura regras de firewall para permitir apenas DNS e redirecionamento para bloqueados."""
+    def setup_suspension_firewall_rules(self, suspension_url: str = None):
+        """Configura regras de firewall para permitir apenas DNS, o sistema e redirecionamento para bloqueados."""
         self.connect()
         import logging
         logger = logging.getLogger(__name__)
@@ -578,6 +634,38 @@ class MikrotikController:
                 rid = existing_dns[0].get('.id') or existing_dns[0].get('id')
                 if rid: resource.set(id=rid, **dns_rule)
 
+            # 1.5 Permitir acesso ao domínio do sistema para quem está na pg_corte
+            domain_rule_added = False
+            if suspension_url:
+                try:
+                    from urllib.parse import urlparse
+                    domain = urlparse(suspension_url).netloc.split(':')[0]
+                    if domain:
+                        # Em vez de tentar colocar o domínio direto no Firewall Filter (que não aceita texto),
+                        # nós adicionamos ele a uma Address List, que o Mikrotik resolve automaticamente.
+                        
+                        # 1.5.1 Adicionar domínio à address-list
+                        self.add_to_address_list(address=domain, list_name='ips_sistema', comment='DOMINIO_SISTEMA')
+                        
+                        # 1.5.2 Criar regra de Firewall apontando para a address-list
+                        allow_sys_rule = {
+                            'chain': 'forward',
+                            'src-address-list': 'pg_corte',
+                            'dst-address-list': 'ips_sistema',
+                            'action': 'accept',
+                            'comment': 'ACESSO_SISTEMA_BLOQUEADOS'
+                        }
+                        
+                        existing_sys = [r for r in all_rules if r.get('comment') == 'ACESSO_SISTEMA_BLOQUEADOS']
+                        if not existing_sys:
+                            resource.add(**allow_sys_rule)
+                            domain_rule_added = True
+                        else:
+                            sid = existing_sys[0].get('.id') or existing_sys[0].get('id')
+                            if sid: resource.set(id=sid, **allow_sys_rule)
+                except Exception as e:
+                    logger.warning(f"Não foi possível extrair/liberar o domínio do sistema: {e}")
+
             # 2. Bloquear todo o resto para pg_corte
             block_rule = {
                 'chain': 'forward',
@@ -586,23 +674,17 @@ class MikrotikController:
                 'comment': 'BLOQUEIO_GERAL_PG_CORTE'
             }
             
-            existing_block = [r for r in all_rules if r.get('comment') == 'BLOQUEIO_GERAL_PG_CORTE']
-            if not existing_block:
-                # Se já tivermos o ID do DNS que acabamos de criar/atualizar,
-                # idealmente colocamos o drop logo DEPOIS dele, mas como não
-                # temos uma API simples de 'place_after', vamos colocá-lo
-                # logo abaixo da primeira regra atual (ou seja, index 1 se existir)
-                if len(all_rules) > 1:
-                    second_id = all_rules[1].get('.id') or all_rules[1].get('id')
-                    if second_id:
-                        resource.add(place_before=second_id, **block_rule)
-                    else:
-                        resource.add(**block_rule)
-                else:
-                    resource.add(**block_rule)
-            else:
+            # Recarregar as regras para pegar as que acabamos de adicionar
+            current_rules = resource.get()
+            existing_block = [r for r in current_rules if r.get('comment') == 'BLOQUEIO_GERAL_PG_CORTE']
+            
+            if existing_block:
+                # Remove para forçar a criação abaixo das regras de accept
                 rid = existing_block[0].get('.id') or existing_block[0].get('id')
-                if rid: resource.set(id=rid, **block_rule)
+                if rid: resource.remove(id=rid)
+            
+            resource.add(**block_rule)
+
                 
         except Exception as e:
             logger.error(f"Erro ao configurar Firewall Filter: {e}")
@@ -684,7 +766,7 @@ class MikrotikController:
 
         try:
             # 4. Configurar Firewall Filter
-            self.setup_suspension_firewall_rules()
+            self.setup_suspension_firewall_rules(suspension_url)
             results.append("Regras de Firewall Filter configuradas.")
         except Exception as e:
             results.append(f"Erro ao configurar Firewall: {e}")
@@ -1006,6 +1088,15 @@ class MikrotikController:
                     if qid: q_res.remove(id=qid)
         except Exception: pass
 
+        # 3. Remover ARP e DHCP Lease (se IP fornecido)
+        if assigned_ip:
+            try:
+                self.remove_arp_entry(assigned_ip)
+            except Exception: pass
+            try:
+                self.remove_dhcp_lease(assigned_ip)
+            except Exception: pass
+
         # 2. Aplicar a configuração ATUAL
         if metodo_autenticacao == 'PPPOE':
             password_pppoe = f"pppoe_{contrato_id}"
@@ -1015,6 +1106,7 @@ class MikrotikController:
             if not assigned_ip or not mac_address or not interface:
                 raise ValueError("IP, MAC e Interface são obrigatórios para IP+MAC")
             self.set_arp_entry(assigned_ip, mac_address, interface, comment)
+            self.set_dhcp_lease(assigned_ip, mac_address, comment)
         
         elif metodo_autenticacao == 'HOTSPOT':
             password_hs = f"hs_{contrato_id}"
@@ -1079,14 +1171,14 @@ class MikrotikController:
             except Exception as e:
                 logger.warning(f"Falha ao adicionar IP {assigned_ip} à pg_corte: {e}")
 
-            # Opcional: Reduzir a velocidade da Queue para 128k para que o redirecionamento carregue mas não navegue
+            # Opcional: Reduzir a velocidade da Queue para 2M para que o redirecionamento carregue bem, mas não navegue
             try:
                 # O nome da queue é o nome do cliente ou contrato-ID
                 # Vamos tentar encontrar pelo comentário/nome
                 self.set_queue_simple(
                     name=comment if comment else f"contrato-{contrato_id}",
                     target=f"{assigned_ip}/32",
-                    max_limit="128k/128k",
+                    max_limit="2M/2M",
                     comment=f"{comment} - BLOQUEADO" if comment else "BLOQUEADO"
                 )
             except Exception as e:
@@ -1150,9 +1242,10 @@ class MikrotikController:
             except Exception:
                 pass
             
-            # 2. Garantir que a entrada ARP existe (caso tenha sido removida anteriormente)
+            # 2. Garantir que a entrada ARP e DHCP existem (caso tenham sido removidas)
             if mac_address and interface:
                 self.set_arp_entry(ip=assigned_ip, mac=mac_address, interface=interface, comment=comment)
+                self.set_dhcp_lease(ip=assigned_ip, mac=mac_address, comment=comment)
             
             # Nota: O limite de banda (Simple Queue) será restaurado na próxima sincronização 
             # ou podemos tentar restaurar aqui se tivéssemos o limite.

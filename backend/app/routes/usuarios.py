@@ -4,7 +4,7 @@ from typing import List
 
 from app.core.database import get_db
 from app.crud import crud_usuario
-from app.schemas.usuario import UsuarioCreate, UsuarioUpdate, UsuarioResponse, UsuarioRegister
+from app.schemas.usuario import UsuarioCreate, UsuarioUpdate, UsuarioResponse, UsuarioRegister, UsuarioWithEmpresaAdmin
 from app.routes.auth import get_current_active_superuser, get_current_active_user
 from app.models.models import Usuario
 from app.crud import crud_usuario
@@ -164,9 +164,17 @@ def update_usuario(
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     if current_user.id != usuario_id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Não tem permissão para atualizar este usuário")
-    return crud_usuario.update_usuario(db=db, db_obj=db_user, obj_in=usuario)
+    
+    # Impedir que usuários não-superusuários alterem o status de superusuário
+    update_data = usuario.model_dump(exclude_unset=True)
+    if not current_user.is_superuser and 'is_superuser' in update_data:
+        del update_data['is_superuser']
+    
+    # Criar um novo objeto UsuarioUpdate com os dados filtrados para passar ao CRUD
+    filtered_update = UsuarioUpdate(**update_data)
+    return crud_usuario.update_usuario(db=db, db_obj=db_user, obj_in=filtered_update)
 
-@router.get("/empresa/{empresa_id}", response_model=List[UsuarioResponse])
+@router.get("/empresa/{empresa_id}", response_model=List[UsuarioWithEmpresaAdmin])
 def read_usuarios_by_empresa(
     empresa_id: int,
     skip: int = 0,
@@ -194,17 +202,28 @@ def read_usuarios_by_empresa(
                 detail="Apenas administradores da empresa ou superusuários podem visualizar usuários"
             )
 
-    # Obter usuários associados à empresa
+    # Obter usuários associados à empresa e seu status is_admin
     from app.models.models import UsuarioEmpresa
-    usuario_ids = db.query(UsuarioEmpresa.usuario_id).filter(
+    query = db.query(Usuario, UsuarioEmpresa.is_admin).join(
+        UsuarioEmpresa, Usuario.id == UsuarioEmpresa.usuario_id
+    ).filter(
         UsuarioEmpresa.empresa_id == empresa_id
-    ).subquery()
+    )
 
-    usuarios = db.query(Usuario).filter(
-        Usuario.id.in_(usuario_ids)
-    ).offset(skip).limit(limit).all()
+    # Se o usuário não for superuser, ele não deve ver outros superusers na lista
+    if not current_user.is_superuser:
+        query = query.filter(Usuario.is_superuser == False)
 
-    return usuarios
+    results = query.offset(skip).limit(limit).all()
+
+    # Formatar resposta
+    usuarios_com_admin = []
+    for user, is_admin in results:
+        user_dict = UsuarioWithEmpresaAdmin.model_validate(user).model_dump()
+        user_dict['is_admin'] = is_admin
+        usuarios_com_admin.append(user_dict)
+
+    return usuarios_com_admin
 
 
 @router.post("/empresa/{empresa_id}/associate", response_model=dict)
@@ -216,20 +235,23 @@ def associate_usuario_to_empresa(
 ):
     """Associa um usuário existente a uma empresa. Apenas admins da empresa ou superusuários."""
     usuario_id = payload.get('usuario_id')
+    email = payload.get('email')
     is_admin = payload.get('is_admin', False)
 
+    if usuario_id is None and email is None:
+        raise HTTPException(status_code=400, detail="usuario_id ou email é obrigatório")
+
+    # Buscar usuário pelo email se o ID não foi fornecido
     if usuario_id is None:
-        raise HTTPException(status_code=400, detail="usuario_id é obrigatório")
-
-    # Verificar se a empresa existe
-    empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
-    if not empresa:
-        raise HTTPException(status_code=404, detail="Empresa não encontrada")
-
-    # Verificar se o usuário existe
-    usuario = crud_usuario.get_usuario(db, usuario_id=usuario_id)
-    if not usuario:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+        usuario = crud_usuario.get_usuario_by_email(db, email=email)
+        if not usuario:
+            raise HTTPException(status_code=404, detail="Usuário não encontrado com este email")
+        usuario_id = usuario.id
+    else:
+        # Verificar se o usuário existe pelo ID
+        usuario = crud_usuario.get_usuario(db, usuario_id=usuario_id)
+        if not usuario:
+            raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
     # Verificar permissões: superuser ou admin da empresa
     if not current_user.is_superuser:
