@@ -1,5 +1,5 @@
 from sqlalchemy import (Column, Integer, String, Boolean, DateTime, Date, Float, ForeignKey, Text, Enum as SQLAlchemyEnum)
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from sqlalchemy.sql import func
 from app.core.database import Base
 import enum
@@ -74,7 +74,7 @@ class PasswordResetTokenCliente(Base):
     used = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    cliente = relationship("Cliente")
+    cliente = relationship("Cliente", backref=backref("password_reset_tokens", cascade="all, delete-orphan"))
 
 class Empresa(Base):
     """Modelo de Empresa emissora de NFCom."""
@@ -238,10 +238,10 @@ class Cliente(Base):
     # Legacy: cliente podia apontar para uma única empresa (mantido para migração)
     empresa = relationship("Empresa", back_populates="clientes")
     # Associações com empresas (nova modelagem)
-    empresa_associations = relationship("EmpresaCliente", back_populates="cliente")
+    empresa_associations = relationship("EmpresaCliente", back_populates="cliente", cascade="all, delete-orphan")
     nfcoms = relationship("NFCom", back_populates="cliente")
     servicos_contratados = relationship("ServicoContratado", back_populates="cliente", cascade="all, delete-orphan")
-    radius_user = relationship("RadiusUser", back_populates="cliente", uselist=False)
+    radius_user = relationship("RadiusUser", back_populates="cliente", uselist=False, cascade="all, delete-orphan")
     # usuario = relationship("Usuario", back_populates="cliente", uselist=False)  # Removed - separate auth flows
 
 # relação inversa: EmpresaCliente.enderecos back_populates

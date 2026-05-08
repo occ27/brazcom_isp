@@ -337,3 +337,29 @@ def create_usuario_for_empresa(
     db.commit()
 
     return new_user
+
+@router.delete("/{usuario_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_usuario(
+    usuario_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_superuser)
+):
+    """Exclui um usuário. Apenas superusuários podem excluir usuários."""
+    db_user = crud_usuario.get_usuario(db, usuario_id=usuario_id)
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    # Impedir que um superusuário exclua a si mesmo
+    if db_user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Um superusuário não pode excluir a si mesmo")
+    
+    # Deletar associações com empresas primeiro
+    from app.models.models import UsuarioEmpresa
+    db.query(UsuarioEmpresa).filter(UsuarioEmpresa.usuario_id == usuario_id).delete()
+    
+    # Deletar tokens de reset de senha
+    from app.models.models import PasswordResetToken
+    db.query(PasswordResetToken).filter(PasswordResetToken.usuario_id == usuario_id).delete()
+    
+    crud_usuario.delete_usuario(db=db, db_obj=db_user)
+    return None

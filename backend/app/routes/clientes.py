@@ -235,25 +235,44 @@ def delete_cliente(
     if not db_empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
 
-    # Verificar associação
+    # Verificar associação ou se é cliente legado
     assoc = crud_cliente.get_empresa_cliente(db, empresa_id=empresa_id, cliente_id=cliente_id)
-    if not assoc:
+    db_cliente = crud_cliente.get_cliente(db, cliente_id=cliente_id)
+    
+    if not db_cliente:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+        
+    if not assoc and db_cliente.empresa_id != empresa_id:
         raise HTTPException(status_code=404, detail="Associação empresa-cliente não encontrada")
 
-    # Permissão de deleção: somente o usuário que criou a associação (ou superuser)
-    if not current_user.is_superuser and assoc.created_by_user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Apenas o usuário criador da associação pode deletar esta associação")
+    # Permissão de deleção: superuser, criador da associação ou admin da empresa
+    is_admin = False
+    if not current_user.is_superuser:
+        from app.models.models import UsuarioEmpresa
+        assoc_user = db.query(UsuarioEmpresa).filter(
+            UsuarioEmpresa.usuario_id == current_user.id,
+            UsuarioEmpresa.empresa_id == empresa_id,
+            UsuarioEmpresa.is_admin == True
+        ).first()
+        if assoc_user:
+            is_admin = True
+
+    # Se for legado, o criador é o dono da empresa ou quem criou o cliente (não temos esse tracking fácil aqui)
+    # Então permitimos para admin ou superuser
+    can_delete = current_user.is_superuser or is_admin
+    if assoc and assoc.created_by_user_id == current_user.id:
+        can_delete = True
+        
+    if not can_delete:
+        raise HTTPException(status_code=403, detail="Apenas o administrador da empresa ou o usuário criador da associação pode deletar este cliente")
 
     # Backend permission: require clients_manage to delete clientes/associações
     deps.permission_checker('clients_manage')(db=db, current_user=current_user)
 
-    # Se superuser e remove_orphan_cliente True: deletar Cliente global
-    if current_user.is_superuser and remove_orphan_cliente:
-        db_cliente = crud_cliente.get_cliente(db, cliente_id=cliente_id)
-        if not db_cliente:
-            raise HTTPException(status_code=404, detail="Cliente não encontrado")
+    # Se for cliente legado (empresa_id no Cliente) ou remove_orphan_cliente True
+    if db_cliente.empresa_id == empresa_id or (current_user.is_superuser and remove_orphan_cliente):
         crud_cliente.delete_cliente(db, db_cliente)
-        return {"detail": "Cliente removido globalmente"}
+        return {"detail": "Cliente removido"}
 
     # Caso padrão: deletar apenas a associação empresa_cliente
     try:
