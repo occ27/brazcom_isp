@@ -31,6 +31,7 @@ _API_BASE = {
 
 # Cache de tokens em memória
 _token_cache: Dict[int, tuple] = {}
+_last_auth_failure: Dict[int, float] = {}  # Cache de falhas para evitar loops de 429
 
 TIPO_TITULO = {
     'DM': 2,   # Duplicata Mercantil
@@ -101,6 +102,12 @@ def _nosso_numero_seq(nosso_numero_raw: str, convenio: str) -> str:
 def get_access_token(bank_account_id: int, client_id: str, client_secret: str,
                       app_key: str, sandbox: bool = True, company=None) -> str:
     now = time.time()
+    
+    # Se falhou nos últimos 30 segundos, não tenta de novo para não agravar 429
+    last_fail = _last_auth_failure.get(bank_account_id, 0)
+    if now - last_fail < 30:
+        raise ValueError('Autenticação BB temporariamente bloqueada após falha recente. Aguarde 30 segundos.')
+
     cached = _token_cache.get(bank_account_id)
     if cached:
         token, expires_at = cached
@@ -125,10 +132,21 @@ def get_access_token(bank_account_id: int, client_id: str, client_secret: str,
                 auth=(client_id, client_secret),
                 headers=headers,
             )
+        
+        if resp.status_code == 429:
+            _last_auth_failure[bank_account_id] = now
+            raise ValueError('Limite de taxa (429) excedido no Banco do Brasil. Aguarde alguns minutos (Cloudflare Error 1015).')
+            
         resp.raise_for_status()
+        
     except httpx.HTTPStatusError as exc:
-        logger.error(f'BB OAuth erro HTTP {exc.response.status_code}: {exc.response.text}')
-        raise ValueError(f'Falha na autenticação BB ({exc.response.status_code}): {exc.response.text}')
+        _last_auth_failure[bank_account_id] = now
+        error_text = exc.response.text
+        if "Cloudflare" in error_text or "1015" in error_text:
+            error_text = "Bloqueio de segurança Cloudflare (Rate Limit). Verifique se o IP do servidor não está bloqueado no BB ou se você está usando credenciais de Sandbox em Produção."
+        
+        logger.error(f'BB OAuth erro HTTP {exc.response.status_code}: {error_text}')
+        raise ValueError(f'Falha na autenticação BB ({exc.response.status_code}): {error_text}')
     except Exception as exc:
         logger.error(f'BB OAuth erro: {str(exc)}')
         raise ValueError(f'Falha na conexão com BB: {str(exc)}')
@@ -137,6 +155,8 @@ def get_access_token(bank_account_id: int, client_id: str, client_secret: str,
     token = data.get('access_token', '')
     expires_in = int(data.get('expires_in', 600))
     _token_cache[bank_account_id] = (token, now + expires_in)
+    # Limpa falha anterior se teve sucesso
+    _last_auth_failure.pop(bank_account_id, None)
     return token
 
 def registrar_boleto(

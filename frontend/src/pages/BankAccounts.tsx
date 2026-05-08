@@ -202,6 +202,7 @@ const BankAccounts: React.FC = () => {
 
   const handleRegisterBB = async () => {
     if (!activeCompany || !selectedAccount || selectedBoletoIds.length === 0) return;
+    setBoletoLoading(true);
     try {
       const res = await bankAccountService.registerBoletosApi(activeCompany.id, selectedAccount as number, selectedBoletoIds);
       const successCount = res.results.filter((r: any) => r.ok).length;
@@ -219,8 +220,11 @@ const BankAccounts: React.FC = () => {
         });
       }
       loadBoletos();
+      setSelectedBoletoIds([]);
     } catch (e) {
       setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao registrar boletos no BB', severity: 'error' });
+    } finally {
+      setBoletoLoading(false);
     }
   };
 
@@ -418,9 +422,9 @@ const BankAccounts: React.FC = () => {
                   color="secondary"
                   startIcon={<CloudIcon className="w-4 h-4" />}
                   onClick={handleRegisterBB}
-                  disabled={selectedBoletoIds.length === 0}
+                  disabled={selectedBoletoIds.length === 0 || boletoLoading}
                 >
-                  Registrar via API BB ({selectedBoletoIds.length})
+                  {boletoLoading ? <CircularProgress size={20} color="inherit" /> : `Registrar via API BB (${selectedBoletoIds.length})`}
                 </Button>
               )}
             </Box>
