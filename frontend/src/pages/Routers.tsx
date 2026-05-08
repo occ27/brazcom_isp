@@ -35,7 +35,7 @@ import {
   TrashIcon,
   ServerIcon
 } from '@heroicons/react/24/outline';
-import { SettingsEthernet as InterfaceIcon } from '@mui/icons-material';
+import { SettingsEthernet as InterfaceIcon, Block as BlockIcon, Bolt as BoltIcon } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
 import { routerService, RouterCreate, RouterUpdate } from '../services/routerService';
@@ -231,6 +231,32 @@ const Routers: React.FC = () => {
     }
   };
 
+  const handleSetupSuspension = async (router: Router) => {
+    if (!window.confirm(`Deseja configurar AUTOMATICAMENTE o sistema de suspensão (Proxy, NAT e Firewall) no roteador "${router.nome}"? Isso irá criar as regras necessárias para o redirecionamento dos clientes bloqueados.`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await routerService.setupSuspension(router.id);
+      setSnackbar({
+        open: true,
+        message: 'Sistema de suspensão configurado com sucesso!',
+        severity: 'success'
+      });
+      console.log('Resultados da configuração:', response.details);
+    } catch (error) {
+      console.error('Erro ao configurar sistema de suspensão:', error);
+      setSnackbar({
+        open: true,
+        message: 'Erro ao configurar sistema de suspensão: ' + stringifyError(error),
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
@@ -301,6 +327,14 @@ const Routers: React.FC = () => {
                     />
                   </TableCell>
                   <TableCell>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleSetupSuspension(router)}
+                      title="Configurar Sistema de Suspensão"
+                      sx={{ color: '#f59e0b' }} // Amarelo/Laranja para atenção
+                    >
+                      <BoltIcon />
+                    </IconButton>
                     <IconButton
                       size="small"
                       onClick={() => navigate(`/routers/${router.id}/interfaces`)}

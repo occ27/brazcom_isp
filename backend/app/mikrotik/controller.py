@@ -566,9 +566,13 @@ class MikrotikController:
             
             existing_dns = [r for r in all_rules if r.get('comment') == 'DNS_BLOQUEADOS']
             if not existing_dns:
-                try:
-                    resource.add(place_before='0', **dns_rule)
-                except Exception:
+                if all_rules:
+                    first_id = all_rules[0].get('.id') or all_rules[0].get('id')
+                    if first_id:
+                        resource.add(place_before=first_id, **dns_rule)
+                    else:
+                        resource.add(**dns_rule)
+                else:
                     resource.add(**dns_rule)
             else:
                 rid = existing_dns[0].get('.id') or existing_dns[0].get('id')
@@ -584,10 +588,17 @@ class MikrotikController:
             
             existing_block = [r for r in all_rules if r.get('comment') == 'BLOQUEIO_GERAL_PG_CORTE']
             if not existing_block:
-                try:
-                    # Tenta adicionar após o DNS ou no topo
-                    resource.add(**block_rule)
-                except Exception:
+                # Se já tivermos o ID do DNS que acabamos de criar/atualizar,
+                # idealmente colocamos o drop logo DEPOIS dele, mas como não
+                # temos uma API simples de 'place_after', vamos colocá-lo
+                # logo abaixo da primeira regra atual (ou seja, index 1 se existir)
+                if len(all_rules) > 1:
+                    second_id = all_rules[1].get('.id') or all_rules[1].get('id')
+                    if second_id:
+                        resource.add(place_before=second_id, **block_rule)
+                    else:
+                        resource.add(**block_rule)
+                else:
                     resource.add(**block_rule)
             else:
                 rid = existing_block[0].get('.id') or existing_block[0].get('id')
@@ -595,6 +606,90 @@ class MikrotikController:
                 
         except Exception as e:
             logger.error(f"Erro ao configurar Firewall Filter: {e}")
+
+    def setup_full_suspension_system(self, suspension_url: str):
+        """
+        Executa a configuração completa do sistema de suspensão na RB:
+        1. Habilita Web Proxy
+        2. Configura regra de redirecionamento no Proxy Access (v7 compatible)
+        3. Configura regra de NAT (DST-NAT)
+        4. Configura regras de Firewall Filter (Bloqueio)
+        """
+        self.connect()
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        results = []
+
+        try:
+            # 1. Habilitar Web Proxy
+            proxy = self._api.get_resource('ip/proxy')
+            proxy.set(enabled='yes', port='8080')
+            results.append("Web Proxy habilitado na porta 8080.")
+        except Exception as e:
+            results.append(f"Erro ao habilitar Web Proxy: {e}")
+
+        try:
+            # 2. Configurar Redirecionamento no Proxy Access
+            proxy = self._api.get_resource('ip/proxy/access')
+            
+            # Remove se ja existir
+            for rule in proxy.get():
+                if rule.get('comment') == 'REDIRECIONAMENTO_SUSPENSAO':
+                    rid = rule.get('.id') or rule.get('id')
+                    if rid: proxy.remove(id=rid)
+            
+            # Tenta adicionar usando sintaxe moderna (action=deny, redirect-to=...)
+            try:
+                proxy.add(action='deny', **{'redirect-to': suspension_url}, comment='REDIRECIONAMENTO_SUSPENSAO')
+            except Exception:
+                # Fallback para sintaxe legada (RB433AH antigas etc: action=redirect, action-data=...)
+                proxy.add(action='redirect', **{'action-data': suspension_url}, comment='REDIRECIONAMENTO_SUSPENSAO')
+                
+            results.append(f"Regra de redirecionamento configurada para: {suspension_url}")
+        except Exception as e:
+            results.append(f"Erro ao configurar Redirecionamento Proxy: {e}")
+
+        try:
+            # 3. Configurar NAT
+            nat = self._api.get_resource('ip/firewall/nat')
+            all_nat = nat.get()
+            
+            nat_rule = {
+                'chain': 'dstnat',
+                'protocol': 'tcp',
+                'dst-port': '80',
+                'src-address-list': 'pg_corte',
+                'action': 'redirect',
+                'to-ports': '8080',
+                'comment': 'NAT_PROXY_SUSPENSAO'
+            }
+            
+            existing_nat = [r for r in all_nat if r.get('comment') == 'NAT_PROXY_SUSPENSAO']
+            if not existing_nat:
+                if all_nat:
+                    first_id = all_nat[0].get('.id') or all_nat[0].get('id')
+                    if first_id:
+                        nat.add(place_before=first_id, **nat_rule)
+                    else:
+                        nat.add(**nat_rule)
+                else:
+                    nat.add(**nat_rule)
+            else:
+                rid = existing_nat[0].get('.id') or existing_nat[0].get('id')
+                nat.set(id=rid, **nat_rule)
+            results.append("Regra de NAT (DST-NAT) configurada.")
+        except Exception as e:
+            results.append(f"Erro ao configurar NAT: {e}")
+
+        try:
+            # 4. Configurar Firewall Filter
+            self.setup_suspension_firewall_rules()
+            results.append("Regras de Firewall Filter configuradas.")
+        except Exception as e:
+            results.append(f"Erro ao configurar Firewall: {e}")
+
+        return results
 
     def remove_from_address_list(self, address: str, list_name: str):
         """Remove um IP de uma Address List."""

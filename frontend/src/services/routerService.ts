@@ -84,4 +84,10 @@ export const routerService = {
     const response = await api.get(`/routers/?empresa_id=${empresaId}`);
     return response.data;
   },
+
+  // Configurar Sistema de Suspensão (Proxy/NAT/Firewall)
+  setupSuspension: async (routerId: number): Promise<any> => {
+    const response = await api.post(`/routers/${routerId}/setup-suspension/`);
+    return response.data;
+  },
 };
