@@ -40,7 +40,7 @@ export interface BankAccount {
 }
 
 const listBankAccounts = async (empresaId: number, signal?: AbortSignal): Promise<BankAccount[]> => {
-  const resp = await api.get(`/empresas/${empresaId}/bank-accounts`, { signal });
+  const resp = await api.get(`/empresas/${empresaId}/bank-accounts/`, { signal });
   return resp.data;
 };
 
@@ -50,7 +50,7 @@ const listSupportedBanks = async (empresaId: number) => {
 };
 
 const createBankAccount = async (empresaId: number, payload: Partial<BankAccount>) => {
-  const resp = await api.post(`/empresas/${empresaId}/bank-accounts`, payload);
+  const resp = await api.post(`/empresas/${empresaId}/bank-accounts/`, payload);
   return resp.data;
 };
 

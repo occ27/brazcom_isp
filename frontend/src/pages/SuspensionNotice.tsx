@@ -37,7 +37,7 @@ const SuspensionNotice: React.FC = () => {
     const fetchInfo = async () => {
       try {
         // Busca informações da empresa e tenta identificar cliente pelo IP
-        const response = await axios.get(`${API_BASE_URL}/servicos-contratados/public/aviso/empresa/${empresaId}`);
+        const response = await axios.get(`/servicos-contratados/public/aviso/empresa/${empresaId}`);
         setInfo(response.data);
       } catch (error) {
         console.error('Erro ao buscar informações:', error);
@@ -124,7 +124,7 @@ const SuspensionNotice: React.FC = () => {
             <Box mb={4} sx={{ display: 'flex', justifyContent: 'center' }}>
               {info?.empresa_logo ? (
                 <img 
-                  src={info.empresa_logo.startsWith('http') ? info.empresa_logo : `${API_BASE_URL.replace(/\/api$/, '').replace(/\/$/, '')}${info.empresa_logo}`} 
+                  src={info.empresa_logo.startsWith('http') ? info.empresa_logo : `${API_BASE_URL}${info.empresa_logo}`} 
                   alt={info.empresa_fantasia} 
                   style={{ maxHeight: '70px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }} 
                 />

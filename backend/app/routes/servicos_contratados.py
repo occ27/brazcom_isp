@@ -22,7 +22,13 @@ def get_public_suspension_notice_by_empresa(empresa_id: int, request: Request, d
     if not empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
     
-    client_ip = request.client.host
+    # Tenta obter o IP real do cliente (atrás de proxy)
+    client_ip = request.headers.get("X-Forwarded-For")
+    if client_ip:
+        client_ip = client_ip.split(",")[0].strip()
+    else:
+        client_ip = request.headers.get("X-Real-IP") or request.client.host
+        
     logger.info(f"Requisição de aviso de suspensão para empresa {empresa_id} vinda do IP {client_ip}")
     
     # Tenta encontrar o contrato vinculado a este IP nesta empresa
