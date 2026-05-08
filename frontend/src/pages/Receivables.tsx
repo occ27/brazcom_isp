@@ -191,6 +191,7 @@ const Receivables: React.FC = () => {
   };
 
   const handleCreateManual = async () => {
+    if (!activeCompany) return;
     try {
       await receivableService.createReceivable({
         ...formData,
