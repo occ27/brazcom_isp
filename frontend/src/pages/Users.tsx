@@ -186,7 +186,8 @@ const Users: React.FC = () => {
       nome: '',
       email: '',
       password: '',
-      is_superuser: false
+      is_superuser: false,
+      is_admin: false
     });
   };
 
