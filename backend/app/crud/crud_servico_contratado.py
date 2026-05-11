@@ -2,11 +2,124 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_
 from fastapi import HTTPException, status
 from datetime import datetime, date
+from typing import Optional
 from app.models import models
 from app.schemas import servico_contratado as sc_schema
 from app.crud import crud_servico
 import unicodedata
 import re
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def _sync_radius(contrato: models.ServicoContratado, radius_db, action: str = "sync") -> None:
+    """
+    Sincroniza o contrato com o FreeRadius, se for um contrato PPPoE.
+
+    No bloqueio (action='disable'), além de inserir Auth-Type=Reject no FreeRadius,
+    derruba IMEDIATAMENTE a sessão PPPoE ativa na Mikrotik via /ppp/active.
+
+    Args:
+        contrato: O objeto ServicoContratado.
+        radius_db: Sessão do banco do FreeRadius (pode ser None, neste caso não sincroniza).
+        action: 'sync' para criar/atualizar, 'disable' para suspender, 'delete' para remover.
+    """
+    if not radius_db:
+        return
+    if not contrato.pppoe_username:
+        return  # Contrato não é PPPoE/Radius, nada a fazer
+
+    try:
+        from app.services.radius_sync_service import RadiusSyncService
+        sync = RadiusSyncService(radius_db)
+
+        if action == "delete":
+            sync.delete_user(contrato.pppoe_username)
+            logger.info(f"[RadiusSync] Contrato {contrato.id}: usuário '{contrato.pppoe_username}' removido do FreeRadius.")
+            # Também derruba a sessão ativa se houver
+            _kick_mikrotik_session(contrato)
+
+        elif action == "disable":
+            # 1. Bloqueia no FreeRadius (rejeita futuras reconexões)
+            sync.disable_user(contrato.pppoe_username)
+            logger.info(f"[RadiusSync] Contrato {contrato.id}: usuário '{contrato.pppoe_username}' BLOQUEADO no FreeRadius.")
+
+            # 2. Derruba a sessão ativa IMEDIATAMENTE na Mikrotik
+            _kick_mikrotik_session(contrato)
+
+        else:  # sync (create ou update)
+            rate_limit = None
+            if contrato.velocidade_garantida:
+                rate_limit = contrato.velocidade_garantida
+
+            sync.sync_user(
+                username=contrato.pppoe_username,
+                password=contrato.pppoe_password or "",
+                rate_limit=rate_limit,
+                ip_fixo=contrato.assigned_ip,
+            )
+            logger.info(f"[RadiusSync] Contrato {contrato.id}: usuário '{contrato.pppoe_username}' sincronizado (rate={rate_limit}).")
+
+    except Exception as e:
+        logger.error(f"[RadiusSync] Erro ao sincronizar contrato {contrato.id} com FreeRadius: {e}")
+
+
+def _kick_mikrotik_session(contrato: models.ServicoContratado) -> None:
+    """
+    Derruba imediatamente a sessão PPPoE ativa do cliente na Mikrotik.
+
+    Conecta ao router associado ao contrato e remove a entrada em /ppp/active,
+    causando desconexão instantânea. Falhas aqui são logadas mas não propagadas
+    (o bloqueio no FreeRadius já garante que o cliente não reconecta).
+    """
+    if not contrato.router_id:
+        logger.warning(f"[KickSession] Contrato {contrato.id} sem router_id — sessão não encerrada na Mikrotik.")
+        return
+
+    try:
+        from app.core.database import SessionLocal
+        from app.crud import crud_router
+        from app.mikrotik.controller import MikrotikController
+        from app.core.security import decrypt_password
+
+        db = SessionLocal()
+        try:
+            router_db = crud_router.get_router(db, router_id=contrato.router_id, empresa_id=contrato.empresa_id)
+            if not router_db:
+                logger.warning(f"[KickSession] Router {contrato.router_id} não encontrado para contrato {contrato.id}.")
+                return
+
+            try:
+                password = decrypt_password(router_db.senha) if router_db.senha else ""
+            except Exception:
+                password = router_db.senha or ""
+
+            mk = MikrotikController(
+                host=router_db.ip,
+                username=router_db.usuario,
+                password=password,
+                port=router_db.porta or 8728
+            )
+
+            kicked = mk.disconnect_pppoe_active(contrato.pppoe_username)
+            if kicked:
+                logger.info(f"[KickSession] Contrato {contrato.id}: cliente '{contrato.pppoe_username}' DESCONECTADO imediatamente da Mikrotik {router_db.ip}.")
+            else:
+                logger.info(f"[KickSession] Contrato {contrato.id}: '{contrato.pppoe_username}' não tinha sessão ativa na Mikrotik (já estava offline).")
+
+            try:
+                mk.close()
+            except Exception:
+                pass
+
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.error(f"[KickSession] Erro ao encerrar sessão na Mikrotik para contrato {contrato.id}: {e}")
+        # Não propaga — o bloqueio no FreeRadius já está ativo
+
 
 
 MAX_LIMIT = 200
@@ -262,7 +375,13 @@ def count_servicos_contratados_by_empresa(db: Session, empresa_id: int = None, q
     return q.count()
 
 
-def create_servico_contratado(db: Session, contrato_in: sc_schema.ServicoContratadoCreate, empresa_id: int = None, created_by_user_id: int = None):
+def create_servico_contratado(
+    db: Session,
+    contrato_in: sc_schema.ServicoContratadoCreate,
+    empresa_id: int = None,
+    created_by_user_id: int = None,
+    radius_db=None
+):
     data = contrato_in.model_dump()
     if empresa_id is not None:
         data['empresa_id'] = empresa_id
@@ -363,10 +482,20 @@ def create_servico_contratado(db: Session, contrato_in: sc_schema.ServicoContrat
     db.add(db_obj)
     db.commit()
     db.refresh(db_obj)
+
+    # Sincroniza com FreeRadius se for contrato PPPoE e estiver ATIVO
+    if db_obj.status == models.StatusContrato.ATIVO:
+        _sync_radius(db_obj, radius_db, action="sync")
+
     return db_obj
 
 
-def update_servico_contratado(db: Session, db_obj: models.ServicoContratado, obj_in: sc_schema.ServicoContratadoUpdate):
+def update_servico_contratado(
+    db: Session,
+    db_obj: models.ServicoContratado,
+    obj_in: sc_schema.ServicoContratadoUpdate,
+    radius_db=None
+):
     update_data = obj_in.model_dump(exclude_unset=True)
     
     # Validação: cliente_id (se fornecido, deve existir)
@@ -456,10 +585,21 @@ def update_servico_contratado(db: Session, db_obj: models.ServicoContratado, obj
     db.add(db_obj)
     db.commit()
     db.refresh(db_obj)
+
+    # Sincroniza com FreeRadius de acordo com o novo status do contrato
+    novo_status = getattr(db_obj, 'status', None)
+    if novo_status in (models.StatusContrato.SUSPENSO, models.StatusContrato.CANCELADO):
+        _sync_radius(db_obj, radius_db, action="disable")
+    elif novo_status == models.StatusContrato.ATIVO:
+        _sync_radius(db_obj, radius_db, action="sync")
+
     return db_obj
 
 
-def delete_servico_contratado(db: Session, db_obj: models.ServicoContratado):
+def delete_servico_contratado(db: Session, db_obj: models.ServicoContratado, radius_db=None):
+    # Remove do FreeRadius antes de deletar do banco
+    _sync_radius(db_obj, radius_db, action="delete")
+
     db.delete(db_obj)
     db.commit()
 

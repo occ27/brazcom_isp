@@ -3,6 +3,7 @@ from typing import List
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.radius_db import get_radius_db
 from app.routes.auth import get_current_active_user
 from app.api import deps
 from app.models.models import Usuario, Empresa, ServicoContratado
@@ -81,18 +82,23 @@ def get_contrato(contrato_id: int, db: Session = Depends(get_db), current_user: 
 
 
 @router.put("/{contrato_id}", response_model=sc_schema.ServicoContratadoResponse)
-def update_contrato(contrato_id: int, contrato_in: sc_schema.ServicoContratadoUpdate, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+def update_contrato(
+    contrato_id: int,
+    contrato_in: sc_schema.ServicoContratadoUpdate,
+    db: Session = Depends(get_db),
+    radius_db: Session = Depends(get_radius_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
     c = crud_servico_contratado.get_servico_contratado(db, contrato_id=contrato_id)
     if not c:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
-    # permission check
     deps.permission_checker('contract_manage')(db=db, current_user=current_user)
 
     if c.empresa_id:
         user_empresas_ids = [e.empresa_id for e in current_user.empresas]
         if c.empresa_id not in user_empresas_ids and not current_user.is_superuser:
             raise HTTPException(status_code=403, detail="Usuário não tem permissão")
-    updated = crud_servico_contratado.update_servico_contratado(db, db_obj=c, obj_in=contrato_in)
+    updated = crud_servico_contratado.update_servico_contratado(db, db_obj=c, obj_in=contrato_in, radius_db=radius_db)
     return updated
 
 
@@ -153,18 +159,25 @@ def list_contratos_cliente(cliente_id: int, empresa_id: int = None, db: Session 
 
 # Company-scoped endpoints (also available under /empresas/{empresa_id}/servicos-contratados)
 @router.post("/empresa/{empresa_id}", response_model=sc_schema.ServicoContratadoResponse, status_code=status.HTTP_201_CREATED)
-def create_contrato_for_empresa(empresa_id: int, contrato: sc_schema.ServicoContratadoCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
-    # check permission
+def create_contrato_for_empresa(
+    empresa_id: int,
+    contrato: sc_schema.ServicoContratadoCreate,
+    db: Session = Depends(get_db),
+    radius_db: Session = Depends(get_radius_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
     db_empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
     if not db_empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
-    # Backend-level permission: require contract_manage
     deps.permission_checker('contract_manage')(db=db, current_user=current_user)
 
     user_empresas_ids = [e.empresa_id for e in current_user.empresas]
     if not current_user.is_superuser and empresa_id not in user_empresas_ids:
         raise HTTPException(status_code=403, detail="Usuário não tem permissão")
-    c = crud_servico_contratado.create_servico_contratado(db, contrato_in=contrato, empresa_id=empresa_id, created_by_user_id=current_user.id)
+    c = crud_servico_contratado.create_servico_contratado(
+        db, contrato_in=contrato, empresa_id=empresa_id,
+        created_by_user_id=current_user.id, radius_db=radius_db
+    )
     return c
 
 
@@ -183,11 +196,17 @@ def list_contratos_empresa(empresa_id: int, q: str = None, skip: int = 0, limit:
 
 
 @router.put("/empresa/{empresa_id}/{contrato_id}", response_model=sc_schema.ServicoContratadoResponse)
-def update_contrato_for_empresa(empresa_id: int, contrato_id: int, contrato_in: sc_schema.ServicoContratadoUpdate, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+def update_contrato_for_empresa(
+    empresa_id: int,
+    contrato_id: int,
+    contrato_in: sc_schema.ServicoContratadoUpdate,
+    db: Session = Depends(get_db),
+    radius_db: Session = Depends(get_radius_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
     db_empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
     if not db_empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
-    # Backend-level permission: require contract_manage
     deps.permission_checker('contract_manage')(db=db, current_user=current_user)
 
     user_empresas_ids = [e.empresa_id for e in current_user.empresas]
@@ -196,7 +215,7 @@ def update_contrato_for_empresa(empresa_id: int, contrato_id: int, contrato_in: 
     db_obj = crud_servico_contratado.get_servico_contratado(db, contrato_id=contrato_id, empresa_id=empresa_id)
     if not db_obj:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
-    updated = crud_servico_contratado.update_servico_contratado(db, db_obj=db_obj, obj_in=contrato_in)
+    updated = crud_servico_contratado.update_servico_contratado(db, db_obj=db_obj, obj_in=contrato_in, radius_db=radius_db)
     return updated
 
 
@@ -329,7 +348,7 @@ def delete_contrato_for_empresa(empresa_id: int, contrato_id: int, db: Session =
 
     # Excluir o contrato do banco de dados
     try:
-        crud_servico_contratado.delete_servico_contratado(db, db_obj=db_contrato)
+        crud_servico_contratado.delete_servico_contratado(db, db_obj=db_contrato, radius_db=None)
         logger.info(f"Contrato {contrato_id} excluído com sucesso da empresa {empresa_id}")
     except Exception as db_exc:
         logger.error(f"Erro ao excluir contrato do banco: {str(db_exc)}")

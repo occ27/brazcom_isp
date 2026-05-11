@@ -1,12 +1,21 @@
+# pyrefly: ignore [missing-import]
 from pydantic_settings import BaseSettings
 from typing import List
 import os
 
 class Settings(BaseSettings):
-    # Database
+    # Database principal (Brazcom ISP)
     # Padrão para desenvolvimento local: MySQL na porta 3306
     # Em produção (Docker), será sobrescrito via .env com db:3306
     DATABASE_URL: str = "mysql+pymysql://occ:Altavista740@localhost:3306/brazcom_db"
+
+    # Banco do FreeRadius (MySQL Docker porta 3315)
+    # O FreeRadius lê radcheck/radreply deste banco para autenticar clientes PPPoE
+    RADIUS_DB_HOST: str = "127.0.0.1"
+    RADIUS_DB_PORT: int = 3315
+    RADIUS_DB_NAME: str = "radius"
+    RADIUS_DB_USER: str = "radius"
+    RADIUS_DB_PASSWORD: str = "SenhaRadius@2026"
 
     # Security
     SECRET_KEY: str = "a_very_secret_key_change_in_production"

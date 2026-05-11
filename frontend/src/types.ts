@@ -17,7 +17,9 @@ export type PageType =
   | 'ip-classes'
   | 'pppoe'
   | 'dhcp'
+  | 'radius-nas'
   | 'settings';
+
 
 export interface User {
   id: number;

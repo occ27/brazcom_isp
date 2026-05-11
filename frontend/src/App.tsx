@@ -23,6 +23,7 @@ import RouterInterfaces from './pages/RouterInterfaces';
 import IPClasses from './pages/IPClasses';
 import PPPoE from './pages/PPPoE';
 import DHCP from './pages/DHCP';
+import RadiusNAS from './pages/RadiusNAS';
 import BankAccounts from './pages/BankAccounts';
 import Receivables from './pages/Receivables';
 import Tickets from './pages/Tickets';
@@ -169,6 +170,7 @@ const AuthenticatedApp: React.FC<{ children: React.ReactNode }> = ({ children })
     if (path === '/ip-classes') return 'ip-classes';
     if (path === '/pppoe') return 'pppoe';
     if (path === '/dhcp') return 'dhcp';
+    if (path === '/radius-nas') return 'radius-nas';
     if (path === '/profile') return 'profile';
     return 'dashboard';
   };
@@ -191,6 +193,7 @@ const AuthenticatedApp: React.FC<{ children: React.ReactNode }> = ({ children })
     else if (page === 'ip-classes') navigate('/ip-classes');
     else if (page === 'pppoe') navigate('/pppoe');
     else if (page === 'dhcp') navigate('/dhcp');
+    else if (page === 'radius-nas') navigate('/radius-nas');
     else if (page === 'profile') navigate('/profile');
   };
 
@@ -424,6 +427,16 @@ const AppContent: React.FC = () => {
           <ProtectedRoute>
             <AuthenticatedApp>
               <DHCP />
+            </AuthenticatedApp>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/radius-nas"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedApp>
+              <RadiusNAS />
             </AuthenticatedApp>
           </ProtectedRoute>
         }

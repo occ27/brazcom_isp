@@ -898,7 +898,37 @@ class MikrotikController:
 
         return resource.add(**data)
 
+    def disconnect_pppoe_active(self, username: str) -> bool:
+        """
+        Derruba IMEDIATAMENTE a sessão PPPoE ativa de um usuário.
+
+        Remove a entrada em /ppp/active, o que força a Mikrotik a encerrar
+        o túnel PPPoE instantaneamente. O cliente perde a internet no mesmo
+        instante, sem esperar pelo keepalive timeout.
+
+        Args:
+            username: Login PPPoE do cliente (ex: 'joao.silva').
+
+        Returns:
+            True se a sessão foi encerrada, False se o usuário não estava conectado.
+        """
+        self.connect()
+        disconnected = False
+        try:
+            active_resource = self._api.get_resource('ppp/active')
+            actives = active_resource.get(name=username)
+            for session in actives:
+                sid = session.get('.id') or session.get('id')
+                if sid:
+                    active_resource.remove(id=sid)
+                    disconnected = True
+                    logger.info(f"[Mikrotik] Sessão PPPoE ativa de '{username}' (id={sid}) encerrada imediatamente.")
+        except Exception as e:
+            logger.error(f"[Mikrotik] Erro ao encerrar sessão PPPoE ativa de '{username}': {e}")
+        return disconnected
+
     def reset_pppoe_connection(self, username: str):
+
         """Reseta conexão PPPoE ativa atualizando o secret."""
         self.connect()
         secret_resource = self._api.get_resource('ppp/secret')
