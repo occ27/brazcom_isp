@@ -407,6 +407,39 @@ class RadiusSyncService:
             logger.error(f"[NAS] Erro ao buscar NAS id={nas_id}: {e}")
             return None
 
+    def get_nas_client_by_ip(self, ip: str) -> Optional[Dict[str, Any]]:
+        """
+        Busca um cliente NAS pelo seu endereço IP (nasname).
+
+        Args:
+            ip: Endereço IP do roteador (nasname).
+
+        Returns:
+            Dicionário com dados do NAS ou None se não encontrado.
+        """
+        try:
+            row = self.db.execute(
+                text("SELECT id, nasname, shortname, type, ports, secret, server, community, description FROM nas WHERE nasname = :ip"),
+                {"ip": ip}
+            ).fetchone()
+            if not row:
+                return None
+            return {
+                "id": row.id,
+                "nasname": row.nasname,
+                "shortname": row.shortname,
+                "type": row.type or "other",
+                "ports": row.ports,
+                "secret": row.secret,
+                "server": row.server,
+                "community": row.community,
+                "description": row.description,
+            }
+        except Exception as e:
+            logger.error(f"[NAS] Erro ao buscar NAS pelo IP {ip}: {e}")
+            return None
+
+
     def create_nas_client(
         self,
         nasname: str,

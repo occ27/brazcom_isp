@@ -15,7 +15,9 @@ import {
   VisibilityOff as VisibilityOffIcon,
   Lock as LockIcon,
   CheckCircle as CheckCircleIcon,
-  Warning as WarningIcon
+  Warning as WarningIcon,
+  FlashOn as ProvisionIcon,
+  Info as InfoIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 import { useAuth } from '../contexts/AuthContext';
@@ -80,6 +82,7 @@ const nasService = {
       },
     }).then(r => r.data as NASClient),
   delete: (id: number) => api.delete(`/radius/nas/${id}`).then(r => r.data),
+  provision: (id: number) => api.post(`/radius/nas/${id}/provision`).then(r => r.data),
 };
 
 // ─── Componente ──────────────────────────────────────────────────────────────
@@ -92,6 +95,9 @@ const RadiusNASPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [provisionDialogOpen, setProvisionDialogOpen] = useState(false);
+  const [provisionResult, setProvisionResult] = useState<{ success: boolean; steps: string[]; router_nome?: string } | null>(null);
+  const [provisioning, setProvisioning] = useState(false);
   const [editingClient, setEditingClient] = useState<NASClient | null>(null);
   const [deletingClient, setDeletingClient] = useState<NASClient | null>(null);
   const [form, setForm] = useState<NASFormData>(EMPTY_FORM);
@@ -189,6 +195,27 @@ const RadiusNASPage: React.FC = () => {
 
   const toggleSecret = (id: number) =>
     setShowSecrets(prev => ({ ...prev, [id]: !prev[id] }));
+
+  const handleProvision = async (client: NASClient) => {
+    setProvisioning(true);
+    setProvisionResult(null);
+    setProvisionDialogOpen(true);
+    try {
+      const result = await nasService.provision(client.id);
+      setProvisionResult(result);
+      if (result.success) {
+        enqueueSnackbar(`Mikrotik ${client.nasname} provisionado com sucesso!`, { variant: 'success' });
+      } else {
+        enqueueSnackbar('Provisionamento concluído com erros.', { variant: 'warning' });
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || 'Erro ao provisionar Mikrotik';
+      setProvisionResult({ success: false, steps: [`❌ ${msg}`] });
+      enqueueSnackbar(msg, { variant: 'error' });
+    } finally {
+      setProvisioning(false);
+    }
+  };
 
   return (
     <Box>
@@ -312,6 +339,16 @@ const RadiusNASPage: React.FC = () => {
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
+                      <Tooltip title="Provisionar RADIUS no Mikrotik">
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => handleProvision(client)}
+                          id={`btn-provision-nas-${client.id}`}
+                        >
+                          <ProvisionIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                       <Tooltip title="Editar">
                         <IconButton size="small" onClick={() => openEdit(client)} id={`btn-edit-nas-${client.id}`}>
                           <EditIcon fontSize="small" />
@@ -444,6 +481,45 @@ const RadiusNASPage: React.FC = () => {
           >
             Remover NAS
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog resultado do provisionamento */}
+      <Dialog open={provisionDialogOpen} onClose={() => setProvisionDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ProvisionIcon color={provisionResult?.success ? 'success' : 'warning'} />
+          Provisionamento RADIUS no Mikrotik
+        </DialogTitle>
+        <DialogContent dividers>
+          {provisioning ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4, gap: 2 }}>
+              <CircularProgress />
+              <Typography color="text.secondary">Conectando ao Mikrotik e aplicando configurações...</Typography>
+            </Box>
+          ) : provisionResult ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Alert severity={provisionResult.success ? 'success' : 'warning'} icon={<InfoIcon />}>
+                {provisionResult.success
+                  ? 'Mikrotik configurado com sucesso! O RADIUS já está ativo.'
+                  : 'Provisionamento concluído com alguns erros. Verifique os passos abaixo.'}
+              </Alert>
+              {provisionResult.router_nome && (
+                <Typography variant="body2" color="text.secondary">
+                  Router: <strong>{provisionResult.router_nome}</strong>
+                </Typography>
+              )}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                {provisionResult.steps.map((step, i) => (
+                  <Typography key={i} variant="body2" fontFamily="monospace" sx={{ py: 0.5, px: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                    {step}
+                  </Typography>
+                ))}
+              </Box>
+            </Box>
+          ) : null}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setProvisionDialogOpen(false)} disabled={provisioning}>Fechar</Button>
         </DialogActions>
       </Dialog>
     </Box>

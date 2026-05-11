@@ -1,8 +1,17 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, Text, Float
+import enum
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, Text, Float, Enum as SQLAlchemyEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
+
+
+class MetodoAutenticacaoRouter(str, enum.Enum):
+    """Método de autenticação padrão configurado no roteador."""
+    RADIUS  = "RADIUS"    # FreeRadius (recomendado para ISPs)
+    PPPOE   = "PPPOE"     # PPPoE local (secrets no próprio Mikrotik)
+    HOTSPOT = "HOTSPOT"   # Hotspot local
+    IP_MAC  = "IP_MAC"    # Binding IP/MAC (sem autenticação PPP)
 
 class Router(Base):
     __tablename__ = "routers"
@@ -15,6 +24,16 @@ class Router(Base):
     tipo = Column(String(50), nullable=False)
     porta = Column(Integer, default=8728)
     is_active = Column(Boolean, default=True)
+    # Método de autenticação padrão para clientes PPPoE neste roteador
+    metodo_autenticacao_padrao = Column(
+        SQLAlchemyEnum(MetodoAutenticacaoRouter),
+        nullable=True,
+        default=None,
+        comment="Define se o roteador usa RADIUS, PPPoE local, Hotspot ou IP/MAC"
+    )
+    # Endereço do servidor RADIUS usado por este roteador (pode diferir do padrão)
+    radius_server_address = Column(String(50), nullable=True)
+    radius_secret = Column(String(255), nullable=True)  # Segredo usado neste roteador
 
     empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
     empresa = relationship("Empresa", back_populates="routers")

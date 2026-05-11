@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 
 def _sync_radius(contrato: models.ServicoContratado, radius_db, action: str = "sync") -> None:
     """
-    Sincroniza o contrato com o FreeRadius, se for um contrato PPPoE.
+    Sincroniza o contrato com o FreeRadius, se for um contrato PPPoE
+    e se o Router do contrato tiver metodo_autenticacao_padrao = RADIUS.
 
     No bloqueio (action='disable'), além de inserir Auth-Type=Reject no FreeRadius,
     derruba IMEDIATAMENTE a sessão PPPoE ativa na Mikrotik via /ppp/active.
@@ -29,6 +30,28 @@ def _sync_radius(contrato: models.ServicoContratado, radius_db, action: str = "s
         return
     if not contrato.pppoe_username:
         return  # Contrato não é PPPoE/Radius, nada a fazer
+
+    # ── Verificar se o Router está configurado para RADIUS ──────────────────
+    # Se o contrato tiver um router associado e esse router NÃO usar RADIUS,
+    # não sincronizamos — o provedor pode estar usando PPPoE local ou Hotspot.
+    if contrato.router_id:
+        try:
+            from app.core.database import SessionLocal
+            from app.crud import crud_router
+            _db = SessionLocal()
+            try:
+                router_db = crud_router.get_router(_db, router_id=contrato.router_id, empresa_id=contrato.empresa_id)
+                if router_db and router_db.metodo_autenticacao_padrao and router_db.metodo_autenticacao_padrao != "RADIUS":
+                    logger.info(
+                        f"[RadiusSync] Contrato {contrato.id}: Router '{router_db.nome}' usa "
+                        f"'{router_db.metodo_autenticacao_padrao}' (não RADIUS) — sync ignorado."
+                    )
+                    return
+            finally:
+                _db.close()
+        except Exception as e:
+            logger.warning(f"[RadiusSync] Não foi possível verificar método do router para contrato {contrato.id}: {e}")
+    # ─────────────────────────────────────────────────────────────────────────
 
     try:
         from app.services.radius_sync_service import RadiusSyncService
@@ -63,6 +86,7 @@ def _sync_radius(contrato: models.ServicoContratado, radius_db, action: str = "s
 
     except Exception as e:
         logger.error(f"[RadiusSync] Erro ao sincronizar contrato {contrato.id} com FreeRadius: {e}")
+
 
 
 def _kick_mikrotik_session(contrato: models.ServicoContratado) -> None:

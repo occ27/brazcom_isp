@@ -1,69 +1,0 @@
-spawn ssh -o StrictHostKeyChecking=no -o PreferredAuthentications=password -o PubkeyAuthentication=no admin@192.168.18.101
-admin@192.168.18.101's password: 
-[9999B[9999BZ  [6n
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  MMM      MMM       KKK                          TTTTTTTTTTT      KKK
-  MMMM    MMMM       KKK                          TTTTTTTTTTT      KKK
-  MMM MMMM MMM  III  KKK  KKK  RRRRRR     OOOOOO      TTT     III  KKK  KKK
-  MMM  MM  MMM  III  KKKKK     RRR  RRR  OOO  OOO     TTT     III  KKKKK
-  MMM      MMM  III  KKK KKK   RRRRRR    OOO  OOO     TTT     III  KKK KKK
-  MMM      MMM  III  KKK  KKK  RRR  RRR   OOOOOO      TTT     III  KKK  KKK
-
-  MikroTik RouterOS 7.20.4 (c) 1999-2025       https://www.mikrotik.com/
-
-
-Press F1 for help
-
-
-[admin@MikroTik] >                                                             [admin@MikroTik] > /ip dhcp-server print[admin@MikroTik] > /ip dhcp-server print
-Columns: NAME, INTERFACE, ADDRESS-POOL, LEASE-TIME
-# NAME             INTERFACE  ADDRESS-POOL  LEASE-TIME
-0 server_clientes  ether2     static-only   30m       
-[admin@MikroTik] >                                                             [admin@MikroTik] > /ip dhcp-server lease print[admin@MikroTik] > /ip dhcp-server lease print
-
-[admin@MikroTik] >                                                             [admin@MikroTik] > /ip address print[admin@MikroTik] > /ip address print
-Columns: ADDRESS, NETWORK, INTERFACE
-# ADDRESS            NETWORK       INTERFACE
-0 192.168.18.101/24  192.168.18.0  ether1   
-1 192.168.10.1/24    192.168.10.0  ether2   
-[admin@MikroTik] >                                                             [admin@MikroTik] > /interface print[admin@MikroTik] > /interface print
-Flags: R - RUNNING
-Columns: NAME, TYPE, ACTUAL-MTU, L2MTU, MAX-L2MTU, MAC-ADDRESS
-#   NAME    TYPE      ACTUAL-MTU  L2MTU  MAX-L2MTU  MAC-ADDRESS      
-0 R ether1  ether           1500   1526             D4:CA:6D:57:F1:2E
-1 R ether2  ether           1500   1522       1522  D4:CA:6D:57:F1:2F
-2   ether3  ether           1500   1522       1522  D4:CA:6D:57:F1:30
-3 R lo      loopback       65536                    00:00:00:00:00:00
-[admin@MikroTik] >                                                             [admin@MikroTik] > /ip firewall nat print[admin@MikroTik] > /ip firewall nat print
-Flags: X - disabled, I - invalid; D - dynamic 
- 0    ;;; NAT_PROXY_SUSPENSAO
-      chain=dstnat action=redirect to-ports=8080 protocol=tcp 
-      src-address-list=pg_corte dst-port=80 
-
- 1    chain=srcnat action=masquerade out-interface=ether1 
-[admin@MikroTik] >                                                             [admin@MikroTik] > quit[admin@MikroTik] > quit
-interrupted
-78Connection to 192.168.18.101 closed.

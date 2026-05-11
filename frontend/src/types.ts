@@ -135,11 +135,14 @@ export interface Router {
   usuario: string;
   tipo: 'mikrotik' | 'cisco' | 'ubiquiti' | 'outro';
   is_active: boolean;
+  metodo_autenticacao_padrao?: 'RADIUS' | 'PPPOE' | 'HOTSPOT' | 'IP_MAC' | null;
+  radius_server_address?: string | null;
   created_at: string;
   updated_at?: string;
   empresa?: Company;
   interfaces?: RouterInterface[];
 }
+
 
 export interface RouterInterface {
   id: number;

@@ -398,39 +398,133 @@ def update_nas_client(
     if not nas:
         raise HTTPException(status_code=404, detail="Cliente NAS não encontrado")
 
-    success = sync.update_nas_client(
-        nas_id=nas_id,
-        nasname=nasname,
-        secret=secret,
-        shortname=shortname,
-        nas_type=nas_type,
-        description=description,
-        ports=ports,
-    )
+    success = sync.delete_nas_client(nas_id)
     if not success:
-        raise HTTPException(status_code=500, detail="Erro ao atualizar cliente NAS")
-    return sync.get_nas_client(nas_id)
+        raise HTTPException(status_code=500, detail="Erro ao remover cliente NAS")
+    return {"success": True, "id": nas_id, "nasname": nas["nasname"], "status": "removido"}
 
 
-@router.delete("/nas/{nas_id}")
-def delete_nas_client(
+# ─────────────────────────────────────────────
+# Provisionamento automático de RADIUS no Mikrotik
+# ─────────────────────────────────────────────
+
+@router.post("/nas/{nas_id}/provision")
+def provision_radius_on_router(
     nas_id: int,
+    db: Session = Depends(deps.get_db),
     radius_db: Session = Depends(get_radius_db),
     current_user: models.Usuario = Depends(deps.get_current_active_user),
     _: bool = Depends(deps.permission_checker("radius_manage"))
 ):
     """
-    Remove um roteador/Mikrotik da lista de clientes NAS autorizados.
-
-    Após a remoção, o roteador não poderá mais autenticar usuários via RADIUS.
-    Equivale a remover o bloco `client { }` do clients.conf — sem root.
+    Provisiona automaticamente a configuração RADIUS no Mikrotik associado a este NAS.
     """
     sync = RadiusSyncService(radius_db)
     nas = sync.get_nas_client(nas_id)
     if not nas:
         raise HTTPException(status_code=404, detail="Cliente NAS não encontrado")
 
-    success = sync.delete_nas_client(nas_id)
-    if not success:
-        raise HTTPException(status_code=500, detail="Erro ao remover cliente NAS")
-    return {"success": True, "id": nas_id, "nasname": nas["nasname"], "status": "removido"}
+    nas_ip = nas.get("nasname")
+    nas_secret = nas.get("secret")
+
+    from app.models.network import Router as RouterModel
+    router_db = db.query(RouterModel).filter(
+        RouterModel.ip == nas_ip,
+        RouterModel.empresa_id == current_user.active_empresa_id
+    ).first()
+
+    if not router_db:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Nenhum Router cadastrado no sistema com o IP '{nas_ip}'."
+        )
+
+    return _execute_router_provision(db, router_db, nas_secret)
+
+
+@router.post("/router/{router_id}/provision")
+def provision_radius_by_router_id(
+    router_id: int,
+    db: Session = Depends(deps.get_db),
+    radius_db: Session = Depends(get_radius_db),
+    current_user: models.Usuario = Depends(deps.get_current_active_user),
+    _: bool = Depends(deps.permission_checker("radius_manage"))
+):
+    """
+    Provisiona RADIUS no Mikrotik usando o ID do Router.
+    Se não houver um NAS cadastrado para este IP, ele cria um automaticamente.
+    """
+    from app.models.network import Router as RouterModel
+    router_db = db.query(RouterModel).filter(
+        RouterModel.id == router_id,
+        RouterModel.empresa_id == current_user.active_empresa_id
+    ).first()
+
+    if not router_db:
+        raise HTTPException(status_code=404, detail="Roteador não encontrado")
+
+    # Verifica se já existe um NAS para este IP
+    sync = RadiusSyncService(radius_db)
+    nas = sync.get_nas_client_by_ip(router_db.ip)
+    
+    nas_secret = router_db.radius_secret
+    if not nas:
+        # Cria o NAS automaticamente se não existir
+        if not nas_secret:
+            import secrets
+            nas_secret = secrets.token_hex(8)
+        
+        sync.create_nas_client(
+            nasname=router_db.ip,
+            shortname=router_db.nome,
+            secret=nas_secret,
+            description=f"Criado automaticamente via Router {router_db.id}"
+        )
+    else:
+        nas_secret = nas.get("secret")
+
+    return _execute_router_provision(db, router_db, nas_secret)
+
+
+def _execute_router_provision(db: Session, router_db: any, nas_secret: str):
+    """Lógica interna de conexão e configuração do Mikrotik."""
+    from app.mikrotik.controller import MikrotikController
+    from app.core.security import decrypt_password
+    import os
+
+    try:
+        password = decrypt_password(router_db.senha)
+    except Exception:
+        password = router_db.senha or ""
+
+    radius_server_ip = router_db.radius_server_address or os.getenv("RADIUS_DB_HOST", "127.0.0.1")
+
+    try:
+        mk = MikrotikController(
+            host=router_db.ip,
+            username=router_db.usuario,
+            password=password,
+            port=router_db.porta or 8728
+        )
+        result = mk.configure_radius_on_mikrotik(
+            radius_server_ip=radius_server_ip,
+            radius_secret=nas_secret,
+        )
+        mk.close()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Erro ao conectar ao Mikrotik {router_db.ip}: {e}")
+
+    # Atualiza o router para RADIUS se não estiver
+    if router_db.metodo_autenticacao_padrao != "RADIUS":
+        router_db.metodo_autenticacao_padrao = "RADIUS"
+        router_db.radius_server_address = radius_server_ip
+        router_db.radius_secret = nas_secret
+        db.commit()
+        result["steps"].append("✅ Router atualizado: metodo_autenticacao_padrao = RADIUS")
+
+    return {
+        "router_id": router_db.id,
+        "router_nome": router_db.nome,
+        "radius_server": radius_server_ip,
+        **result
+    }

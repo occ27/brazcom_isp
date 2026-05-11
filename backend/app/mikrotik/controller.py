@@ -927,6 +927,90 @@ class MikrotikController:
             logger.error(f"[Mikrotik] Erro ao encerrar sessão PPPoE ativa de '{username}': {e}")
         return disconnected
 
+    def configure_radius_on_mikrotik(
+        self,
+        radius_server_ip: str,
+        radius_secret: str,
+        auth_port: int = 1812,
+        acct_port: int = 1813,
+        incoming_port: int = 3799,
+    ) -> dict:
+        """
+        Configura automaticamente o servidor RADIUS no Mikrotik.
+
+        Executa os três passos necessários para integrar a RB ao FreeRadius:
+          1. Adiciona (ou atualiza) a entrada em /radius com service=ppp
+          2. Habilita /ppp aaa (use-radius=yes, accounting=yes)
+          3. Habilita /radius incoming (accept=yes, port=3799)
+
+        Args:
+            radius_server_ip:  IP do servidor FreeRadius (ex: '10.20.0.1').
+            radius_secret:     Segredo compartilhado configurado no NAS.
+            auth_port:         Porta de autenticação (padrão 1812).
+            acct_port:         Porta de accounting (padrão 1813).
+            incoming_port:     Porta CoA/Disconnect (padrão 3799).
+
+        Returns:
+            dict com chaves 'success' (bool) e 'steps' (list[str]) relatando cada ação.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        self.connect()
+        steps = []
+        success = True
+
+        # ── 1. Configurar entrada /radius ─────────────────────────────────
+        try:
+            radius_res = self._api.get_resource('radius')
+            existing = [r for r in radius_res.get() if r.get('address') == radius_server_ip]
+
+            entry_data = {
+                'address': radius_server_ip,
+                'secret': radius_secret,
+                'service': 'ppp,login',
+                'authentication-port': str(auth_port),
+                'accounting-port': str(acct_port),
+                'comment': 'Brazcom ISP — configurado automaticamente',
+            }
+
+            if existing:
+                rid = existing[0].get('.id') or existing[0].get('id')
+                if rid:
+                    radius_res.set(id=rid, **entry_data)
+                    steps.append(f"✅ Entrada RADIUS atualizada para {radius_server_ip}:{auth_port}")
+                else:
+                    radius_res.add(**entry_data)
+                    steps.append(f"✅ Entrada RADIUS adicionada para {radius_server_ip}:{auth_port}")
+            else:
+                radius_res.add(**entry_data)
+                steps.append(f"✅ Entrada RADIUS adicionada para {radius_server_ip}:{auth_port}")
+        except Exception as e:
+            steps.append(f"❌ Falha ao configurar /radius: {e}")
+            success = False
+            logger.error(f"configure_radius_on_mikrotik: falha no passo 1 (/radius): {e}")
+
+        # ── 2. Habilitar /ppp aaa (use-radius=yes) ────────────────────────
+        try:
+            ppp_aaa = self._api.get_resource('ppp/aaa')
+            ppp_aaa.set(**{'use-radius': 'yes', 'accounting': 'yes'})
+            steps.append("✅ /ppp aaa: use-radius=yes, accounting=yes habilitados")
+        except Exception as e:
+            steps.append(f"❌ Falha ao configurar /ppp aaa: {e}")
+            success = False
+            logger.error(f"configure_radius_on_mikrotik: falha no passo 2 (/ppp aaa): {e}")
+
+        # ── 3. Habilitar /radius incoming ─────────────────────────────────
+        try:
+            incoming = self._api.get_resource('radius/incoming')
+            incoming.set(**{'accept': 'yes', 'port': str(incoming_port)})
+            steps.append(f"✅ /radius incoming: accept=yes, port={incoming_port} habilitados")
+        except Exception as e:
+            steps.append(f"❌ Falha ao configurar /radius incoming: {e}")
+            success = False
+            logger.error(f"configure_radius_on_mikrotik: falha no passo 3 (/radius incoming): {e}")
+
+        return {'success': success, 'steps': steps}
+
     def reset_pppoe_connection(self, username: str):
 
         """Reseta conexão PPPoE ativa atualizando o secret."""

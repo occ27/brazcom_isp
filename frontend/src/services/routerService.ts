@@ -8,6 +8,9 @@ export interface RouterCreate {
   usuario: string;
   senha: string;
   tipo: 'mikrotik' | 'cisco' | 'ubiquiti' | 'outro';
+  metodo_autenticacao_padrao?: 'RADIUS' | 'PPPOE' | 'HOTSPOT' | 'IP_MAC' | null;
+  radius_server_address?: string | null;
+  radius_secret?: string | null;
 }
 
 export interface RouterUpdate {
@@ -18,7 +21,11 @@ export interface RouterUpdate {
   senha?: string;
   tipo?: 'mikrotik' | 'cisco' | 'ubiquiti' | 'outro';
   is_active?: boolean;
+  metodo_autenticacao_padrao?: 'RADIUS' | 'PPPOE' | 'HOTSPOT' | 'IP_MAC' | null;
+  radius_server_address?: string | null;
+  radius_secret?: string | null;
 }
+
 
 export interface PPPoESetupRequest {
   interface: string;
@@ -88,6 +95,12 @@ export const routerService = {
   // Configurar Sistema de Suspensão (Proxy/NAT/Firewall)
   setupSuspension: async (routerId: number): Promise<any> => {
     const response = await api.post(`/routers/${routerId}/setup-suspension/`);
+    return response.data;
+  },
+
+  // Provisionar RADIUS no Mikrotik
+  provisionRadius: async (routerId: number): Promise<any> => {
+    const response = await api.post(`/radius/router/${routerId}/provision`);
     return response.data;
   },
 };

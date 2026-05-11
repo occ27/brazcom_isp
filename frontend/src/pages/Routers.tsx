@@ -16,7 +16,6 @@ import {
   Chip,
   Alert,
   Snackbar,
-  CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -27,8 +26,17 @@ import {
   MenuItem,
   useMediaQuery,
   useTheme,
-  Grid
+  Grid,
+  CircularProgress as MuiCircularProgress,
+  Tooltip
 } from '@mui/material';
+import {
+  Add as AddIcon,
+  FlashOn as ProvisionIcon,
+  Info as InfoIcon,
+  CheckCircle as CheckCircleIcon,
+  Warning as WarningIcon
+} from '@mui/icons-material';
 import {
   PlusIcon,
   PencilIcon,
@@ -58,10 +66,16 @@ const Routers: React.FC = () => {
     porta: 8728,
     usuario: '',
     senha: '',
-    tipo: 'mikrotik'
+    tipo: 'mikrotik',
+    metodo_autenticacao_padrao: null,
+    radius_server_address: '',
+    radius_secret: '',
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [saving, setSaving] = useState(false);
+  const [provisioning, setProvisioning] = useState(false);
+  const [provisionDialogOpen, setProvisionDialogOpen] = useState(false);
+  const [provisionResult, setProvisionResult] = useState<{ success: boolean; steps: string[]; router_nome?: string } | null>(null);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -120,7 +134,10 @@ const Routers: React.FC = () => {
         porta: router.porta,
         usuario: router.usuario,
         senha: '', // Senha não vem da API por segurança
-        tipo: router.tipo
+        tipo: router.tipo,
+        metodo_autenticacao_padrao: router.metodo_autenticacao_padrao ?? null,
+        radius_server_address: router.radius_server_address ?? '',
+        radius_secret: '',
       });
     } else {
       setEditingRouter(null);
@@ -130,7 +147,10 @@ const Routers: React.FC = () => {
         porta: 8728,
         usuario: '',
         senha: '',
-        tipo: 'mikrotik'
+        tipo: 'mikrotik',
+        metodo_autenticacao_padrao: null,
+        radius_server_address: '',
+        radius_secret: '',
       });
     }
     setErrors({});
@@ -146,7 +166,10 @@ const Routers: React.FC = () => {
       porta: 8728,
       usuario: '',
       senha: '',
-      tipo: 'mikrotik'
+      tipo: 'mikrotik',
+      metodo_autenticacao_padrao: null,
+      radius_server_address: '',
+      radius_secret: '',
     });
     setErrors({});
   };
@@ -231,29 +254,50 @@ const Routers: React.FC = () => {
     }
   };
 
-  const handleSetupSuspension = async (router: Router) => {
-    if (!window.confirm(`Deseja configurar AUTOMATICAMENTE o sistema de suspensão (Proxy, NAT e Firewall) no roteador "${router.nome}"? Isso irá criar as regras necessárias para o redirecionamento dos clientes bloqueados.`)) {
-      return;
+  const handleProvision = async (router: Router) => {
+    const isRadius = router.metodo_autenticacao_padrao === 'RADIUS';
+    
+    if (isRadius) {
+      if (!window.confirm(`Deseja provisionar AUTOMATICAMENTE as configurações RADIUS (PPP AAA, Incoming, Server) no roteador "${router.nome}"?`)) {
+        return;
+      }
+    } else {
+      if (!window.confirm(`Deseja configurar AUTOMATICAMENTE o sistema de suspensão (Proxy, NAT e Firewall) no roteador "${router.nome}"? Isso irá criar as regras necessárias para o redirecionamento dos clientes bloqueados.`)) {
+        return;
+      }
     }
 
+    setProvisioning(true);
+    setProvisionResult(null);
+    setProvisionDialogOpen(true);
+
     try {
-      setLoading(true);
-      const response = await routerService.setupSuspension(router.id);
-      setSnackbar({
-        open: true,
-        message: 'Sistema de suspensão configurado com sucesso!',
-        severity: 'success'
-      });
-      console.log('Resultados da configuração:', response.details);
-    } catch (error) {
-      console.error('Erro ao configurar sistema de suspensão:', error);
-      setSnackbar({
-        open: true,
-        message: 'Erro ao configurar sistema de suspensão: ' + stringifyError(error),
-        severity: 'error'
-      });
+      if (isRadius) {
+        const result = await routerService.provisionRadius(router.id);
+        setProvisionResult(result);
+        if (result.success) {
+          setSnackbar({ open: true, message: 'Configuração RADIUS aplicada com sucesso!', severity: 'success' });
+          loadRouters();
+        } else {
+          setSnackbar({ open: true, message: 'RADIUS configurado com alguns alertas.', severity: 'error' });
+        }
+      } else {
+        const response = await routerService.setupSuspension(router.id);
+        // Formata o resultado da suspensão para o mesmo padrão do Radius
+        setProvisionResult({
+          success: true,
+          router_nome: router.nome,
+          steps: response.details || ['✅ Regras de Firewall criadas', '✅ NAT de redirecionamento configurado', '✅ Web Proxy habilitado']
+        });
+        setSnackbar({ open: true, message: 'Sistema de suspensão configurado com sucesso!', severity: 'success' });
+      }
+    } catch (error: any) {
+      console.error('Erro no provisionamento:', error);
+      const msg = error?.response?.data?.detail || stringifyError(error);
+      setProvisionResult({ success: false, steps: [`❌ Erro: ${msg}`] });
+      setSnackbar({ open: true, message: 'Falha no provisionamento: ' + msg, severity: 'error' });
     } finally {
-      setLoading(false);
+      setProvisioning(false);
     }
   };
 
@@ -273,7 +317,7 @@ const Routers: React.FC = () => {
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
+        <MuiCircularProgress />
       </Box>
     );
   }
@@ -302,6 +346,7 @@ const Routers: React.FC = () => {
                 <TableCell>IP</TableCell>
                 <TableCell>Porta</TableCell>
                 <TableCell>Tipo</TableCell>
+                <TableCell>Autenticação</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Ações</TableCell>
               </TableRow>
@@ -321,20 +366,34 @@ const Routers: React.FC = () => {
                   </TableCell>
                   <TableCell>
                     <Chip
+                      label={router.metodo_autenticacao_padrao ?? 'Não definido'}
+                      size="small"
+                      color={
+                        router.metodo_autenticacao_padrao === 'RADIUS' ? 'success'
+                        : router.metodo_autenticacao_padrao === 'PPPOE' ? 'info'
+                        : router.metodo_autenticacao_padrao === 'HOTSPOT' ? 'warning'
+                        : 'default'
+                      }
+                      variant={router.metodo_autenticacao_padrao ? 'filled' : 'outlined'}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
                       label={router.is_active ? 'Ativo' : 'Inativo'}
                       size="small"
                       color={router.is_active ? 'success' : 'error'}
                     />
                   </TableCell>
                   <TableCell>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleSetupSuspension(router)}
-                      title="Configurar Sistema de Suspensão"
-                      sx={{ color: '#f59e0b' }} // Amarelo/Laranja para atenção
-                    >
-                      <BoltIcon />
-                    </IconButton>
+                    <Tooltip title={router.metodo_autenticacao_padrao === 'RADIUS' ? "Provisionar RADIUS" : "Configurar Suspensão"}>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleProvision(router)}
+                        sx={{ color: router.metodo_autenticacao_padrao === 'RADIUS' ? 'primary.main' : '#f59e0b' }}
+                      >
+                        <BoltIcon />
+                      </IconButton>
+                    </Tooltip>
                     <IconButton
                       size="small"
                       onClick={() => navigate(`/routers/${router.id}/interfaces`)}
@@ -452,6 +511,56 @@ const Routers: React.FC = () => {
                   required={!editingRouter}
                 />
               </Grid>
+
+              {/* ── Seção de Autenticação ── */}
+              <Grid item xs={12}>
+                <Box sx={{ mt: 1, mb: 0.5, borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Método de Autenticação de Clientes
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Método Padrão</InputLabel>
+                  <Select
+                    value={formData.metodo_autenticacao_padrao ?? ''}
+                    onChange={(e) => handleInputChange('metodo_autenticacao_padrao', e.target.value || null)}
+                    label="Método Padrão"
+                  >
+                    <MenuItem value=""><em>Não definido</em></MenuItem>
+                    <MenuItem value="RADIUS">RADIUS (FreeRadius centralizado)</MenuItem>
+                    <MenuItem value="PPPOE">PPPoE Local (secrets na RB)</MenuItem>
+                    <MenuItem value="HOTSPOT">Hotspot Local</MenuItem>
+                    <MenuItem value="IP_MAC">IP/MAC (sem autenticação PPP)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              {formData.metodo_autenticacao_padrao === 'RADIUS' && (
+                <>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="IP do Servidor RADIUS"
+                      value={formData.radius_server_address ?? ''}
+                      onChange={(e) => handleInputChange('radius_server_address', e.target.value)}
+                      placeholder="ex: 10.20.0.1"
+                      helperText="Endereço IP do servidor FreeRadius que este roteador irá consultar"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Segredo RADIUS (opcional)"
+                      type="password"
+                      value={formData.radius_secret ?? ''}
+                      onChange={(e) => handleInputChange('radius_secret', e.target.value)}
+                      placeholder="Deixe vazio para usar o segredo do NAS cadastrado"
+                      helperText="Usado ao provisionar automaticamente o roteador via API"
+                    />
+                  </Grid>
+                </>
+              )}
             </Grid>
           </Box>
         </DialogContent>
@@ -462,8 +571,47 @@ const Routers: React.FC = () => {
             variant="contained"
             disabled={saving}
           >
-            {saving ? <CircularProgress size={20} /> : 'Salvar'}
+            {saving ? <MuiCircularProgress size={20} /> : 'Salvar'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog resultado do provisionamento */}
+      <Dialog open={provisionDialogOpen} onClose={() => !provisioning && setProvisionDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ProvisionIcon color={provisionResult?.success ? 'success' : 'warning'} />
+          Provisionamento de Roteador
+        </DialogTitle>
+        <DialogContent dividers>
+          {provisioning ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4, gap: 2 }}>
+              <MuiCircularProgress />
+              <Typography color="text.secondary">Conectando ao Mikrotik e aplicando configurações...</Typography>
+            </Box>
+          ) : provisionResult ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Alert severity={provisionResult.success ? 'success' : 'warning'} icon={<InfoIcon />}>
+                {provisionResult.success
+                  ? 'Configurações aplicadas com sucesso!'
+                  : 'Ocorreram alguns erros durante o processo.'}
+              </Alert>
+              {provisionResult.router_nome && (
+                <Typography variant="body2" color="text.secondary">
+                  Router: <strong>{provisionResult.router_nome}</strong>
+                </Typography>
+              )}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                {provisionResult.steps.map((step, i) => (
+                  <Typography key={i} variant="body2" fontFamily="monospace" sx={{ py: 0.5, px: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                    {step}
+                  </Typography>
+                ))}
+              </Box>
+            </Box>
+          ) : null}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setProvisionDialogOpen(false)} disabled={provisioning}>Fechar</Button>
         </DialogActions>
       </Dialog>
 
