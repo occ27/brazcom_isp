@@ -666,7 +666,7 @@ class MikrotikController:
                 except Exception as e:
                     logger.warning(f"Não foi possível extrair/liberar o domínio do sistema: {e}")
 
-            # 2. Bloquear todo o resto para pg_corte
+            # 2. Bloquear todo o resto para pg_corte (Garantir que fique no topo, mas após DNS/Sistema)
             block_rule = {
                 'chain': 'forward',
                 'src-address-list': 'pg_corte',
@@ -679,11 +679,29 @@ class MikrotikController:
             existing_block = [r for r in current_rules if r.get('comment') == 'BLOQUEIO_GERAL_PG_CORTE']
             
             if existing_block:
-                # Remove para forçar a criação abaixo das regras de accept
                 rid = existing_block[0].get('.id') or existing_block[0].get('id')
                 if rid: resource.remove(id=rid)
             
-            resource.add(**block_rule)
+            # Tentar inserir logo abaixo da regra ACESSO_SISTEMA_BLOQUEADOS ou DNS_BLOQUEADOS
+            target_pos = None
+            rules_after_reorder = resource.get()
+            for r in rules_after_reorder:
+                if r.get('comment') in ['ACESSO_SISTEMA_BLOQUEADOS', 'DNS_BLOQUEADOS']:
+                    # Pegamos a última dessas regras para inserir logo após
+                    target_pos = r.get('.id') or r.get('id')
+            
+            if target_pos:
+                # O MikroTik 'place_before' insere ANTES, mas queremos DEPOIS. 
+                # Então, para simplificar e garantir o bloqueio, vamos inserir no TOPO (index 0).
+                # Se houver regras de Accept DNS/Sistema no topo, o drop deve vir logo após elas.
+                # Como inserimos DNS e Sistema antes, vamos inserir o Drop agora no topo também,
+                # e depois re-inserir DNS/Sistema acima dele se necessário.
+                
+                # Estratégia mais segura: Inserir no topo (index 0) e as outras regras de suspensão também.
+                first_rule_id = rules_after_reorder[0].get('.id') or rules_after_reorder[0].get('id') if rules_after_reorder else None
+                resource.add(place_before=first_rule_id, **block_rule)
+            else:
+                resource.add(**block_rule)
 
                 
         except Exception as e:
