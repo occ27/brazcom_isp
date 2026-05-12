@@ -594,23 +594,23 @@ class MikrotikController:
         self.connect()
         try:
             resource = self._api.get_resource('ip/firewall/connection')
-            # Busca conexões onde o IP é origem ou destino
-            # Nota: dependendo da versão do RouterOS, o filtro pode variar. 
-            # Vamos buscar e remover as que batem com o IP.
-            
-            # Filtro por src-address (mais comum para clientes)
             ip_clean = ip.split('/')[0]
-            connections = resource.get(**{'src-address': f"{ip_clean}"})
-            for conn in connections:
-                cid = conn.get('.id') or conn.get('id')
-                if cid: resource.remove(id=cid)
-                
-            # Também busca por dst-address (para garantir)
-            connections_dst = resource.get(**{'dst-address': f"{ip_clean}"})
-            for conn in connections_dst:
-                cid = conn.get('.id') or conn.get('id')
-                if cid: resource.remove(id=cid)
-                
+            
+            # Busca todas as conexões e filtra localmente ou via query se suportado
+            # Usar o operador '~' (contém) é mais seguro para pegar IP:Porta
+            all_conns = resource.get()
+            count = 0
+            for conn in all_conns:
+                src = conn.get('src-address', '')
+                dst = conn.get('dst-address', '')
+                if ip_clean in src or ip_clean in dst:
+                    cid = conn.get('.id') or conn.get('id')
+                    if cid:
+                        resource.remove(id=cid)
+                        count += 1
+            
+            import logging
+            logging.getLogger(__name__).info(f"Derrubadas {count} conexões do IP {ip_clean}")
             return True
         except Exception as e:
             import logging
