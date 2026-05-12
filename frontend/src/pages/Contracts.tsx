@@ -916,7 +916,11 @@ const Contracts: React.FC = () => {
       setEditing(null);
 
       // Tentar carregar dados do último contrato salvo no localStorage
-      let initialForm = {
+      let initialForm: Partial<Contrato> = {
+        empresa_id: activeCompany?.id,
+        cliente_id: undefined,
+        servico_id: undefined,
+        bank_account_id: undefined,
         quantidade: 1,
         periodicidade: 'MENSAL',
         valor_unitario: 0,
@@ -948,7 +952,7 @@ const Contracts: React.FC = () => {
       const savedData = localStorage.getItem('last_contract_tech_data');
       if (savedData) {
         try {
-          const techData = JSON.parse(savedData);
+          const techData = JSON.parse(savedData) as Partial<Contrato>;
           initialForm = { ...initialForm, ...techData };
 
           // Se houver um serviço salvo, tentar carregar o nome para o autocomplete
