@@ -146,8 +146,8 @@ const Contracts: React.FC = () => {
   const [interfaces, setInterfaces] = useState<RouterInterface[]>([]);
   const [availableIPs, setAvailableIPs] = useState<string[]>([]);
   const [networkLoading, setNetworkLoading] = useState(false);
-  const clientSearchTimer = useRef<NodeJS.Timeout | null>(null);
-  const servicoSearchTimer = useRef<NodeJS.Timeout | null>(null);
+  const clientSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const servicoSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Helper function to check if contract is expired
   const isContractExpired = useCallback((contrato: Contrato): boolean => {
