@@ -108,7 +108,10 @@ class IPClass(Base):
     empresa = relationship("Empresa", back_populates="ip_classes")
 
     # Relacionamento com interfaces que usam esta classe
-    interfaces = relationship("RouterInterface", secondary="interface_ip_class_assignments", back_populates="ip_classes")
+    interfaces = relationship("RouterInterface", secondary="interface_ip_class_assignments", back_populates="ip_classes", viewonly=True)
+    
+    # Relacionamento direto com a tabela de associação para permitir cascade delete
+    assignments = relationship("InterfaceIPClassAssignment", cascade="all, delete-orphan", backref="ip_class")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

@@ -433,7 +433,7 @@ class ServicoContratado(Base):
     # Configuração de rede (provisionamento automático)
     router_id = Column(Integer, ForeignKey("routers.id"), nullable=True)  # Router onde será provisionado
     interface_id = Column(Integer, ForeignKey("router_interfaces.id"), nullable=True)  # Interface do router
-    ip_class_id = Column(Integer, ForeignKey("ip_classes.id"), nullable=True)  # Classe IP para atribuição automática
+    ip_class_id = Column(Integer, ForeignKey("ip_classes.id", ondelete="SET NULL"), nullable=True)  # Classe IP para atribuição automática
     mac_address = Column(String(17), nullable=True)  # Endereço MAC do dispositivo do cliente
     assigned_ip = Column(String(15), nullable=True)  # IP atribuído automaticamente
     metodo_autenticacao = Column(SQLAlchemyEnum(MetodoAutenticacao), nullable=True)  # Método de autenticação
