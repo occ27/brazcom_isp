@@ -453,7 +453,14 @@ const Contracts: React.FC = () => {
         });
 
         if (usedIPsResponse.ok) {
-          const usedIPs: string[] = await usedIPsResponse.json();
+          let usedIPs: string[] = await usedIPsResponse.json();
+          
+          // Se o formulário tiver um IP (caso de edição), removemos ele da lista de 'usados' 
+          // para que ele apareça como disponível na lista de opções do Select
+          if (form.assigned_ip) {
+            usedIPs = usedIPs.filter(ip => ip !== form.assigned_ip);
+          }
+          
           // Gera IPs disponíveis excluindo os já em uso
           const ips = generateAvailableIPs(ipClass, usedIPs);
           setAvailableIPs(ips);
@@ -471,7 +478,7 @@ const Contracts: React.FC = () => {
     } else {
       setAvailableIPs([]);
     }
-  }, []);
+  }, [form.assigned_ip]);
   
   // Get IP classes for selected interface
   const getIPClassesForSelectedInterface = useMemo(() => {
@@ -899,6 +906,9 @@ const Contracts: React.FC = () => {
         loadRouters();
         if (c.router_id) {
           loadInterfaces(c.router_id);
+        }
+        if (c.assigned_ip) {
+          setAvailableIPs([c.assigned_ip]);
         }
       }
     } else {
