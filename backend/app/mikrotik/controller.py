@@ -589,6 +589,34 @@ class MikrotikController:
                 return False
         return True
 
+    def kill_client_connections(self, ip: str):
+        """Remove todas as conexões ativas de um IP na tabela de Connection Tracking."""
+        self.connect()
+        try:
+            resource = self._api.get_resource('ip/firewall/connection')
+            # Busca conexões onde o IP é origem ou destino
+            # Nota: dependendo da versão do RouterOS, o filtro pode variar. 
+            # Vamos buscar e remover as que batem com o IP.
+            
+            # Filtro por src-address (mais comum para clientes)
+            ip_clean = ip.split('/')[0]
+            connections = resource.get(**{'src-address': f"{ip_clean}"})
+            for conn in connections:
+                cid = conn.get('.id') or conn.get('id')
+                if cid: resource.remove(id=cid)
+                
+            # Também busca por dst-address (para garantir)
+            connections_dst = resource.get(**{'dst-address': f"{ip_clean}"})
+            for conn in connections_dst:
+                cid = conn.get('.id') or conn.get('id')
+                if cid: resource.remove(id=cid)
+                
+            return True
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Falha ao derrubar conexões do IP {ip}: {e}")
+            return False
+
     def setup_suspension_nat_rule(self, notice_url: str):
         """
         Garante que as regras básicas de redirecionamento existam.
@@ -1290,6 +1318,8 @@ class MikrotikController:
                             # Usa o nome do cliente se disponível, senão usa o padrão
                             list_comment = comment if comment else f"Bloqueio Contrato {contrato_id}"
                             self.add_to_address_list(user_ip, 'pg_corte', list_comment)
+                            # Derruba conexões ativas para o bloqueio ser instantâneo
+                            self.kill_client_connections(user_ip)
                 except Exception:
                     pass
                 return True
@@ -1304,6 +1334,8 @@ class MikrotikController:
                 # Usa o nome do cliente se disponível, senão usa o padrão
                 list_comment = comment if comment else f"Bloqueio Contrato {contrato_id}"
                 self.add_to_address_list(assigned_ip, 'pg_corte', list_comment)
+                # Derruba conexões ativas para o bloqueio ser instantâneo
+                self.kill_client_connections(assigned_ip)
             except Exception as e:
                 logger.warning(f"Falha ao adicionar IP {assigned_ip} à pg_corte: {e}")
 
