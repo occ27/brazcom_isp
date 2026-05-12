@@ -1269,7 +1269,9 @@ class MikrotikController:
                     for a in actives:
                         user_ip = a.get('address')
                         if user_ip:
-                            self.add_to_address_list(user_ip, 'pg_corte', f"Bloqueio Contrato {contrato_id}")
+                            # Usa o nome do cliente se disponível, senão usa o padrão
+                            list_comment = comment if comment else f"Bloqueio Contrato {contrato_id}"
+                            self.add_to_address_list(user_ip, 'pg_corte', list_comment)
                 except Exception:
                     pass
                 return True
@@ -1281,7 +1283,9 @@ class MikrotikController:
             # Em vez de remover o ARP, vamos adicionar à Address List de bloqueio
             # Isso permite que o redirecionamento via NAT funcione
             try:
-                self.add_to_address_list(assigned_ip, 'pg_corte', f"Bloqueio Contrato {contrato_id}")
+                # Usa o nome do cliente se disponível, senão usa o padrão
+                list_comment = comment if comment else f"Bloqueio Contrato {contrato_id}"
+                self.add_to_address_list(assigned_ip, 'pg_corte', list_comment)
             except Exception as e:
                 logger.warning(f"Falha ao adicionar IP {assigned_ip} à pg_corte: {e}")
 

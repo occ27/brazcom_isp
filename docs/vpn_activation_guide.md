@@ -28,10 +28,10 @@ Execute os comandos abaixo no terminal da RB do cliente.
 
 # 4. Configurar o Peer (Conexão com o Servidor Central)
 /interface wireguard peers add interface=wg-brazcom \
-    public-key="CHAVE_PUBLICA_DO_SEU_SERVIDOR_DEBIAN" \
-    endpoint-address=IP_PUBLICO_DO_SEU_SERVIDOR \
+    public-key="mRPq+3XrRLM0mASj8oRvG+jzhOPscjWaBssu9mKf0lg=" \
+    endpoint-address=189.76.185.240 \
     endpoint-port=51821 \
-    allowed-address=10.20.0.0/24 \
+    allowed-address=10.20.0.3/32 \
     persistent-keepalive=25s
 ```
 
