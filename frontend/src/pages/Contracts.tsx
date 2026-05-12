@@ -146,6 +146,8 @@ const Contracts: React.FC = () => {
   const [interfaces, setInterfaces] = useState<RouterInterface[]>([]);
   const [availableIPs, setAvailableIPs] = useState<string[]>([]);
   const [networkLoading, setNetworkLoading] = useState(false);
+  const clientSearchTimer = useRef<NodeJS.Timeout | null>(null);
+  const servicoSearchTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Helper function to check if contract is expired
   const isContractExpired = useCallback((contrato: Contrato): boolean => {
@@ -345,15 +347,55 @@ const Contracts: React.FC = () => {
     setClientLoading(true);
     try {
       // When search is empty, this will return the first page (limit 10).
-      const response = await clientService.getClientsByCompany(activeCompany.id, 1, 10, search || undefined);
-      setClients(response.clientes || []);
+      const response = await clientService.getClientsByCompany(activeCompany.id, 1, 20, search || undefined);
+      const list = response.clientes || [];
+
+      setClients(prev => {
+        // Se estivermos limpando a busca, voltamos para a lista inicial (10-20 itens)
+        if (!search) return list;
+
+        // Se estivermos buscando, mesclamos os resultados com o cliente atualmente selecionado no form (se houver)
+        // para garantir que o Autocomplete não perca o label do item selecionado.
+        const currentId = form.cliente_id;
+        const currentClient = prev.find(c => c.id === currentId);
+
+        if (currentClient && !list.some(c => c.id === currentId)) {
+          return [currentClient, ...list];
+        }
+        return list;
+      });
     } catch (error) {
       console.error("Erro ao carregar clientes:", error);
       setClients([]);
     } finally {
       setClientLoading(false);
     }
-  }, [activeCompany]);
+  }, [activeCompany, form.cliente_id]);
+
+  const loadServicos = useCallback(async (search: string = '') => {
+    if (!activeCompany) return;
+    setServicoLoading(true);
+    try {
+      const response = await servicoService.getServicosByEmpresaPaginated(activeCompany.id, 1, 20, search || undefined);
+      const list = response.servicos || [];
+
+      setServicos(prev => {
+        if (!search) return list;
+        const currentId = form.servico_id;
+        const currentServico = prev.find(s => s.id === currentId);
+
+        if (currentServico && !list.some(s => s.id === currentId)) {
+          return [currentServico, ...list];
+        }
+        return list;
+      });
+    } catch (error) {
+      console.error("Erro ao carregar serviços:", error);
+      setServicos([]);
+    } finally {
+      setServicoLoading(false);
+    }
+  }, [activeCompany, form.servico_id]);
 
   const loadBankAccounts = useCallback(async () => {
     if (!activeCompany) return;
@@ -369,20 +411,6 @@ const Contracts: React.FC = () => {
     }
   }, [activeCompany]);
 
-  const loadServicos = useCallback(async (search: string = '') => {
-    if (!activeCompany) return;
-    setServicoLoading(true);
-    try {
-      // Use paginated endpoint to get the first `limit` services when search is empty
-      const resp = await servicoService.getServicosByEmpresaPaginated(activeCompany.id, 1, 10, search || undefined);
-      setServicos(resp.servicos || []);
-    } catch (error) {
-      console.error("Erro ao carregar serviços:", error);
-      setServicos([]);
-    } finally {
-      setServicoLoading(false);
-    }
-  }, [activeCompany]);
 
   const loadRouters = useCallback(async () => {
     if (!activeCompany) return;
@@ -444,13 +472,47 @@ const Contracts: React.FC = () => {
       setAvailableIPs([]);
     }
   }, []);
-
+  
   // Get IP classes for selected interface
   const getIPClassesForSelectedInterface = useMemo(() => {
     if (!form.interface_id) return [];
     const selectedInterface = interfaces.find(intf => intf.id === form.interface_id);
     return selectedInterface?.ip_classes || [];
   }, [form.interface_id, interfaces]);
+
+  // Auto-select network settings for IP_MAC authentication
+  useEffect(() => {
+    if (openForm && form.metodo_autenticacao === 'IP_MAC') {
+      // 1. Auto-select first IP class if interface is selected but class is not
+      if (form.interface_id && !form.ip_class_id) {
+        const classes = getIPClassesForSelectedInterface;
+        if (classes.length > 0) {
+          handleInputChange('ip_class_id', classes[0].id);
+        }
+      }
+      
+      // 2. Auto-select first available IP if class is set and IP is empty
+      if (form.ip_class_id && availableIPs.length > 0 && !form.assigned_ip) {
+        handleInputChange('assigned_ip', availableIPs[0]);
+      }
+    }
+  }, [form.metodo_autenticacao, form.interface_id, form.ip_class_id, availableIPs.length, form.assigned_ip, openForm, getIPClassesForSelectedInterface]);
+
+  // Load available IPs automatically when IP class changes
+  useEffect(() => {
+    if (openForm && form.ip_class_id) {
+      const selectedIpClass = getIPClassesForSelectedInterface.find(c => c.id === form.ip_class_id);
+      if (selectedIpClass) {
+        loadAvailableIPs(selectedIpClass);
+      } else {
+        // Se não achar na interface atual (ex: mudou interface), limpa IPs
+        setAvailableIPs([]);
+      }
+    } else {
+      setAvailableIPs([]);
+    }
+  }, [form.ip_class_id, openForm, loadAvailableIPs, getIPClassesForSelectedInterface]);
+
 
   const renderContractCards = () => (
     <Box sx={{ display: 'grid', gap: 2 }}>
@@ -894,12 +956,23 @@ const Contracts: React.FC = () => {
     setForm(prev => {
       const newForm = { ...prev, [field]: processedValue };
 
-      // Quando o método de autenticação muda, limpar campos relacionados se necessário
       if (field === 'metodo_autenticacao') {
         if (value !== 'IP_MAC') {
           // Limpar MAC e IP se não for IP_MAC
           newForm.mac_address = '';
           newForm.assigned_ip = '';
+        }
+      }
+
+      // Se mudar a interface ou classe IP, limpar o IP atribuído para forçar nova seleção automática
+      if (field === 'interface_id' || field === 'ip_class_id' || field === 'router_id') {
+        newForm.assigned_ip = '';
+        if (field === 'router_id') {
+          newForm.interface_id = undefined;
+          newForm.ip_class_id = undefined;
+        }
+        if (field === 'interface_id') {
+          newForm.ip_class_id = undefined;
         }
       }
 
@@ -1496,19 +1569,6 @@ const Contracts: React.FC = () => {
                         error={!!errors.numero_contrato}
                         helperText={errors.numero_contrato}
                       />
-                      {/* Mostrar CPF/CNPJ e telefone do cliente selecionado para facilitar identificação */}
-                      {(() => {
-                        const sel = clients.find(cl => cl.id === form.cliente_id);
-                        if (sel) {
-                          return (
-                            <Box sx={{ mt: 1 }}>
-                              {sel.cpf_cnpj && <Typography variant="caption" color="text.secondary">CPF/CNPJ: {clientService.formatCpfCnpj(sel.cpf_cnpj)}</Typography>}
-                              {sel.telefone && <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Telefone: {sel.telefone}</Typography>}
-                            </Box>
-                          );
-                        }
-                        return null;
-                      })()}
                     </div>
                   </div>
 
@@ -1523,29 +1583,45 @@ const Contracts: React.FC = () => {
                     <div className="mt-3 sm:mt-4 space-y-3 sm:space-y-4">
                       <Autocomplete
                         options={clients}
-                        getOptionLabel={(option) => `${option.nome_razao_social} (${clientService.formatCpfCnpj(option.cpf_cnpj)})`}
+                        getOptionLabel={(option) => option.nome_razao_social || ''}
+                        isOptionEqualToValue={(option, value) => option.id === value.id}
+                        renderOption={(props, option) => (
+                          <Box component="li" {...props} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left', py: 1, width: '100%' }}>
+                            <Typography variant="body1" sx={{ width: '100%', textAlign: 'left' }}>{option.nome_razao_social}</Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ width: '100%', textAlign: 'left' }}>
+                              {clientService.formatCpfCnpj(option.cpf_cnpj)}
+                            </Typography>
+                          </Box>
+                        )}
                         value={clients.find(cl => cl.id === form.cliente_id) || null}
                         onChange={async (_, value) => {
                           handleInputChange('cliente_id', value?.id || undefined);
 
-                          // Preencher automaticamente o endereço de instalação com o primeiro endereço do cliente
-                          // apenas se o campo estiver vazio
-                          if (value && activeCompany && !form.endereco_instalacao) {
-                            try {
-                              const clientDetails = await clientService.getClientById(value.id, activeCompany.id);
-                              if (clientDetails.enderecos && clientDetails.enderecos.length > 0) {
-                                // Pegar o primeiro endereço (ou o principal se existir)
-                                const enderecoPrincipal = clientDetails.enderecos.find(e => e.is_principal) || clientDetails.enderecos[0];
+                          if (value) {
+                            // Garantir que o cliente selecionado permaneça na lista de opções
+                            setClients(prev => {
+                              const exists = prev.some(c => c.id === value.id);
+                              if (exists) return prev;
+                              return [value, ...prev];
+                            });
 
-                                // Formatar o endereço completo
-                                const enderecoCompleto = `${enderecoPrincipal.endereco}, ${enderecoPrincipal.numero}${enderecoPrincipal.complemento ? ', ' + enderecoPrincipal.complemento : ''} - ${enderecoPrincipal.bairro}, ${enderecoPrincipal.municipio}/${enderecoPrincipal.uf}, CEP: ${enderecoPrincipal.cep}`;
-
-                                handleInputChange('endereco_instalacao', enderecoCompleto);
+                            // Preencher automaticamente o endereço de instalação com o primeiro endereço do cliente
+                            // apenas se o campo estiver vazio
+                            if (activeCompany && !form.endereco_instalacao) {
+                              try {
+                                const clientDetails = await clientService.getClientById(value.id, activeCompany.id);
+                                if (clientDetails.enderecos && clientDetails.enderecos.length > 0) {
+                                  // Pegar o primeiro endereço (ou o principal se existir)
+                                  const enderecoPrincipal = clientDetails.enderecos.find(e => e.is_principal) || clientDetails.enderecos[0];
+                                  // Formatar o endereço completo
+                                  const enderecoCompleto = `${enderecoPrincipal.endereco}, ${enderecoPrincipal.numero}${enderecoPrincipal.complemento ? ', ' + enderecoPrincipal.complemento : ''} - ${enderecoPrincipal.bairro}, ${enderecoPrincipal.municipio}/${enderecoPrincipal.uf}, CEP: ${enderecoPrincipal.cep}`;
+                                  handleInputChange('endereco_instalacao', enderecoCompleto);
+                                }
+                              } catch (error) {
+                                console.error('Erro ao buscar endereços do cliente:', error);
                               }
-                            } catch (error) {
-                              console.error('Erro ao buscar endereços do cliente:', error);
                             }
-                          } else if (!value) {
+                          } else {
                             // Limpar o endereço se nenhum cliente foi selecionado
                             handleInputChange('endereco_instalacao', '');
                           }
@@ -1554,19 +1630,34 @@ const Contracts: React.FC = () => {
                         onInputChange={(_, value, reason) => {
                           setClientSearch(value);
                           if (reason === 'input') {
-                            if (value.length >= 2) {
-                              loadClients(value);
-                            } else if (value.length === 0) {
-                              // restore default first-10 when input cleared
-                              loadClients('');
-                            } else {
-                              // single-char typed: do not query remote, clear results to avoid noisy responses
-                              setClients([]);
-                            }
+                            if (clientSearchTimer.current) clearTimeout(clientSearchTimer.current);
+
+                            clientSearchTimer.current = setTimeout(() => {
+                              if (value.length >= 2) {
+                                loadClients(value);
+                              } else if (value.length === 0) {
+                                loadClients('');
+                              }
+                            }, 400);
                           }
                         }}
                         loading={clientLoading}
-                        renderInput={(params) => <TextField {...params} label="Cliente *" error={!!errors.cliente_id} helperText={errors.cliente_id || 'Digite ao menos 2 caracteres para buscar'} size="small" />}
+                        renderInput={(params) => {
+                          const selectedClient = clients.find(cl => cl.id === form.cliente_id);
+                          const dynamicLabel = selectedClient 
+                            ? `Cliente (${clientService.formatCpfCnpj(selectedClient.cpf_cnpj)}) *` 
+                            : "Cliente *";
+                          
+                          return (
+                            <TextField 
+                              {...params} 
+                              label={dynamicLabel} 
+                              error={!!errors.cliente_id} 
+                              helperText={errors.cliente_id || 'Digite ao menos 2 caracteres para buscar'} 
+                              size="small" 
+                            />
+                          );
+                        }}
                       />
                       <Autocomplete
                         options={servicos}
@@ -1574,7 +1665,15 @@ const Contracts: React.FC = () => {
                         value={servicos.find(s => s.id === form.servico_id) || null}
                         onChange={(_, value) => {
                           handleInputChange('servico_id', value?.id || undefined);
+
                           if (value) {
+                            // Garantir que o serviço selecionado permaneça na lista de opções
+                            setServicos(prev => {
+                              const exists = prev.some(s => s.id === value.id);
+                              if (exists) return prev;
+                              return [value, ...prev];
+                            });
+
                             // Preencher campos automaticamente com dados do serviço
                             handleInputChange('valor_unitario', value.valor_unitario || 0);
 
@@ -1640,12 +1739,15 @@ const Contracts: React.FC = () => {
                         onInputChange={(_, value, reason) => {
                           setServicoSearch(value);
                           if (reason === 'input') {
-                            if (value.length >= 1) {
-                              loadServicos(value);
-                            } else if (value.length === 0) {
-                              // restore default first-10 when input cleared
-                              loadServicos('');
-                            }
+                            if (servicoSearchTimer.current) clearTimeout(servicoSearchTimer.current);
+
+                            servicoSearchTimer.current = setTimeout(() => {
+                              if (value.length >= 1) {
+                                loadServicos(value);
+                              } else if (value.length === 0) {
+                                loadServicos('');
+                              }
+                            }, 400);
                           }
                         }}
                         loading={servicoLoading}
@@ -1985,16 +2087,6 @@ const Contracts: React.FC = () => {
                           onChange={(e: SelectChangeEvent) => {
                             const selectedClassId = e.target.value ? parseInt(e.target.value) : undefined;
                             handleInputChange('ip_class_id', selectedClassId);
-                            handleInputChange('assigned_ip', ''); // Reset assigned IP when class changes
-
-                            // Load available IPs for selected class
-                            if (selectedClassId) {
-                              const selectedInterface = interfaces.find(intf => intf.id === form.interface_id);
-                              const selectedIpClass = selectedInterface?.ip_classes?.find(ipClass => ipClass.id === selectedClassId);
-                              loadAvailableIPs(selectedIpClass);
-                            } else {
-                              setAvailableIPs([]);
-                            }
                           }}
                           disabled={!form.interface_id || networkLoading}
                         >

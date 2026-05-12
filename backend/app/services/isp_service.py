@@ -1,8 +1,10 @@
 import logging
 from sqlalchemy.orm import Session
-from app.models.models import ServicoContratado, Router, StatusContrato
+from app.models.models import ServicoContratado, Router, StatusContrato, MetodoAutenticacao
 from app.mikrotik.controller import MikrotikController
 from app.core.security import decrypt_password
+from app.core.radius_db import RadiusSessionLocal
+from app.services.radius_sync_service import RadiusSyncService
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +25,22 @@ def process_unblock_if_needed(db: Session, contrato_id: int):
     old_status = contrato.status
     contrato.status = StatusContrato.ATIVO
     db.add(contrato)
+
+    # 1. Desbloqueio no RADIUS (se aplicável)
+    if contrato.metodo_autenticacao == MetodoAutenticacao.RADIUS:
+        if contrato.cliente and contrato.cliente.radius_user:
+            radius_user = contrato.cliente.radius_user
+            try:
+                if RadiusSessionLocal:
+                    with RadiusSessionLocal() as radius_db:
+                        sync = RadiusSyncService(radius_db)
+                        sync.enable_user(radius_user.username)
+                        logger.info(f"Usuário Radius '{radius_user.username}' reativado no FreeRadius.")
+                
+                radius_user.is_active = True
+                db.add(radius_user)
+            except Exception as e:
+                logger.error(f"Erro ao reativar usuário Radius '{radius_user.username}': {e}")
     
     # Se tiver router configurado, realiza o desbloqueio técnico
     if contrato.router_id:
@@ -56,6 +74,11 @@ def process_unblock_if_needed(db: Session, contrato_id: int):
                     cliente_nome = contrato.cliente.nome_razao_social
 
                 # Desbloquear primário (remover da pg_corte e regras estritas)
+                # Se for RADIUS, o username no Mikrotik é o username do Radius
+                mk_username = f"contrato_{contrato.id}"
+                if contrato.metodo_autenticacao == MetodoAutenticacao.RADIUS and contrato.cliente.radius_user:
+                    mk_username = contrato.cliente.radius_user.username
+
                 success = mk.unsuspend_client_connection(
                     contrato_id=contrato.id,
                     metodo_autenticacao=contrato.metodo_autenticacao,
@@ -64,6 +87,10 @@ def process_unblock_if_needed(db: Session, contrato_id: int):
                     interface=interface_name,
                     comment=cliente_nome
                 )
+                
+                # Se for RADIUS ou PPPOE, tenta derrubar a sessão ativa para forçar re-conexão com status novo
+                if contrato.metodo_autenticacao in [MetodoAutenticacao.PPPOE, MetodoAutenticacao.RADIUS]:
+                    mk.disconnect_pppoe_active(mk_username)
 
                 # Restaurar a banda original (Simple Queue e DHCP) com base no serviço
                 if success and contrato.servico_id:
@@ -117,6 +144,22 @@ def process_block_if_needed(db: Session, contrato_id: int):
     
     contrato.status = StatusContrato.SUSPENSO
     db.add(contrato)
+
+    # 1. Bloqueio no RADIUS (se aplicável)
+    if contrato.metodo_autenticacao == MetodoAutenticacao.RADIUS:
+        if contrato.cliente and contrato.cliente.radius_user:
+            radius_user = contrato.cliente.radius_user
+            try:
+                if RadiusSessionLocal:
+                    with RadiusSessionLocal() as radius_db:
+                        sync = RadiusSyncService(radius_db)
+                        sync.disable_user(radius_user.username)
+                        logger.info(f"Usuário Radius '{radius_user.username}' suspenso no FreeRadius.")
+                
+                radius_user.is_active = False
+                db.add(radius_user)
+            except Exception as e:
+                logger.error(f"Erro ao suspender usuário Radius '{radius_user.username}': {e}")
     
     if contrato.router_id:
         router_db = db.query(Router).filter(Router.id == contrato.router_id).first()
@@ -146,12 +189,22 @@ def process_block_if_needed(db: Session, contrato_id: int):
                 
                 cliente_nome = contrato.cliente.nome_razao_social if contrato.cliente else "Cliente"
                 
+                # Determinar username para desconexão
+                mk_username = f"contrato_{contrato.id}"
+                if contrato.metodo_autenticacao == MetodoAutenticacao.RADIUS and contrato.cliente and contrato.cliente.radius_user:
+                    mk_username = contrato.cliente.radius_user.username
+
                 mk.suspend_client_connection(
                     contrato_id=contrato.id,
                     metodo_autenticacao=contrato.metodo_autenticacao,
                     assigned_ip=contrato.assigned_ip,
                     comment=cliente_nome
                 )
+
+                # Se for RADIUS ou PPPOE, derruba a conexão imediatamente para o bloqueio valer
+                if contrato.metodo_autenticacao in [MetodoAutenticacao.PPPOE, MetodoAutenticacao.RADIUS]:
+                    mk.disconnect_pppoe_active(mk_username)
+
                 mk.close()
                 logger.info(f"Contrato {contrato_id} bloqueado no router {router_db.ip}")
             except Exception as e:
