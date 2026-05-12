@@ -61,10 +61,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loadUserInfo = async () => {
-    console.log('🔥 LOADUSERINFO STARTED');
     try {
       const userData = await authService.getCurrentUser();
-      console.log('📦 USER DATA RECEIVED:', userData);
       setUser(userData);
 
       // Aguardar um tick para garantir que o estado foi atualizado
@@ -86,7 +84,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsAuthenticated(true);
 
     } catch (error) {
-      console.error('❌ ERRO LOAD USER INFO:', error);
       // Token pode estar expirado, fazer logout
       logout();
     } finally {

@@ -18,6 +18,7 @@ import { routerService } from '../services/routerService';
 import { networkService } from '../services/networkService';
 import { Cliente, Router, RouterInterface, IPClass } from '../types';
 import { generateAvailableIPs } from '../utils/networkUtils';
+import api from '../services/api';
 
 const Contracts: React.FC = () => {
   const { activeCompany } = useCompany();
@@ -445,22 +446,17 @@ const Contracts: React.FC = () => {
     if (ipClass) {
       try {
         // Busca IPs já em uso para esta classe IP
-        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
-        const usedIPsResponse = await fetch(`${apiBaseUrl}/network/ip-classes/${ipClass.id}/used-ips/`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
-        });
+        const usedIPsResponse = await api.get(`/network/ip-classes/${ipClass.id}/used-ips/`);
 
-        if (usedIPsResponse.ok) {
-          let usedIPs: string[] = await usedIPsResponse.json();
-          
+        if (usedIPsResponse.data) {
+          let usedIPs: string[] = usedIPsResponse.data;
+
           // Se o formulário tiver um IP (caso de edição), removemos ele da lista de 'usados' 
           // para que ele apareça como disponível na lista de opções do Select
           if (form.assigned_ip) {
             usedIPs = usedIPs.filter(ip => ip !== form.assigned_ip);
           }
-          
+
           // Gera IPs disponíveis excluindo os já em uso
           const ips = generateAvailableIPs(ipClass, usedIPs);
           setAvailableIPs(ips);
@@ -479,7 +475,7 @@ const Contracts: React.FC = () => {
       setAvailableIPs([]);
     }
   }, [form.assigned_ip]);
-  
+
   // Get IP classes for selected interface
   const getIPClassesForSelectedInterface = useMemo(() => {
     if (!form.interface_id) return [];
@@ -497,7 +493,7 @@ const Contracts: React.FC = () => {
           handleInputChange('ip_class_id', classes[0].id);
         }
       }
-      
+
       // 2. Auto-select first available IP if class is set and IP is empty
       if (form.ip_class_id && availableIPs.length > 0 && !form.assigned_ip) {
         handleInputChange('assigned_ip', availableIPs[0]);
@@ -918,14 +914,77 @@ const Contracts: React.FC = () => {
       oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
       const oneYearFromNowStr = oneYearFromNow.toISOString().split('T')[0];
       setEditing(null);
-      setForm({ quantidade: 1, periodicidade: 'MENSAL', valor_unitario: 0, auto_emit: true, is_active: true, dia_emissao: 1, status: 'PENDENTE_INSTALACAO', periodo_carencia: 0, multa_atraso_percentual: 0.0, taxa_instalacao: 0.0, taxa_instalacao_paga: false, tipo_conexao: 'FIBRA', sla_garantido: undefined, velocidade_garantida: '', subscription_id: undefined, d_contrato_ini: today, d_contrato_fim: oneYearFromNowStr, data_instalacao: today, router_id: undefined, interface_id: undefined, ip_class_id: undefined, mac_address: '', assigned_ip: '', metodo_autenticacao: undefined, pppoe_username: '', pppoe_password: '' });
+
+      // Tentar carregar dados do último contrato salvo no localStorage
+      let initialForm = {
+        quantidade: 1,
+        periodicidade: 'MENSAL',
+        valor_unitario: 0,
+        auto_emit: true,
+        is_active: true,
+        dia_emissao: 1,
+        status: 'PENDENTE_INSTALACAO',
+        periodo_carencia: 0,
+        multa_atraso_percentual: 0.0,
+        taxa_instalacao: 0.0,
+        taxa_instalacao_paga: false,
+        tipo_conexao: 'FIBRA',
+        sla_garantido: undefined,
+        velocidade_garantida: '',
+        subscription_id: undefined,
+        d_contrato_ini: today,
+        d_contrato_fim: oneYearFromNowStr,
+        data_instalacao: today,
+        router_id: undefined,
+        interface_id: undefined,
+        ip_class_id: undefined,
+        mac_address: '',
+        assigned_ip: '',
+        metodo_autenticacao: undefined,
+        pppoe_username: '',
+        pppoe_password: ''
+      };
+
+      const savedData = localStorage.getItem('last_contract_tech_data');
+      if (savedData) {
+        try {
+          const techData = JSON.parse(savedData);
+          initialForm = { ...initialForm, ...techData };
+
+          // Se houver um serviço salvo, tentar carregar o nome para o autocomplete
+          if (techData.servico_id && activeCompany) {
+            servicoService.getServicoById(techData.servico_id).then(s => {
+              if (s) {
+                setServicos([s]);
+                setServicoSearch(s.descricao || '');
+              }
+            }).catch(err => console.error('Erro ao carregar serviço salvo:', err));
+          }
+
+          // Se houver um router salvo, carregar as interfaces
+          if (techData.router_id) {
+            loadInterfaces(techData.router_id);
+          }
+
+          // NUNCA copiar IP, MAC ou usuários PPPoE de um contrato para outro
+          initialForm.assigned_ip = '';
+          initialForm.mac_address = '';
+          initialForm.pppoe_username = '';
+          initialForm.pppoe_password = '';
+        } catch (e) {
+          console.error('Erro ao processar dados salvos do localStorage:', e);
+        }
+      }
+
+      setForm(initialForm);
       // Reset input values and prefetch the first 10 clients and services
       setClientSearch('');
-      setServicoSearch('');
+      // setServicoSearch('') // Não resetar se carregamos do localStorage
+
       // Prefetch defaults (do not await)
       if (activeCompany) {
         loadClients('');
-        loadServicos('');
+        if (!initialForm.servico_id) loadServicos('');
         loadBankAccounts();
         // Carregar dados de rede para novo contrato
         loadRouters();
@@ -1331,6 +1390,29 @@ const Contracts: React.FC = () => {
         }
         setSnackbar({ open: true, message: 'Contrato criado com sucesso!', severity: 'success' });
       }
+
+      // Salvar dados técnicos no localStorage para facilitar o próximo contrato
+      const technicalData = {
+        servico_id: form.servico_id,
+        dia_emissao: form.dia_emissao,
+        dia_vencimento: form.dia_vencimento,
+        periodicidade: form.periodicidade,
+        valor_unitario: form.valor_unitario,
+        quantidade: form.quantidade,
+        auto_emit: form.auto_emit,
+        tipo_conexao: form.tipo_conexao,
+        metodo_autenticacao: form.metodo_autenticacao,
+        router_id: form.router_id,
+        interface_id: form.interface_id,
+        ip_class_id: form.ip_class_id,
+        status: form.status,
+        is_active: form.is_active,
+        velocidade_garantida: form.velocidade_garantida,
+        sla_garantido: form.sla_garantido,
+        responsavel_tecnico: form.responsavel_tecnico
+      };
+      localStorage.setItem('last_contract_tech_data', JSON.stringify(technicalData));
+
       handleCloseForm();
       load();
     } catch (e: any) {
@@ -1654,17 +1736,17 @@ const Contracts: React.FC = () => {
                         loading={clientLoading}
                         renderInput={(params) => {
                           const selectedClient = clients.find(cl => cl.id === form.cliente_id);
-                          const dynamicLabel = selectedClient 
-                            ? `Cliente (${clientService.formatCpfCnpj(selectedClient.cpf_cnpj)}) *` 
+                          const dynamicLabel = selectedClient
+                            ? `Cliente (${clientService.formatCpfCnpj(selectedClient.cpf_cnpj)}) *`
                             : "Cliente *";
-                          
+
                           return (
-                            <TextField 
-                              {...params} 
-                              label={dynamicLabel} 
-                              error={!!errors.cliente_id} 
-                              helperText={errors.cliente_id || 'Digite ao menos 2 caracteres para buscar'} 
-                              size="small" 
+                            <TextField
+                              {...params}
+                              label={dynamicLabel}
+                              error={!!errors.cliente_id}
+                              helperText={errors.cliente_id || 'Digite ao menos 2 caracteres para buscar'}
+                              size="small"
                             />
                           );
                         }}

@@ -55,19 +55,9 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Debugging: intercept and log network errors that result in no response
 api.interceptors.response.use(
   (res) => res,
   (error) => {
-    // Log full error to console to aid debugging when error.response is undefined
-    try {
-      // eslint-disable-next-line no-console
-      console.error('API network error:', error?.message, error);
-      // eslint-disable-next-line no-console
-      console.error('Axios error.request:', error?.request);
-      // eslint-disable-next-line no-console
-      console.error('Axios error.response:', error?.response);
-    } catch (e) {}
     return Promise.reject(error);
   }
 );

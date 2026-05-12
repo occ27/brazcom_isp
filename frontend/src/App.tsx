@@ -38,23 +38,13 @@ const RedirectHandler: React.FC = () => {
   const navigate = useNavigate();
 
   React.useEffect(() => {
-    console.log('🔄 REDIRECT HANDLER:', {
-      isAuthenticated,
-      user: user?.full_name,
-      isClient: isClientUser(),
-    });
-
     // Só fazer redirecionamento se estiver autenticado E tiver dados do usuário
     if (isAuthenticated && user) {
       if (isClientUser()) {
-        console.log('✅ CLIENT USER, REDIRECTING TO CLIENT PORTAL...');
         navigate('/client-portal', { replace: true });
       } else {
-        console.log('✅ ADMIN USER, REDIRECTING TO DASHBOARD...');
         navigate('/dashboard', { replace: true });
       }
-    } else {
-      console.log('⏳ CONDITIONS NOT MET', { isAuthenticated, hasUser: !!user });
     }
   }, [isAuthenticated, user, navigate, isClientUser]);
 
@@ -452,7 +442,7 @@ const App: React.FC = () => {
       <AuthProvider>
         <CompanyProvider>
           <SnackbarProvider maxSnack={3} anchorOrigin={{ vertical: 'top', horizontal: 'right' }}>
-            <Router>
+            <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
               <AppContent />
             </Router>
           </SnackbarProvider>
