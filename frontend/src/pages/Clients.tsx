@@ -40,7 +40,7 @@ const Clients: React.FC = () => {
       setTotalRows(data.total || 0);
     } catch (e) {
       console.error(e);
-      setSnackbar({ open: true, message: 'Erro ao carregar clientes', severity: 'error' });
+      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao carregar clientes', severity: 'error' });
     } finally {
       setLoading(false);
     }
@@ -143,7 +143,7 @@ const Clients: React.FC = () => {
         });
         setOpen(true);
       } catch (error) {
-        setSnackbar({ open: true, message: 'Erro ao carregar dados do cliente.', severity: 'error' });
+        setSnackbar({ open: true, message: stringifyError(error) || 'Erro ao carregar dados do cliente.', severity: 'error' });
       } finally {
         setLoading(false);
       }

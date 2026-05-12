@@ -170,9 +170,10 @@ async def update_cliente(
     if not assoc:
         raise HTTPException(status_code=404, detail="Associação empresa-cliente não encontrada")
 
-    # Permissão de edição: somente o usuário que criou a associação (ou superuser)
-    if not current_user.is_superuser and assoc.created_by_user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Apenas o usuário criador da associação pode editar os dados deste cliente nesta empresa")
+    # Permissão de edição: somente o usuário que criou a associação, admins da empresa ou superuser
+    is_admin = any(e.empresa_id == empresa_id and e.is_admin for e in current_user.empresas)
+    if not current_user.is_superuser and not is_admin and assoc.created_by_user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Apenas o criador da associação ou administradores da empresa podem editar este cliente")
 
     # Backend permission: require clients_manage to update clientes
     deps.permission_checker('clients_manage')(db=db, current_user=current_user)
@@ -271,8 +272,20 @@ def delete_cliente(
 
     # Se for cliente legado (empresa_id no Cliente) ou remove_orphan_cliente True
     if db_cliente.empresa_id == empresa_id or (current_user.is_superuser and remove_orphan_cliente):
-        crud_cliente.delete_cliente(db, db_cliente)
-        return {"detail": "Cliente removido"}
+        try:
+            crud_cliente.delete_cliente(db, db_cliente)
+        except Exception as e:
+            db.rollback()
+            # Verifica se é erro de chave estrangeira (IntegrityError)
+            error_msg = str(e).lower()
+            if "integrityerror" in error_msg or "foreign key constraint fails" in error_msg:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Não é possível excluir este cliente pois existem serviços ou registros financeiros vinculados a ele. Recomenda-se inativar o cliente em vez de excluí-lo."
+                )
+            raise HTTPException(status_code=500, detail=f"Erro interno ao excluir cliente: {str(e)}")
+
+        return {"message": "Cliente removido com sucesso"}
 
     # Caso padrão: deletar apenas a associação empresa_cliente
     try:

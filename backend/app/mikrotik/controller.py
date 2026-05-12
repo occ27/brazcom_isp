@@ -1260,7 +1260,7 @@ class MikrotikController:
         # 2. Aplicar a configuração ATUAL
         if metodo_autenticacao == 'PPPOE':
             password_pppoe = f"pppoe_{contrato_id}"
-            self.add_pppoe_secret(username, password_pppoe, profile=profile, comment=comment)
+            self.add_pppoe_user(username, password_pppoe, profile=profile, comment=comment)
         
         elif metodo_autenticacao == 'IP_MAC':
             if not assigned_ip or not mac_address or not interface:

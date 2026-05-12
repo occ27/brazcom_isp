@@ -53,7 +53,30 @@ const Servicos: React.FC = () => {
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
 
-  const [formData, setFormData] = useState<ServicoCreate>({ tipo: 'SERVICO', codigo: '', descricao: '', cClass: '', unidade_medida: 'UN', valor_unitario: 0, cfop: '', ncm: '', base_calculo_icms_default: 0, aliquota_icms_default: 0, valor_desconto_default: 0, valor_outros_default: 0, upload_speed: 0, download_speed: 0, max_limit: '', fidelity_months: 0, billing_cycle: 'MENSAL', notes: '', promotional_price: 0, promotional_months: 0, promotional_active: false, ppp_profile_id: undefined });
+  const [formData, setFormData] = useState<ServicoCreate>({ 
+    tipo: 'SERVICO', 
+    codigo: '', 
+    descricao: '', 
+    cClass: '', 
+    unidade_medida: 'UN', 
+    valor_unitario: 0, 
+    cfop: '', 
+    ncm: '', 
+    base_calculo_icms_default: 0, 
+    aliquota_icms_default: 0, 
+    valor_desconto_default: 0, 
+    valor_outros_default: 0, 
+    upload_speed: 0, 
+    download_speed: 0, 
+    max_limit: '', 
+    fidelity_months: undefined, 
+    billing_cycle: 'MENSAL', 
+    notes: '', 
+    promotional_price: undefined, 
+    promotional_months: undefined, 
+    promotional_active: false, 
+    ppp_profile_id: undefined 
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
   const [tabValue, setTabValue] = useState(0);
@@ -308,14 +331,65 @@ const Servicos: React.FC = () => {
       });
     } else {
       setEditingServico(null);
-      setFormData({ tipo: 'SERVICO', codigo: '', descricao: '', cClass: '', unidade_medida: 'UN', valor_unitario: 0, cfop: '', ncm: '', base_calculo_icms_default: 0, aliquota_icms_default: 0, valor_desconto_default: 0, valor_outros_default: 0, upload_speed: 0, download_speed: 0, max_limit: '', fidelity_months: 0, billing_cycle: 'MENSAL', notes: '', promotional_price: 0, promotional_months: 0, promotional_active: false, ppp_profile_id: undefined });
+      setFormData({ 
+        tipo: 'SERVICO', 
+        codigo: '', 
+        descricao: '', 
+        cClass: '', 
+        unidade_medida: 'UN', 
+        valor_unitario: 0, 
+        cfop: '', 
+        ncm: '', 
+        base_calculo_icms_default: 0, 
+        aliquota_icms_default: 0, 
+        valor_desconto_default: 0, 
+        valor_outros_default: 0, 
+        upload_speed: 0, 
+        download_speed: 0, 
+        max_limit: '', 
+        fidelity_months: undefined, 
+        billing_cycle: 'MENSAL', 
+        notes: '', 
+        promotional_price: undefined, 
+        promotional_months: undefined, 
+        promotional_active: false, 
+        ppp_profile_id: undefined 
+      });
     }
     setErrors({});
     setOpen(true);
     setTabValue(0);
   };
 
-  const handleClose = () => setOpen(false);
+  const handleClose = () => {
+    setOpen(false);
+    setEditingServico(null);
+    setFormData({ 
+      tipo: 'SERVICO', 
+      codigo: '', 
+      descricao: '', 
+      cClass: '', 
+      unidade_medida: 'UN', 
+      valor_unitario: 0, 
+      cfop: '', 
+      ncm: '', 
+      base_calculo_icms_default: 0, 
+      aliquota_icms_default: 0, 
+      valor_desconto_default: 0, 
+      valor_outros_default: 0, 
+      upload_speed: 0, 
+      download_speed: 0, 
+      max_limit: '', 
+      fidelity_months: undefined, 
+      billing_cycle: 'MENSAL', 
+      notes: '', 
+      promotional_price: undefined, 
+      promotional_months: undefined, 
+      promotional_active: false, 
+      ppp_profile_id: undefined 
+    });
+    setErrors({});
+  };
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -328,9 +402,6 @@ const Servicos: React.FC = () => {
     const newErrors: Record<string, string> = {};
     
     // Campos obrigatórios
-    if (!formData.codigo.trim()) {
-      newErrors.codigo = 'Código é obrigatório.';
-    }
     if (!formData.descricao.trim()) {
       newErrors.descricao = 'Descrição é obrigatória.';
     }
@@ -365,6 +436,7 @@ const Servicos: React.FC = () => {
     }
     if (Object.keys(newErrors).length) {
       setErrors(newErrors);
+      setSnackbar({ open: true, message: 'Por favor, corrija os erros no formulário antes de salvar.', severity: 'error' });
       
       // Navegar para a aba com erro
       const errorFields = Object.keys(newErrors);
@@ -383,11 +455,25 @@ const Servicos: React.FC = () => {
       return;
     }
     try {
+      const payload = { ...formData };
+      
+      // Limpar campos promocionais se a promoção não estiver ativa ou se valores forem zerados
+      if (!payload.promotional_active) {
+        payload.promotional_price = undefined;
+        payload.promotional_months = undefined;
+      } else {
+        // Garantir que não envie 0 se o backend exige >= 1
+        if (payload.promotional_months === 0) payload.promotional_months = undefined;
+      }
+
+      // Limpar fidelidade se for 0
+      if (payload.fidelity_months === 0) payload.fidelity_months = undefined;
+
       if (editingServico) {
-        await servicoService.updateServico(activeCompany.id, editingServico.id, formData as any);
+        await servicoService.updateServico(activeCompany.id, editingServico.id, payload as any);
         setSnackbar({ open: true, message: 'Serviço atualizado com sucesso', severity: 'success' });
       } else {
-        await servicoService.createServico(activeCompany.id, formData as any);
+        await servicoService.createServico(activeCompany.id, payload as any);
         setSnackbar({ open: true, message: 'Serviço criado com sucesso', severity: 'success' });
       }
       handleClose();
@@ -404,7 +490,7 @@ const Servicos: React.FC = () => {
       setSnackbar({ open: true, message: 'Serviço excluído', severity: 'success' });
       loadServicos();
     } catch (e) {
-      setSnackbar({ open: true, message: 'Erro ao excluir serviço', severity: 'error' });
+      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao excluir serviço', severity: 'error' });
     }
   };
 
@@ -507,7 +593,13 @@ const Servicos: React.FC = () => {
                   <TextField label="Código" value={formData.codigo} onChange={e => handleInputChange('codigo', e.target.value)} fullWidth error={!!errors.codigo} helperText={errors.codigo} />
                   <TextField label="Descrição" value={formData.descricao} onChange={e => handleInputChange('descricao', e.target.value)} fullWidth error={!!errors.descricao} helperText={errors.descricao} />
                   <TextField label="Unidade de Medida" value={formData.unidade_medida} onChange={e => handleInputChange('unidade_medida', e.target.value)} fullWidth error={!!errors.unidade_medida} helperText={errors.unidade_medida} />
-                  <TextField label="Valor Unitário" type="number" value={formData.valor_unitario} onChange={e => handleInputChange('valor_unitario', parseFloat(e.target.value) || 0)} fullWidth />
+                  <TextField 
+                    label="Valor Unitário" 
+                    type="number" 
+                    value={formData.valor_unitario ?? ''} 
+                    onChange={e => handleInputChange('valor_unitario', e.target.value === '' ? undefined : parseFloat(e.target.value))} 
+                    fullWidth 
+                  />
                 </Box>
               )}
               {tabValue === 1 && (
@@ -529,16 +621,52 @@ const Servicos: React.FC = () => {
                     )}
                   />
                   <TextField label="NCM" value={formData.ncm} onChange={e => handleInputChange('ncm', e.target.value)} fullWidth />
-                  <TextField label="Base Cálculo ICMS (padrão)" type="number" value={formData.base_calculo_icms_default} onChange={e => handleInputChange('base_calculo_icms_default', parseFloat(e.target.value) || 0)} fullWidth />
-                  <TextField label="Alíquota ICMS (%)" type="number" value={formData.aliquota_icms_default} onChange={e => handleInputChange('aliquota_icms_default', parseFloat(e.target.value) || 0)} fullWidth />
-                  <TextField label="Valor Desconto (padrão)" type="number" value={formData.valor_desconto_default} onChange={e => handleInputChange('valor_desconto_default', parseFloat(e.target.value) || 0)} fullWidth />
-                  <TextField label="Valor Outros (padrão)" type="number" value={formData.valor_outros_default} onChange={e => handleInputChange('valor_outros_default', parseFloat(e.target.value) || 0)} fullWidth />
+                   <TextField 
+                    label="Base Cálculo ICMS (padrão)" 
+                    type="number" 
+                    value={formData.base_calculo_icms_default ?? ''} 
+                    onChange={e => handleInputChange('base_calculo_icms_default', e.target.value === '' ? undefined : parseFloat(e.target.value))} 
+                    fullWidth 
+                  />
+                  <TextField 
+                    label="Alíquota ICMS (%)" 
+                    type="number" 
+                    value={formData.aliquota_icms_default ?? ''} 
+                    onChange={e => handleInputChange('aliquota_icms_default', e.target.value === '' ? undefined : parseFloat(e.target.value))} 
+                    fullWidth 
+                  />
+                  <TextField 
+                    label="Valor Desconto (padrão)" 
+                    type="number" 
+                    value={formData.valor_desconto_default ?? ''} 
+                    onChange={e => handleInputChange('valor_desconto_default', e.target.value === '' ? undefined : parseFloat(e.target.value))} 
+                    fullWidth 
+                  />
+                  <TextField 
+                    label="Valor Outros (padrão)" 
+                    type="number" 
+                    value={formData.valor_outros_default ?? ''} 
+                    onChange={e => handleInputChange('valor_outros_default', e.target.value === '' ? undefined : parseFloat(e.target.value))} 
+                    fullWidth 
+                  />
                 </Box>
               )}
               {tabValue === 2 && formData.tipo === 'PLANO_INTERNET' && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <TextField label="Velocidade de Upload (Mbps)" type="number" value={formData.upload_speed} onChange={e => handleInputChange('upload_speed', parseFloat(e.target.value) || 0)} fullWidth />
-                  <TextField label="Velocidade de Download (Mbps)" type="number" value={formData.download_speed} onChange={e => handleInputChange('download_speed', parseFloat(e.target.value) || 0)} fullWidth />
+                  <TextField 
+                    label="Velocidade de Upload (Mbps)" 
+                    type="number" 
+                    value={formData.upload_speed ?? ''} 
+                    onChange={e => handleInputChange('upload_speed', e.target.value === '' ? undefined : parseFloat(e.target.value))} 
+                    fullWidth 
+                  />
+                  <TextField 
+                    label="Velocidade de Download (Mbps)" 
+                    type="number" 
+                    value={formData.download_speed ?? ''} 
+                    onChange={e => handleInputChange('download_speed', e.target.value === '' ? undefined : parseFloat(e.target.value))} 
+                    fullWidth 
+                  />
                   <TextField label="Limite Máximo (opcional, ex: 10M/10M - gerado automaticamente se vazio)" value={formData.max_limit} onChange={e => handleInputChange('max_limit', e.target.value)} fullWidth />
                   <FormControl fullWidth sx={{ minWidth: 200 }}>
                     <InputLabel sx={{ backgroundColor: 'white', padding: '0 4px' }}>Profile PPPoE (opcional)</InputLabel>
@@ -556,7 +684,15 @@ const Servicos: React.FC = () => {
                       ))}
                     </Select>
                   </FormControl>
-                  <TextField label="Fidelidade (meses)" type="number" value={formData.fidelity_months} onChange={e => handleInputChange('fidelity_months', parseInt(e.target.value) || 0)} fullWidth />
+                  <TextField 
+                    label="Fidelidade (meses)" 
+                    type="number" 
+                    value={formData.fidelity_months ?? ''} 
+                    onChange={e => handleInputChange('fidelity_months', e.target.value === '' ? undefined : parseInt(e.target.value))} 
+                    fullWidth 
+                    error={!!errors.fidelity_months}
+                    helperText={errors.fidelity_months}
+                  />
                   <FormControl fullWidth sx={{ minWidth: 200 }}>
                     <InputLabel sx={{ backgroundColor: 'white', padding: '0 4px' }}>Ciclo de Cobrança</InputLabel>
                     <Select value={formData.billing_cycle} onChange={e => handleInputChange('billing_cycle', e.target.value)}>
@@ -573,8 +709,24 @@ const Servicos: React.FC = () => {
                   />
                   {formData.promotional_active && (
                     <>
-                      <TextField label="Preço promocional" type="number" value={formData.promotional_price} onChange={e => handleInputChange('promotional_price', parseFloat(e.target.value) || 0)} fullWidth />
-                      <TextField label="Meses promocionais" type="number" value={formData.promotional_months} onChange={e => handleInputChange('promotional_months', parseInt(e.target.value) || 0)} fullWidth />
+                      <TextField 
+                        label="Preço promocional" 
+                        type="number" 
+                        value={formData.promotional_price ?? ''} 
+                        onChange={e => handleInputChange('promotional_price', e.target.value === '' ? undefined : parseFloat(e.target.value))} 
+                        fullWidth 
+                        error={!!errors.promotional_price}
+                        helperText={errors.promotional_price}
+                      />
+                      <TextField 
+                        label="Meses promocionais" 
+                        type="number" 
+                        value={formData.promotional_months ?? ''} 
+                        onChange={e => handleInputChange('promotional_months', e.target.value === '' ? undefined : parseInt(e.target.value))} 
+                        fullWidth 
+                        error={!!errors.promotional_months}
+                        helperText={errors.promotional_months}
+                      />
                     </>
                   )}
                 </Box>

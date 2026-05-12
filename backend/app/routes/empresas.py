@@ -180,7 +180,19 @@ def delete_servico_from_empresa(
     db_servico = crud_servico.get_servico(db, servico_id=servico_id, empresa_id=empresa_id)
     if not db_servico:
         raise HTTPException(status_code=404, detail="Serviço não encontrado")
-    crud_servico.delete_servico(db=db, db_obj=db_servico)
+    # Excluir
+    try:
+        crud_servico.delete_servico(db=db, db_obj=db_servico)
+    except Exception as e:
+        db.rollback()
+        error_msg = str(e).lower()
+        if "integrityerror" in error_msg or "foreign key constraint fails" in error_msg:
+            raise HTTPException(
+                status_code=400, 
+                detail="Não é possível excluir este serviço pois existem contratos de clientes vinculados a ele. Recomenda-se apenas editá-lo ou inativá-lo."
+            )
+        raise HTTPException(status_code=500, detail=f"Erro interno ao excluir serviço: {str(e)}")
+
     return None
 
 @router.get("/{empresa_id}/certificado/status")

@@ -147,7 +147,7 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
         { label: 'Classes IP', icon: ServerIcon, path: 'ip-classes' as PageType, group: 'administracao' },
         { label: 'PPPoE', icon: GlobeAltIcon, path: 'pppoe' as PageType, group: 'rede' },
         { label: 'DHCP', icon: ServerStackIcon, path: 'dhcp' as PageType, group: 'rede' },
-        { label: 'RADIUS NAS', icon: LockClosedIcon, path: 'radius-nas' as PageType, group: 'rede' },
+        ...(user?.is_superuser ? [{ label: 'RADIUS NAS', icon: LockClosedIcon, path: 'radius-nas' as PageType, group: 'rede' }] : []),
       ]
     },
     {
@@ -184,7 +184,6 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
   permissionMap['receivables'] = 'receivables_view';
   permissionMap['tickets'] = 'tickets_view';
   // RADIUS NAS: apenas super_admin (is_superuser) — verificado na própria página
-  permissionMap['radius-nas'] = 'radius_manage';
 
   const canViewItem = (path: PageType) => {
     const required = permissionMap[path as string];

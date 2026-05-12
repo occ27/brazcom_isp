@@ -1263,7 +1263,7 @@ const Contracts: React.FC = () => {
       setSnackbar({ open: true, message: 'Contrato excluído com sucesso!', severity: 'success' });
       load();
     } catch (e) {
-      setSnackbar({ open: true, message: 'Erro ao excluir contrato', severity: 'error' });
+      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao excluir contrato', severity: 'error' });
     }
   };
 
@@ -1274,7 +1274,7 @@ const Contracts: React.FC = () => {
       setSnackbar({ open: true, message: 'Serviço ativado com sucesso!', severity: 'success' });
       load();
     } catch (e) {
-      setSnackbar({ open: true, message: 'Erro ao ativar serviço', severity: 'error' });
+      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao ativar serviço', severity: 'error' });
     }
   };
 
@@ -1284,7 +1284,7 @@ const Contracts: React.FC = () => {
       await contratoService.resetConnection(c.id);
       setSnackbar({ open: true, message: 'Conexão resetada com sucesso!', severity: 'success' });
     } catch (e) {
-      setSnackbar({ open: true, message: 'Erro ao resetar conexão', severity: 'error' });
+      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao resetar conexão', severity: 'error' });
     }
   };
 
@@ -1294,7 +1294,7 @@ const Contracts: React.FC = () => {
       await contratoService.syncRouter(c.id);
       setSnackbar({ open: true, message: 'Configurações sincronizadas com sucesso!', severity: 'success' });
     } catch (e) {
-      setSnackbar({ open: true, message: 'Erro ao sincronizar com roteador', severity: 'error' });
+      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao sincronizar com roteador', severity: 'error' });
     }
   };
 

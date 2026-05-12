@@ -50,6 +50,18 @@ const IPClasses: React.FC = () => {
     severity: 'success' as 'success' | 'error',
   });
 
+  const [unlockDNS, setUnlockDNS] = useState(false);
+
+  const [impactDialog, setImpactDialog] = useState<{
+    open: boolean;
+    classId: number | null;
+    impactData: any | null;
+  }>({
+    open: false,
+    classId: null,
+    impactData: null,
+  });
+
   useEffect(() => {
     loadIPClasses();
   }, []);
@@ -87,6 +99,7 @@ const IPClasses: React.FC = () => {
         dns2: '',
       });
     }
+    setUnlockDNS(false);
     setDialogOpen(true);
   };
 
@@ -125,10 +138,33 @@ const IPClasses: React.FC = () => {
         await networkService.deleteIPClass(classId);
         showSnackbar('Classe IP excluída com sucesso', 'success');
         loadIPClasses();
-      } catch (error) {
-        console.error('Erro ao excluir classe IP:', error);
-        showSnackbar('Erro ao excluir classe IP', 'error');
+      } catch (error: any) {
+        // Tratar erro de confirmação necessária
+        if (error.response && error.response.status === 400 && error.response.data?.detail?.confirmation_required) {
+          setImpactDialog({
+            open: true,
+            classId: classId,
+            impactData: error.response.data.detail.impact,
+          });
+        } else {
+          console.error('Erro ao excluir classe IP:', error);
+          showSnackbar('Erro ao excluir classe IP', 'error');
+        }
       }
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!impactDialog.classId) return;
+    
+    try {
+      await networkService.deleteIPClass(impactDialog.classId, true);
+      showSnackbar('Classe IP excluída permanentemente com sucesso', 'success');
+      setImpactDialog({ open: false, classId: null, impactData: null });
+      loadIPClasses();
+    } catch (error) {
+      console.error('Erro ao confirmar exclusão de classe IP:', error);
+      showSnackbar('Erro ao confirmar exclusão de classe IP', 'error');
     }
   };
 
@@ -273,28 +309,118 @@ const IPClasses: React.FC = () => {
               margin="normal"
               placeholder="192.168.1.1"
             />
+            
+            <Box sx={{ mt: 2, mb: 1 }}>
+              <Alert severity="warning" variant="outlined" sx={{ mb: 2 }}>
+                <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block' }}>
+                  ATENÇÃO: CONFIGURAÇÃO DE DNS
+                </Typography>
+                <Typography variant="caption">
+                  Estes endereços serão enviados para os roteadores (RB). 
+                  Servidores DNS incorretos <strong>interrompem a navegação</strong> de todos os clientes desta rede.
+                </Typography>
+              </Alert>
+            </Box>
+
             <TextField
               fullWidth
               label="DNS Primário"
               value={formData.dns1}
               onChange={(e) => setFormData({ ...formData, dns1: e.target.value })}
-              margin="normal"
+              margin="dense"
               placeholder="8.8.8.8"
+              disabled={editingClass !== null && !unlockDNS}
+              InputProps={{
+                readOnly: editingClass !== null && !unlockDNS,
+              }}
+              helperText={editingClass !== null && !unlockDNS ? "Edição bloqueada por segurança" : ""}
             />
             <TextField
               fullWidth
               label="DNS Secundário"
               value={formData.dns2}
               onChange={(e) => setFormData({ ...formData, dns2: e.target.value })}
-              margin="normal"
+              margin="dense"
               placeholder="8.8.4.4"
+              disabled={editingClass !== null && !unlockDNS}
+              InputProps={{
+                readOnly: editingClass !== null && !unlockDNS,
+              }}
+              helperText={editingClass !== null && !unlockDNS ? "Edição bloqueada por segurança" : ""}
             />
+
+            {editingClass && (
+              <Box sx={{ mt: 1, display: 'flex', alignItems: 'center' }}>
+                <input 
+                  type="checkbox" 
+                  id="unlock-dns" 
+                  checked={unlockDNS} 
+                  onChange={(e) => setUnlockDNS(e.target.checked)}
+                  style={{ marginRight: '8px', width: '16px', height: '16px' }}
+                />
+                <label htmlFor="unlock-dns" style={{ fontSize: '0.75rem', color: '#d32f2f', fontWeight: 'bold', cursor: 'pointer' }}>
+                  LIBERAR EDIÇÃO DE DNS (RISCO DE QUEDA NA NAVEGAÇÃO)
+                </label>
+              </Box>
+            )}
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancelar</Button>
           <Button onClick={handleSubmit} variant="contained">
             {editingClass ? 'Atualizar' : 'Criar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog de Confirmação de Impacto */}
+      <Dialog 
+        open={impactDialog.open} 
+        onClose={() => setImpactDialog({ open: false, classId: null, impactData: null })}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ bgcolor: 'error.main', color: 'white' }}>
+          ATENÇÃO: Operação de Alto Risco
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          {impactDialog.impactData && (
+            <Box>
+              <Typography variant="h6" color="error" gutterBottom>
+                {impactDialog.impactData.critical_warning}
+              </Typography>
+              <Typography variant="body1" sx={{ mb: 2 }}>
+                A classe <strong>{impactDialog.impactData.class_name}</strong> ({impactDialog.impactData.network}) está em uso:
+              </Typography>
+              
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50', mb: 2 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Interfaces Afetadas: {impactDialog.impactData.interfaces_affected}
+                </Typography>
+                <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                  {impactDialog.impactData.interfaces_list.map((item: string, idx: number) => (
+                    <li key={idx}><Typography variant="body2">{item}</Typography></li>
+                  ))}
+                </ul>
+              </Paper>
+              
+              <Typography variant="body2" color="textSecondary">
+                Ao excluir esta classe, as configurações de IP acima serão removidas dos roteadores Mikrotik. 
+                Isso poderá causar perda imediata de conectividade nessas interfaces.
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: 'grey.50' }}>
+          <Button onClick={() => setImpactDialog({ open: false, classId: null, impactData: null })}>
+            Cancelar Operação
+          </Button>
+          <Button 
+            onClick={handleConfirmDelete} 
+            variant="contained" 
+            color="error"
+          >
+            Confirmar e Excluir Mesmo Assim
           </Button>
         </DialogActions>
       </Dialog>

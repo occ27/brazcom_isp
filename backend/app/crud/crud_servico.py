@@ -89,6 +89,14 @@ def create_servico(db: Session, servico_in: servico_schema.ServicoCreate, empres
     data = servico_in.model_dump()
     if empresa_id is not None:
         data['empresa_id'] = empresa_id
+    
+    # Gerar código automático se estiver vazio
+    if not data.get('codigo'):
+        # Buscar o último ID para sugerir um código sequencial simples
+        last_s = db.query(models.Servico).filter(models.Servico.empresa_id == empresa_id).order_by(models.Servico.id.desc()).first()
+        next_num = (last_s.id + 1) if last_s else 1
+        data['codigo'] = str(next_num).zfill(3)
+
     # normalize text fields according to NFCOM manual and schema limits
     if 'codigo' in data and data['codigo'] is not None:
         data['codigo'] = _normalize_text(data['codigo'], max_len=60)

@@ -203,8 +203,9 @@ export const networkService = {
     return response.data;
   },
 
-  deleteIPClass: async (classId: number): Promise<void> => {
-    await api.delete(`/network/ip-classes/${classId}`);
+  deleteIPClass: async (classId: number, confirm?: boolean): Promise<void> => {
+    const params = confirm ? { confirm: true } : {};
+    await api.delete(`/network/ip-classes/${classId}`, { params });
   },
 
   // Interface IP Class Assignments

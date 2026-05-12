@@ -391,29 +391,63 @@ def print_receivable(receivable_id: int, db: Session = Depends(get_db), current_
 
 
 @router.delete("/{receivable_id}")
-def cancel_receivable(receivable_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
-    """Cancela uma cobrança e solicita baixa no banco se estiver registrada."""
+def delete_receivable(receivable_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+    """Exclui permanentemente uma cobrança se não estiver paga."""
     deps.permission_checker('receivables_manage')(db=db, current_user=current_user)
     recv = db.query(Receivable).filter(Receivable.id == receivable_id).first()
     if not recv:
         raise HTTPException(status_code=404, detail="Cobrança não encontrada")
     
     if recv.status == 'PAID':
-        raise HTTPException(status_code=400, detail="Não é possível cancelar uma cobrança já paga")
+        raise HTTPException(status_code=400, detail="Não é possível excluir uma cobrança já paga. Estorne o pagamento primeiro se necessário.")
     
-    # Se estiver registrado no BB, tentar baixar via API
-    if recv.status == 'REGISTERED' and (recv.bank == 'BANCO DO BRASIL' or recv.bank == 'BANCO_DO_BRASIL'):
-        from app.services.bb_api_service import solicitar_baixa
-        from app.models.models import BankAccount
-        ba = db.query(BankAccount).filter(BankAccount.id == recv.bank_account_id).first()
-        if ba and recv.bb_boleto_numero:
+    # Solicitar baixa no banco associado se estiver registrado
+    if recv.status == 'REGISTERED':
+        # Banco do Brasil
+        if recv.bank in ['BANCO DO BRASIL', 'BANCO_DO_BRASIL']:
+            from app.services.bb_api_service import solicitar_baixa
+            from app.models.models import BankAccount
+            ba = db.query(BankAccount).filter(BankAccount.id == recv.bank_account_id).first()
+            if ba and recv.bb_boleto_numero:
+                try:
+                    solicitar_baixa(ba, recv.bb_boleto_numero)
+                    logger.info(f"Baixa solicitada no BB para fatura {recv.id}")
+                except Exception as e:
+                    logger.error(f"Erro ao solicitar baixa no BB antes da exclusão (fatura {recv.id}): {e}")
+        
+        # Sicoob
+        elif recv.bank == 'SICOB':
             try:
-                ok = solicitar_baixa(ba, recv.bb_boleto_numero)
-                if not ok:
-                    logger.warning(f"Falha ao solicitar baixa do boleto {recv.id} no BB")
+                from app.services.sicoob_gateway import SicoobGateway
+                from app.models.models import BankAccount
+                ba = db.query(BankAccount).filter(BankAccount.id == recv.bank_account_id).first()
+                if ba and recv.nosso_numero:
+                    # Inicializar gateway com credenciais da conta
+                    gateway = SicoobGateway(
+                        client_id=ba.sicoob_client_id,
+                        access_token=ba.sicoob_access_token
+                    )
+                    # Sicoob API é async, mas a rota é sync. Usamos run_sync se necessário ou transformamos a rota.
+                    # Como a maioria das rotas aqui são sync, vamos tentar rodar o async de forma segura.
+                    import asyncio
+                    try:
+                        asyncio.run(gateway.baixar_boleto(recv.nosso_numero))
+                        logger.info(f"Baixa solicitada no Sicoob para fatura {recv.id}")
+                    except Exception as async_e:
+                        # Fallback se já houver um loop rodando (comum em environments async como FastAPI)
+                        logger.warning(f"Falha ao usar asyncio.run, tentando loop atual: {async_e}")
+                        try:
+                            loop = asyncio.get_event_loop()
+                            if loop.is_running():
+                                loop.create_task(gateway.baixar_boleto(recv.nosso_numero))
+                            else:
+                                loop.run_until_complete(gateway.baixar_boleto(recv.nosso_numero))
+                        except Exception as loop_e:
+                            logger.error(f"Erro definitivo ao solicitar baixa no Sicoob: {loop_e}")
             except Exception as e:
-                logger.error(f"Erro ao cancelar boleto {recv.id} no BB: {e}")
+                logger.error(f"Erro ao processar baixa no Sicoob (fatura {recv.id}): {e}")
 
-    recv.status = 'CANCELLED'
+    # Exclusão física do banco
+    db.delete(recv)
     db.commit()
-    return {"message": "Cobrança cancelada com sucesso"}
+    return {"message": "Cobrança excluída permanentemente"}

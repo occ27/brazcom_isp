@@ -222,11 +222,11 @@ const Receivables: React.FC = () => {
     setAnchorEl(null);
   };
 
-  const handleCancel = async (id: number) => {
-    if (!window.confirm('Confirmar cancelamento desta cobrança? (Será solicitada baixa no banco se registrada)')) return;
+  const handleDelete = async (id: number) => {
+    if (!window.confirm('Deseja excluir permanentemente esta cobrança? Esta ação removerá o registro do banco de dados e não pode ser desfeita. (Será solicitada baixa no banco se estiver registrada)')) return;
     try {
       await receivableService.cancelReceivable(id);
-      setSnackbar({ open: true, message: 'Solicitação de cancelamento enviada', severity: 'success' });
+      setSnackbar({ open: true, message: 'Cobrança excluída com sucesso', severity: 'success' });
       loadReceivables();
     } catch (e) {
       setSnackbar({ open: true, message: stringifyError(e), severity: 'error' });
@@ -414,9 +414,9 @@ const Receivables: React.FC = () => {
           </MenuItem>
         )}
         
-        {selectedReceivable?.status !== 'PAID' && selectedReceivable?.status !== 'CANCELLED' && (
-          <MenuItem onClick={() => { handleCancel(selectedReceivable!.id); setAnchorEl(null); }}>
-            <TrashIcon className="w-4 h-4 mr-2 text-red-500" /> Cancelar
+        {selectedReceivable?.status !== 'PAID' && (
+          <MenuItem onClick={() => { handleDelete(selectedReceivable!.id); setAnchorEl(null); }}>
+            <TrashIcon className="w-4 h-4 mr-2 text-red-500" /> Excluir Permanentemente
           </MenuItem>
         )}
       </Menu>

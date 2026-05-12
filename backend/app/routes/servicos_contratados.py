@@ -351,8 +351,16 @@ def delete_contrato_for_empresa(empresa_id: int, contrato_id: int, db: Session =
         crud_servico_contratado.delete_servico_contratado(db, db_obj=db_contrato, radius_db=None)
         logger.info(f"Contrato {contrato_id} excluído com sucesso da empresa {empresa_id}")
     except Exception as db_exc:
+        db.rollback()
         logger.error(f"Erro ao excluir contrato do banco: {str(db_exc)}")
-        raise HTTPException(status_code=500, detail="Erro interno ao excluir contrato")
+        
+        error_msg = str(db_exc).lower()
+        if "integrityerror" in error_msg or "foreign key constraint fails" in error_msg:
+            raise HTTPException(
+                status_code=400, 
+                detail="Não é possível excluir este contrato pois existem faturas (recebíveis) ou registros financeiros vinculados a ele. Recomenda-se cancelar ou suspender o contrato em vez de excluí-lo."
+            )
+        raise HTTPException(status_code=500, detail=f"Erro interno ao excluir contrato: {str(db_exc)}")
 
 
 @router.put("/{contrato_id}/ativar", response_model=sc_schema.ServicoContratadoResponse)

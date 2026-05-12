@@ -11,7 +11,7 @@ class TipoServico(str, Enum):
 class ServicoBase(BaseModel):
     empresa_id: Optional[int] = None
     tipo: TipoServico = Field(TipoServico.SERVICO, description="Tipo do serviço")
-    codigo: str = Field(..., max_length=60, description="Código interno do serviço/produto")
+    codigo: Optional[str] = Field(None, max_length=60, description="Código interno do serviço/produto")
     descricao: str = Field(..., max_length=120, description="Descrição do serviço/produto")
     cClass: str = Field(..., max_length=7, description="Código de Classificação do Item da NFCom")
     unidade_medida: str = Field("UN", max_length=10)
