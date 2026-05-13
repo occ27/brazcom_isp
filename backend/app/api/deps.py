@@ -55,3 +55,15 @@ def permission_checker(permission_name: str) -> Callable:
         return True
 
     return _checker
+
+
+def get_current_superuser(
+    current_user: Usuario = Depends(get_current_active_user),
+) -> Usuario:
+    """Verifica se o usuário atual é um super-administrador."""
+    if not getattr(current_user, "is_superuser", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Apenas super-administradores podem acessar este recurso"
+        )
+    return current_user

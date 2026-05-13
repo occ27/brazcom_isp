@@ -29,7 +29,7 @@ class AssignRolePayload(BaseModel):
 
 
 @router.post('/roles', status_code=status.HTTP_201_CREATED)
-def create_role(payload: RoleCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_active_user)):
+def create_role(payload: RoleCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_superuser)):
     # Checa permissão gerencial de roles
     deps.permission_checker('role_manage')(db=db, current_user=current_user)
     # Se empresa_id não informado, usa active_empresa do usuário
@@ -51,7 +51,7 @@ def list_roles(db: Session = Depends(get_db), current_user: Usuario = Depends(de
 
 
 @router.post('/permissions', status_code=status.HTTP_201_CREATED)
-def create_permission(payload: PermissionCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_active_user)):
+def create_permission(payload: PermissionCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_superuser)):
     deps.permission_checker('permission_manage')(db=db, current_user=current_user)
     p = Permission(name=payload.name, description=payload.description)
     db.add(p)
@@ -103,13 +103,13 @@ def unassign_role(role_id: int, payload: AssignRolePayload, db: Session = Depend
 
 
 @router.get('/permissions', response_model=List[dict])
-def list_permissions(db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_active_user)):
+def list_permissions(db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_superuser)):
     # Lista todas as permissões (não há escopo por empresa para permissões)
     return [ {'id': p.id, 'name': p.name, 'description': p.description} for p in db.query(Permission).all() ]
 
 
 @router.put('/permissions/{permission_id}', status_code=status.HTTP_200_OK)
-def update_permission(permission_id: int, payload: PermissionCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_active_user)):
+def update_permission(permission_id: int, payload: PermissionCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_superuser)):
     deps.permission_checker('permission_manage')(db=db, current_user=current_user)
     perm = db.query(Permission).filter(Permission.id == permission_id).first()
     if not perm:
@@ -122,7 +122,7 @@ def update_permission(permission_id: int, payload: PermissionCreate, db: Session
 
 
 @router.delete('/permissions/{permission_id}', status_code=status.HTTP_200_OK)
-def delete_permission(permission_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_active_user)):
+def delete_permission(permission_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_superuser)):
     deps.permission_checker('permission_manage')(db=db, current_user=current_user)
     perm = db.query(Permission).filter(Permission.id == permission_id).first()
     if not perm:
@@ -136,7 +136,7 @@ def delete_permission(permission_id: int, db: Session = Depends(get_db), current
 
 
 @router.post('/roles/{role_id}/permissions/{permission_id}', status_code=status.HTTP_200_OK)
-def add_permission_to_role(role_id: int, permission_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_active_user)):
+def add_permission_to_role(role_id: int, permission_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_superuser)):
     deps.permission_checker('role_manage')(db=db, current_user=current_user)
     role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
@@ -155,7 +155,7 @@ def add_permission_to_role(role_id: int, permission_id: int, db: Session = Depen
 
 
 @router.delete('/roles/{role_id}/permissions/{permission_id}', status_code=status.HTTP_200_OK)
-def remove_permission_from_role(role_id: int, permission_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_active_user)):
+def remove_permission_from_role(role_id: int, permission_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_superuser)):
     deps.permission_checker('role_manage')(db=db, current_user=current_user)
     role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
@@ -241,7 +241,7 @@ def list_user_permissions(user_id: int, db: Session = Depends(get_db), current_u
 
 
 @router.put('/roles/{role_id}', status_code=status.HTTP_200_OK)
-def update_role(role_id: int, payload: RoleCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_active_user)):
+def update_role(role_id: int, payload: RoleCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_superuser)):
     deps.permission_checker('role_manage')(db=db, current_user=current_user)
     role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
@@ -257,7 +257,7 @@ def update_role(role_id: int, payload: RoleCreate, db: Session = Depends(get_db)
 
 
 @router.delete('/roles/{role_id}', status_code=status.HTTP_200_OK)
-def delete_role(role_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_active_user)):
+def delete_role(role_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_superuser)):
     deps.permission_checker('role_manage')(db=db, current_user=current_user)
     role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
