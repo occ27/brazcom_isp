@@ -50,6 +50,7 @@ def _decrypt_sensitive_fields(empresa: Empresa) -> SimpleNamespace:
         contrato_registro_num=empresa.contrato_registro_num,
         site=empresa.site,
         email_contato=empresa.email_contato,
+        assinatura_digital_url=empresa.assinatura_digital_url,
         created_at=empresa.created_at,
         updated_at=empresa.updated_at,
         # Flags para indicar presença de configuração sensível (sem expor valores)

@@ -320,7 +320,8 @@ def list_boletos(
     
     query = db.query(Receivable, Cliente.nome_razao_social, Cliente.cpf_cnpj)\
         .join(Cliente, Receivable.cliente_id == Cliente.id)\
-        .filter(Receivable.empresa_id == empresa_id, Receivable.bank_account_id == bank_account_id)
+        .filter(Receivable.empresa_id == empresa_id, Receivable.bank_account_id == bank_account_id)\
+        .filter(Receivable.tipo != 'MERCADO_PAGO')
     
     if status:
         query = query.filter(Receivable.status == status)

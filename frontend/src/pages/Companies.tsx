@@ -50,6 +50,7 @@ const Companies: React.FC = () => {
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [certificateFile, setCertificateFile] = useState<File | null>(null);
+  const [signatureFile, setSignatureFile] = useState<File | null>(null);
   const [testingSMTP, setTestingSMTP] = useState(false);
   const [smtpPasswordConfigured, setSmtpPasswordConfigured] = useState(false);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
@@ -94,7 +95,11 @@ const Companies: React.FC = () => {
     ato_autorizacao: '',
     contrato_registro_num: '',
     site: '',
-    email_contato: ''
+    email_contato: '',
+    assinatura_digital_url: '',
+    // Mercado Pago Config
+    mp_access_token: '',
+    mp_public_key: ''
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [snackbar, setSnackbar] = useState({
@@ -191,7 +196,10 @@ const Companies: React.FC = () => {
         ato_autorizacao: company.ato_autorizacao || '',
         contrato_registro_num: company.contrato_registro_num || '',
         site: company.site || '',
-        email_contato: company.email_contato || ''
+        email_contato: company.email_contato || '',
+        assinatura_digital_url: company.assinatura_digital_url || '',
+        mp_access_token: company.mp_access_token || '',
+        mp_public_key: company.mp_public_key || ''
       });
     } else {
       setEditingCompany(null);
@@ -228,7 +236,10 @@ const Companies: React.FC = () => {
         ato_autorizacao: '',
         contrato_registro_num: '',
         site: '',
-        email_contato: ''
+        email_contato: '',
+        assinatura_digital_url: '',
+        mp_access_token: '',
+        mp_public_key: ''
       });
     }
     setErrors({});
@@ -266,7 +277,8 @@ const Companies: React.FC = () => {
       smtp_server: '',
       smtp_port: undefined,
       smtp_user: '',
-      smtp_password: ''
+      smtp_password: '',
+      assinatura_digital_url: ''
     });
     setErrors({});
     setLogoFile(null);
@@ -355,6 +367,7 @@ const Companies: React.FC = () => {
       // Fazer upload dos arquivos para obter os caminhos
       let finalLogoUrl = formData.logo_url;
       let finalCertPath = formData.certificado_path;
+      let finalSignatureUrl = formData.assinatura_digital_url;
 
       if (logoFile) {
         try {
@@ -385,12 +398,27 @@ const Companies: React.FC = () => {
           return; // Interrompe se houver erro no upload
         }
       }
+      if (signatureFile) {
+        try {
+          const uploadResult = await companyService.uploadCompanySignature(companyId, signatureFile);
+          finalSignatureUrl = uploadResult.file_path;
+        } catch (error) {
+          console.error('Erro ao fazer upload da assinatura:', error);
+          setSnackbar({
+            open: true,
+            message: 'Erro ao enviar assinatura',
+            severity: 'error'
+          });
+          return; // Interrompe se houver erro no upload
+        }
+      }
 
       // Atualizar empresa com os caminhos finais dos arquivos (sempre atualizar para garantir consistência)
       const finalSubmitData = {
         ...submitData,
         logo_url: finalLogoUrl,
-        certificado_path: finalCertPath
+        certificado_path: finalCertPath,
+        assinatura_digital_url: finalSignatureUrl
       };
 
       await companyService.updateCompany(companyId, finalSubmitData as CompanyUpdate);
@@ -812,7 +840,7 @@ const Companies: React.FC = () => {
                     }`}
                   >
                     <span className="text-sm sm:text-base">{tab.icon}</span>
-                    <span className="text-xs sm:text-sm font-semibold hidden xs:inline">{tab.label}</span>
+                    <span className="text-xs sm:text-sm font-semibold">{tab.label}</span>
                     {activeTab === tab.id && (
                       <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${
                         tab.color === 'blue' ? 'from-blue-500 to-blue-600' :
@@ -1125,6 +1153,40 @@ const Companies: React.FC = () => {
                       />
                     </div>
                   </div>
+
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-blue-100 mt-6">
+                    <h3 className="text-lg sm:text-xl font-bold text-blue-800 mb-1 sm:mb-2 flex items-center">
+                      <span className="mr-2 text-base sm:text-lg">🤝</span>
+                      <span className="text-sm sm:text-base">Integração Mercado Pago</span>
+                    </h3>
+                    <p className="text-xs sm:text-sm text-blue-600 hidden sm:block">
+                      Habilite pagamentos via Pix, Cartão e Boleto através do Mercado Pago.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <div className="sm:col-span-2">
+                      <TextField
+                        fullWidth
+                        label="Access Token"
+                        type="password"
+                        value={formData.mp_access_token || ''}
+                        onChange={(e) => handleInputChange('mp_access_token', e.target.value)}
+                        size="small"
+                        helperText="Token de acesso (Access Token) do Mercado Pago."
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <TextField
+                        fullWidth
+                        label="Public Key"
+                        value={formData.mp_public_key || ''}
+                        onChange={(e) => handleInputChange('mp_public_key', e.target.value)}
+                        size="small"
+                        helperText="Chave pública (Public Key) do Mercado Pago."
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -1339,6 +1401,40 @@ const Companies: React.FC = () => {
                         size="small"
                         helperText="URL para onde o cliente será redirecionado se estiver bloqueado"
                       />
+                    </div>
+
+                    <div className="sm:col-span-2 space-y-2 sm:space-y-3 lg:space-y-4 pt-4">
+                      <h4 className="text-sm sm:text-base lg:text-md font-medium text-text">Assinatura Digital do Representante</h4>
+                      <div className="pl-0 sm:pl-4">
+                        <FileUploader
+                          label=""
+                          accept="image/*"
+                          maxSize={2}
+                          currentFile={formData.assinatura_digital_url}
+                          onFileSelect={(file) => setSignatureFile(file)}
+                          onFileRemove={async () => {
+                            if (editingCompany && formData.assinatura_digital_url) {
+                              try {
+                                await companyService.deleteCompanySignature(editingCompany.id);
+                                handleInputChange('assinatura_digital_url', '');
+                              } catch (error) {
+                                console.error('Erro ao excluir assinatura:', error);
+                                setSnackbar({
+                                  open: true,
+                                  message: 'Erro ao excluir assinatura',
+                                  severity: 'error'
+                                });
+                              }
+                            } else {
+                              setSignatureFile(null);
+                            }
+                          }}
+                          placeholder="Clique ou arraste a assinatura do representante legal (PNG/JPG)"
+                        />
+                        <p className="text-xs text-gray-500 mt-2">
+                          * Recomendado: Imagem com fundo transparente (PNG) de aprox. 400x150 pixels.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>

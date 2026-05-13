@@ -4,7 +4,7 @@ from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.routes.auth import get_current_active_user
+from app.routes.auth import get_current_active_user, get_current_user_optional
 from app.models.access_control import role_permission_association, user_role_association, Permission, Role
 from app.models.models import Usuario
 

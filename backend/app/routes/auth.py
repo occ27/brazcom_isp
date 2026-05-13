@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from typing import Optional
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
@@ -17,6 +18,7 @@ from app.schemas.password_reset import PasswordResetRequest, PasswordResetVerify
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> Usuario:
     credentials_exception = HTTPException(
@@ -35,6 +37,21 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if user is None:
         raise credentials_exception
     return user
+
+def get_current_user_optional(token: str = Depends(oauth2_scheme_optional), db: Session = Depends(get_db)) -> Optional[Usuario]:
+    if not token:
+        return None
+    try:
+        from app.core.security import decode_access_token
+        payload = decode_access_token(token)
+        if payload is None:
+            return None
+        user_id = payload.get("sub")
+        if user_id is None:
+            return None
+        return crud_usuario.get_usuario(db, usuario_id=int(user_id))
+    except Exception:
+        return None
 
 def get_current_active_user(current_user: Usuario = Depends(get_current_user)) -> Usuario:
     if not current_user.is_active:

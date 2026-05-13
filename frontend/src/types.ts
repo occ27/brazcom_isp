@@ -84,6 +84,11 @@ export interface Company {
   contrato_registro_num?: string;
   site?: string;
   email_contato?: string;
+  assinatura_digital_url?: string;
+  
+  // Mercado Pago Config
+  mp_access_token?: string;
+  mp_public_key?: string;
 }
 
 export interface Cliente {

@@ -63,6 +63,9 @@ class ServicoContratadoBase(BaseModel):
 
     # Documentação Jurídica
     contrato_anatel_url: Optional[str] = Field(None, max_length=500)
+    
+    # Método de pagamento preferencial
+    payment_method: str = Field("BOLETO", max_length=30)
 
 class ServicoContratadoCreate(ServicoContratadoBase):
     empresa_id: Optional[int] = None
@@ -156,6 +159,7 @@ class ServicoContratadoUpdate(BaseModel):
     pppoe_username: Optional[str] = Field(None, max_length=50)
     pppoe_password: Optional[str] = Field(None, max_length=50)
     contrato_anatel_url: Optional[str] = Field(None, max_length=500)
+    payment_method: Optional[str] = Field(None, max_length=30)
     
     # Ativos vinculados
     ativos: Optional[List['AtivoContratoCreate']] = None

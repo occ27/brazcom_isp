@@ -5,6 +5,8 @@ from typing import Optional
 from sqlalchemy.orm import Session
 import json
 import logging
+import secrets
+import os
 
 from app.models.models import ServicoContratado, Receivable, BankAccount, Empresa, Bank
 
@@ -65,6 +67,18 @@ def generate_receivable_from_contract(db: Session, contrato: ServicoContratado, 
         fine_percent=0.0,  # Will be set from bank account below
         status='PENDING'
     )
+
+    # Definir tipo baseado na modalidade do contrato
+    if contrato.payment_method == 'MERCADO_PAGO':
+        recv.tipo = 'MERCADO_PAGO'
+        recv.payment_token = secrets.token_urlsafe(32)
+        
+        # Obter URL base do ambiente (localhost ou brazcom.com.br)
+        base_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+            
+        recv.payment_url = f"{base_url}/checkout?token={recv.payment_token}"
+    else:
+        recv.tipo = 'BOLETO'
 
     # Determinar qual conta bancária usar: preferir a do contrato, senão a default da empresa
     bank_account = None

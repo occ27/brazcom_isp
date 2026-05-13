@@ -224,6 +224,67 @@ Atenciosamente,
         )
 
     @staticmethod
+    def send_receivable_email(
+        empresa: Empresa,
+        cliente_email: str,
+        receivable_data: Dict[str, Any],
+        pdf_path: Optional[str] = None
+    ) -> bool:
+        """
+        Envia cobrança (Receivable) por email para o cliente.
+        Se houver link de pagamento (Mercado Pago), prioriza o link.
+        """
+        subject = f"Fatura Disponível - {empresa.nome_fantasia or empresa.razao_social}"
+        
+        payment_url = receivable_data.get('payment_url')
+        amount = receivable_data.get('amount', 0.0)
+        due_date = receivable_data.get('due_date')
+        
+        # Formatar data se for objeto datetime/date
+        if hasattr(due_date, 'strftime'):
+            due_date_str = due_date.strftime('%d/%m/%Y')
+        else:
+            due_date_str = str(due_date)
+
+        if payment_url:
+            body = f"""
+Olá,
+
+Sua fatura de {empresa.nome_fantasia or empresa.razao_social} no valor de R$ {amount:,.2f} com vencimento em {due_date_str} está disponível para pagamento online.
+
+Para pagar, clique no link abaixo:
+{payment_url}
+
+Você pode escolher pagar via Pix, Cartão de Crédito ou Boleto diretamente pelo link acima.
+
+Atenciosamente,
+{empresa.nome_fantasia or empresa.razao_social}
+            """.strip()
+            # Para Mercado Pago, priorizamos o link e evitamos anexo PDF se o link existir
+            attachments = []
+        else:
+            body = f"""
+Olá,
+
+Sua fatura de {empresa.nome_fantasia or empresa.razao_social} no valor de R$ {amount:,.2f} com vencimento em {due_date_str} está disponível.
+
+Segue em anexo o boleto para pagamento.
+
+Atenciosamente,
+{empresa.nome_fantasia or empresa.razao_social}
+            """.strip()
+            attachments = [pdf_path] if pdf_path and os.path.exists(pdf_path) else []
+
+        return EmailService.send_email(
+            empresa=empresa,
+            to_email=cliente_email,
+            subject=subject,
+            body=body,
+            is_html=False,
+            attachments=attachments
+        )
+
+    @staticmethod
     def test_smtp_connection(empresa: Empresa) -> Dict[str, Any]:
         """
         Testa a conexão SMTP da empresa usando configuração salva (criptografada).

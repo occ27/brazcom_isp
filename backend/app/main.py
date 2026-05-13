@@ -23,6 +23,8 @@ from app.routes import tickets
 from app.routes import client_portal
 from app.routes import client_auth
 from app.routes import webhooks
+from app.routes import public_contracts
+from app.routes import mercadopago
 
 # A criação das tabelas será feita no evento de startup, após o DB ficar disponível
 
@@ -130,6 +132,8 @@ app.include_router(tickets.router)
 app.include_router(client_portal.router)
 app.include_router(client_auth.router)
 app.include_router(webhooks.router)
+app.include_router(public_contracts.router)
+app.include_router(mercadopago.router)
 
 @app.get("/")
 def read_root():
@@ -156,3 +160,15 @@ def health():
 def on_startup():
     """Evento de startup do FastAPI: aguarda DB e cria tabelas."""
     wait_for_db_and_migrate(retries=30, delay=2)
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    import logging
+    log = logging.getLogger("uvicorn.error")
+    log.error(f"ERRO DE VALIDAÇÃO: {exc.errors()}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors()},
+    )

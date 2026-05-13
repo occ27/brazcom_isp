@@ -139,14 +139,46 @@
     <div class="signatures">
         <p>${empresa.municipio} - ${empresa.uf}, ${data_hoje}</p>
         
-        <div class="signature-box">
-            ${empresa.razao_social}<br>
-            <strong>CONTRATADA</strong>
-        </div>
-        
-        <div class="signature-box">
-            ${cliente.nome_razao_social}<br>
-            <strong>CONTRATANTE</strong>
+        <div style="display: flex; justify-content: space-around; align-items: flex-end; margin-top: 50px; gap: 40px;">
+            <!-- Assinatura da Contratada -->
+            <div class="signature-box" style="flex: 1; border-top: none; margin: 0; min-height: 160px; display: flex; flex-direction: column; justify-content: flex-end;">
+                % if getattr(empresa, 'assinatura_digital_url', None):
+                    <div style="height: 80px; display: flex; align-items: center; justify-content: center; margin-bottom: 5px;">
+                        <img src="${empresa.assinatura_digital_url}" style="max-width: 180px; max-height: 70px;" alt="Assinatura Contratada">
+                    </div>
+                % else:
+                    <div style="height: 80px;"></div>
+                % endif
+                <div style="border-top: 1px solid #000; padding-top: 5px; text-align: center;">
+                    <strong>${empresa.razao_social}</strong><br>
+                    <strong>CONTRATADA</strong>
+                </div>
+                <div style="height: 15px;"></div> <!-- Espaçador para alinhar com os metadados do cliente -->
+            </div>
+            
+            <!-- Assinatura do Contratante -->
+            <div class="signature-box" style="flex: 1; border-top: none; margin: 0; min-height: 160px; display: flex; flex-direction: column; justify-content: flex-end;">
+                % if getattr(contrato, 'assinatura_data', None):
+                    <div style="height: 80px; display: flex; align-items: center; justify-content: center; margin-bottom: 5px;">
+                        <img src="${contrato.assinatura_data}" style="max-width: 180px; max-height: 70px;" alt="Assinatura Digital">
+                    </div>
+                    <div style="border-top: 1px solid #000; padding-top: 5px; text-align: center;">
+                        <strong>${cliente.nome_razao_social}</strong><br>
+                        <strong>CONTRATANTE</strong>
+                    </div>
+                    <div style="font-size: 7px; color: #666; margin-top: 3px; text-align: center; line-height: 1.1; min-height: 15px;">
+                        ASSINADO DIGITALMENTE EM ${assinado_em_formatado or ''}<br>
+                        IP: ${getattr(contrato, 'assinatura_ip', 'N/A')} | Token: ${getattr(contrato, 'assinatura_token', 'N/A')}
+                    </div>
+                % else:
+                    <div style="height: 80px;"></div>
+                    <div style="border-top: 1px solid #000; padding-top: 5px; text-align: center;">
+                        <strong>${cliente.nome_razao_social}</strong><br>
+                        <strong>CONTRATANTE</strong>
+                    </div>
+                    <div style="height: 15px;"></div>
+                % endif
+            </div>
         </div>
     </div>
 

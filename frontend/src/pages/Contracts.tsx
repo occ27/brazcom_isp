@@ -102,7 +102,7 @@ const Contracts: React.FC = () => {
     dia_emissao: 1, // Valor padrão para dia de emissão
     auto_emit: true,
     is_active: true,
-    status: 'PENDENTE_INSTALACAO',
+    status: 'AGUARDANDO_ASSINATURA',
     periodo_carencia: 0,
     multa_atraso_percentual: 0.0,
     taxa_instalacao: 0.0,
@@ -122,6 +122,7 @@ const Contracts: React.FC = () => {
     // Campos PPPoE
     pppoe_username: '',
     pppoe_password: '',
+    payment_method: 'BOLETO',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
@@ -605,7 +606,9 @@ const Contracts: React.FC = () => {
                         <Chip label="VENCIDO" color="error" size="small" variant="filled" />
                       ) : (
                         <>
-                          {isActive && <Chip label="Ativo" color="success" size="small" />}
+                          {c.status === 'AGUARDANDO_ASSINATURA' && <Chip label="Aguardando Assinatura" color="warning" size="small" variant="outlined" />}
+                          {c.assinado_em && <Chip label="Assinado" color="success" size="small" variant="filled" icon={<CheckCircleIcon sx={{ fontSize: '14px !important' }} />} />}
+                          {isActive && c.status !== 'AGUARDANDO_ASSINATURA' && <Chip label="Ativo" color="success" size="small" />}
                           {!isActive && <Chip label="Inativo" color="default" size="small" />}
                         </>
                       )}
@@ -686,6 +689,7 @@ const Contracts: React.FC = () => {
                         </Tooltip>
                       </>
                     )}
+
                     {c.status === 'SUSPENSO' && (
                       <Tooltip title="Desbloquear/Ativar">
                         <IconButton size="small" onClick={() => ativarServico(c)} color="success">
@@ -778,14 +782,26 @@ const Contracts: React.FC = () => {
                         label={c.status === 'ATIVO' ? 'Ativo' :
                           c.status === 'SUSPENSO' ? 'Suspenso' :
                             c.status === 'CANCELADO' ? 'Cancelado' :
-                              c.status === 'PENDENTE_INSTALACAO' ? 'Pendente Instalação' : c.status}
+                              c.status === 'PENDENTE_INSTALACAO' ? 'Pendente Instalação' : 
+                                c.status === 'AGUARDANDO_ASSINATURA' ? 'Aguardando Assinatura' : c.status}
                         color={c.status === 'ATIVO' ? 'success' :
                           c.status === 'SUSPENSO' ? 'warning' :
                             c.status === 'CANCELADO' ? 'error' :
-                              c.status === 'PENDENTE_INSTALACAO' ? 'info' : 'default'}
+                              c.status === 'PENDENTE_INSTALACAO' ? 'info' : 
+                                c.status === 'AGUARDANDO_ASSINATURA' ? 'warning' : 'default'}
                         size="small"
                         variant="outlined"
                       />
+                    )}
+                    {c.assinado_em && (
+                      <Tooltip title={`Assinado em ${new Date(c.assinado_em).toLocaleString()}`}>
+                        <Chip
+                          label="Assinado"
+                          color="success"
+                          size="small"
+                          icon={<CheckCircleIcon sx={{ fontSize: '14px !important' }} />}
+                        />
+                      </Tooltip>
                     )}
                     {(c.taxa_instalacao ?? 0) > 0 && (
                       <Chip
@@ -837,6 +853,7 @@ const Contracts: React.FC = () => {
                           </Tooltip>
                         </>
                       )}
+
                       {c.status === 'SUSPENSO' && (
                         <Tooltip title="Desbloquear">
                           <IconButton size="small" onClick={() => ativarServico(c)} color="success">
@@ -1004,7 +1021,7 @@ const Contracts: React.FC = () => {
         auto_emit: true,
         is_active: true,
         dia_emissao: 1,
-        status: 'PENDENTE_INSTALACAO',
+        status: 'AGUARDANDO_ASSINATURA',
         periodo_carencia: 0,
         multa_atraso_percentual: 0.0,
         taxa_instalacao: 0.0,
@@ -1582,6 +1599,28 @@ const Contracts: React.FC = () => {
       setSnackbar({ open: true, message: 'Erro ao bloquear serviço', severity: 'error' });
     }
   };
+  
+  const handleReiniciarAssinatura = async (id: number) => {
+    if (!window.confirm('Tem certeza que deseja REINICIAR a assinatura deste contrato? O link anterior será invalidado e os dados da assinatura atual serão apagados.')) return;
+    try {
+      setLoading(true);
+      await contratoService.reiniciarAssinatura(id);
+      setSnackbar({ 
+        open: true, 
+        message: 'Assinatura reiniciada! Agora você pode enviar o novo link por e-mail para o cliente.', 
+        severity: 'success' 
+      });
+      load();
+    } catch (e: any) {
+      setSnackbar({ 
+        open: true, 
+        message: e.response?.data?.detail || 'Erro ao reiniciar assinatura', 
+        severity: 'error' 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!activeCompany) {
     return (
@@ -2104,6 +2143,7 @@ const Contracts: React.FC = () => {
                           <MenuItem value="SUSPENSO">Suspenso</MenuItem>
                           <MenuItem value="CANCELADO">Cancelado</MenuItem>
                           <MenuItem value="PENDENTE_INSTALACAO">Pendente de Instalação</MenuItem>
+                          <MenuItem value="AGUARDANDO_ASSINATURA">Aguardando Assinatura</MenuItem>
                         </Select>
                       </FormControl>
                     </div>
@@ -2638,6 +2678,20 @@ const Contracts: React.FC = () => {
                         disabled={true}
                         helperText="ID da subscription relacionada (somente leitura)"
                       />
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Método de Pagamento</InputLabel>
+                        <Select
+                          value={form.payment_method || 'BOLETO'}
+                          label="Método de Pagamento"
+                          onChange={(e: SelectChangeEvent) => handleInputChange('payment_method', e.target.value)}
+                        >
+                          <MenuItem value="BOLETO">Boleto Bancário (Tradicional)</MenuItem>
+                          <MenuItem value="MERCADO_PAGO">Mercado Pago (Cartão/Pix/Boleto Online)</MenuItem>
+                        </Select>
+                        <FormHelperText>
+                          Selecione como este contrato será cobrado. Mercado Pago permite pagamento online via link.
+                        </FormHelperText>
+                      </FormControl>
                     </div>
                   </div>
                 </div>
@@ -2720,6 +2774,19 @@ const Contracts: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5', gap: 1 }}>
           <Button onClick={() => { setOpenContractModal(false); setContractHtmlUrl(null); setViewingContractId(null); }}>Fechar</Button>
+          
+          {viewingContractId && contratos.find(c => c.id === viewingContractId)?.assinado_em && (
+            <Button 
+              variant="outlined" 
+              color="secondary"
+              startIcon={<ArrowPathIcon className="w-5 h-5" />}
+              onClick={() => handleReiniciarAssinatura(viewingContractId)}
+              disabled={loading}
+            >
+              Reiniciar Assinatura
+            </Button>
+          )}
+
           <Button 
             variant="outlined" 
             color="info"

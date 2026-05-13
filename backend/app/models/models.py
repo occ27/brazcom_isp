@@ -12,6 +12,7 @@ class StatusContrato(str, enum.Enum):
     SUSPENSO = "SUSPENSO"
     CANCELADO = "CANCELADO"
     PENDENTE_INSTALACAO = "PENDENTE_INSTALACAO"
+    AGUARDANDO_ASSINATURA = "AGUARDANDO_ASSINATURA"
 
 
 class TipoConexao(str, enum.Enum):
@@ -123,6 +124,11 @@ class Empresa(Base):
     contrato_registro_num = Column(String(100)) # Ex: 27.505
     site = Column(String(255))
     email_contato = Column(String(255))
+    assinatura_digital_url = Column(String(500)) # Caminho para a assinatura digital do representante
+    
+    # Mercado Pago Config
+    mp_access_token = Column(String(500))
+    mp_public_key = Column(String(500))
     
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False) # Usuário que cadastrou a empresa
     is_active = Column(Boolean, default=True)
@@ -443,9 +449,18 @@ class ServicoContratado(Base):
     mac_address = Column(String(17), nullable=True) # XX:XX:XX:XX:XX:XX
     assigned_ip = Column(String(45), nullable=True) # IPv4 ou IPv6
     metodo_autenticacao = Column(String(20), nullable=True) # PPPOE, IP_MAC, RADIUS, etc
+    
+    # Método de pagamento preferencial para faturas geradas deste contrato
+    # Valores sugeridos: 'BOLETO', 'MERCADO_PAGO'
+    payment_method = Column(String(30), nullable=False, server_default='BOLETO')
 
-    # Documentação Jurídica
+    # Documentação Jurídica e Assinatura Digital
     contrato_anatel_url = Column(String(500), nullable=True) # Link para o contrato assinado/padrão
+    assinatura_token = Column(String(100), unique=True, index=True)
+    assinado_em = Column(DateTime, nullable=True)
+    assinatura_ip = Column(String(50), nullable=True)
+    # Usar Text com comprimento para sugerir LONGTEXT/MEDIUMTEXT em alguns dialetos
+    assinatura_data = Column(Text(length=16777215), nullable=True)
 
     # Relacionamento com múltiplos ativos (equipamentos)
     ativos = relationship("AtivoContrato", back_populates="contrato", cascade="all, delete-orphan")
@@ -582,6 +597,16 @@ class Receivable(Base):
     bb_boleto_url = Column(String(1000), nullable=True)
     bb_pix_qrcode = Column(Text, nullable=True)
     bb_pix_txid = Column(String(100), nullable=True)
+
+    # Mercado Pago específicos
+    mp_payment_id = Column(String(100), nullable=True)
+    mp_payment_status = Column(String(50), nullable=True)
+    mp_payment_method = Column(String(50), nullable=True)
+    mp_preference_id = Column(String(100), nullable=True)
+
+    # Token para acesso público ao pagamento (via link de email)
+    payment_token = Column(String(100), unique=True, index=True)
+    payment_url = Column(String(500), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

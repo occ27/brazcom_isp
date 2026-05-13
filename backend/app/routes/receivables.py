@@ -10,9 +10,13 @@ logger = logging.getLogger(__name__)
 from app.core.database import get_db
 from app.routes.auth import get_current_active_user
 from app.api import deps
-from app.models.models import Usuario, Receivable, BankAccount
+from app.models.models import Usuario, Receivable, BankAccount, Empresa
 from app.services import isp_service
-from app.services.receivable_service import generate_receivables_for_company
+from app.services.receivable_service import generate_receivables_for_company, build_boleto_context
+from app.services.boleto_generator import generate_boleto_pdf
+from app.services.email_service import EmailService
+import tempfile
+import os
 
 router = APIRouter(prefix="/receivables", tags=["Receivables"])
 
@@ -50,6 +54,15 @@ class ReceivableResponse(BaseModel):
     bb_boleto_url: Optional[str] = None
     bb_pix_qrcode: Optional[str] = None
     bb_pix_txid: Optional[str] = None
+    payment_token: Optional[str] = None
+    payment_url: Optional[str] = None
+    
+    # Mercado Pago específicos
+    mp_payment_id: Optional[str] = None
+    mp_payment_status: Optional[str] = None
+    mp_payment_method: Optional[str] = None
+    mp_preference_id: Optional[str] = None
+
     bank_account_id: Optional[int] = None
     bank_account_snapshot: Optional[str] = None
     bank_payload: Optional[str] = None
@@ -390,6 +403,93 @@ def print_receivable(receivable_id: int, db: Session = Depends(get_db), current_
     )
 
 
+@router.get("/{receivable_id}", response_model=ReceivableResponse)
+def get_receivable(receivable_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+    """Busca detalhes de uma cobrança por ID."""
+    # Nota: Acesso privado requer permissão de visualização
+    deps.permission_checker('receivables_view')(db=db, current_user=current_user)
+    
+    recv = db.query(Receivable).filter(Receivable.id == receivable_id).first()
+    if not recv:
+        raise HTTPException(status_code=404, detail="Cobrança não encontrada")
+    
+    return ReceivableResponse.from_orm(recv)
+
+
+@router.post("/{receivable_id}/send-email")
+def send_receivable_email_route(receivable_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+    """Envia a cobrança por email (Link Mercado Pago ou PDF Boleto)."""
+    deps.permission_checker('receivables_manage')(db=db, current_user=current_user)
+    
+    recv = db.query(Receivable).filter(Receivable.id == receivable_id).first()
+    if not recv:
+        raise HTTPException(status_code=404, detail="Cobrança não encontrada")
+    
+    from app.models.models import Empresa, Cliente
+    empresa = db.query(Empresa).filter(Empresa.id == recv.empresa_id).first()
+    cliente = db.query(Cliente).filter(Cliente.id == recv.cliente_id).first()
+    
+    if not cliente or not cliente.email:
+        raise HTTPException(status_code=400, detail="Cliente não possui email cadastrado")
+        
+    # Carregar empresa raw para pegar senha SMTP descriptografada se necessário pelo serviço
+    from app.crud import crud_empresa
+    empresa_raw = crud_empresa.get_empresa_raw(db, empresa_id=recv.empresa_id)
+    
+    pdf_path = None
+    try:
+        # Se NÃO for Mercado Pago e não tiver link, gerar o PDF do boleto
+        if not recv.payment_url:
+            context = build_boleto_context(db, recv)
+            pdf_bytes = generate_boleto_pdf(context)
+            
+            # Salvar em arquivo temporário para anexo
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+            tmp.write(pdf_bytes)
+            tmp.close()
+            pdf_path = tmp.name
+            
+        # Garantir que a URL de pagamento use a URL base atual do sistema
+        payment_url = recv.payment_url
+        if recv.payment_token:
+            base_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+            payment_url = f"{base_url}/checkout?token={recv.payment_token}"
+            # Sincronizar no banco se houver divergência
+            if recv.payment_url != payment_url:
+                recv.payment_url = payment_url
+                db.add(recv)
+                db.commit()
+
+        # Preparar dados para o serviço de email
+        receivable_data = {
+            "amount": recv.amount,
+            "due_date": recv.due_date,
+            "payment_url": payment_url
+        }
+        
+        success = EmailService.send_receivable_email(
+            empresa=empresa_raw,
+            cliente_email=cliente.email,
+            receivable_data=receivable_data,
+            pdf_path=pdf_path
+        )
+        
+        if success:
+            recv.sent_at = datetime.utcnow()
+            db.commit()
+            return {"message": f"Cobrança enviada para {cliente.email} com sucesso"}
+        else:
+            raise HTTPException(status_code=500, detail="Falha ao enviar email. Verifique as configurações de SMTP.")
+            
+    finally:
+        # Limpar arquivo temporário
+        if pdf_path and os.path.exists(pdf_path):
+            try:
+                os.unlink(pdf_path)
+            except:
+                pass
+
+
 @router.delete("/{receivable_id}")
 def delete_receivable(receivable_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     """Exclui permanentemente uma cobrança se não estiver paga."""
@@ -446,6 +546,22 @@ def delete_receivable(receivable_id: int, db: Session = Depends(get_db), current
                             logger.error(f"Erro definitivo ao solicitar baixa no Sicoob: {loop_e}")
             except Exception as e:
                 logger.error(f"Erro ao processar baixa no Sicoob (fatura {recv.id}): {e}")
+        
+        # Mercado Pago
+        elif recv.mp_payment_id and recv.status != 'PAID':
+            try:
+                import mercadopago
+                empresa = db.query(Empresa).filter(Empresa.id == recv.empresa_id).first()
+                if empresa and empresa.mp_access_token:
+                    sdk = mercadopago.SDK(empresa.mp_access_token)
+                    # No Mercado Pago, cancelar um pagamento pendente muda o status para 'cancelled'
+                    cancel_res = sdk.payment().update(int(recv.mp_payment_id), {"status": "cancelled"})
+                    if cancel_res["status"] in [200, 201]:
+                        logger.info(f"Pagamento MP {recv.mp_payment_id} cancelado com sucesso")
+                    else:
+                        logger.warning(f"Falha ao cancelar pagamento MP {recv.mp_payment_id}: {cancel_res['response']}")
+            except Exception as e:
+                logger.error(f"Erro ao cancelar pagamento no Mercado Pago (fatura {recv.id}): {e}")
 
     # Exclusão física do banco
     db.delete(recv)

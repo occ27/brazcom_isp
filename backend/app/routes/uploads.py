@@ -91,7 +91,14 @@ async def upload_empresa_logo(
         finally:
             db.close()
 
-        file_path = _save_uploaded_file(file, "logos", empresa_id, use_empresa_subfolder=False)
+        # Limpar logos antigos antes de salvar novo (opcional, mas recomendado)
+        logo_dir = Path(settings.UPLOAD_DIR) / "logos" / str(empresa_id)
+        if logo_dir.exists():
+            for old_file in logo_dir.glob("*"):
+                if old_file.is_file():
+                    old_file.unlink()
+
+        file_path = _save_uploaded_file(file, "logos", empresa_id, use_empresa_subfolder=True)
         return JSONResponse(
             content={
                 "message": "Logo enviado com sucesso",
@@ -141,6 +148,92 @@ async def upload_empresa_certificado(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao salvar arquivo: {str(e)}")
+
+@router.post("/empresa/{empresa_id}/assinatura")
+async def upload_empresa_assinatura(
+    empresa_id: int,
+    file: UploadFile = File(..., description="Arquivo de imagem da assinatura do representante"),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """
+    Faz upload da assinatura digital da empresa.
+
+    - **empresa_id**: ID da empresa
+    - **file**: Arquivo de imagem (PNG, JPG, JPEG, GIF, SVG, WebP)
+    """
+    # Valida tipo de arquivo
+    if not _validate_file_type(file.filename, ALLOWED_LOGO_EXTENSIONS):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tipo de arquivo não permitido. Use: {', '.join(ALLOWED_LOGO_EXTENSIONS)}"
+        )
+
+    try:
+        # Permission: require services_manage to upload company signatures
+        db = next(get_db())
+        try:
+            deps.permission_checker('services_manage')(db=db, current_user=current_user)
+        finally:
+            db.close()
+
+        # Excluir assinatura antiga antes de salvar a nova (evita lixo)
+        sig_dir = Path(settings.UPLOAD_DIR) / "signatures" / str(empresa_id)
+        if sig_dir.exists():
+            for old_file in sig_dir.glob("*"):
+                if old_file.is_file():
+                    old_file.unlink()
+
+        file_path = _save_uploaded_file(file, "signatures", empresa_id, use_empresa_subfolder=True)
+        return JSONResponse(
+            content={
+                "message": "Assinatura enviada com sucesso",
+                "file_path": file_path,
+                "file_name": file.filename
+            },
+            status_code=200
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao salvar arquivo: {str(e)}")
+
+@router.delete("/empresa/{empresa_id}/assinatura")
+async def delete_empresa_assinatura(
+    empresa_id: int,
+    current_user: Usuario = Depends(get_current_user)
+):
+    """
+    Remove a assinatura da empresa.
+
+    - **empresa_id**: ID da empresa
+    """
+    # Permission: require services_manage to delete company signatures
+    db = next(get_db())
+    try:
+        deps.permission_checker('services_manage')(db=db, current_user=current_user)
+    finally:
+        db.close()
+
+    sig_dir = Path(settings.UPLOAD_DIR) / "signatures" / str(empresa_id)
+
+    if not sig_dir.exists():
+        raise HTTPException(status_code=404, detail="Diretório de assinaturas não encontrado")
+
+    # Remove todos os arquivos do diretório
+    deleted_files = []
+    for file_path in sig_dir.glob("*"):
+        if file_path.is_file():
+            file_path.unlink()
+            deleted_files.append(file_path.name)
+
+    if not deleted_files:
+        raise HTTPException(status_code=404, detail="Nenhuma assinatura encontrada")
+
+    return JSONResponse(
+        content={
+            "message": "Assinatura(s) removida(s) com sucesso",
+            "deleted_files": deleted_files
+        },
+        status_code=200
+    )
 
 @router.delete("/empresa/{empresa_id}/logo")
 async def delete_empresa_logo(

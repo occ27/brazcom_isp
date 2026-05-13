@@ -11,7 +11,9 @@ from app.schemas import servico_contratado as sc_schema
 from app.schemas.empresa import EmpresaPublicResponse
 from app.crud import crud_servico_contratado, crud_empresa
 from app.mikrotik.controller import MikrotikController
+from app.core.config import settings
 import logging
+import uuid
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/servicos-contratados", tags=["ServicosContratados"])
@@ -138,11 +140,48 @@ def enviar_contrato_email(contrato_id: int, db: Session = Depends(get_db), curre
     if not empresa.smtp_server or not empresa.smtp_user:
         raise HTTPException(status_code=400, detail="Empresa não possui configurações de SMTP configuradas")
         
-    # 4. Gerar HTML do contrato
-    html_content = generate_contract_html(c_dict, cliente, empresa, servico)
+    # 4. Gerar ou recuperar token de assinatura
+    if not db_contrato.assinatura_token:
+        db_contrato.assinatura_token = str(uuid.uuid4())
+        
+    # 5. Atualizar status para aguardando assinatura
+    from app.models.models import StatusContrato
+    db_contrato.status = StatusContrato.AGUARDANDO_ASSINATURA
+    db.commit()
     
-    # 5. Enviar email
-    subject = f"Termo de Adesão - Contrato Nº {db_contrato.id} - {empresa.razao_social}"
+    # 6. Gerar link de assinatura
+    signing_url = f"{settings.FRONTEND_URL}/assinar-contrato/{db_contrato.assinatura_token}"
+    
+    # 7. Gerar HTML do corpo do email (sem o contrato completo)
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px; background-color: #ffffff;">
+        <div style="text-align: center; padding: 20px; background-color: #f8fafc; border-radius: 8px; border-top: 5px solid #2563eb;">
+            <h2 style="color: #1e40af; margin-top: 0;">Olá, {cliente.nome_razao_social}!</h2>
+            <p style="font-size: 16px; color: #4b5563; line-height: 1.5;">
+                Falta pouco para você aproveitar o melhor da internet! <br>
+                Para finalizar a ativação do seu serviço com a <strong>{empresa.razao_social}</strong>, precisamos que você assine digitalmente o seu <strong>Termo de Adesão</strong>.
+            </p>
+            <div style="margin: 40px 0;">
+                <a href="{signing_url}" style="background-color: #2563eb; color: white; padding: 18px 35px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 18px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                    📄 Assinar Contrato Agora
+                </a>
+            </div>
+            <p style="font-size: 13px; color: #9ca3af;">
+                Ao clicar no botão acima, você será direcionado para uma página segura onde poderá revisar e assinar seu documento.
+            </p>
+            <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+            <p style="font-size: 12px; color: #6b7280;">Se o botão não funcionar, copie este link no navegador:<br>
+            <a href="{signing_url}" style="color: #2563eb;">{signing_url}</a></p>
+        </div>
+        
+        <div style="text-align: center; margin-top: 20px; color: #9ca3af; font-size: 11px;">
+            <p>Esta é uma mensagem automática enviada por {empresa.razao_social}.</p>
+        </div>
+    </div>
+    """
+    
+    # 9. Enviar email
+    subject = f"ASSINATURA PENDENTE - Termo de Adesão - Contrato Nº {db_contrato.id} - {empresa.razao_social}"
     
     success = EmailService.send_email(
         empresa=empresa,
@@ -155,7 +194,42 @@ def enviar_contrato_email(contrato_id: int, db: Session = Depends(get_db), curre
     if not success:
         raise HTTPException(status_code=500, detail="Falha ao enviar email. Verifique as configurações de SMTP da empresa.")
         
-    return {"message": f"Contrato enviado com sucesso para {cliente.email}"}
+    return {"message": f"Contrato enviado para {cliente.email}. O status foi alterado para 'Aguardando Assinatura'."}
+
+
+@router.post("/{contrato_id}/reiniciar-assinatura")
+def reiniciar_assinatura(contrato_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+    """Limpa dados de assinatura existentes e gera um novo token para o cliente assinar novamente."""
+    # 1. Buscar dados e verificar permissão
+    db_contrato = crud_servico_contratado.get_servico_contratado(db, contrato_id=contrato_id)
+    if not db_contrato:
+        raise HTTPException(status_code=404, detail="Contrato não encontrado")
+        
+    # Verificar permissão de gerenciamento de contratos
+    user_empresas_ids = [e.empresa_id for e in current_user.empresas]
+    if db_contrato.empresa_id not in user_empresas_ids and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Usuário não tem permissão")
+        
+    # 2. Limpar dados de assinatura
+    db_contrato.assinado_em = None
+    db_contrato.assinatura_ip = None
+    db_contrato.assinatura_data = None
+    
+    # 3. Gerar NOVO token único
+    db_contrato.assinatura_token = str(uuid.uuid4())
+    
+    # 4. Voltar status para aguardando assinatura
+    from app.models.models import StatusContrato
+    db_contrato.status = StatusContrato.AGUARDANDO_ASSINATURA
+    
+    db.commit()
+    
+    logger.info(f"Assinatura do contrato {contrato_id} reiniciada pelo usuário {current_user.email}. Novo token: {db_contrato.assinatura_token}")
+    
+    return {
+        "message": "Assinatura reiniciada com sucesso. Um novo link foi gerado.",
+        "novo_token": db_contrato.assinatura_token
+    }
 
 
 @router.put("/{contrato_id}", response_model=sc_schema.ServicoContratadoResponse)

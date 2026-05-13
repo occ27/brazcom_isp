@@ -34,6 +34,12 @@ export interface Receivable {
   bb_boleto_url?: string;
   bb_pix_qrcode?: string;
   bb_pix_txid?: string;
+  payment_token?: string;
+  payment_url?: string;
+  mp_payment_id?: string;
+  mp_payment_status?: string;
+  mp_payment_method?: string;
+  mp_preference_id?: string;
   bank_account_id?: number;
   bank_account_snapshot?: string;
   bank_payload?: string;
@@ -86,6 +92,16 @@ const printReceivable = async (receivableId: number) => {
   return window.URL.createObjectURL(blob);
 };
 
+const getReceivable = async (id: number) => {
+  const resp = await api.get(`/receivables/${id}`);
+  return resp.data as Receivable;
+};
+
+const sendEmail = async (id: number) => {
+  const resp = await api.post(`/receivables/${id}/send-email`);
+  return resp.data;
+};
+
 const receivableService = {
   listReceivables,
   generateForCompany,
@@ -94,6 +110,8 @@ const receivableService = {
   cancelReceivable,
   createReceivable,
   printReceivable,
+  getReceivable,
+  sendEmail,
 };
 
 export default receivableService;

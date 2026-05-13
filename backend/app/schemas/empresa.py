@@ -40,6 +40,11 @@ class EmpresaBase(BaseModel):
     contrato_registro_num: Optional[str] = Field(None, max_length=100)
     site: Optional[str] = Field(None, max_length=255)
     email_contato: Optional[str] = Field(None, max_length=255)
+    assinatura_digital_url: Optional[str] = Field(None, max_length=500)
+    
+    # Mercado Pago Config
+    mp_access_token: Optional[str] = Field(None, max_length=500)
+    mp_public_key: Optional[str] = Field(None, max_length=500)
 
     # Novos campos
     logo_url: Optional[str] = Field(None, max_length=500)
@@ -172,6 +177,11 @@ class EmpresaResponse(BaseModel):
     contrato_registro_num: Optional[str] = None
     site: Optional[str] = None
     email_contato: Optional[str] = None
+    assinatura_digital_url: Optional[str] = None
+    
+    # Mercado Pago Config
+    mp_access_token: Optional[str] = None
+    mp_public_key: Optional[str] = None
     
     # Campos específicos de EmpresaResponse
     id: int
@@ -250,6 +260,9 @@ class EmpresaUpdate(BaseModel):
     contrato_registro_num: Optional[str] = Field(None, max_length=100)
     site: Optional[str] = Field(None, max_length=255)
     email_contato: Optional[str] = Field(None, max_length=255)
+    assinatura_digital_url: Optional[str] = Field(None, max_length=500)
+    mp_access_token: Optional[str] = Field(None, max_length=500)
+    mp_public_key: Optional[str] = Field(None, max_length=500)
     certificado_path: Optional[str] = Field(None, max_length=500)
     certificado_senha: Optional[str] = Field(None, max_length=500)
     smtp_server: Optional[str] = Field(None, max_length=255)

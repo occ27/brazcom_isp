@@ -19,7 +19,7 @@ export interface Contrato {
   is_active?: boolean;
 
   // Novos campos específicos para ISPs
-  status?: 'ATIVO' | 'SUSPENSO' | 'CANCELADO' | 'PENDENTE_INSTALACAO';
+  status?: 'ATIVO' | 'SUSPENSO' | 'CANCELADO' | 'PENDENTE_INSTALACAO' | 'AGUARDANDO_ASSINATURA';
   endereco_instalacao?: string;
   tipo_conexao?: 'FIBRA' | 'RADIO' | 'CABO' | 'SATELITE' | 'ADSL' | 'OUTRO';
   coordenadas_gps?: string;
@@ -40,6 +40,12 @@ export interface Contrato {
   mac_address?: string;
   assigned_ip?: string;
   metodo_autenticacao?: 'IP_MAC' | 'PPPOE' | 'HOTSPOT' | 'RADIUS';
+
+  // Campos específicos para assinatura digital
+  assinatura_token?: string;
+  assinado_em?: string;
+  assinatura_ip?: string;
+  assinatura_data?: string;
 
   // Campos específicos para autenticação PPPoE
   pppoe_username?: string;
@@ -135,6 +141,10 @@ const contratoService = {
   },
   syncRouter: async (id: number) => {
     const response = await api.post(`/servicos-contratados/${id}/sync-router`);
+    return response.data;
+  },
+  reiniciarAssinatura: async (id: number) => {
+    const response = await api.post(`/servicos-contratados/${id}/reiniciar-assinatura`);
     return response.data;
   },
   async getContratoById(id: number): Promise<Contrato> {

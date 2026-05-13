@@ -30,6 +30,9 @@ import Tickets from './pages/Tickets';
 import ClientPortal from './pages/ClientPortal';
 import SuspensionNotice from './pages/SuspensionNotice';
 import AuthenticatedLayout from './components/AuthenticatedLayout';
+import PublicSignature from './pages/PublicSignature';
+import Checkout from './pages/Checkout';
+import PaymentStatus from './pages/PaymentStatus';
 import { PageType } from './types';
 
 // Componente para redirecionar usuários baseado no tipo
@@ -252,6 +255,10 @@ const AppContent: React.FC = () => {
         element={<SuspensionNotice />}
       />
       <Route
+        path="/assinar-contrato/:token"
+        element={<PublicSignature />}
+      />
+      <Route
         path="/companies"
         element={
           <ProtectedRoute>
@@ -430,6 +437,14 @@ const AppContent: React.FC = () => {
             </AuthenticatedApp>
           </ProtectedRoute>
         }
+      />
+      <Route
+        path="/checkout"
+        element={<Checkout />}
+      />
+      <Route
+        path="/payment-status"
+        element={<PaymentStatus />}
       />
     </Routes>
   );

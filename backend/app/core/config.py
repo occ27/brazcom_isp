@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     # Em produção: adicione o domínio https://nfcom.holeshot.com.br
     # Múltiplas origens separadas por vírgula no .env
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
+    FRONTEND_URL: str = "http://localhost:3000"
+    BACKEND_URL: str = "http://localhost:8000"
 
     # Uploads
     UPLOAD_DIR: str = "uploads"

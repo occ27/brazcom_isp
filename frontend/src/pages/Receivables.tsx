@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Box, Paper, Typography, Button, IconButton, TextField, 
   CircularProgress, Chip, Snackbar, Alert, useMediaQuery, 
@@ -23,8 +24,10 @@ import receivableService, { Receivable } from '../services/receivableService';
 import bankAccountService, { BankAccount } from '../services/bankAccountService';
 import { stringifyError } from '../utils/error';
 import api from '../services/authService';
+import { EnvelopeIcon, LinkIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline';
 
 const Receivables: React.FC = () => {
+  const navigate = useNavigate();
   const { activeCompany } = useCompany();
   const theme = useTheme();
   
@@ -247,6 +250,18 @@ const Receivables: React.FC = () => {
     }
   };
 
+  const handleSendEmail = async (id: number) => {
+    setLoading(true);
+    try {
+      await receivableService.sendEmail(id);
+      setSnackbar({ open: true, message: 'Cobrança enviada com sucesso!', severity: 'success' });
+    } catch (e) {
+      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao enviar email', severity: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleBatchRegisterBB = async () => {
     if (!activeCompany || selectedIds.length === 0) return;
     setLoading(true);
@@ -284,9 +299,14 @@ const Receivables: React.FC = () => {
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           {selectedIds.length > 0 && (
-            <Button variant="contained" color="secondary" startIcon={<CloudIcon className="w-5 h-5" />} onClick={handleBatchRegisterBB}>
-              Registrar Selecionados ({selectedIds.length})
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button variant="contained" color="secondary" startIcon={<CloudIcon className="w-5 h-5" />} onClick={handleBatchRegisterBB}>
+                Registrar ({selectedIds.length})
+              </Button>
+              <Button variant="contained" color="success" startIcon={<QrCodeIcon className="w-5 h-5" />} onClick={() => navigate('/checkout', { state: { receivableIds: selectedIds } })}>
+                Pagar ({selectedIds.length})
+              </Button>
+            </Box>
           )}
           <Button variant="outlined" startIcon={<PlusIcon className="w-5 h-5" />} onClick={() => setOpenCreate(true)}>
             Nova Cobrança
@@ -343,13 +363,13 @@ const Receivables: React.FC = () => {
                 <TableCell>Vencimento</TableCell>
                 <TableCell align="right">Valor</TableCell>
                 <TableCell>Status</TableCell>
-                <TableCell>Banco</TableCell>
+                <TableCell>Gateway / Link</TableCell>
                 <TableCell align="right">Ações</TableCell>
               </TableRow>
             </TableHead>
-            <TableBody>
+            <TableBody sx={{ whiteSpace: 'nowrap' }}>
               {loading && receivables.length === 0 ? (
-                <TableRow><TableCell colSpan={8} align="center" sx={{ py: 5 }}><CircularProgress /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} align="center" sx={{ py: 5 }}><CircularProgress /></TableCell></TableRow>
               ) : paginatedReceivables.map(r => (
                 <TableRow key={r.id} hover>
                   <TableCell padding="checkbox">
@@ -368,7 +388,44 @@ const Receivables: React.FC = () => {
                       <Chip label="Falha" size="small" color="error" variant="outlined" onClick={() => setErrorDialog({ open: true, msg: r.registro_result || '' })} sx={{ cursor: 'pointer' }} />
                     ) : getStatusChip(r.status)}
                   </TableCell>
-                  <TableCell><Typography variant="caption" sx={{ fontWeight: 600 }}>{r.bank}</Typography></TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                        {r.tipo === 'MERCADO_PAGO' ? 'MERCADO PAGO' : r.bank}
+                      </Typography>
+                      {r.mp_payment_id && (
+                        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                          MP: {r.mp_payment_id}
+                        </Typography>
+                      )}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        {r.payment_url && (
+                          <Tooltip title="Copiar Link de Pagamento">
+                            <IconButton 
+                              size="small" 
+                              color="primary"
+                              onClick={() => {
+                                navigator.clipboard.writeText(r.payment_url!);
+                                setSnackbar({ open: true, message: 'Link copiado para a área de transferência', severity: 'success' });
+                              }}
+                            >
+                              <ClipboardDocumentIcon className="w-4 h-4" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {r.payment_url && (
+                          <Tooltip title="Abrir Checkout">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => window.open(r.payment_url!, '_blank')}
+                            >
+                              <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </Box>
+                  </TableCell>
                   <TableCell align="right">
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                       {(r.status === 'REGISTERED' || r.status === 'PAID') && (
@@ -380,6 +437,14 @@ const Receivables: React.FC = () => {
                           <PrinterIcon className="w-4 h-4" />
                         </IconButton>
                       )}
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleSendEmail(r.id)} 
+                        title="Enviar por Email"
+                        disabled={loading}
+                      >
+                        <EnvelopeIcon className="w-4 h-4" />
+                      </IconButton>
                       {r.bb_pix_qrcode && <IconButton size="small" color="success" onClick={() => { navigator.clipboard.writeText(r.bb_pix_qrcode!); setSnackbar({ open: true, message: 'PIX Copiado', severity: 'success' }); }} title="PIX"><QrCodeIcon className="w-4 h-4" /></IconButton>}
                       <IconButton size="small" onClick={(e) => { setAnchorEl(e.currentTarget); setSelectedReceivable(r); }}><EllipsisVerticalIcon className="w-5 h-5" /></IconButton>
                     </Box>
@@ -407,6 +472,16 @@ const Receivables: React.FC = () => {
 
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
         <MenuItem onClick={() => { setOpenDetails(true); setAnchorEl(null); }}><EyeIcon className="w-4 h-4 mr-2" /> Detalhes</MenuItem>
+        
+        <MenuItem onClick={() => { selectedReceivable && handleSendEmail(selectedReceivable.id); setAnchorEl(null); }}>
+          <EnvelopeIcon className="w-4 h-4 mr-2 text-blue-500" /> Enviar por Email
+        </MenuItem>
+        
+        {selectedReceivable?.status !== 'PAID' && selectedReceivable?.status !== 'CANCELLED' && (
+          <MenuItem onClick={() => { navigate('/checkout', { state: { receivableIds: [selectedReceivable!.id] } }); setAnchorEl(null); }}>
+            <QrCodeIcon className="w-4 h-4 mr-2 text-blue-500" /> Pagar (Mercado Pago)
+          </MenuItem>
+        )}
         
         {selectedReceivable?.status !== 'PAID' && selectedReceivable?.status !== 'CANCELLED' && (
           <MenuItem onClick={() => { handleSettle(selectedReceivable!.id); setAnchorEl(null); }}>

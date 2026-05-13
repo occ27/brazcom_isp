@@ -40,6 +40,8 @@ export interface CompanyCreate {
   contrato_registro_num?: string;
   site?: string;
   email_contato?: string;
+  mp_access_token?: string;
+  mp_public_key?: string;
 }
 
 export interface CompanyUpdate {
@@ -81,6 +83,8 @@ export interface CompanyUpdate {
   contrato_registro_num?: string;
   site?: string;
   email_contato?: string;
+  mp_access_token?: string;
+  mp_public_key?: string;
 }
 
 export const companyService = {
@@ -312,6 +316,25 @@ export const companyService = {
   // Deletar certificado da empresa
   async deleteCompanyCertificate(companyId: number): Promise<{ deleted_files: string[] }> {
     const response = await api.delete(`/uploads/empresa/${companyId}/certificado`);
+    return response.data;
+  },
+  
+  // Upload de assinatura digital da empresa
+  async uploadCompanySignature(companyId: number, file: File): Promise<{ file_path: string; file_name: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await api.post(`/uploads/empresa/${companyId}/assinatura`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  // Deletar assinatura da empresa
+  async deleteCompanySignature(companyId: number): Promise<{ deleted_files: string[] }> {
+    const response = await api.delete(`/uploads/empresa/${companyId}/assinatura`);
     return response.data;
   },
 
