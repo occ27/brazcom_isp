@@ -35,6 +35,12 @@ class EmpresaBase(BaseModel):
     suspension_message: Optional[str] = Field(None, description="Mensagem personalizada para avisar sobre suspensão")
     suspension_url: Optional[str] = Field(None, max_length=500, description="URL personalizada para redirecionamento de suspensão")
 
+    # Informações para contratos ISP
+    ato_autorizacao: Optional[str] = Field(None, max_length=100)
+    contrato_registro_num: Optional[str] = Field(None, max_length=100)
+    site: Optional[str] = Field(None, max_length=255)
+    email_contato: Optional[str] = Field(None, max_length=255)
+
     # Novos campos
     logo_url: Optional[str] = Field(None, max_length=500)
     # Campos sensíveis (não expostos por padrão nas respostas)
@@ -161,6 +167,12 @@ class EmpresaResponse(BaseModel):
     suspension_message: Optional[str] = Field(None)
     suspension_url: Optional[str] = Field(None)
     
+    # Informações ISP
+    ato_autorizacao: Optional[str] = None
+    contrato_registro_num: Optional[str] = None
+    site: Optional[str] = None
+    email_contato: Optional[str] = None
+    
     # Campos específicos de EmpresaResponse
     id: int
     ambiente_nfcom: str
@@ -232,6 +244,12 @@ class EmpresaUpdate(BaseModel):
     logo_url: Optional[str] = Field(None, max_length=500)
     suspension_message: Optional[str] = Field(None)
     suspension_url: Optional[str] = Field(None, max_length=500)
+    
+    # Informações ISP
+    ato_autorizacao: Optional[str] = Field(None, max_length=100)
+    contrato_registro_num: Optional[str] = Field(None, max_length=100)
+    site: Optional[str] = Field(None, max_length=255)
+    email_contato: Optional[str] = Field(None, max_length=255)
     certificado_path: Optional[str] = Field(None, max_length=500)
     certificado_senha: Optional[str] = Field(None, max_length=500)
     smtp_server: Optional[str] = Field(None, max_length=255)

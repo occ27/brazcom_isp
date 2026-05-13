@@ -46,6 +46,10 @@ def _decrypt_sensitive_fields(empresa: Empresa) -> SimpleNamespace:
         is_active=empresa.is_active,
         suspension_message=empresa.suspension_message,
         suspension_url=empresa.suspension_url,
+        ato_autorizacao=empresa.ato_autorizacao,
+        contrato_registro_num=empresa.contrato_registro_num,
+        site=empresa.site,
+        email_contato=empresa.email_contato,
         created_at=empresa.created_at,
         updated_at=empresa.updated_at,
         # Flags para indicar presença de configuração sensível (sem expor valores)

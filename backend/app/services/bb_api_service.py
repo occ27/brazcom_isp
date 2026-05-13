@@ -128,7 +128,10 @@ def get_access_token(bank_account_id: int, client_id: str, client_secret: str,
             }
             resp = client.post(
                 url,
-                data={'grant_type': 'client_credentials'},
+                data={
+                    'grant_type': 'client_credentials',
+                    'scope': 'cobrancas.boletos-info cobrancas.boletos-requisicao'
+                },
                 auth=(client_id, client_secret),
                 headers=headers,
             )

@@ -36,6 +36,10 @@ export interface CompanyCreate {
   // Mensagem de suspensão personalizada (ISP)
   suspension_message?: string;
   suspension_url?: string;
+  ato_autorizacao?: string;
+  contrato_registro_num?: string;
+  site?: string;
+  email_contato?: string;
 }
 
 export interface CompanyUpdate {
@@ -73,6 +77,10 @@ export interface CompanyUpdate {
   // Mensagem de suspensão personalizada (ISP)
   suspension_message?: string;
   suspension_url?: string;
+  ato_autorizacao?: string;
+  contrato_registro_num?: string;
+  site?: string;
+  email_contato?: string;
 }
 
 export const companyService = {

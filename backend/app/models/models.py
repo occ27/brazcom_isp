@@ -118,6 +118,12 @@ class Empresa(Base):
     suspension_message = Column(Text, nullable=True)
     suspension_url = Column(String(500), nullable=True)
     
+    # Informações para contratos ISP
+    ato_autorizacao = Column(String(100)) # Ex: 6.792/2011
+    contrato_registro_num = Column(String(100)) # Ex: 27.505
+    site = Column(String(255))
+    email_contato = Column(String(255))
+    
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False) # Usuário que cadastrou a empresa
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -433,10 +439,16 @@ class ServicoContratado(Base):
     # Configuração de rede (provisionamento automático)
     router_id = Column(Integer, ForeignKey("routers.id"), nullable=True)  # Router onde será provisionado
     interface_id = Column(Integer, ForeignKey("router_interfaces.id"), nullable=True)  # Interface do router
-    ip_class_id = Column(Integer, ForeignKey("ip_classes.id", ondelete="SET NULL"), nullable=True)  # Classe IP para atribuição automática
-    mac_address = Column(String(17), nullable=True)  # Endereço MAC do dispositivo do cliente
-    assigned_ip = Column(String(15), nullable=True)  # IP atribuído automaticamente
-    metodo_autenticacao = Column(SQLAlchemyEnum(MetodoAutenticacao), nullable=True)  # Método de autenticação
+    ip_class_id = Column(Integer, ForeignKey("ip_classes.id", ondelete="SET NULL"), nullable=True)
+    mac_address = Column(String(17), nullable=True) # XX:XX:XX:XX:XX:XX
+    assigned_ip = Column(String(45), nullable=True) # IPv4 ou IPv6
+    metodo_autenticacao = Column(String(20), nullable=True) # PPPOE, IP_MAC, RADIUS, etc
+
+    # Documentação Jurídica
+    contrato_anatel_url = Column(String(500), nullable=True) # Link para o contrato assinado/padrão
+
+    # Relacionamento com múltiplos ativos (equipamentos)
+    ativos = relationship("AtivoContrato", back_populates="contrato", cascade="all, delete-orphan")
 
     # Campos específicos para autenticação PPPoE
     pppoe_username = Column(String(50), nullable=True)  # Username PPPoE do cliente
@@ -456,6 +468,30 @@ class ServicoContratado(Base):
     
     # Conta bancária vinculada ao contrato (opcional) — define a conta que será usada para cobranças deste contrato
     bank_account_id = Column(Integer, ForeignKey("bank_accounts.id"), nullable=True)
+
+class AtivoContrato(Base):
+    """Modelo de Equipamentos/Ativos vinculados a um contrato de serviço."""
+    __tablename__ = "ativos_contrato"
+
+    id = Column(Integer, primary_key=True, index=True)
+    contrato_id = Column(Integer, ForeignKey("servicos_contratados.id", ondelete="CASCADE"), nullable=False)
+    
+    tipo_equipamento = Column(String(50), nullable=False) # ROTEADOR, ONT, BRIDGE, RADIO, etc
+    modelo = Column(String(100), nullable=True)
+    patrimonio = Column(String(50), nullable=True)
+    serial_number = Column(String(100), nullable=True)
+    
+    # Credenciais de Acesso (para manutenção técnica)
+    login_acesso = Column(String(100), nullable=True)
+    senha_acesso = Column(String(100), nullable=True)
+    
+    is_comodato = Column(Boolean, default=True)
+    observacoes = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    contrato = relationship("ServicoContratado", back_populates="ativos")
 
 class NFComFatura(Base):
     """Modelo de Fatura/Cobrança da NFCom."""

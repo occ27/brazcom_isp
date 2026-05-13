@@ -78,6 +78,12 @@ export interface Company {
   // Mensagem de suspensão personalizada (ISP)
   suspension_message?: string;
   suspension_url?: string;
+
+  // Informações para contratos ISP
+  ato_autorizacao?: string;
+  contrato_registro_num?: string;
+  site?: string;
+  email_contato?: string;
 }
 
 export interface Cliente {

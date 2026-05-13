@@ -68,6 +68,34 @@ def list_servicos_contratados(empresa_id: int = None, q: str = None, skip: int =
     return items
 
 
+@router.get("/{contrato_id}/contrato-html", response_class=Response)
+def get_contrato_html(contrato_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+    from app.services.contract_generator import generate_contract_html
+    from app.crud import crud_empresa, crud_cliente, crud_servico
+    
+    # 1. Buscar dados do contrato (com ativos)
+    c_dict = crud_servico_contratado.get_servico_contratado_with_relations(db, contrato_id=contrato_id)
+    if not c_dict:
+        raise HTTPException(status_code=404, detail="Contrato não encontrado")
+    
+    # 2. Verificar permissão
+    if c_dict.get('empresa_id'):
+        user_empresas_ids = [e.empresa_id for e in current_user.empresas]
+        if c_dict['empresa_id'] not in user_empresas_ids and not current_user.is_superuser:
+            raise HTTPException(status_code=403, detail="Usuário não tem permissão")
+            
+    # 3. Buscar objetos para o template
+    db_contrato = crud_servico_contratado.get_servico_contratado(db, contrato_id=contrato_id)
+    empresa = crud_empresa.get_empresa(db, empresa_id=db_contrato.empresa_id)
+    cliente = crud_cliente.get_cliente(db, cliente_id=db_contrato.cliente_id)
+    servico = crud_servico.get_servico(db, servico_id=db_contrato.servico_id, empresa_id=db_contrato.empresa_id)
+    
+    # 4. Gerar HTML
+    html_content = generate_contract_html(c_dict, cliente, empresa, servico)
+    
+    return Response(content=html_content, media_type="text/html")
+
+
 @router.get("/{contrato_id}", response_model=sc_schema.ServicoContratadoResponse)
 def get_contrato(contrato_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     c = crud_servico_contratado.get_servico_contratado_with_relations(db, contrato_id=contrato_id)
@@ -79,6 +107,55 @@ def get_contrato(contrato_id: int, db: Session = Depends(get_db), current_user: 
         if c['empresa_id'] not in user_empresas_ids and not current_user.is_superuser:
             raise HTTPException(status_code=403, detail="Usuário não tem permissão")
     return c
+
+
+@router.post("/{contrato_id}/enviar-email")
+def enviar_contrato_email(contrato_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+    """Gera o contrato em HTML e envia para o email do cliente usando SMTP da empresa."""
+    from app.services.contract_generator import generate_contract_html
+    from app.services.email_service import EmailService
+    from app.crud import crud_empresa, crud_cliente, crud_servico
+    
+    # 1. Buscar dados e verificar permissão
+    db_contrato = crud_servico_contratado.get_servico_contratado(db, contrato_id=contrato_id)
+    if not db_contrato:
+        raise HTTPException(status_code=404, detail="Contrato não encontrado")
+        
+    user_empresas_ids = [e.empresa_id for e in current_user.empresas]
+    if db_contrato.empresa_id not in user_empresas_ids and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Usuário não tem permissão")
+        
+    # 2. Carregar objetos relacionados
+    empresa = crud_empresa.get_empresa_raw(db, empresa_id=db_contrato.empresa_id)
+    cliente = crud_cliente.get_cliente(db, cliente_id=db_contrato.cliente_id)
+    servico = crud_servico.get_servico(db, servico_id=db_contrato.servico_id, empresa_id=db_contrato.empresa_id)
+    c_dict = crud_servico_contratado.get_servico_contratado_with_relations(db, contrato_id=contrato_id)
+    
+    if not cliente or not cliente.email:
+        raise HTTPException(status_code=400, detail="Cliente não possui email cadastrado")
+        
+    # 3. Validar SMTP da empresa
+    if not empresa.smtp_server or not empresa.smtp_user:
+        raise HTTPException(status_code=400, detail="Empresa não possui configurações de SMTP configuradas")
+        
+    # 4. Gerar HTML do contrato
+    html_content = generate_contract_html(c_dict, cliente, empresa, servico)
+    
+    # 5. Enviar email
+    subject = f"Termo de Adesão - Contrato Nº {db_contrato.id} - {empresa.razao_social}"
+    
+    success = EmailService.send_email(
+        empresa=empresa,
+        to_email=cliente.email,
+        subject=subject,
+        body=html_content,
+        is_html=True
+    )
+    
+    if not success:
+        raise HTTPException(status_code=500, detail="Falha ao enviar email. Verifique as configurações de SMTP da empresa.")
+        
+    return {"message": f"Contrato enviado com sucesso para {cliente.email}"}
 
 
 @router.put("/{contrato_id}", response_model=sc_schema.ServicoContratadoResponse)

@@ -7,10 +7,25 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination, Pagination,
   Checkbox, Tabs, Tab, FormHelperText
 } from '@mui/material';
-import { PlusIcon, PencilIcon, TrashIcon, DocumentTextIcon, EyeIcon, MagnifyingGlassIcon, PlayIcon, ArrowPathIcon, CloudArrowUpIcon, PauseIcon } from '@heroicons/react/24/outline';
+import { 
+  PlusIcon, ArrowPathIcon, CloudIcon, QrCodeIcon,
+  ArrowTopRightOnSquareIcon,
+  InformationCircleIcon,
+  PrinterIcon,
+  EyeIcon,
+  PlayIcon,
+  PencilIcon,
+  CloudArrowUpIcon,
+  PauseIcon,
+  TrashIcon as TrashIconMUI,
+  DocumentTextIcon,
+  MagnifyingGlassIcon,
+  XMarkIcon,
+  EnvelopeIcon
+} from '@heroicons/react/24/outline';
 import { useCompany } from '../contexts/CompanyContext';
 import { useAuth } from '../contexts/AuthContext';
-import contratoService, { Contrato, ContratoListResponse } from '../services/contratoService';
+import contratoService, { Contrato, ContratoListResponse, AtivoContrato } from '../services/contratoService';
 import clientService from '../services/clientService';
 import servicoService, { Servico } from '../services/servicoService';
 import bankAccountService, { BankAccount } from '../services/bankAccountService';
@@ -72,9 +87,14 @@ const Contracts: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [loading, setLoading] = useState<boolean>(true);
+  const [openPdfModal, setOpenPdfModal] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [openContractModal, setOpenContractModal] = useState(false);
+  const [contractHtmlUrl, setContractHtmlUrl] = useState<string | null>(null);
   const [openForm, setOpenForm] = useState(false);
   const [editing, setEditing] = useState<Contrato | null>(null);
   const [viewOnly, setViewOnly] = useState(false);
+  const [viewingContractId, setViewingContractId] = useState<number | null>(null);
   const [form, setForm] = useState<Partial<Contrato>>({
     quantidade: 1,
     periodicidade: 'MENSAL',
@@ -343,6 +363,39 @@ const Contracts: React.FC = () => {
     setPage(0);
   };
 
+  const handlePrintContract = async (contractId: number) => {
+    if (!activeCompany) return;
+    setViewingContractId(contractId);
+    try {
+      const url = await contratoService.getContratoTermoUrl(activeCompany.id, contractId);
+      setContractHtmlUrl(url);
+      setOpenContractModal(true);
+    } catch (e) {
+      setSnackbar({ open: true, message: 'Erro ao carregar termo de adesão', severity: 'error' });
+    }
+  };
+
+  const handleSendContractEmail = async (contratoId: number) => {
+    try {
+      setLoading(true);
+      await api.post(`/servicos-contratados/${contratoId}/enviar-email`);
+      setSnackbar({
+        open: true,
+        message: 'Contrato enviado com sucesso para o email do cliente!',
+        severity: 'success'
+      });
+    } catch (error: any) {
+      console.error('Erro ao enviar contrato por email:', error);
+      setSnackbar({
+        open: true,
+        message: `Erro ao enviar contrato: ${error.response?.data?.detail || 'Erro desconhecido'}`,
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const loadClients = useCallback(async (search: string = '') => {
     if (!activeCompany) return;
     setClientLoading(true);
@@ -597,6 +650,11 @@ const Contracts: React.FC = () => {
               <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', mt: 2 }}>
                 {hasPermission('contract_manage') ? (
                   <>
+                    <Tooltip title="Imprimir Contrato">
+                      <IconButton size="small" onClick={() => handlePrintContract(c.id)} color="primary">
+                        <PrinterIcon className="w-5 h-5" />
+                      </IconButton>
+                    </Tooltip>
                     <Tooltip title="Editar">
                       <IconButton size="small" onClick={() => handleOpenForm(c)}>
                         <PencilIcon className="w-5 h-5" />
@@ -637,7 +695,7 @@ const Contracts: React.FC = () => {
                     )}
                     <Tooltip title="Excluir">
                       <IconButton size="small" onClick={() => remove(c)}>
-                        <TrashIcon className="w-5 h-5 text-red-500" />
+                        <TrashIconMUI className="w-5 h-5 text-red-500" />
                       </IconButton>
                     </Tooltip>
                   </>
@@ -740,7 +798,13 @@ const Contracts: React.FC = () => {
                   </Box>
                 </TableCell>
                 <TableCell>
-                  {hasPermission('contract_manage') ? (
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <Tooltip title="Imprimir Contrato">
+                      <IconButton size="small" onClick={() => handlePrintContract(c.id)} color="primary">
+                        <PrinterIcon className="w-4 h-4" />
+                      </IconButton>
+                    </Tooltip>
+                    {hasPermission('contract_manage') ? (
                     <>
                       <Tooltip title="Editar">
                         <IconButton size="small" onClick={() => handleOpenForm(c)}>
@@ -782,7 +846,7 @@ const Contracts: React.FC = () => {
                       )}
                       <Tooltip title="Excluir">
                         <IconButton size="small" onClick={() => remove(c)}>
-                          <TrashIcon className="w-4 h-4 text-red-500" />
+                          <TrashIconMUI className="w-4 h-4 text-red-500" />
                         </IconButton>
                       </Tooltip>
                     </>
@@ -793,6 +857,7 @@ const Contracts: React.FC = () => {
                       </IconButton>
                     </Tooltip>
                   ) : null}
+                  </Box>
                 </TableCell>
               </TableRow>
             );
@@ -846,9 +911,21 @@ const Contracts: React.FC = () => {
   const handleOpenForm = async (c?: Contrato, view: boolean = false) => {
     setViewOnly(!!view);
     if (c) {
-      setEditing(c);
+      let fullContract = c;
+      // Fetch full contract to get assets and other details not in the list
+      try {
+        setLoading(true);
+        fullContract = await contratoService.getContratoById(c.id);
+      } catch (error) {
+        console.error('Erro ao buscar detalhes do contrato:', error);
+        // Fallback to the object we have if fetch fails
+      } finally {
+        setLoading(false);
+      }
+
+      setEditing(fullContract);
       // Normalize date fields to YYYY-MM-DD for date inputs to avoid timezone shifts
-      const normalized: any = { ...c };
+      const normalized: any = { ...fullContract };
       // Prefer direct string slice for strings to avoid any Date parsing differences
       // Prefer dia_vencimento numeric (new field). If not present, try to extract day from legacy vencimento date.
       if (c.dia_vencimento !== undefined && c.dia_vencimento !== null) {
@@ -920,7 +997,7 @@ const Contracts: React.FC = () => {
         empresa_id: activeCompany?.id,
         cliente_id: undefined,
         servico_id: undefined,
-        bank_account_id: undefined,
+        bank_account_id: activeCompany?.default_bank_account_id,
         quantidade: 1,
         periodicidade: 'MENSAL',
         valor_unitario: 0,
@@ -946,7 +1023,9 @@ const Contracts: React.FC = () => {
         assigned_ip: '',
         metodo_autenticacao: undefined,
         pppoe_username: '',
-        pppoe_password: ''
+        pppoe_password: '',
+        ativos: [],
+        contrato_anatel_url: ''
       };
 
       const savedData = localStorage.getItem('last_contract_tech_data');
@@ -1063,6 +1142,32 @@ const Contracts: React.FC = () => {
     setForm(currentForm => {
       validateRequiredFields({ ...currentForm, [field]: processedValue });
       return currentForm;
+    });
+  };
+
+
+  const addAtivo = () => {
+    setForm(prev => ({
+      ...prev,
+      ativos: [
+        ...(prev.ativos || []),
+        { tipo_equipamento: 'ROTEADOR', modelo: '', patrimonio: '', serial_number: '', login_acesso: 'admin', senha_acesso: '', is_comodato: true, observacoes: '' }
+      ]
+    }));
+  };
+
+  const removeAtivo = (index: number) => {
+    setForm(prev => ({
+      ...prev,
+      ativos: (prev.ativos || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleAtivoChange = (index: number, field: keyof AtivoContrato, value: any) => {
+    setForm(prev => {
+      const newAtivos = [...(prev.ativos || [])];
+      newAtivos[index] = { ...newAtivos[index], [field]: value };
+      return { ...prev, ativos: newAtivos };
     });
   };
 
@@ -1617,14 +1722,7 @@ const Contracts: React.FC = () => {
                 style={{ minWidth: 40, minHeight: 40 }}
                 aria-label="Fechar"
               >
-                <svg
-                  className="w-5 h-5 sm:w-6 sm:h-6 text-red-400 group-hover:text-red-600 transition-colors"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <XMarkIcon className="w-5 h-5 sm:w-6 sm:h-6 text-red-400 group-hover:text-red-600 transition-colors" />
               </button>
             </div>
 
@@ -1641,6 +1739,7 @@ const Contracts: React.FC = () => {
                   <Tab label="📋 Dados do Plano" />
                   <Tab label="🌐 Configuração de Rede" />
                   <Tab label="💰 Cobrança e SLA" />
+                  <Tab label="🛠️ Instalação e Ativos" />
                 </Tabs>
               </Box>
 
@@ -2010,13 +2109,19 @@ const Contracts: React.FC = () => {
                     </div>
                   </div>
 
+                </div>
+              )}
+
+              {/* Fourth Tab - Installation and Assets */}
+              {tabValue === 3 && (
+                <div className="space-y-4 sm:space-y-6">
                   <div className="bg-gradient-to-r from-emerald-50 to-green-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-emerald-100">
                     <h3 className="text-lg sm:text-xl font-bold text-emerald-800 mb-1 sm:mb-2 flex items-center">
                       <span className="mr-2 text-base sm:text-lg">📍</span>
-                      <span className="text-sm sm:text-base">Informações de Instalação</span>
+                      <span className="text-sm sm:text-base">Dados da Instalação</span>
                     </h3>
                     <p className="text-xs sm:text-sm text-emerald-600 hidden sm:block">
-                      Dados específicos da instalação do serviço de internet.
+                      Dados específicos da instalação do serviço de internet no endereço do cliente.
                     </p>
                     <div className="mt-3 sm:mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       <TextField
@@ -2083,6 +2188,169 @@ const Contracts: React.FC = () => {
                         size="small"
                         placeholder="Ex: 10M/10M"
                         helperText="Velocidade de download/upload garantida"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-orange-50 to-amber-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-orange-100">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg sm:text-xl font-bold text-orange-800 flex items-center">
+                        <span className="mr-2 text-base sm:text-lg">📟</span>
+                        <span className="text-sm sm:text-base">Equipamentos e Ativos</span>
+                      </h3>
+                      <Button 
+                        variant="contained" 
+                        size="small" 
+                        color="warning" 
+                        onClick={addAtivo}
+                        startIcon={<span className="text-lg">+</span>}
+                        className="rounded-full shadow-sm"
+                      >
+                        Adicionar Equipamento
+                      </Button>
+                    </div>
+
+                    <div className="space-y-4">
+                      {(!form.ativos || form.ativos.length === 0) && (
+                        <div className="text-center py-6 border-2 border-dashed border-orange-200 rounded-xl bg-white/50">
+                          <p className="text-orange-400 text-sm italic">Nenhum equipamento vinculado. Clique em "Adicionar Equipamento" para registrar.</p>
+                        </div>
+                      )}
+                      
+                      {(form.ativos || []).map((ativo, index) => (
+                        <div key={index} className="bg-white p-4 rounded-xl border border-orange-100 shadow-sm relative">
+                          <div className="flex justify-end mb-2">
+                            <Button
+                              size="small"
+                              color="error"
+                              variant="text"
+                              onClick={() => removeAtivo(index)}
+                              startIcon={<TrashIconMUI className="w-4 h-4" />}
+                              sx={{ 
+                                textTransform: 'none', 
+                                fontSize: '0.75rem',
+                                backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                                '&:hover': { backgroundColor: 'rgba(239, 68, 68, 0.15)' }
+                              }}
+                            >
+                              Remover Equipamento
+                            </Button>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <FormControl fullWidth size="small">
+                              <InputLabel>Tipo</InputLabel>
+                              <Select
+                                value={ativo.tipo_equipamento}
+                                label="Tipo"
+                                onChange={(e) => handleAtivoChange(index, 'tipo_equipamento', e.target.value)}
+                              >
+                                <MenuItem value="ROTEADOR">Roteador</MenuItem>
+                                <MenuItem value="ONT">ONT / ONU</MenuItem>
+                                <MenuItem value="BRIDGE">Bridge</MenuItem>
+                                <MenuItem value="RADIO">Rádio / Antena</MenuItem>
+                                <MenuItem value="OUTRO">Outro</MenuItem>
+                              </Select>
+                            </FormControl>
+
+                            <TextField
+                              label="Modelo"
+                              value={ativo.modelo || ''}
+                              onChange={e => handleAtivoChange(index, 'modelo', e.target.value)}
+                              fullWidth
+                              size="small"
+                              placeholder="Ex: Huawei HG8245H"
+                            />
+
+                            <TextField
+                              label="Patrimônio"
+                              value={ativo.patrimonio || ''}
+                              onChange={e => handleAtivoChange(index, 'patrimonio', e.target.value)}
+                              fullWidth
+                              size="small"
+                              placeholder="Nº Patrimônio"
+                            />
+
+                            <TextField
+                              label="Número de Série"
+                              value={ativo.serial_number || ''}
+                              onChange={e => handleAtivoChange(index, 'serial_number', e.target.value)}
+                              fullWidth
+                              size="small"
+                              placeholder="S/N"
+                            />
+
+                            <TextField
+                              label="Login de Acesso"
+                              value={ativo.login_acesso || ''}
+                              onChange={e => handleAtivoChange(index, 'login_acesso', e.target.value)}
+                              fullWidth
+                              size="small"
+                              placeholder="Usuário técnico"
+                            />
+
+                            <TextField
+                              label="Senha de Acesso"
+                              value={ativo.senha_acesso || ''}
+                              onChange={e => handleAtivoChange(index, 'senha_acesso', e.target.value)}
+                              fullWidth
+                              size="small"
+                              type="text"
+                              placeholder="Senha técnica"
+                            />
+
+                            <FormControl fullWidth size="small">
+                              <InputLabel>Regime</InputLabel>
+                              <Select
+                                value={String(ativo.is_comodato)}
+                                label="Regime"
+                                onChange={(e) => handleAtivoChange(index, 'is_comodato', e.target.value === 'true')}
+                              >
+                                <MenuItem value="true">Comodato</MenuItem>
+                                <MenuItem value="false">Próprio do Cliente</MenuItem>
+                              </Select>
+                            </FormControl>
+
+                            <TextField
+                              label="Observações Técnicas"
+                              value={ativo.observacoes || ''}
+                              onChange={e => handleAtivoChange(index, 'observacoes', e.target.value)}
+                              fullWidth
+                              size="small"
+                              className="sm:col-span-2"
+                              placeholder="Ex: Localizado no forro, IP fixo 192.168.1.1, etc."
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-slate-50 to-gray-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-slate-100">
+                    <h3 className="text-lg sm:text-xl font-bold text-slate-800 mb-1 sm:mb-2 flex items-center">
+                      <span className="mr-2 text-base sm:text-lg">📜</span>
+                      <span className="text-sm sm:text-base">Documentação e Segurança</span>
+                    </h3>
+                    <div className="mt-3 sm:mt-4 space-y-4">
+                      <TextField
+                        label="URL do Contrato Anatel"
+                        value={form.contrato_anatel_url || ''}
+                        onChange={e => handleInputChange('contrato_anatel_url', e.target.value)}
+                        fullWidth
+                        size="small"
+                        placeholder="Link para o PDF do contrato assinado"
+                        helperText="Ex: https://arquivos.provedor.com.br/contratos/123.pdf"
+                      />
+
+                      <TextField
+                        label="Observações da Instalação"
+                        value={form.observacoes_instalacao || ''}
+                        onChange={e => handleInputChange('observacoes_instalacao', e.target.value)}
+                        fullWidth
+                        size="small"
+                        multiline
+                        rows={3}
+                        placeholder="Detalhes sobre a instalação, fiação, local do roteador, etc."
                       />
                     </div>
                   </div>
@@ -2197,29 +2465,31 @@ const Contracts: React.FC = () => {
                         </Select>
                       </FormControl>
 
-                      {form.metodo_autenticacao === 'IP_MAC' && (
+                      {(form.metodo_autenticacao === 'IP_MAC' || form.metodo_autenticacao === 'RADIUS') && (
                         <>
-                          <TextField
-                            label="Endereço MAC"
-                            value={form.mac_address || ''}
-                            onChange={e => handleInputChange('mac_address', e.target.value)}
-                            fullWidth
-                            size="small"
-                            placeholder="Ex: AA:BB:CC:DD:EE:FF"
-                            error={!!errors.mac_address}
-                            helperText={errors.mac_address || "MAC address do dispositivo do cliente"}
-                          />
+                          {form.metodo_autenticacao === 'IP_MAC' && (
+                            <TextField
+                              label="Endereço MAC"
+                              value={form.mac_address || ''}
+                              onChange={e => handleInputChange('mac_address', e.target.value)}
+                              fullWidth
+                              size="small"
+                              placeholder="Ex: AA:BB:CC:DD:EE:FF"
+                              error={!!errors.mac_address}
+                              helperText={errors.mac_address || "MAC address do dispositivo do cliente"}
+                            />
+                          )}
 
                           <FormControl fullWidth size="small" error={!!errors.assigned_ip}>
-                            <InputLabel>IP Atribuído</InputLabel>
+                            <InputLabel>{form.metodo_autenticacao === 'RADIUS' ? 'IP Fixo (Opcional)' : 'IP Atribuído'}</InputLabel>
                             <Select
                               value={form.assigned_ip || ''}
-                              label="IP Atribuído"
+                              label={form.metodo_autenticacao === 'RADIUS' ? 'IP Fixo (Opcional)' : 'IP Atribuído'}
                               onChange={(e: SelectChangeEvent) => handleInputChange('assigned_ip', e.target.value)}
                               disabled={!form.ip_class_id || availableIPs.length === 0}
                             >
                               <MenuItem value="">
-                                <em>Selecione um IP disponível</em>
+                                <em>{form.metodo_autenticacao === 'RADIUS' ? 'IP Dinâmico (Radius)' : 'Selecione um IP disponível'}</em>
                               </MenuItem>
                               {availableIPs.map((ip) => (
                                 <MenuItem key={ip} value={ip}>
@@ -2232,12 +2502,12 @@ const Contracts: React.FC = () => {
 
                           <div className="flex items-center space-x-2 text-sm text-blue-600">
                             <span>🔄</span>
-                            <span>Selecione um IP disponível da lista quando a Classe IP for escolhida</span>
+                            <span>{form.metodo_autenticacao === 'RADIUS' ? 'Opcional: Selecione um IP para ser entregue via Radius' : 'Selecione um IP disponível da lista quando a Classe IP for escolhida'}</span>
                           </div>
                         </>
                       )}
 
-                      {form.metodo_autenticacao === 'PPPOE' && (
+                      {(form.metodo_autenticacao === 'PPPOE' || form.metodo_autenticacao === 'RADIUS') && (
                         <>
                           <TextField
                             label="Username PPPoE"
@@ -2433,7 +2703,44 @@ const Contracts: React.FC = () => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
+      </Dialog>
+      
+      {/* Modal Visualização de Contrato */}
+      <Dialog open={openContractModal} onClose={() => { setOpenContractModal(false); setContractHtmlUrl(null); }} maxWidth="lg" fullWidth>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'primary.main', color: 'white' }}>
+          Visualização do Termo de Adesão
+          <IconButton onClick={() => { setOpenContractModal(false); setContractHtmlUrl(null); }} sx={{ color: 'white' }}><XMarkIcon className="w-6 h-6" /></IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 0, height: '85vh', bgcolor: '#f5f5f5' }}>
+          {contractHtmlUrl ? (
+            <iframe src={contractHtmlUrl} width="100%" height="100%" style={{ border: 'none' }} title="Termo de Adesão" />
+          ) : (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}><CircularProgress /></Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5', gap: 1 }}>
+          <Button onClick={() => { setOpenContractModal(false); setContractHtmlUrl(null); setViewingContractId(null); }}>Fechar</Button>
+          <Button 
+            variant="outlined" 
+            color="info"
+            startIcon={<EnvelopeIcon className="w-5 h-5" />}
+            onClick={() => viewingContractId && handleSendContractEmail(viewingContractId)}
+            disabled={!viewingContractId || loading}
+          >
+            Enviar por Email
+          </Button>
+          <Button 
+            variant="contained" 
+            startIcon={<PrinterIcon className="w-5 h-5" />}
+            onClick={() => {
+              const iframe = document.querySelector('iframe[title="Termo de Adesão"]') as HTMLIFrameElement;
+              if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.print();
+              }
+            }}
+          >
+            Imprimir
+          </Button>
         </DialogActions>
       </Dialog>
 

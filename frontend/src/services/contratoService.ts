@@ -45,6 +45,12 @@ export interface Contrato {
   pppoe_username?: string;
   pppoe_password?: string;
 
+  // Ativos (Equipamentos) relacionados
+  ativos?: AtivoContrato[];
+  
+  // Documentação Jurídica
+  contrato_anatel_url?: string;
+
   // Relacionamento com conta bancária para cobrança
   bank_account_id?: number;
 
@@ -60,6 +66,21 @@ export interface Contrato {
   bank_account_bank?: string;
   bank_account_agencia?: string;
   bank_account_conta?: string;
+}
+
+export interface AtivoContrato {
+  id?: number;
+  contrato_id?: number;
+  tipo_equipamento: string;
+  modelo?: string;
+  patrimonio?: string;
+  serial_number?: string;
+  login_acesso?: string;
+  senha_acesso?: string;
+  is_comodato: boolean;
+  observacoes?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ContratoListResponse {
@@ -116,6 +137,17 @@ const contratoService = {
     const response = await api.post(`/servicos-contratados/${id}/sync-router`);
     return response.data;
   },
+  async getContratoById(id: number): Promise<Contrato> {
+    const res = await api.get(`/servicos-contratados/${id}`);
+    return res.data;
+  },
+  async getContratoTermoUrl(empresaId: number, contratoId: number): Promise<string> {
+    const response = await api.get(`/servicos-contratados/${contratoId}/contrato-html`, { 
+      responseType: 'text' 
+    });
+    const blob = new Blob([response.data], { type: 'text/html' });
+    return URL.createObjectURL(blob);
+  }
 };
 
 export default contratoService;

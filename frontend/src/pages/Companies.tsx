@@ -88,7 +88,13 @@ const Companies: React.FC = () => {
     
     // Mensagem de suspensão personalizada (ISP)
     suspension_message: '',
-    suspension_url: ''
+    suspension_url: '',
+    
+    // Informações para contratos ISP
+    ato_autorizacao: '',
+    contrato_registro_num: '',
+    site: '',
+    email_contato: ''
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [snackbar, setSnackbar] = useState({
@@ -181,7 +187,11 @@ const Companies: React.FC = () => {
         smtp_password: '',
         ambiente_nfcom: company.ambiente_nfcom || 'producao',
         suspension_message: company.suspension_message || '',
-        suspension_url: company.suspension_url || ''
+        suspension_url: company.suspension_url || '',
+        ato_autorizacao: company.ato_autorizacao || '',
+        contrato_registro_num: company.contrato_registro_num || '',
+        site: company.site || '',
+        email_contato: company.email_contato || ''
       });
     } else {
       setEditingCompany(null);
@@ -214,7 +224,11 @@ const Companies: React.FC = () => {
         ,
         ambiente_nfcom: 'producao',
         suspension_message: '',
-        suspension_url: ''
+        suspension_url: '',
+        ato_autorizacao: '',
+        contrato_registro_num: '',
+        site: '',
+        email_contato: ''
       });
     }
     setErrors({});
@@ -786,6 +800,7 @@ const Companies: React.FC = () => {
                   { id: "billing", label: "Cobrança", icon: "💳", color: "teal" },
                   { id: "files", label: "Arquivos", icon: "📁", color: "purple" },
                   { id: "email", label: "E-mail", icon: "📧", color: "orange" },
+                  { id: "isp", label: "ISP / Contratos", icon: "📄", color: "indigo" },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -1243,6 +1258,88 @@ const Companies: React.FC = () => {
                     >
                       {testingSMTP ? 'Testando...' : 'Testar SMTP'}
                     </button>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "isp" && (
+                <div className="space-y-4 sm:space-y-6">
+                  <div className="bg-gradient-to-r from-indigo-50 to-blue-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-indigo-100">
+                    <h3 className="text-lg sm:text-xl font-bold text-indigo-800 mb-1 sm:mb-2 flex items-center">
+                      <span className="mr-2 text-base sm:text-lg">📄</span>
+                      <span className="text-sm sm:text-base">Informações ISP / Contratos</span>
+                    </h3>
+                    <p className="text-xs sm:text-sm text-indigo-600 hidden sm:block">
+                      Dados regulatórios e informações que aparecerão nos termos de adesão.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <div>
+                      <TextField
+                        fullWidth
+                        label="Ato de Autorização nº"
+                        value={formData.ato_autorizacao}
+                        onChange={(e) => handleInputChange('ato_autorizacao', e.target.value)}
+                        placeholder="Ex: 6.792/2011"
+                        size="small"
+                        helperText="Número do ato da ANATEL"
+                      />
+                    </div>
+                    <div>
+                      <TextField
+                        fullWidth
+                        label="Nº Registro em Cartório"
+                        value={formData.contrato_registro_num}
+                        onChange={(e) => handleInputChange('contrato_registro_num', e.target.value)}
+                        placeholder="Ex: 27.505"
+                        size="small"
+                        helperText="Número de registro do contrato em cartório"
+                      />
+                    </div>
+                    <div>
+                      <TextField
+                        fullWidth
+                        label="Site da Empresa"
+                        value={formData.site}
+                        onChange={(e) => handleInputChange('site', e.target.value)}
+                        placeholder="Ex: www.brazcom.com.br"
+                        size="small"
+                      />
+                    </div>
+                    <div>
+                      <TextField
+                        fullWidth
+                        label="E-mail para Contratos"
+                        value={formData.email_contato}
+                        onChange={(e) => handleInputChange('email_contato', e.target.value)}
+                        placeholder="Ex: contratos@brazcom.com.br"
+                        size="small"
+                        helperText="Email que aparecerá no corpo do contrato"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <TextField
+                        fullWidth
+                        label="Mensagem de Suspensão"
+                        value={formData.suspension_message}
+                        onChange={(e) => handleInputChange('suspension_message', e.target.value)}
+                        placeholder="Ex: Sua conexão está suspensa por falta de pagamento."
+                        multiline
+                        rows={2}
+                        size="small"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <TextField
+                        fullWidth
+                        label="URL de Suspensão"
+                        value={formData.suspension_url}
+                        onChange={(e) => handleInputChange('suspension_url', e.target.value)}
+                        placeholder="Ex: https://central.brazcom.com.br"
+                        size="small"
+                        helperText="URL para onde o cliente será redirecionado se estiver bloqueado"
+                      />
+                    </div>
                   </div>
                 </div>
               )}

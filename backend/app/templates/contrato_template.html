@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Termo de Adesão - Contrato Nº ${contrato.id}</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.2; margin: 10px; max-width: 900px; margin: auto; color: #333; font-size: 12px; }
+        h1 { font-size: 18px; text-align: center; color: #000; margin-bottom: 3px; }
+        h2 { font-size: 16px; text-align: center; color: #000; margin-top: 0; margin-bottom: 10px; }
+        h3 { text-align: left; border-bottom: 1px solid #000; padding-bottom: 2px; margin-top: 10px; margin-bottom: 5px; text-transform: uppercase; font-size: 13px; color: #000; }
+        table { width: 100%; border-collapse: collapse; margin: 5px 0; font-size: 11px; }
+        table, th, td { border: 1px solid black; }
+        th, td { padding: 4px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        p { margin: 2px 0; }
+        .section { margin-bottom: 8px; }
+        .signatures { margin-top: 20px; text-align: center; font-size: 11px; }
+        .signature-box { border-top: 1px solid #000; display: inline-block; width: 220px; margin: 25px 10px 5px 10px; padding-top: 3px; }
+        @media print {
+            .no-print { display: none; }
+            body { margin: 0; padding: 3mm; }
+            button { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print" style="background: #f4f4f4; padding: 10px; margin-bottom: 20px; border-radius: 5px; text-align: right;">
+        <button onclick="window.print()" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">🖨️ Imprimir Contrato</button>
+    </div>
+
+    <h1>TERMO DE ADESÃO</h1>
+    <h2>AO CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE TELECOMUNICAÇÕES<br>N° ${contrato.id}</h2>
+
+    <p>As partes abaixo identificadas resolvem firmar o presente TERMO DE ADESÃO:</p>
+
+    <div class="section">
+        <h3>DADOS DA CONTRATADA</h3>
+        <p><strong>Nome Empresarial:</strong> ${empresa.razao_social}</p>
+        <p><strong>CNPJ:</strong> ${empresa.cnpj} | <strong>IE:</strong> ${getattr(empresa, 'inscricao_estadual', '')} | <strong>Ato de Autorização nº:</strong> ${getattr(empresa, 'ato_autorizacao', None) or ''}</p>
+        <p><strong>Endereço:</strong> ${empresa.endereco}, ${empresa.numero} ${getattr(empresa, 'complemento', '') or ''}, Bairro: ${empresa.bairro}, Cidade: ${empresa.municipio}, UF: ${empresa.uf}, CEP: ${empresa.cep}</p>
+        <p><strong>Telefone:</strong> ${empresa.telefone}</p>
+        <p><strong>Site:</strong> ${getattr(empresa, 'site', '') or ''} | <strong>E-mail:</strong> ${getattr(empresa, 'email_contato', None) or empresa.email or ''}</p>
+    </div>
+
+    <div class="section">
+        <h3>DADOS DO CONTRATANTE</h3>
+        <p><strong>Nome Completo / Nome Empresarial:</strong> ${cliente.nome_razao_social}</p>
+        <p><strong>CPF/CNPJ:</strong> ${cliente.cpf_cnpj} | <strong>RG/IE:</strong> ${getattr(cliente, 'rg_ie', None) or getattr(cliente, 'inscricao_estadual', '')}</p>
+        <p><strong>Contato:</strong> ${getattr(cliente, 'telefone', '')} | ${getattr(cliente, 'celular', '')}</p>
+        <p><strong>Endereço de Instalação:</strong> ${getattr(contrato, 'endereco_instalacao', None) or (getattr(cliente, 'endereco', '') + ', ' + getattr(cliente, 'numero', ''))}</p>
+    </div>
+
+    <div class="section">
+        <h3>CLAUSULA PRIMEIRA</h3>
+        <p>CONTRATANTE declara neste ato DETER PLENA CAPACIDADE PARA CELEBRAR O PRESENTE, HAVER RECEBIDO, LIDO, COMPREENDIDO E CONCORDADO com os termos e condições dos contratos abaixo discriminados, os quais encontram-se registrados no Cartório de Registro de Títulos e Documentos da Cidade de ${empresa.municipio}, no Estado de ${empresa.uf}, e disponíveis no endereço virtual eletrônico ${getattr(empresa, 'site', '') or ''}:</p>
+        <table>
+            <tr>
+                <th>CONTRATO ADERIDO</th>
+                <th>Nº REGISTRO</th>
+            </tr>
+            <tr>
+                <td>Contrato de Prestação de Serviços de Telecomunicações</td>
+                <td>${getattr(empresa, 'contrato_registro_num', None) or '27.505'}</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="section">
+        <h3>CLAUSULA SEGUNDA</h3>
+        <p>A CONTRATADA prestará o serviço de acordo com o PLANO DE SERVIÇO escolhido de forma espontânea pelo CONTRATANTE, conforme detalhamento abaixo:</p>
+        <table>
+            <tr>
+                <th>Plano Escolhido</th>
+                <th>Velocidade</th>
+                <th>Mensalidade</th>
+                <th>Vencimento</th>
+            </tr>
+            <tr>
+                <td>${getattr(servico, 'descricao', '')}</td>
+                <td>${getattr(servico, 'download_speed', None) or getattr(contrato, 'velocidade_garantida', 'N/A')} Mbps</td>
+                <td>R$ ${format_currency(getattr(contrato, 'valor_total', None) or getattr(contrato, 'valor_unitario', 0))}</td>
+                <td>Dia ${getattr(contrato, 'dia_vencimento', '20')}</td>
+            </tr>
+        </table>
+        <ul>
+            <li>Garantia de Banda: ${getattr(contrato, 'sla_garantido', 50)}%</li>
+            <li>Tecnologia: ${getattr(contrato, 'tipo_conexao', 'Fibra Óptica')}</li>
+            <li>Upload: ${getattr(servico, 'upload_speed', 'N/A')} Mbps</li>
+        </ul>
+        
+        <p><strong>Taxa de Ativação / Instalação:</strong></p>
+        <table>
+            <tr>
+                <th>R$ Instalação</th>
+                <th>Status</th>
+                <th>Forma Pagamento</th>
+            </tr>
+            <tr>
+                <td>R$ ${format_currency(contrato.taxa_instalacao or 0)}</td>
+                <td>${'PAGA' if contrato.taxa_instalacao_paga else 'PENDENTE'}</td>
+                <td>À combinar</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="section">
+        <h3>CLAUSULA TERCEIRA - EQUIPAMENTOS</h3>
+        <p>Poderá haver a disponibilização de equipamentos, seja em regime de COMODATO, seja em regime de LOCAÇÃO, conforme especificação abaixo:</p>
+        <table>
+            <tr>
+                <th>Tipo</th>
+                <th>Modelo / Serial</th>
+                <th>Patrimônio</th>
+                <th>Regime</th>
+            </tr>
+            % if contrato.ativos:
+                % for ativo in contrato.ativos:
+                <tr>
+                    <td>${getattr(ativo, 'tipo_equipamento', 'EQUIPAMENTO')}</td>
+                    <td>${getattr(ativo, 'modelo', '') or ''} / ${getattr(ativo, 'serial_number', '') or ''}</td>
+                    <td>${getattr(ativo, 'patrimonio', '') or ''}</td>
+                    <td>${'COMODATO' if getattr(ativo, 'is_comodato', False) else 'PRÓPRIO'}</td>
+                </tr>
+                % endfor
+            % else:
+                <tr>
+                    <td colspan="4" style="text-align: center; color: #888;">Nenhum equipamento vinculado a este termo.</td>
+                </tr>
+            % endif
+        </table>
+    </div>
+
+    <div class="section">
+        <h3>CLAUSULA QUARTA - PERMANÊNCIA E FIDELIDADE</h3>
+        <p>O CONTRATANTE vincula-se diante da CONTRATADA pelo período mínimo de ${getattr(servico, 'fidelity_months', None) or getattr(contrato, 'periodo_carencia', 12)} meses, a contar da assinatura do presente instrumento, em virtude dos benefícios concedidos na instalação e mensalidade.</p>
+    </div>
+
+    <div class="signatures">
+        <p>${empresa.municipio} - ${empresa.uf}, ${data_hoje}</p>
+        
+        <div class="signature-box">
+            ${empresa.razao_social}<br>
+            <strong>CONTRATADA</strong>
+        </div>
+        
+        <div class="signature-box">
+            ${cliente.nome_razao_social}<br>
+            <strong>CONTRATANTE</strong>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -69,7 +69,7 @@ class RouterInterface(Base):
     enderecos_ip = relationship("InterfaceIPAddress", back_populates="interface", cascade="all, delete-orphan")
 
     # Relacionamento many-to-many com classes IP
-    ip_classes = relationship("IPClass", secondary="interface_ip_class_assignments", back_populates="interfaces")
+    ip_classes = relationship("IPClass", secondary="interface_ip_class_assignments", back_populates="interfaces", overlaps="assignments,ip_class")
 
     # Relacionamentos com servidores PPPoE e DHCP
     pppoe_servers = relationship("PPPoEServer", back_populates="interface", cascade="all, delete-orphan")
@@ -111,7 +111,7 @@ class IPClass(Base):
     interfaces = relationship("RouterInterface", secondary="interface_ip_class_assignments", back_populates="ip_classes", viewonly=True)
     
     # Relacionamento direto com a tabela de associação para permitir cascade delete
-    assignments = relationship("InterfaceIPClassAssignment", cascade="all, delete-orphan", backref="ip_class")
+    assignments = relationship("InterfaceIPClassAssignment", cascade="all, delete-orphan", back_populates="ip_class", overlaps="ip_classes")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -124,6 +124,9 @@ class InterfaceIPClassAssignment(Base):
     interface_id = Column(Integer, ForeignKey("router_interfaces.id"), nullable=False)
     ip_class_id = Column(Integer, ForeignKey("ip_classes.id"), nullable=False)
     assigned_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relacionamentos
+    ip_class = relationship("IPClass", back_populates="assignments", overlaps="ip_classes,assignments")
 
 class IPPool(Base):
     """Pool de endereços IP para DHCP e PPPoE."""
