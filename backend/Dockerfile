@@ -28,12 +28,12 @@ RUN apt-get update \
 COPY requirements.txt .
 
 # Instalar as dependências Python
-RUN python3 -m pip install --no-cache-dir --upgrade pip wheel setuptools \
-	&& python3 -m pip install --no-cache-dir uvicorn gunicorn fastapi \
-	&& python3 -m pip install --no-cache-dir -r requirements.txt \
-	# Rebuild lxml and xmlsec from source against system libxml2/xmlsec
-	&& python3 -m pip uninstall -y lxml xmlsec || true \
-	&& python3 -m pip install --no-cache-dir --no-binary=:all: lxml xmlsec
+RUN pip install --no-cache-dir --upgrade pip wheel setuptools \
+	&& pip install --no-cache-dir -r requirements.txt \
+	# Rebuild lxml and xmlsec from source against system libxml2/xmlsec to avoid
+	# runtime mismatch between wheels and system libraries.
+	&& python -m pip uninstall -y lxml xmlsec || true \
+	&& python -m pip install --no-cache-dir --no-binary=:all: lxml xmlsec
 
 # Copiar o restante do código da aplicação
 COPY . .
@@ -42,5 +42,4 @@ COPY . .
 EXPOSE 8000
 
 # Comando para iniciar a aplicação com Uvicorn
-CMD ["python3", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
-
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
