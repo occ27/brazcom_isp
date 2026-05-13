@@ -608,7 +608,7 @@ const Contracts: React.FC = () => {
                       ) : (
                         <>
                           {c.status === 'AGUARDANDO_ASSINATURA' && <Chip label="Aguardando Assinatura" color="warning" size="small" variant="outlined" />}
-                          {c.assinado_em && <Chip label="Assinado" color="success" size="small" variant="filled" icon={<CheckCircleIcon sx={{ fontSize: '14px !important' }} />} />}
+                          {c.assinado_em && <Chip label="Assinado" color="success" size="small" variant="filled" icon={<CheckCircleIcon className="w-3.5 h-3.5" />} />}
                           {isActive && c.status !== 'AGUARDANDO_ASSINATURA' && <Chip label="Ativo" color="success" size="small" />}
                           {!isActive && <Chip label="Inativo" color="default" size="small" />}
                         </>
@@ -800,7 +800,7 @@ const Contracts: React.FC = () => {
                           label="Assinado"
                           color="success"
                           size="small"
-                          icon={<CheckCircleIcon sx={{ fontSize: '14px !important' }} />}
+                          icon={<CheckCircleIcon className="w-3.5 h-3.5" />}
                         />
                       </Tooltip>
                     )}
