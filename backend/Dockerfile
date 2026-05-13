@@ -28,9 +28,9 @@ RUN apt-get update \
 COPY requirements.txt .
 
 # Instalar as dependências Python
-RUN pip install --no-cache-dir --upgrade pip wheel setuptools \
-	&& pip install --no-cache-dir uvicorn gunicorn \
-	&& pip install --no-cache-dir -r requirements.txt \
+RUN python3 -m pip install --no-cache-dir --upgrade pip wheel setuptools \
+	&& python3 -m pip install --no-cache-dir uvicorn gunicorn fastapi \
+	&& python3 -m pip install --no-cache-dir -r requirements.txt \
 	# Rebuild lxml and xmlsec from source against system libxml2/xmlsec
 	&& python3 -m pip uninstall -y lxml xmlsec || true \
 	&& python3 -m pip install --no-cache-dir --no-binary=:all: lxml xmlsec
