@@ -59,6 +59,8 @@ export interface Contrato {
 
   // Relacionamento com conta bancária para cobrança
   bank_account_id?: number;
+  payment_method?: 'BOLETO' | 'MERCADO_PAGO';
+  observacoes_instalacao?: string;
 
   // Related data
   cliente_nome?: string;

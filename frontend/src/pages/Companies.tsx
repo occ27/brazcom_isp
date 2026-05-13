@@ -1412,7 +1412,7 @@ const Companies: React.FC = () => {
                           maxSize={2}
                           currentFile={formData.assinatura_digital_url}
                           onFileSelect={(file) => setSignatureFile(file)}
-                          onFileRemove={async () => {
+                          onRemove={async () => {
                             if (editingCompany && formData.assinatura_digital_url) {
                               try {
                                 await companyService.deleteCompanySignature(editingCompany.id);

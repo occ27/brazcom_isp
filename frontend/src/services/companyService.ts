@@ -40,6 +40,7 @@ export interface CompanyCreate {
   contrato_registro_num?: string;
   site?: string;
   email_contato?: string;
+  assinatura_digital_url?: string;
   mp_access_token?: string;
   mp_public_key?: string;
 }
@@ -83,6 +84,7 @@ export interface CompanyUpdate {
   contrato_registro_num?: string;
   site?: string;
   email_contato?: string;
+  assinatura_digital_url?: string;
   mp_access_token?: string;
   mp_public_key?: string;
 }

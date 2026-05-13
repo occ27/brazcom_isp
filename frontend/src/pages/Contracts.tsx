@@ -21,7 +21,8 @@ import {
   DocumentTextIcon,
   MagnifyingGlassIcon,
   XMarkIcon,
-  EnvelopeIcon
+  EnvelopeIcon,
+  CheckCircleIcon
 } from '@heroicons/react/24/outline';
 import { useCompany } from '../contexts/CompanyContext';
 import { useAuth } from '../contexts/AuthContext';
