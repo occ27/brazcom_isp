@@ -89,7 +89,7 @@ async def process_payment(
         "token": payload.token,
         "description": f"Pagamento de {len(receivables)} faturas - {empresa.nome_fantasia or empresa.razao_social}",
         "payment_method_id": payload.payment_method_id,
-        "installments": payload.installments,
+        "installments": 1,
         "payer": {
             "email": payload.payer.get("email"),
             "identification": payload.payer.get("identification"),

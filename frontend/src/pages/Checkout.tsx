@@ -154,6 +154,7 @@ const Checkout: React.FC = () => {
             creditCard: 'all',
             ticket: 'all',
             bankTransfer: 'all',
+            maxInstallments: 1,
           }
         },
         callbacks: {
