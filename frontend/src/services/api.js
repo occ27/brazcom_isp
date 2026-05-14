@@ -20,8 +20,8 @@ const computeApiBase = () => {
     return REACT_APP_API_BASE_URL.replace(/\/$/, '');
   }
 
-  // Fallback para desenvolvimento local se a variável não estiver definida
-  return 'http://localhost:8000';
+  // Fallback para produção Brazcom
+  return 'https://brazcom.com.br';
 };
 
 export const API_BASE_URL = computeApiBase();

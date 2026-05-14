@@ -21,7 +21,7 @@ import {
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://brazcom.com.br';
 
 const PublicSignature: React.FC = () => {
     const { token } = useParams<{ token: string }>();
