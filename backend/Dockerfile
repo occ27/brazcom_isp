@@ -8,21 +8,21 @@ WORKDIR /app
 # (mysqlclient, lxml, cryptography, etc.). Mantemos camadas pequenas e removemos
 # caches ao final para reduzir o tamanho da imagem.
 RUN apt-get update \
-	 && apt-get install -y --no-install-recommends \
-		 build-essential \
-		 pkg-config \
-		 python3-dev \
-		 default-libmysqlclient-dev \
-		 libxml2-dev \
-		 libxslt1-dev \
-		 libssl-dev \
-		 libffi-dev \
-		 gcc \
-		 # Dependências do xmlsec (necessárias para python-xmlsec)
-		 libxmlsec1-dev \
-		 libxmlsec1-openssl \
-		 xmlsec1 \
-	 && rm -rf /var/lib/apt/lists/*
+	&& apt-get install -y --no-install-recommends \
+	build-essential \
+	pkg-config \
+	python3-dev \
+	default-libmysqlclient-dev \
+	libxml2-dev \
+	libxslt1-dev \
+	libssl-dev \
+	libffi-dev \
+	gcc \
+	# Dependências do xmlsec (necessárias para python-xmlsec)
+	libxmlsec1-dev \
+	libxmlsec1-openssl \
+	xmlsec1 \
+	&& rm -rf /var/lib/apt/lists/*
 
 # Copiar o arquivo de dependências
 COPY requirements.txt .
