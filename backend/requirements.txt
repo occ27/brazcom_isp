@@ -1,7 +1,7 @@
 alembic
 annotated-types
 anyio
-bcrypt
+bcrypt==3.2.0
 certifi
 cffi
 charset-normalizer
