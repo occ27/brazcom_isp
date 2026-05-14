@@ -21,7 +21,7 @@ import {
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8000' : '/api');
 
 const PublicSignature: React.FC = () => {
     const { token } = useParams<{ token: string }>();

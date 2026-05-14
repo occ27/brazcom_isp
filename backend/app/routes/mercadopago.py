@@ -104,7 +104,8 @@ async def process_payment(
     # Usar settings.BACKEND_URL que deve ser configurado com o domínio público no .env
     base_url = settings.BACKEND_URL.rstrip("/")
     if "localhost" not in base_url and "127.0.0.1" not in base_url:
-        payment_data["notification_url"] = f"{base_url}/mercadopago/webhook"
+        # Em produção, o backend responde via proxy em /api
+        payment_data["notification_url"] = f"{base_url}/api/mercadopago/webhook"
     else:
         logger.warning(f"Pagamento processado em ambiente LOCAL ({base_url}). Webhook não será enviado para o Mercado Pago.")
 

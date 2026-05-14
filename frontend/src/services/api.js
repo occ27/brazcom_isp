@@ -20,8 +20,8 @@ const computeApiBase = () => {
     return REACT_APP_API_BASE_URL.replace(/\/$/, '');
   }
 
-  // Fallback para produção (Proxy Apache /api)
-  return '/api';
+  // Fallback inteligente: localhost em dev, /api em prod
+  return import.meta.env.DEV ? 'http://localhost:8000' : '/api';
 };
 
 export const API_BASE_URL = computeApiBase();

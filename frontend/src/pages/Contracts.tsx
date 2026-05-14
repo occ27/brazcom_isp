@@ -1077,16 +1077,6 @@ const Contracts: React.FC = () => {
           const techData = JSON.parse(savedData) as Partial<Contrato>;
           initialForm = { ...initialForm, ...techData };
 
-          // Se houver um serviço salvo, tentar carregar o nome para o autocomplete
-          if (techData.servico_id && activeCompany) {
-            servicoService.getServicoById(techData.servico_id).then(s => {
-              if (s) {
-                setServicos([s]);
-                setServicoSearch(s.descricao || '');
-              }
-            }).catch(err => console.error('Erro ao carregar serviço salvo:', err));
-          }
-
           // Se houver um router salvo, carregar as interfaces
           if (techData.router_id) {
             loadInterfaces(techData.router_id);
@@ -1105,7 +1095,7 @@ const Contracts: React.FC = () => {
       setForm(initialForm);
       // Reset input values and prefetch the first 10 clients and services
       setClientSearch('');
-      // setServicoSearch('') // Não resetar se carregamos do localStorage
+      setServicoSearch('');
 
       // Prefetch defaults (do not await)
       if (activeCompany) {
@@ -1116,11 +1106,11 @@ const Contracts: React.FC = () => {
         loadRouters();
       }
     }
-    // If editing we may still want the default lists for the other autocomplete fields
-    // e.g. if editing has client set, but servico list is empty, prefetch services (and vice-versa)
-    if (c) {
-      if (!clientSearch && activeCompany) loadClients('');
-      if (!servicoSearch && activeCompany) loadServicos('');
+    
+    // Prefetch defaults (do not await)
+    if (activeCompany) {
+      if (!clientSearch) loadClients('');
+      if (!servicoSearch) loadServicos('');
     }
     setOpenForm(true);
   };
@@ -1545,7 +1535,6 @@ const Contracts: React.FC = () => {
 
       // Salvar dados técnicos no localStorage para facilitar o próximo contrato
       const technicalData = {
-        servico_id: form.servico_id,
         dia_emissao: form.dia_emissao,
         dia_vencimento: form.dia_vencimento,
         periodicidade: form.periodicidade,
@@ -1920,6 +1909,7 @@ const Contracts: React.FC = () => {
                         }}
                       />
                       <Autocomplete
+                        openOnFocus
                         options={servicos}
                         getOptionLabel={(option) => `${option.codigo || ''} - ${option.descricao || ''}`}
                         value={servicos.find(s => s.id === form.servico_id) || null}

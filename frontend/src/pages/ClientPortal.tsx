@@ -196,7 +196,7 @@ const ClientPortal: React.FC = () => {
             {empresaInfo?.logo_url ? (
               <Box
                 component="img"
-                src={`${import.meta.env.VITE_API_URL || 'https://brazcom.com.br'}${empresaInfo.logo_url}`}
+                src={`${import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8000' : '/api')}${empresaInfo.logo_url}`}
                 alt={`${empresaInfo.nome_fantasia || empresaInfo.razao_social} Logo`}
                 sx={{
                   height: 60,
