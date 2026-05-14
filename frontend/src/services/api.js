@@ -20,8 +20,8 @@ const computeApiBase = () => {
     return REACT_APP_API_BASE_URL.replace(/\/$/, '');
   }
 
-  // Fallback para produção Brazcom
-  return 'https://brazcom.com.br';
+  // Fallback para produção (Proxy Apache /api)
+  return '/api';
 };
 
 export const API_BASE_URL = computeApiBase();
