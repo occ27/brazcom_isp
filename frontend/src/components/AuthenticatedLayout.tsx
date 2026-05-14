@@ -111,10 +111,10 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
       icon: BuildingOfficeIcon,
       color: 'purple',
       items: [
-        
+
         { label: 'Clientes', icon: UsersIcon, path: 'clients' as PageType, group: 'cadastros' },
-            { label: 'Serviços', icon: CogIcon, path: 'services' as PageType, group: 'cadastros' },
-            { label: 'Contratos', icon: DocumentCheckIcon, path: 'contracts' as PageType, group: 'cadastros' },
+        { label: 'Serviços', icon: CogIcon, path: 'services' as PageType, group: 'cadastros' },
+        { label: 'Contratos', icon: DocumentCheckIcon, path: 'contracts' as PageType, group: 'cadastros' },
       ]
     },
     {
@@ -124,6 +124,7 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
       items: [
         { label: 'Contas Bancárias', icon: DocumentTextIcon, path: 'bank-accounts' as PageType, group: 'financeiro' },
         { label: 'Cobranças', icon: DocumentTextIcon, path: 'receivables' as PageType, group: 'financeiro' },
+        { label: 'Relatórios', icon: ChartBarIcon, path: 'reports' as PageType, group: 'financeiro' },
         { label: 'Suporte/Tickets', icon: DocumentTextIcon, path: 'tickets' as PageType, group: 'financeiro' },
       ]
     },
@@ -151,15 +152,7 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
         { label: 'DHCP', icon: ServerStackIcon, path: 'dhcp' as PageType, group: 'rede' },
         ...(user?.is_superuser ? [{ label: 'RADIUS NAS', icon: LockClosedIcon, path: 'radius-nas' as PageType, group: 'rede' }] : []),
       ]
-    },
-    {
-      name: 'Relatórios',
-      icon: ChartBarIcon,
-      color: 'emerald',
-      items: [
-        { label: 'Relatórios', icon: ChartBarIcon, path: 'reports' as PageType, group: 'relatorios' },
-      ]
-    },
+    }
   ];
 
   // Mapeamento opcional de permissão necessária por rota (se vazio -> visível por padrão)
@@ -241,13 +234,11 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 bg-white shadow-lg transform transition-all duration-300 ease-in-out flex flex-col ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
-        } ${drawerCollapsed ? 'w-16' : 'w-64'} md:translate-x-0`}
+        className={`fixed inset-y-0 left-0 z-50 bg-white shadow-lg transform transition-all duration-300 ease-in-out flex flex-col ${mobileOpen ? 'translate-x-0' : '-translate-x-full'
+          } ${drawerCollapsed ? 'w-16' : 'w-64'} md:translate-x-0`}
       >
-        <div className={`flex items-center border-b border-gray-200 transition-all duration-300 ${
-          drawerCollapsed ? 'p-2 justify-center' : 'p-6'
-        } bg-gradient-to-r from-indigo-50 to-blue-50`}>
+        <div className={`flex items-center border-b border-gray-200 transition-all duration-300 ${drawerCollapsed ? 'p-2 justify-center' : 'p-6'
+          } bg-gradient-to-r from-indigo-50 to-blue-50`}>
           <div
             className={`flex items-center ${drawerCollapsed ? '' : 'mr-3'} cursor-pointer hover:bg-white/60 rounded-lg ${drawerCollapsed ? 'p-1' : 'p-2'} transition-all duration-200`}
             onClick={() => setDrawerCollapsed(!drawerCollapsed)}
@@ -262,9 +253,8 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
           </div>
           <button
             onClick={() => setDrawerCollapsed(!drawerCollapsed)}
-            className={`text-gray-500 hover:text-indigo-600 ${drawerCollapsed ? 'p-1' : 'p-2'} rounded-lg hover:bg-white/60 transition-all duration-200 ${
-              drawerCollapsed ? 'ml-0' : 'ml-auto'
-            }`}
+            className={`text-gray-500 hover:text-indigo-600 ${drawerCollapsed ? 'p-1' : 'p-2'} rounded-lg hover:bg-white/60 transition-all duration-200 ${drawerCollapsed ? 'ml-0' : 'ml-auto'
+              }`}
             title={drawerCollapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
           >
             {drawerCollapsed ? (
@@ -283,13 +273,11 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
           <div className="mb-4">
             <button
               onClick={() => handleNavigate('dashboard')}
-              className={`flex items-center w-full transition-colors rounded-lg ${
-                drawerCollapsed ? 'px-1 py-3 justify-center' : 'px-3 py-3'
-              } ${
-                currentPage === 'dashboard'
+              className={`flex items-center w-full transition-colors rounded-lg ${drawerCollapsed ? 'px-1 py-3 justify-center' : 'px-3 py-3'
+                } ${currentPage === 'dashboard'
                   ? 'bg-indigo-50 text-indigo-700 border-r-2 border-indigo-700 shadow-sm'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              }`}
+                }`}
               title={drawerCollapsed ? 'Dashboard' : ''}
             >
               <HomeIcon className={`flex-shrink-0 ${drawerCollapsed ? 'h-6 w-6' : 'h-5 w-5 mr-3'}`} />
@@ -335,13 +323,11 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
                 <button
                   key={item.path}
                   onClick={() => handleNavigate(item.path)}
-                  className={`flex items-center w-full transition-colors rounded-lg ${
-                    drawerCollapsed ? 'px-1 py-3 justify-center' : 'px-3 py-3'
-                  } ${
-                    currentPage === item.path
+                  className={`flex items-center w-full transition-colors rounded-lg ${drawerCollapsed ? 'px-1 py-3 justify-center' : 'px-3 py-3'
+                    } ${currentPage === item.path
                       ? 'bg-indigo-50 text-indigo-700 border-r-2 border-indigo-700 shadow-sm'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
+                    }`}
                   title={drawerCollapsed ? item.label : ''}
                 >
                   <item.icon className={`flex-shrink-0 ${drawerCollapsed ? 'h-6 w-6' : 'h-5 w-5 mr-3'}`} />
@@ -359,12 +345,11 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
           ))}
 
           {/* Botão de logout */}
-            <div className={`${drawerCollapsed ? 'px-0.5' : 'px-2'}`}>
+          <div className={`${drawerCollapsed ? 'px-0.5' : 'px-2'}`}>
             <button
               onClick={handleLogout}
-              className={`flex items-center w-full transition-colors rounded-lg ${
-                drawerCollapsed ? 'px-1 py-3 justify-center' : 'px-3 py-3'
-              } text-gray-600 hover:bg-red-50 hover:text-red-700`}
+              className={`flex items-center w-full transition-colors rounded-lg ${drawerCollapsed ? 'px-1 py-3 justify-center' : 'px-3 py-3'
+                } text-gray-600 hover:bg-red-50 hover:text-red-700`}
               title={drawerCollapsed ? 'Sair' : ''}
             >
               <ArrowRightOnRectangleIcon className={`flex-shrink-0 ${drawerCollapsed ? 'h-6 w-6' : 'h-5 w-5 mr-3'}`} />
@@ -377,9 +362,8 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
       </div>
 
       {/* Main content */}
-      <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${
-        drawerCollapsed ? 'md:ml-16' : 'md:ml-64'
-      }`}>
+      <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${drawerCollapsed ? 'md:ml-16' : 'md:ml-64'
+        }`}>
         {/* Top bar */}
         <header className="bg-white shadow-sm border-b border-gray-200">
           <div className="flex items-center justify-between h-14 sm:h-16 px-2 sm:px-3 md:px-4">

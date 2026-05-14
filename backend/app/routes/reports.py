@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import Optional, List
 from datetime import date, datetime
 
@@ -18,6 +19,7 @@ def get_contracts_report_pdf(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     status: Optional[str] = None,
+    servico_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_active_user)
 ):
@@ -34,11 +36,13 @@ def get_contracts_report_pdf(
     query = db.query(ServicoContratado).filter(ServicoContratado.empresa_id == empresa_id)
     
     if start_date:
-        query = query.filter(ServicoContratado.d_contrato_ini >= start_date)
+        query = query.filter(func.date(ServicoContratado.created_at) >= start_date)
     if end_date:
-        query = query.filter(ServicoContratado.d_contrato_ini <= end_date)
+        query = query.filter(func.date(ServicoContratado.created_at) <= end_date)
     if status:
         query = query.filter(ServicoContratado.status == status)
+    if servico_id:
+        query = query.filter(ServicoContratado.servico_id == servico_id)
         
     contracts_db = query.all()
     
@@ -84,6 +88,7 @@ def get_financial_report_pdf(
     end_date: Optional[date] = None,
     status: Optional[str] = None,
     date_type: str = Query("due_date", enum=["due_date", "paid_at"]),
+    servico_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_active_user)
 ):
@@ -105,6 +110,8 @@ def get_financial_report_pdf(
         query = query.filter(date_col <= end_date)
     if status:
         query = query.filter(Receivable.status == status)
+    if servico_id:
+        query = query.filter(Receivable.servico_contratado.has(ServicoContratado.servico_id == servico_id))
         
     receivables_db = query.all()
     
@@ -118,6 +125,10 @@ def get_financial_report_pdf(
     }
 
     for r in receivables_db:
+        servico_nome = "N/A"
+        if r.servico_contratado and r.servico_contratado.servico:
+            servico_nome = r.servico_contratado.servico.descricao
+
         receivables_data.append({
             "id": r.id,
             "cliente_nome": r.cliente.nome_razao_social if r.cliente else "N/A",
@@ -125,7 +136,8 @@ def get_financial_report_pdf(
             "due_date": r.due_date.strftime('%d/%m/%Y') if r.due_date else "",
             "amount": r.amount,
             "status": status_map_fin.get(r.status, r.status),
-            "paid_at": r.paid_at.strftime('%d/%m/%Y') if r.paid_at else None
+            "paid_at": r.paid_at.strftime('%d/%m/%Y') if r.paid_at else None,
+            "servico_nome": servico_nome
         })
         
     filters = {
