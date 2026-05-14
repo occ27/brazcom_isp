@@ -30,8 +30,8 @@ services:
     restart: unless-stopped
     env_file:
       - ./backend/.env
-    # volumes:
-    #   - ./backend:/app
+    volumes:
+      - ./backend:/app
       # Monta o diretório de certificados do host para dentro do container
       # Usa a variável CERTIFICATES_DIR definida no .env na raiz
       - "${CERTIFICATES_DIR:-/etc/ssl/nfcom}:/etc/ssl/nfcom:rw"
