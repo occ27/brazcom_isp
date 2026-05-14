@@ -17,6 +17,7 @@ from app.services.boleto_generator import generate_boleto_pdf
 from app.services.email_service import EmailService
 import tempfile
 import os
+from app.core.config import settings
 
 router = APIRouter(prefix="/receivables", tags=["Receivables"])
 
@@ -452,7 +453,7 @@ def send_receivable_email_route(receivable_id: int, db: Session = Depends(get_db
         # Garantir que a URL de pagamento use a URL base atual do sistema
         payment_url = recv.payment_url
         if recv.payment_token:
-            base_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+            base_url = settings.FRONTEND_URL.rstrip("/")
             payment_url = f"{base_url}/checkout?token={recv.payment_token}"
             # Sincronizar no banco se houver divergência
             if recv.payment_url != payment_url:
