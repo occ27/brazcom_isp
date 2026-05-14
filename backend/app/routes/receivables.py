@@ -248,7 +248,7 @@ def list_receivables(
 ):
     deps.permission_checker('receivables_view')(db=db, current_user=current_user)
     from app.models.models import Cliente
-    from sqlalchemy import or_
+    from sqlalchemy import or_, String
     
     query = db.query(Receivable, Cliente.nome_razao_social, Cliente.cpf_cnpj)\
         .join(Cliente, Receivable.cliente_id == Cliente.id)\
@@ -264,7 +264,7 @@ def list_receivables(
                 Cliente.nome_razao_social.ilike(search_term),
                 Cliente.cpf_cnpj.ilike(search_term),
                 Receivable.nosso_numero.ilike(search_term),
-                Receivable.id.cast(db.String).ilike(search_term)
+                Receivable.id.cast(String).ilike(search_term)
             )
         )
     
