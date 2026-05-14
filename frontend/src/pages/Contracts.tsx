@@ -36,6 +36,7 @@ import { networkService } from '../services/networkService';
 import { Cliente, Router, RouterInterface, IPClass } from '../types';
 import { generateAvailableIPs } from '../utils/networkUtils';
 import api from '../services/api';
+import { maskCurrency, unmaskCurrency } from '../utils/currencyUtils';
 
 const Contracts: React.FC = () => {
   const { activeCompany } = useCompany();
@@ -1100,9 +1101,8 @@ const Contracts: React.FC = () => {
       // Prefetch defaults (do not await)
       if (activeCompany) {
         loadClients('');
-        if (!initialForm.servico_id) loadServicos('');
+        loadServicos('');
         loadBankAccounts();
-        // Carregar dados de rede para novo contrato
         loadRouters();
       }
     }
@@ -1925,7 +1925,7 @@ const Contracts: React.FC = () => {
                             });
 
                             // Preencher campos automaticamente com dados do serviço
-                            handleInputChange('valor_unitario', value.valor_unitario || 0);
+                            handleInputChange('valor_unitario', value.valor_unitario !== undefined ? Number(value.valor_unitario) : 0);
 
                             // Preencher velocidade garantida baseada nas velocidades do plano
                             if (value.upload_speed || value.download_speed) {
@@ -2093,14 +2093,13 @@ const Contracts: React.FC = () => {
                         helperText={errors.quantidade}
                       />
                       <TextField
-                        label="Valor Unitário (R$)"
-                        type="number"
-                        value={form.valor_unitario || 0}
-                        onChange={e => handleInputChange('valor_unitario', parseFloat(e.target.value || '0'))}
+                        label="Valor Unitário *"
+                        value={maskCurrency((form.valor_unitario || 0).toFixed(2))}
+                        onChange={e => handleInputChange('valor_unitario', unmaskCurrency(e.target.value))}
                         fullWidth
                         size="small"
                         error={!!errors.valor_unitario}
-                        helperText={errors.valor_unitario}
+                        helperText={errors.valor_unitario || "Formato: R$ 0,00"}
                       />
                     </div>
                   </div>

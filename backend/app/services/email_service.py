@@ -247,6 +247,19 @@ Atenciosamente,
             due_date_str = str(due_date)
 
         if payment_url:
+            methods = []
+            if getattr(empresa, 'mp_allow_pix', True): methods.append("Pix")
+            if getattr(empresa, 'mp_allow_credit_card', True): methods.append("Cartão de Crédito")
+            if getattr(empresa, 'mp_allow_boleto', True): methods.append("Boleto")
+            
+            methods_str = ""
+            if len(methods) > 1:
+                methods_str = ", ".join(methods[:-1]) + " ou " + methods[-1]
+            elif len(methods) == 1:
+                methods_str = methods[0]
+            
+            methods_msg = f"Você pode escolher pagar via {methods_str} diretamente pelo link acima." if methods_str else ""
+
             body = f"""
 Olá,
 
@@ -255,7 +268,7 @@ Sua fatura de {empresa.nome_fantasia or empresa.razao_social} no valor de R$ {am
 Para pagar, clique no link abaixo:
 {payment_url}
 
-Você pode escolher pagar via Pix, Cartão de Crédito ou Boleto diretamente pelo link acima.
+{methods_msg}
 
 Atenciosamente,
 {empresa.nome_fantasia or empresa.razao_social}

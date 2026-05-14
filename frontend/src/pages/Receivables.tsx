@@ -428,23 +428,6 @@ const Receivables: React.FC = () => {
                   </TableCell>
                   <TableCell align="right">
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                      {(r.status === 'REGISTERED' || r.status === 'PAID') && (
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handlePrint(r.id)} 
-                          title="Imprimir Boleto"
-                        >
-                          <PrinterIcon className="w-4 h-4" />
-                        </IconButton>
-                      )}
-                      <IconButton 
-                        size="small" 
-                        onClick={() => handleSendEmail(r.id)} 
-                        title="Enviar por Email"
-                        disabled={loading}
-                      >
-                        <EnvelopeIcon className="w-4 h-4" />
-                      </IconButton>
                       {r.bb_pix_qrcode && <IconButton size="small" color="success" onClick={() => { navigator.clipboard.writeText(r.bb_pix_qrcode!); setSnackbar({ open: true, message: 'PIX Copiado', severity: 'success' }); }} title="PIX"><QrCodeIcon className="w-4 h-4" /></IconButton>}
                       <IconButton size="small" onClick={(e) => { setAnchorEl(e.currentTarget); setSelectedReceivable(r); }}><EllipsisVerticalIcon className="w-5 h-5" /></IconButton>
                     </Box>
@@ -476,6 +459,12 @@ const Receivables: React.FC = () => {
         <MenuItem onClick={() => { selectedReceivable && handleSendEmail(selectedReceivable.id); setAnchorEl(null); }}>
           <EnvelopeIcon className="w-4 h-4 mr-2 text-blue-500" /> Enviar por Email
         </MenuItem>
+
+        {(selectedReceivable?.status === 'REGISTERED' || selectedReceivable?.status === 'PAID') && (
+          <MenuItem onClick={() => { selectedReceivable && handlePrint(selectedReceivable.id); setAnchorEl(null); }}>
+            <PrinterIcon className="w-4 h-4 mr-2 text-gray-600" /> Imprimir Boleto
+          </MenuItem>
+        )}
         
         {selectedReceivable?.status !== 'PAID' && selectedReceivable?.status !== 'CANCELLED' && (
           <MenuItem onClick={() => { navigate('/checkout', { state: { receivableIds: [selectedReceivable!.id] } }); setAnchorEl(null); }}>
