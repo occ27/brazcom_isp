@@ -129,6 +129,9 @@ class Empresa(Base):
     # Mercado Pago Config
     mp_access_token = Column(String(500))
     mp_public_key = Column(String(500))
+    mp_allow_boleto = Column(Boolean, default=True)
+    mp_allow_pix = Column(Boolean, default=True)
+    mp_allow_credit_card = Column(Boolean, default=True)
     
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False) # Usuário que cadastrou a empresa
     is_active = Column(Boolean, default=True)

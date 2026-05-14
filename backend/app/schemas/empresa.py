@@ -45,6 +45,9 @@ class EmpresaBase(BaseModel):
     # Mercado Pago Config
     mp_access_token: Optional[str] = Field(None, max_length=500)
     mp_public_key: Optional[str] = Field(None, max_length=500)
+    mp_allow_boleto: bool = True
+    mp_allow_pix: bool = True
+    mp_allow_credit_card: bool = True
 
     # Novos campos
     logo_url: Optional[str] = Field(None, max_length=500)
@@ -182,6 +185,10 @@ class EmpresaResponse(BaseModel):
     # Mercado Pago Config
     mp_access_token: Optional[str] = None
     mp_public_key: Optional[str] = None
+    mp_allow_boleto: bool = True
+    mp_allow_pix: bool = True
+    mp_allow_credit_card: bool = True
+    mp_configurado: bool = False
     
     # Campos específicos de EmpresaResponse
     id: int
@@ -263,6 +270,9 @@ class EmpresaUpdate(BaseModel):
     assinatura_digital_url: Optional[str] = Field(None, max_length=500)
     mp_access_token: Optional[str] = Field(None, max_length=500)
     mp_public_key: Optional[str] = Field(None, max_length=500)
+    mp_allow_boleto: Optional[bool] = None
+    mp_allow_pix: Optional[bool] = None
+    mp_allow_credit_card: Optional[bool] = None
     certificado_path: Optional[str] = Field(None, max_length=500)
     certificado_senha: Optional[str] = Field(None, max_length=500)
     smtp_server: Optional[str] = Field(None, max_length=255)
@@ -370,6 +380,9 @@ class EmpresaIn(EmpresaBase):
     smtp_port: Optional[int] = Field(None, ge=1, le=65535)
     smtp_user: Optional[str] = Field(None, max_length=255)
     smtp_password: Optional[str] = Field(None, max_length=500)
+    mp_allow_boleto: bool = True
+    mp_allow_pix: bool = True
+    mp_allow_credit_card: bool = True
     ambiente_nfcom: Optional[str] = Field('producao', max_length=20)
 
 # Schema para teste SMTP com credenciais não salvas

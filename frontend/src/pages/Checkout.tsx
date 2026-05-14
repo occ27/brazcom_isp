@@ -33,6 +33,11 @@ const Checkout: React.FC = () => {
   const [mpPublicKey, setMpPublicKey] = useState<string | null>(null);
   const [clientEmail, setClientEmail] = useState('');
   const [clientNome, setClientNome] = useState('');
+  const [mpSettings, setMpSettings] = useState({
+    allow_boleto: true,
+    allow_pix: true,
+    allow_credit_card: true
+  });
 
   useEffect(() => {
     const loadData = async () => {
@@ -54,12 +59,14 @@ const Checkout: React.FC = () => {
            setReceivableIds(ids);
            email = data.cliente_email;
            nome = data.cliente_nome;
+           if (data.mp_settings) setMpSettings(data.mp_settings);
         } else if (token && receivableIds.length > 0) {
            // Já carregamos os dados via token ou temos IDs, apenas garantir email/nome se vazios
            if (!clientEmail || !clientNome) {
              const data = await mercadopagoService.getReceivableByToken(token);
              email = data.cliente_email;
              nome = data.cliente_nome;
+             if (data.mp_settings) setMpSettings(data.mp_settings);
            }
         }
 
@@ -86,12 +93,17 @@ const Checkout: React.FC = () => {
 
           const publicKey = await mercadopagoService.getPublicKey(mpData.empresa_id);
           setMpPublicKey(publicKey);
+          if (mpData.mp_settings) setMpSettings(mpData.mp_settings);
         } else {
           // Normal flow for logged in users with multiple IDs
           data = await Promise.all(ids.map(id => receivableService.getReceivable(id)));
           setReceivables(data);
           const total = data.reduce((acc, curr) => acc + curr.amount, 0);
           setTotalAmount(total);
+
+          if (data.length > 0 && (data[0] as any).mp_settings) {
+            setMpSettings((data[0] as any).mp_settings);
+          }
 
           const empresaId = data[0].empresa_id;
           const publicKey = await mercadopagoService.getPublicKey(empresaId);
@@ -151,9 +163,9 @@ const Checkout: React.FC = () => {
             style: { theme: 'default' }
           },
           paymentMethods: {
-            creditCard: 'all',
-            ticket: 'all',
-            bankTransfer: 'all',
+            creditCard: mpSettings.allow_credit_card ? 'all' : [],
+            ticket: mpSettings.allow_boleto ? 'all' : [],
+            bankTransfer: mpSettings.allow_pix ? ['pix'] : [],
             maxInstallments: 1,
           }
         },

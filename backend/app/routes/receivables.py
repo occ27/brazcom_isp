@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Body
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 from typing import List, Optional
 from datetime import date, datetime
 from pydantic import BaseModel
@@ -69,6 +69,9 @@ class ReceivableResponse(BaseModel):
     bank_payload: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
+    
+    # Adicionado para suportar filtros de pagamento no checkout
+    mp_settings: Optional[dict] = None
 
     class Config:
         from_attributes = True
@@ -89,6 +92,22 @@ class ReceivableResponse(BaseModel):
                     data[field] = None
             else:
                 data[field] = value
+        
+        # Injetar mp_settings se disponível na empresa
+        try:
+            from app.models.models import Empresa
+            db = object_session(obj)
+            if db:
+                empresa = db.query(Empresa).filter(Empresa.id == obj.empresa_id).first()
+                if empresa:
+                    data['mp_settings'] = {
+                        "allow_boleto": empresa.mp_allow_boleto,
+                        "allow_pix": empresa.mp_allow_pix,
+                        "allow_credit_card": empresa.mp_allow_credit_card
+                    }
+        except Exception:
+            pass
+
         return cls(**data)
 
 

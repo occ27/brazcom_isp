@@ -42,6 +42,9 @@ def get_receivable_by_token(token: str, db: Session = Depends(get_db)):
     from app.models.models import Cliente
     cliente = db.query(Cliente).filter(Cliente.id == receivable.cliente_id).first()
     
+    # Buscar configurações da empresa
+    empresa = db.query(Empresa).filter(Empresa.id == receivable.empresa_id).first()
+    
     return {
         "id": receivable.id,
         "empresa_id": receivable.empresa_id,
@@ -49,7 +52,12 @@ def get_receivable_by_token(token: str, db: Session = Depends(get_db)):
         "due_date": receivable.due_date,
         "cliente_email": cliente.email if cliente else "",
         "cliente_nome": cliente.nome_razao_social if cliente else "",
-        "status": receivable.status
+        "status": receivable.status,
+        "mp_settings": {
+            "allow_boleto": empresa.mp_allow_boleto if empresa else True,
+            "allow_pix": empresa.mp_allow_pix if empresa else True,
+            "allow_credit_card": empresa.mp_allow_credit_card if empresa else True
+        }
     }
 
 @router.post("/process", response_model=MercadoPagoResponse)

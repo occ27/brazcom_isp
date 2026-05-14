@@ -43,6 +43,9 @@ export interface CompanyCreate {
   assinatura_digital_url?: string;
   mp_access_token?: string;
   mp_public_key?: string;
+  mp_allow_boleto?: boolean;
+  mp_allow_pix?: boolean;
+  mp_allow_credit_card?: boolean;
 }
 
 export interface CompanyUpdate {
@@ -87,6 +90,9 @@ export interface CompanyUpdate {
   assinatura_digital_url?: string;
   mp_access_token?: string;
   mp_public_key?: string;
+  mp_allow_boleto?: boolean;
+  mp_allow_pix?: boolean;
+  mp_allow_credit_card?: boolean;
 }
 
 export const companyService = {

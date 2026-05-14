@@ -99,7 +99,10 @@ const Companies: React.FC = () => {
     assinatura_digital_url: '',
     // Mercado Pago Config
     mp_access_token: '',
-    mp_public_key: ''
+    mp_public_key: '',
+    mp_allow_boleto: true,
+    mp_allow_pix: true,
+    mp_allow_credit_card: true
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [snackbar, setSnackbar] = useState({
@@ -199,7 +202,10 @@ const Companies: React.FC = () => {
         email_contato: company.email_contato || '',
         assinatura_digital_url: company.assinatura_digital_url || '',
         mp_access_token: company.mp_access_token || '',
-        mp_public_key: company.mp_public_key || ''
+        mp_public_key: company.mp_public_key || '',
+        mp_allow_boleto: company.mp_allow_boleto !== false, // Default to true if undefined
+        mp_allow_pix: company.mp_allow_pix !== false,
+        mp_allow_credit_card: company.mp_allow_credit_card !== false
       });
     } else {
       setEditingCompany(null);
@@ -239,7 +245,10 @@ const Companies: React.FC = () => {
         email_contato: '',
         assinatura_digital_url: '',
         mp_access_token: '',
-        mp_public_key: ''
+        mp_public_key: '',
+        mp_allow_boleto: true,
+        mp_allow_pix: true,
+        mp_allow_credit_card: true
       });
     }
     setErrors({});
@@ -1185,6 +1194,43 @@ const Companies: React.FC = () => {
                         size="small"
                         helperText="Chave pública (Public Key) do Mercado Pago."
                       />
+                    </div>
+                    
+                    <div className="sm:col-span-2 bg-white/50 p-3 rounded-lg border border-blue-100/50">
+                      <Typography variant="subtitle2" sx={{ mb: 1.5, color: 'text.secondary', fontWeight: 600 }}>
+                        Métodos de Pagamento Permitidos:
+                      </Typography>
+                      <div className="flex flex-wrap gap-4">
+                        <label className="flex items-center space-x-2 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={formData.mp_allow_pix}
+                            onChange={(e) => handleInputChange('mp_allow_pix', e.target.checked)}
+                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 transition-all cursor-pointer"
+                          />
+                          <span className="text-sm text-text group-hover:text-blue-600 transition-colors">Pix</span>
+                        </label>
+                        
+                        <label className="flex items-center space-x-2 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={formData.mp_allow_credit_card}
+                            onChange={(e) => handleInputChange('mp_allow_credit_card', e.target.checked)}
+                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 transition-all cursor-pointer"
+                          />
+                          <span className="text-sm text-text group-hover:text-blue-600 transition-colors">Cartão de Crédito</span>
+                        </label>
+
+                        <label className="flex items-center space-x-2 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={formData.mp_allow_boleto}
+                            onChange={(e) => handleInputChange('mp_allow_boleto', e.target.checked)}
+                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 transition-all cursor-pointer"
+                          />
+                          <span className="text-sm text-text group-hover:text-blue-600 transition-colors">Boleto</span>
+                        </label>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -51,6 +51,11 @@ def _decrypt_sensitive_fields(empresa: Empresa) -> SimpleNamespace:
         site=empresa.site,
         email_contato=empresa.email_contato,
         assinatura_digital_url=empresa.assinatura_digital_url,
+        mp_access_token=empresa.mp_access_token,
+        mp_public_key=empresa.mp_public_key,
+        mp_allow_boleto=empresa.mp_allow_boleto,
+        mp_allow_pix=empresa.mp_allow_pix,
+        mp_allow_credit_card=empresa.mp_allow_credit_card,
         created_at=empresa.created_at,
         updated_at=empresa.updated_at,
         # Flags para indicar presença de configuração sensível (sem expor valores)
@@ -58,6 +63,7 @@ def _decrypt_sensitive_fields(empresa: Empresa) -> SimpleNamespace:
         certificado_senha_configurada=bool(empresa.certificado_senha),
         smtp_configurado=bool(empresa.smtp_server),
         smtp_password_configurada=bool(empresa.smtp_password),
+        mp_configurado=bool(empresa.mp_access_token),
     )
     return ns
 
@@ -118,7 +124,7 @@ def update_empresa(db: Session, db_obj: Empresa, obj_in: EmpresaUpdate):
     # Criptografar senhas sensíveis antes de atualizar
     # Only encrypt and set sensitive fields when a non-empty value is provided.
     # This prevents accidental clearing/overwriting when the client does not supply them.
-    sensitive_fields = {'certificado_senha', 'smtp_password', 'certificado_path'}
+    sensitive_fields = {'certificado_senha', 'smtp_password', 'certificado_path', 'mp_access_token', 'mp_public_key'}
 
     # Encrypt sensitive passwords if provided and non-empty
     if 'certificado_senha' in update_data and update_data.get('certificado_senha'):

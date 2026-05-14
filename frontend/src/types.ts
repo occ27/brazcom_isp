@@ -89,6 +89,9 @@ export interface Company {
   // Mercado Pago Config
   mp_access_token?: string;
   mp_public_key?: string;
+  mp_allow_boleto: boolean;
+  mp_allow_pix: boolean;
+  mp_allow_credit_card: boolean;
 }
 
 export interface Cliente {
