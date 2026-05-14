@@ -7,7 +7,7 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination, Pagination,
   Checkbox, Tabs, Tab, FormHelperText
 } from '@mui/material';
-import { 
+import {
   PlusIcon, ArrowPathIcon, CloudIcon, QrCodeIcon,
   ArrowTopRightOnSquareIcon,
   InformationCircleIcon,
@@ -799,12 +799,12 @@ const Contracts: React.FC = () => {
                         label={c.status === 'ATIVO' ? 'Ativo' :
                           c.status === 'SUSPENSO' ? 'Suspenso' :
                             c.status === 'CANCELADO' ? 'Cancelado' :
-                              c.status === 'PENDENTE_INSTALACAO' ? 'Pendente Instalação' : 
+                              c.status === 'PENDENTE_INSTALACAO' ? 'Pendente Instalação' :
                                 c.status === 'AGUARDANDO_ASSINATURA' ? 'Aguardando Assinatura' : c.status}
                         color={c.status === 'ATIVO' ? 'success' :
                           c.status === 'SUSPENSO' ? 'warning' :
                             c.status === 'CANCELADO' ? 'error' :
-                              c.status === 'PENDENTE_INSTALACAO' ? 'info' : 
+                              c.status === 'PENDENTE_INSTALACAO' ? 'info' :
                                 c.status === 'AGUARDANDO_ASSINATURA' ? 'warning' : 'default'}
                         size="small"
                         variant="outlined"
@@ -848,12 +848,12 @@ const Contracts: React.FC = () => {
                       <EyeIcon className="w-4 h-4 mr-2" />
                       Visualizar
                     </MenuItem>
-                    
+
                     <MenuItem onClick={() => { handlePrintContract(c.id); handleCloseMenu(); }}>
                       <PrinterIcon className="w-4 h-4 mr-2" />
                       Imprimir Contrato
                     </MenuItem>
-                    
+
                     {hasPermission('contract_manage') && (
                       <MenuItem onClick={() => { handleOpenForm(c); handleCloseMenu(); }}>
                         <PencilIcon className="w-4 h-4 mr-2" />
@@ -1106,7 +1106,7 @@ const Contracts: React.FC = () => {
         loadRouters();
       }
     }
-    
+
     // Prefetch defaults (do not await)
     if (activeCompany) {
       if (!clientSearch) loadClients('');
@@ -1614,23 +1614,23 @@ const Contracts: React.FC = () => {
       setSnackbar({ open: true, message: 'Erro ao bloquear serviço', severity: 'error' });
     }
   };
-  
+
   const handleReiniciarAssinatura = async (id: number) => {
     if (!window.confirm('Tem certeza que deseja REINICIAR a assinatura deste contrato? O link anterior será invalidado e os dados da assinatura atual serão apagados.')) return;
     try {
       setLoading(true);
       await contratoService.reiniciarAssinatura(id);
-      setSnackbar({ 
-        open: true, 
-        message: 'Assinatura reiniciada! Agora você pode enviar o novo link por e-mail para o cliente.', 
-        severity: 'success' 
+      setSnackbar({
+        open: true,
+        message: 'Assinatura reiniciada! Agora você pode enviar o novo link por e-mail para o cliente.',
+        severity: 'success'
       });
       load();
     } catch (e: any) {
-      setSnackbar({ 
-        open: true, 
-        message: e.response?.data?.detail || 'Erro ao reiniciar assinatura', 
-        severity: 'error' 
+      setSnackbar({
+        open: true,
+        message: e.response?.data?.detail || 'Erro ao reiniciar assinatura',
+        severity: 'error'
       });
     } finally {
       setLoading(false);
@@ -2099,7 +2099,6 @@ const Contracts: React.FC = () => {
                         fullWidth
                         size="small"
                         error={!!errors.valor_unitario}
-                        helperText={errors.valor_unitario || "Formato: R$ 0,00"}
                       />
                     </div>
                   </div>
@@ -2253,10 +2252,10 @@ const Contracts: React.FC = () => {
                         <span className="mr-2 text-base sm:text-lg">📟</span>
                         <span className="text-sm sm:text-base">Equipamentos e Ativos</span>
                       </h3>
-                      <Button 
-                        variant="contained" 
-                        size="small" 
-                        color="warning" 
+                      <Button
+                        variant="contained"
+                        size="small"
+                        color="warning"
                         onClick={addAtivo}
                         startIcon={<span className="text-lg">+</span>}
                         className="rounded-full shadow-sm"
@@ -2271,7 +2270,7 @@ const Contracts: React.FC = () => {
                           <p className="text-orange-400 text-sm italic">Nenhum equipamento vinculado. Clique em "Adicionar Equipamento" para registrar.</p>
                         </div>
                       )}
-                      
+
                       {(form.ativos || []).map((ativo, index) => (
                         <div key={index} className="bg-white p-4 rounded-xl border border-orange-100 shadow-sm relative">
                           <div className="flex justify-end mb-2">
@@ -2281,8 +2280,8 @@ const Contracts: React.FC = () => {
                               variant="text"
                               onClick={() => removeAtivo(index)}
                               startIcon={<TrashIconMUI className="w-4 h-4" />}
-                              sx={{ 
-                                textTransform: 'none', 
+                              sx={{
+                                textTransform: 'none',
                                 fontSize: '0.75rem',
                                 backgroundColor: 'rgba(239, 68, 68, 0.08)',
                                 '&:hover': { backgroundColor: 'rgba(239, 68, 68, 0.15)' }
@@ -2291,7 +2290,7 @@ const Contracts: React.FC = () => {
                               Remover Equipamento
                             </Button>
                           </div>
-                          
+
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <FormControl fullWidth size="small">
                               <InputLabel>Tipo</InputLabel>
@@ -2773,7 +2772,7 @@ const Contracts: React.FC = () => {
           )}
         </DialogContent>
       </Dialog>
-      
+
       {/* Modal Visualização de Contrato */}
       <Dialog open={openContractModal} onClose={() => { setOpenContractModal(false); setContractHtmlUrl(null); }} maxWidth="lg" fullWidth>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'primary.main', color: 'white' }}>
@@ -2789,10 +2788,10 @@ const Contracts: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5', gap: 1 }}>
           <Button onClick={() => { setOpenContractModal(false); setContractHtmlUrl(null); setViewingContractId(null); }}>Fechar</Button>
-          
+
           {viewingContractId && contratos.find(c => c.id === viewingContractId)?.assinado_em && (
-            <Button 
-              variant="outlined" 
+            <Button
+              variant="outlined"
               color="secondary"
               startIcon={<ArrowPathIcon className="w-5 h-5" />}
               onClick={() => handleReiniciarAssinatura(viewingContractId)}
@@ -2802,8 +2801,8 @@ const Contracts: React.FC = () => {
             </Button>
           )}
 
-          <Button 
-            variant="outlined" 
+          <Button
+            variant="outlined"
             color="info"
             startIcon={<EnvelopeIcon className="w-5 h-5" />}
             onClick={() => viewingContractId && handleSendContractEmail(viewingContractId)}
@@ -2811,8 +2810,8 @@ const Contracts: React.FC = () => {
           >
             Enviar por Email
           </Button>
-          <Button 
-            variant="contained" 
+          <Button
+            variant="contained"
             startIcon={<PrinterIcon className="w-5 h-5" />}
             onClick={() => {
               const iframe = document.querySelector('iframe[title="Termo de Adesão"]') as HTMLIFrameElement;

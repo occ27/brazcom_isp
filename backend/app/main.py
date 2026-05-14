@@ -25,6 +25,7 @@ from app.routes import client_auth
 from app.routes import webhooks
 from app.routes import public_contracts
 from app.routes import mercadopago
+from app.routes import reports
 
 # A criação das tabelas será feita no evento de startup, após o DB ficar disponível
 
@@ -134,6 +135,7 @@ app.include_router(client_auth.router)
 app.include_router(webhooks.router)
 app.include_router(public_contracts.router)
 app.include_router(mercadopago.router)
+app.include_router(reports.router)
 
 @app.get("/")
 def read_root():
