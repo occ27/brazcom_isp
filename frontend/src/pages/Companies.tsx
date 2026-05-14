@@ -521,7 +521,7 @@ const Companies: React.FC = () => {
     }
   };
 
-  const handleInputChange = (field: string, value: string | number | undefined) => {
+  const handleInputChange = (field: string, value: string | number | boolean | undefined) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
