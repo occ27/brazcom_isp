@@ -177,6 +177,44 @@ class TicketService:
         return tickets
 
     @staticmethod
+    def count_tickets(
+        db: Session,
+        empresa_id: int,
+        status: Optional[StatusTicket] = None,
+        prioridade: Optional[str] = None,
+        categoria: Optional[str] = None,
+        cliente_id: Optional[int] = None,
+        atribuido_para_id: Optional[int] = None,
+        search: Optional[str] = None
+    ) -> int:
+        """Conta o total de tickets com filtros opcionais."""
+        query = db.query(func.count(Ticket.id)).filter(
+            Ticket.empresa_id == empresa_id,
+            Ticket.is_active == True
+        )
+
+        if status:
+            query = query.filter(Ticket.status == status)
+        if prioridade:
+            query = query.filter(Ticket.prioridade == prioridade)
+        if categoria:
+            query = query.filter(Ticket.categoria == categoria)
+        if cliente_id:
+            query = query.filter(Ticket.cliente_id == cliente_id)
+        if atribuido_para_id:
+            query = query.filter(Ticket.atribuido_para_id == atribuido_para_id)
+        if search:
+            search_filter = f"%{search}%"
+            query = query.filter(
+                or_(
+                    Ticket.titulo.ilike(search_filter),
+                    Ticket.descricao.ilike(search_filter)
+                )
+            )
+
+        return query.scalar() or 0
+
+    @staticmethod
     def get_ticket_by_id(db: Session, ticket_id: int, empresa_id: int) -> Optional[Dict[str, Any]]:
         """Busca um ticket específico por ID."""
         # Usar aliases para evitar conflito de nomes na tabela users

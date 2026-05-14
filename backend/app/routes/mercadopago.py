@@ -11,6 +11,7 @@ from app.routes.auth import get_current_active_user
 from app.schemas.mercadopago import MercadoPagoPaymentRequest, MercadoPagoResponse
 from app.services import isp_service
 from app.api import deps
+from app.core.config import settings
 
 router = APIRouter(prefix="/mercadopago", tags=["Mercado Pago"])
 logger = logging.getLogger(__name__)
@@ -100,9 +101,12 @@ async def process_payment(
     }
 
     # Adicionar notification_url apenas se não for localhost (exigência do Mercado Pago)
-    base_url = str(request.base_url).rstrip("/")
+    # Usar settings.BACKEND_URL que deve ser configurado com o domínio público no .env
+    base_url = settings.BACKEND_URL.rstrip("/")
     if "localhost" not in base_url and "127.0.0.1" not in base_url:
         payment_data["notification_url"] = f"{base_url}/mercadopago/webhook"
+    else:
+        logger.warning(f"Pagamento processado em ambiente LOCAL ({base_url}). Webhook não será enviado para o Mercado Pago.")
 
     try:
         payment_response = sdk.payment().create(payment_data)

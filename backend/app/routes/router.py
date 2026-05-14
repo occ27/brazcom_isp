@@ -3,7 +3,10 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app import crud, models
-from app.api import deps
+from app.core.database import get_db
+from app.core.radius_db import get_radius_db
+from app.routes.auth import get_current_active_user
+from app.api.deps import permission_checker
 from app.schemas.router import RouterCreate, RouterUpdate, RouterResponse
 
 router_api = APIRouter(prefix="/routers", tags=["Routers"])
@@ -11,24 +14,30 @@ router_api = APIRouter(prefix="/routers", tags=["Routers"])
 @router_api.post("/", response_model=RouterResponse)
 def create_router(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
+    radius_db: Session = Depends(get_radius_db),
     router_in: RouterCreate,
-    current_user: models.Usuario = Depends(deps.get_current_active_user),
-    _: bool = Depends(deps.permission_checker("router_manage"))
+    current_user: models.Usuario = Depends(get_current_active_user),
+    _: bool = Depends(permission_checker("router_manage"))
 ):
     """
     Criar um novo roteador para a empresa do usuário atual.
     """
     empresa_id = current_user.active_empresa_id or 2  # Usar 2 como fallback
-    return crud.crud_router.create_router(db=db, router=router_in, empresa_id=empresa_id)
+    return crud.crud_router.create_router(
+        db=db, 
+        router=router_in, 
+        empresa_id=empresa_id,
+        radius_db=radius_db
+    )
 
 @router_api.get("/", response_model=List[RouterResponse])
 def read_routers(
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    current_user: models.Usuario = Depends(deps.get_current_active_user),
-    _: bool = Depends(deps.permission_checker("router_view"))
+    current_user: models.Usuario = Depends(get_current_active_user),
+    _: bool = Depends(permission_checker("router_view"))
 ):
     """
     Buscar todos os roteadores da empresa do usuário atual.
@@ -42,10 +51,10 @@ def read_routers(
 @router_api.get("/{router_id}", response_model=RouterResponse)
 def read_router(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     router_id: int,
-    current_user: models.Usuario = Depends(deps.get_current_active_user),
-    _: bool = Depends(deps.permission_checker("router_view"))
+    current_user: models.Usuario = Depends(get_current_active_user),
+    _: bool = Depends(permission_checker("router_view"))
 ):
     """
     Buscar um roteador específico da empresa do usuário atual.
@@ -58,11 +67,12 @@ def read_router(
 @router_api.put("/{router_id}", response_model=RouterResponse)
 def update_router(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
+    radius_db: Session = Depends(get_radius_db),
     router_id: int,
     router_in: RouterUpdate,
-    current_user: models.Usuario = Depends(deps.get_current_active_user),
-    _: bool = Depends(deps.permission_checker("router_manage"))
+    current_user: models.Usuario = Depends(get_current_active_user),
+    _: bool = Depends(permission_checker("router_manage"))
 ):
     """
     Atualizar um roteador da empresa do usuário atual.
@@ -70,16 +80,22 @@ def update_router(
     router = crud.crud_router.get_router(db=db, router_id=router_id, empresa_id=current_user.active_empresa_id)
     if not router:
         raise HTTPException(status_code=404, detail="Roteador não encontrado")
-    router = crud.crud_router.update_router(db=db, db_router=router, router_in=router_in)
+    router = crud.crud_router.update_router(
+        db=db, 
+        db_router=router, 
+        router_in=router_in,
+        radius_db=radius_db
+    )
     return router
 
 @router_api.delete("/{router_id}", response_model=RouterResponse)
 def delete_router(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
+    radius_db: Session = Depends(get_radius_db),
     router_id: int,
-    current_user: models.Usuario = Depends(deps.get_current_active_user),
-    _: bool = Depends(deps.permission_checker("router_manage"))
+    current_user: models.Usuario = Depends(get_current_active_user),
+    _: bool = Depends(permission_checker("router_manage"))
 ):
     """
     Deletar um roteador da empresa do usuário atual.
@@ -87,16 +103,20 @@ def delete_router(
     router = crud.crud_router.get_router(db=db, router_id=router_id, empresa_id=current_user.active_empresa_id)
     if not router:
         raise HTTPException(status_code=404, detail="Roteador não encontrado")
-    router = crud.crud_router.remove_router(db=db, db_router=router)
+    router = crud.crud_router.remove_router(
+        db=db, 
+        db_router=router,
+        radius_db=radius_db
+    )
     return router
 
 @router_api.post("/{router_id}/setup-suspension/")
 def setup_router_suspension(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     router_id: int,
-    current_user: models.Usuario = Depends(deps.get_current_active_user),
-    _: bool = Depends(deps.permission_checker("router_manage"))
+    current_user: models.Usuario = Depends(get_current_active_user),
+    _: bool = Depends(permission_checker("router_manage"))
 ):
     """
     Configura automaticamente as regras de suspensão (Proxy, NAT, Firewall) no roteador.

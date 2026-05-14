@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
@@ -31,7 +31,7 @@ def create_ticket(
     return TicketService.create_ticket(db, ticket, empresa_id, current_user.id)
 
 
-@router.get("/", response_model=List[Ticket])
+@router.get("/")
 def get_tickets(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
@@ -50,10 +50,19 @@ def get_tickets(
         raise HTTPException(status_code=400, detail="Usuário deve ter empresa ativa")
     
     empresa_id = current_user.active_empresa_id
-    return TicketService.get_tickets(
+    
+    # Calcular total para paginação
+    total = TicketService.count_tickets(
+        db, empresa_id, status, prioridade,
+        categoria, cliente_id, atribuido_para_id, search
+    )
+        
+    tickets = TicketService.get_tickets(
         db, empresa_id, skip, limit, status, prioridade,
         categoria, cliente_id, atribuido_para_id, search
     )
+
+    return {"data": tickets, "total": total}
 
 
 @router.get("/{ticket_id}", response_model=TicketDetail)

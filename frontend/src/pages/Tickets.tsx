@@ -40,6 +40,7 @@ const Tickets: React.FC = () => {
   // Paginação
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [totalTickets, setTotalTickets] = useState(0);
 
   // Dialogs
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -88,7 +89,8 @@ const Tickets: React.FC = () => {
         undefined, // atribuido_para_id
         searchTerm || undefined
       );
-      setTickets(data);
+      setTickets(data.data);
+      setTotalTickets(data.total);
     } catch (err) {
       setError(stringifyError(err));
     } finally {
@@ -607,30 +609,30 @@ const Tickets: React.FC = () => {
                 </TableBody>
               </Table>
             </TableContainer>
-            <TablePagination
-              component="div"
-              count={tickets.length}
-              page={page}
-              onPageChange={(event, newPage) => setPage(newPage)}
-              rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={(event) => {
-                setRowsPerPage(parseInt(event.target.value, 10));
-                setPage(0);
-              }}
-              labelRowsPerPage={isMobile ? "Linhas" : "Linhas por página"}
-              sx={{
-                '.MuiTablePagination-toolbar': {
-                  flexWrap: isMobile ? 'wrap' : 'nowrap',
-                  gap: isMobile ? 1 : 0,
-                  minHeight: isMobile ? 48 : 'auto'
-                },
-                '.MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows': {
-                  fontSize: isMobile ? '0.75rem' : '0.875rem'
-                }
-              }}
-            />
           </>
         )}
+        <TablePagination
+          component="div"
+          count={totalTickets}
+          page={page}
+          onPageChange={(event, newPage) => setPage(newPage)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(event) => {
+            setRowsPerPage(parseInt(event.target.value, 10));
+            setPage(0);
+          }}
+          labelRowsPerPage={isMobile ? "Linhas" : "Linhas por página"}
+          sx={{
+            '.MuiTablePagination-toolbar': {
+              flexWrap: isMobile ? 'wrap' : 'nowrap',
+              gap: isMobile ? 1 : 0,
+              minHeight: isMobile ? 48 : 'auto'
+            },
+            '.MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows': {
+              fontSize: isMobile ? '0.75rem' : '0.875rem'
+            }
+          }}
+        />
       </Paper>
 
       {/* Dialog para criar ticket */}

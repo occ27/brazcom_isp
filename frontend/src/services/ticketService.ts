@@ -12,7 +12,7 @@ const ticketService = {
     cliente_id?: number,
     atribuido_para_id?: number,
     search?: string
-  ): Promise<Ticket[]> => {
+  ): Promise<{ data: Ticket[], total: number }> => {
     const params: any = { skip, limit };
     if (status) params.status = status;
     if (prioridade) params.prioridade = prioridade;

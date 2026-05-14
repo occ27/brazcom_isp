@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { stringifyError } from '../utils/error';
 import {
   Box, Paper, Typography, Button, IconButton, TextField, CircularProgress, Snackbar, Alert,
-  Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete, FormControl, InputLabel, Select, MenuItem,
+  Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete, FormControl, InputLabel, Select, MenuItem, Menu,
   Card, CardContent, Divider, Chip, Tooltip, SelectChangeEvent, useMediaQuery, useTheme,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination, Pagination,
   Checkbox, Tabs, Tab, FormHelperText
@@ -22,7 +22,8 @@ import {
   MagnifyingGlassIcon,
   XMarkIcon,
   EnvelopeIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  EllipsisVerticalIcon
 } from '@heroicons/react/24/outline';
 import { useCompany } from '../contexts/CompanyContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -147,6 +148,20 @@ const Contracts: React.FC = () => {
   const [selectedContracts, setSelectedContracts] = useState<number[]>([]);
   const [bulkEmitLoading, setBulkEmitLoading] = useState(false);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+
+  // Menu de ações
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [activeMenuContractId, setActiveMenuContractId] = useState<number | null>(null);
+
+  const handleOpenMenu = (event: React.MouseEvent<HTMLElement>, contractId: number) => {
+    setAnchorEl(event.currentTarget);
+    setActiveMenuContractId(contractId);
+  };
+
+  const handleCloseMenu = () => {
+    setAnchorEl(null);
+    setActiveMenuContractId(null);
+  };
   const [bulkExecuteFlag, setBulkExecuteFlag] = useState(false);
   const [bulkTransmitFlag, setBulkTransmitFlag] = useState(false);
   const [bulkPreviewResult, setBulkPreviewResult] = useState<any | null>(null);
@@ -814,68 +829,78 @@ const Contracts: React.FC = () => {
                     )}
                   </Box>
                 </TableCell>
-                <TableCell>
-                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    <Tooltip title="Imprimir Contrato">
-                      <IconButton size="small" onClick={() => handlePrintContract(c.id)} color="primary">
-                        <PrinterIcon className="w-4 h-4" />
-                      </IconButton>
-                    </Tooltip>
-                    {hasPermission('contract_manage') ? (
-                    <>
-                      <Tooltip title="Editar">
-                        <IconButton size="small" onClick={() => handleOpenForm(c)}>
-                          <PencilIcon className="w-4 h-4" />
-                        </IconButton>
-                      </Tooltip>
-                      {c.status === 'PENDENTE_INSTALACAO' && (
-                        <Tooltip title="Ativar Serviço">
-                          <IconButton size="small" onClick={() => ativarServico(c)} color="success">
-                            <PlayIcon className="w-4 h-4" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {c.status === 'ATIVO' && (
-                        <>
-                          <Tooltip title="Resetar Conexão">
-                            <IconButton size="small" onClick={() => resetConnection(c)} color="warning">
-                              <ArrowPathIcon className="w-4 h-4" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Sincronizar com Router">
-                            <IconButton size="small" onClick={() => syncRouter(c)} color="primary">
-                              <CloudArrowUpIcon className="w-4 h-4" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Bloquear">
-                            <IconButton size="small" onClick={() => suspenderServico(c)} color="error">
-                              <PauseIcon className="w-4 h-4" />
-                            </IconButton>
-                          </Tooltip>
-                        </>
-                      )}
+                <TableCell align="right">
+                  <IconButton
+                    size="small"
+                    onClick={(e) => handleOpenMenu(e, c.id)}
+                  >
+                    <EllipsisVerticalIcon className="w-5 h-5" />
+                  </IconButton>
+                  <Menu
+                    anchorEl={anchorEl}
+                    open={activeMenuContractId === c.id}
+                    onClose={handleCloseMenu}
+                    transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                    anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                  >
+                    <MenuItem onClick={() => { handleOpenForm(c, true); handleCloseMenu(); }}>
+                      <EyeIcon className="w-4 h-4 mr-2" />
+                      Visualizar
+                    </MenuItem>
+                    
+                    <MenuItem onClick={() => { handlePrintContract(c.id); handleCloseMenu(); }}>
+                      <PrinterIcon className="w-4 h-4 mr-2" />
+                      Imprimir Contrato
+                    </MenuItem>
+                    
+                    {hasPermission('contract_manage') && (
+                      <MenuItem onClick={() => { handleOpenForm(c); handleCloseMenu(); }}>
+                        <PencilIcon className="w-4 h-4 mr-2" />
+                        Editar
+                      </MenuItem>
+                    )}
 
-                      {c.status === 'SUSPENSO' && (
-                        <Tooltip title="Desbloquear">
-                          <IconButton size="small" onClick={() => ativarServico(c)} color="success">
-                            <PlayIcon className="w-4 h-4" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      <Tooltip title="Excluir">
-                        <IconButton size="small" onClick={() => remove(c)}>
-                          <TrashIconMUI className="w-4 h-4 text-red-500" />
-                        </IconButton>
-                      </Tooltip>
-                    </>
-                  ) : hasPermission('contract_view') ? (
-                    <Tooltip title="Visualizar">
-                      <IconButton size="small" onClick={() => handleOpenForm(c, true)}>
-                        <EyeIcon className="w-4 h-4" />
-                      </IconButton>
-                    </Tooltip>
-                  ) : null}
-                  </Box>
+                    {hasPermission('contract_manage') && c.status === 'PENDENTE_INSTALACAO' && (
+                      <MenuItem onClick={() => { ativarServico(c); handleCloseMenu(); }} sx={{ color: 'success.main' }}>
+                        <PlayIcon className="w-4 h-4 mr-2" />
+                        Ativar Serviço
+                      </MenuItem>
+                    )}
+
+                    {hasPermission('contract_manage') && c.status === 'ATIVO' && (
+                      <>
+                        <MenuItem onClick={() => { resetConnection(c); handleCloseMenu(); }} sx={{ color: 'warning.main' }}>
+                          <ArrowPathIcon className="w-4 h-4 mr-2" />
+                          Resetar Conexão
+                        </MenuItem>
+                        <MenuItem onClick={() => { syncRouter(c); handleCloseMenu(); }}>
+                          <CloudArrowUpIcon className="w-4 h-4 mr-2" />
+                          Sincronizar Router
+                        </MenuItem>
+                        <MenuItem onClick={() => { suspenderServico(c); handleCloseMenu(); }} sx={{ color: 'error.main' }}>
+                          <PauseIcon className="w-4 h-4 mr-2" />
+                          Bloquear
+                        </MenuItem>
+                      </>
+                    )}
+
+                    {hasPermission('contract_manage') && c.status === 'SUSPENSO' && (
+                      <MenuItem onClick={() => { ativarServico(c); handleCloseMenu(); }} sx={{ color: 'success.main' }}>
+                        <PlayIcon className="w-4 h-4 mr-2" />
+                        Desbloquear
+                      </MenuItem>
+                    )}
+
+                    {hasPermission('contract_manage') && (
+                      <>
+                        <Divider />
+                        <MenuItem onClick={() => { remove(c); handleCloseMenu(); }} sx={{ color: 'error.main' }}>
+                          <TrashIconMUI className="w-4 h-4 mr-2" />
+                          Excluir
+                        </MenuItem>
+                      </>
+                    )}
+                  </Menu>
                 </TableCell>
               </TableRow>
             );

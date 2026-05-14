@@ -7,6 +7,7 @@ import json
 import logging
 import secrets
 import os
+from app.core.config import settings
 
 from app.models.models import ServicoContratado, Receivable, BankAccount, Empresa, Bank
 
@@ -73,8 +74,8 @@ def generate_receivable_from_contract(db: Session, contrato: ServicoContratado, 
         recv.tipo = 'MERCADO_PAGO'
         recv.payment_token = secrets.token_urlsafe(32)
         
-        # Obter URL base do ambiente (localhost ou brazcom.com.br)
-        base_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+        # Obter URL base do ambiente (brazcom.com.br)
+        base_url = settings.FRONTEND_URL.rstrip("/")
             
         recv.payment_url = f"{base_url}/checkout?token={recv.payment_token}"
     else:
