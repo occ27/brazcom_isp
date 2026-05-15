@@ -230,6 +230,7 @@ export async function getCurrentUser(): Promise<User> {
       tipo: 'user',
       active_empresa_id: undefined,
       cliente_id: clienteData.id,
+      is_company_admin: false,
       created_at: '',
       updated_at: '',
     };
