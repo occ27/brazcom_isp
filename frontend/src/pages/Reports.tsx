@@ -109,6 +109,23 @@ const Reports: React.FC = () => {
     }
   };
 
+  const handleDownloadClients = async () => {
+    if (!activeCompany) return;
+    setLoading('clients');
+    try {
+      const blob = await reportService.generateClientsPdf(activeCompany.id, {});
+      const url = window.URL.createObjectURL(blob);
+      setPdfUrl(url);
+      setReportTitle('Relatório de Clientes');
+      setOpenPdfModal(true);
+    } catch (error) {
+      console.error(error);
+      alert('Erro ao gerar relatório: ' + stringifyError(error));
+    } finally {
+      setLoading(null);
+    }
+  };
+
   return (
     <Box sx={{ p: { xs: 2, md: 4 } }}>
       <Box sx={{ mb: 4 }}>
@@ -270,6 +287,42 @@ const Reports: React.FC = () => {
                 sx={{ borderRadius: 2, py: 1.5, textTransform: 'none', fontWeight: 600 }}
               >
                 {loading === 'financial' ? 'Gerando...' : 'Visualizar Financeiro'}
+              </Button>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Relatório de Clientes */}
+        <Grid item xs={12} lg={6}>
+          <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', height: '100%' }}>
+            <CardContent sx={{ p: 4 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                <Box sx={{ p: 1.5, bgcolor: 'orange.50', borderRadius: 2, mr: 2 }}>
+                  <AdjustmentsHorizontalIcon className="w-8 h-8 text-orange-600" />
+                </Box>
+                <Box>
+                  <Typography variant="h6" fontWeight="700">Relatório de Clientes</Typography>
+                  <Typography variant="caption" color="text.secondary">Listagem geral da base de clientes</Typography>
+                </Box>
+              </Box>
+              
+              <Divider sx={{ mb: 3 }} />
+              
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+                Gera uma listagem completa de todos os clientes cadastrados na empresa, incluindo CPF/CNPJ, contato e localização.
+              </Typography>
+
+              <Button 
+                variant="contained" 
+                color="warning"
+                fullWidth 
+                size="large"
+                startIcon={loading === 'clients' ? <CircularProgress size={20} color="inherit" /> : <ArrowDownTrayIcon className="w-5 h-5" />}
+                onClick={handleDownloadClients}
+                disabled={!!loading}
+                sx={{ borderRadius: 2, py: 1.5, textTransform: 'none', fontWeight: 600 }}
+              >
+                {loading === 'clients' ? 'Gerando...' : 'Visualizar Clientes'}
               </Button>
             </CardContent>
           </Card>

@@ -155,3 +155,82 @@ def get_financial_report_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+@router.get("/clients/pdf")
+def get_clients_report_pdf(
+    empresa_id: int,
+    q: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Gera um relatório de clientes em PDF."""
+    deps.permission_checker('clients_view')(db=db, current_user=current_user)
+    
+    empresa = db.query(Empresa).filter(Empresa.id == empresa_id).first()
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+        
+    # Buscar todos os endereços vinculados a clientes desta empresa
+    from app.models.models import EmpresaCliente, EmpresaClienteEndereco, Cliente
+    from sqlalchemy import and_
+    
+    query = db.query(
+        Cliente.id,
+        Cliente.nome_razao_social,
+        Cliente.cpf_cnpj,
+        Cliente.email,
+        Cliente.telefone,
+        Cliente.is_active,
+        EmpresaClienteEndereco.endereco,
+        EmpresaClienteEndereco.numero,
+        EmpresaClienteEndereco.bairro,
+        EmpresaClienteEndereco.municipio,
+        EmpresaClienteEndereco.uf,
+        EmpresaClienteEndereco.complemento
+    ).join(
+        EmpresaCliente, Cliente.id == EmpresaCliente.cliente_id
+    ).join(
+        EmpresaClienteEndereco, EmpresaCliente.id == EmpresaClienteEndereco.empresa_cliente_id
+    ).filter(
+        EmpresaCliente.empresa_id == empresa_id
+    )
+    
+    if q:
+        pattern = f"%{q}%"
+        from sqlalchemy import or_
+        query = query.filter(or_(
+            Cliente.nome_razao_social.ilike(pattern),
+            Cliente.cpf_cnpj.ilike(pattern),
+            EmpresaClienteEndereco.bairro.ilike(pattern),
+            EmpresaClienteEndereco.municipio.ilike(pattern)
+        ))
+    
+    # Ordenar por Bairro e depois por Nome
+    results = query.order_by(EmpresaClienteEndereco.bairro, Cliente.nome_razao_social).all()
+    
+    clients_data = []
+    for r in results:
+        clients_data.append({
+            "id": r.id,
+            "nome_razao_social": r.nome_razao_social,
+            "cpf_cnpj": r.cpf_cnpj,
+            "email": r.email,
+            "telefone": r.telefone,
+            "is_active": r.is_active,
+            "endereco": r.endereco,
+            "numero": r.numero,
+            "bairro": r.bairro or "SEM BAIRRO",
+            "municipio": r.municipio,
+            "uf": r.uf,
+            "complemento": r.complemento
+        })
+        
+    filters = {"q": q}
+    pdf_buffer = ReportService.generate_clients_report(empresa, clients_data, filters)
+    
+    filename = f"relatorio_clientes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )

@@ -15,6 +15,14 @@ export const reportService = {
       responseType: 'blob'
     });
     return response.data;
+  },
+  
+  generateClientsPdf: async (empresaId: number, params: { q?: string }) => {
+    const response = await api.get('/reports/clients/pdf', {
+      params: { ...params, empresa_id: empresaId },
+      responseType: 'blob'
+    });
+    return response.data;
   }
 };
 

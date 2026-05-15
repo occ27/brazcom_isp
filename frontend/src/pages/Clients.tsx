@@ -8,6 +8,8 @@ import { useCompany } from '../contexts/CompanyContext';
 import clientService, { ClientCreate } from '../services/clientService';
 import { companyService } from '../services/companyService';
 import { stringifyError } from '../utils/error';
+import { DocumentArrowDownIcon } from '@heroicons/react/24/outline';
+import reportService from '../services/reportService';
 
 const Clients: React.FC = () => {
   const { user } = useAuth();
@@ -54,6 +56,26 @@ const Clients: React.FC = () => {
   const handleMenuClose = () => {
     setAnchorEl(null);
     setSelectedClientForMenu(null);
+  };
+
+  const handleExportPDF = async () => {
+    if (!activeCompany) return;
+    try {
+      setLoading(true);
+      const blob = await reportService.generateClientsPdf(activeCompany.id, { q: searchTerm });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `relatorio_clientes_${new Date().getTime()}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setSnackbar({ open: false, message: 'Relatório gerado com sucesso!', severity: 'success' });
+    } catch (error: any) {
+      setSnackbar({ open: true, message: stringifyError(error), severity: 'error' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loadClients = useCallback(async () => {
@@ -499,11 +521,21 @@ const Clients: React.FC = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Box sx={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Box sx={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 1 }}>
         <Typography variant="h5" sx={{ fontWeight: 'bold' }}>Clientes</Typography>
-        <Button variant="contained" startIcon={<PlusIcon className="w-5 h-5" />} onClick={() => handleOpen()}>
-          Novo Cliente
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button 
+            variant="outlined" 
+            startIcon={<DocumentArrowDownIcon className="w-5 h-5" />} 
+            onClick={handleExportPDF}
+            disabled={loading}
+          >
+            PDF
+          </Button>
+          <Button variant="contained" startIcon={<PlusIcon className="w-5 h-5" />} onClick={() => handleOpen()}>
+            Novo Cliente
+          </Button>
+        </Box>
       </Box>
 
       {/* Search Bar */}

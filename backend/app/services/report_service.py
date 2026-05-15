@@ -268,3 +268,88 @@ class ReportService:
         doc.build(elements)
         buffer.seek(0)
         return buffer
+
+    @staticmethod
+    def generate_clients_report(
+        empresa: Empresa,
+        clients: List[Dict[str, Any]],
+        filters: Dict[str, Any]
+    ) -> BytesIO:
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=1*cm, leftMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm)
+        elements = []
+        styles = getSampleStyleSheet()
+        
+        title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=16, alignment=1, spaceAfter=10)
+        group_title_style = ParagraphStyle('GroupTitleStyle', parent=styles['Heading2'], fontSize=12, color=colors.darkblue, spaceBefore=10, spaceAfter=5)
+        cell_style = ParagraphStyle('CellStyle', parent=styles['Normal'], fontSize=9, leading=11)
+        address_style = ParagraphStyle('AddressStyle', parent=styles['Normal'], fontSize=7, leading=9, textColor=colors.grey)
+        header_style = ParagraphStyle('HeaderStyle', parent=styles['Normal'], fontSize=10, textColor=colors.whitesmoke, fontName='Helvetica-Bold')
+
+        elements.append(Paragraph(f"Relatório de Clientes por Bairro - {empresa.nome_fantasia or empresa.razao_social}", title_style))
+        
+        if filters.get('q'):
+            elements.append(Paragraph(f"Filtro de busca: {filters.get('q')}", styles['Normal']))
+        
+        elements.append(Spacer(1, 0.5*cm))
+        
+        # Agrupar por Bairro
+        from collections import defaultdict
+        grouped_clients = defaultdict(list)
+        for c in clients:
+            grouped_clients[c['bairro']].append(c)
+            
+        for bairro, b_clients in sorted(grouped_clients.items()):
+            elements.append(Paragraph(f"Bairro: {bairro}", group_title_style))
+            
+            headers = [
+                Paragraph('ID', header_style),
+                Paragraph('Cliente / Endereço', header_style),
+                Paragraph('CPF / CNPJ', header_style),
+                Paragraph('E-mail / Telefone', header_style),
+                Paragraph('Cidade', header_style),
+                Paragraph('Status', header_style)
+            ]
+            
+            data = [headers]
+            for c in b_clients:
+                # Montar bloco de nome + endereço
+                client_cell = [
+                    Paragraph(f"<b>{c.get('nome_razao_social', '')}</b>", cell_style),
+                    Paragraph(f"{c.get('endereco', '')}, {c.get('numero', '')} {c.get('complemento', '') or ''}", address_style)
+                ]
+                
+                # Bloco de contato
+                contact_cell = [
+                    Paragraph(c.get('email', '') or '-', cell_style),
+                    Paragraph(c.get('telefone', '') or '-', address_style)
+                ]
+                
+                data.append([
+                    Paragraph(str(c.get('id', '')), cell_style),
+                    client_cell,
+                    Paragraph(c.get('cpf_cnpj', ''), cell_style),
+                    contact_cell,
+                    Paragraph(f"{c.get('municipio', '')}/{c.get('uf', '')}", cell_style),
+                    Paragraph("Ativo" if c.get('is_active') else "Inativo", cell_style)
+                ])
+                
+            table = Table(data, colWidths=[1.2*cm, 10*cm, 4*cm, 6*cm, 4.5*cm, 2*cm])
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.whitesmoke])
+            ]))
+            elements.append(table)
+            elements.append(Spacer(1, 0.5*cm))
+        
+        elements.append(Spacer(1, 1*cm))
+        elements.append(Paragraph(f"Total de registros: {len(clients)}", styles['Normal']))
+        elements.append(Paragraph(f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", styles['Normal']))
+        
+        doc.build(elements)
+        buffer.seek(0)
+        return buffer
