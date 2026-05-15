@@ -26,6 +26,7 @@ import {
 import api from '../services/api';
 import useFitText from '../hooks/useFitText';
 import { useNavigate } from 'react-router-dom';
+import { useCompany } from '../contexts/CompanyContext';
 
 // Custom Card Component with Glassmorphism and Hover Effects
 const PremiumCard = React.forwardRef<HTMLDivElement, { children: React.ReactNode; sx?: any; onClick?: () => void }>(
@@ -64,8 +65,12 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const navigate = useNavigate();
+  const { activeCompany } = useCompany();
 
   useEffect(() => {
+    if (!activeCompany) return;
+    
+    setLoading(true);
     const fetchDashboardData = async () => {
       try {
         const response = await api.get('/dashboard/stats');
@@ -78,7 +83,7 @@ const Dashboard: React.FC = () => {
     };
 
     fetchDashboardData();
-  }, []);
+  }, [activeCompany]);
 
   if (loading) {
     return (
