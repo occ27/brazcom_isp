@@ -347,6 +347,8 @@ class ReceivableCreate(BaseModel):
     cliente_id: int
     due_date: date
     amount: float
+    tipo: str = 'BOLETO'
+    servico_contratado_id: Optional[int] = None
     bank_account_id: Optional[int] = None
     fine_percent: float = 0.0
     interest_percent: float = 0.0
@@ -370,13 +372,14 @@ def create_manual_receivable(
     recv = Receivable(
         empresa_id=payload.empresa_id,
         cliente_id=payload.cliente_id,
+        servico_contratado_id=payload.servico_contratado_id,
         issue_date=datetime.utcnow(),
         due_date=datetime.combine(payload.due_date, datetime.min.time()),
         amount=payload.amount,
         fine_percent=payload.fine_percent,
         interest_percent=payload.interest_percent,
         status='PENDING',
-        tipo='BOLETO'
+        tipo=payload.tipo
     )
 
     if payload.bank_account_id:
@@ -391,6 +394,15 @@ def create_manual_receivable(
                 "carteira": ba.carteira, "convenio": ba.convenio
             }
             recv.bank_account_snapshot = json.dumps(snapshot, default=str)
+    
+    # Se for Mercado Pago, gerar token de pagamento único
+    if recv.tipo == 'MERCADO_PAGO':
+        import uuid
+        from app.core.config import settings
+        recv.payment_token = str(uuid.uuid4())
+        base_url = settings.FRONTEND_URL.rstrip("/")
+        recv.payment_url = f"{base_url}/checkout?token={recv.payment_token}"
+        recv.bank = 'MERCADO_PAGO'
 
     db.add(recv)
     db.commit()

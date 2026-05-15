@@ -25,6 +25,7 @@ import bankAccountService, { BankAccount } from '../services/bankAccountService'
 import { stringifyError } from '../utils/error';
 import api from '../services/authService';
 import { EnvelopeIcon, LinkIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline';
+import { maskCurrency, unmaskCurrency } from '../utils/currencyUtils';
 
 const Receivables: React.FC = () => {
   const navigate = useNavigate();
@@ -66,9 +67,12 @@ const Receivables: React.FC = () => {
   // Data for Form
   const [clients, setClients] = useState<any[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [clientContracts, setClientContracts] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     cliente_id: '',
-    amount: '',
+    servico_contratado_id: '',
+    tipo: 'BOLETO',
+    amount: 0,
     due_date: new Date().toISOString().split('T')[0],
     bank_account_id: '',
     fine_percent: '2.0',
@@ -134,6 +138,35 @@ const Receivables: React.FC = () => {
       setSearchClients([]);
     }
   }, [clientSearchTerm, fetchClients]);
+  
+  // Fetch contracts when client changes
+  useEffect(() => {
+    const fetchContracts = async () => {
+      if (!formData.cliente_id || !activeCompany) {
+        setClientContracts([]);
+        return;
+      }
+      try {
+        const res = await api.get(`/servicos-contratados/cliente/${formData.cliente_id}?empresa_id=${activeCompany.id}`);
+        // This endpoint returns a direct array
+        const data = Array.isArray(res.data) ? res.data : (res.data.contratos || []);
+        setClientContracts(data);
+        
+        // Auto-select first contract if only one exists
+        if (data.length === 1) {
+          setFormData(prev => ({ 
+            ...prev, 
+            servico_contratado_id: data[0].id.toString(),
+            amount: data[0].valor_unitario || prev.amount
+          }));
+        }
+      } catch (e) {
+        console.error('Erro ao buscar contratos do cliente', e);
+        setClientContracts([]);
+      }
+    };
+    fetchContracts();
+  }, [formData.cliente_id, activeCompany]);
 
   const loadFormData = useCallback(async () => {
     if (!activeCompany) return;
@@ -199,9 +232,10 @@ const Receivables: React.FC = () => {
       await receivableService.createReceivable({
         ...formData,
         empresa_id: activeCompany.id,
-        amount: parseFloat(formData.amount),
+        amount: formData.amount,
         cliente_id: parseInt(formData.cliente_id),
-        bank_account_id: parseInt(formData.bank_account_id),
+        servico_contratado_id: formData.servico_contratado_id ? parseInt(formData.servico_contratado_id) : undefined,
+        bank_account_id: formData.tipo === 'BOLETO' ? parseInt(formData.bank_account_id) : undefined,
         fine_percent: parseFloat(formData.fine_percent),
         interest_percent: parseFloat(formData.interest_percent)
       });
@@ -547,35 +581,82 @@ const Receivables: React.FC = () => {
               />
             </Grid>
             <Grid item xs={12}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Contrato Relacionado</InputLabel>
+                <Select
+                  value={formData.servico_contratado_id}
+                  label="Contrato Relacionado"
+                  onChange={(e) => {
+                    const contractId = e.target.value;
+                    const contract = clientContracts.find(c => c.id.toString() === contractId);
+                    setFormData({ 
+                      ...formData, 
+                      servico_contratado_id: contractId,
+                      amount: contract ? contract.valor_unitario : formData.amount
+                    });
+                  }}
+                  disabled={clientContracts.length === 0}
+                >
+                  <MenuItem value=""><em>Nenhum (Lançamento Avulso)</em></MenuItem>
+                  {clientContracts.map(c => (
+                    <MenuItem key={c.id} value={c.id.toString()}>
+                      Contrato #{c.id} - {c.servico_descricao || 'Internet'} ({c.valor_unitario?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Tipo de Cobrança</InputLabel>
+                <Select
+                  value={formData.tipo}
+                  label="Tipo de Cobrança"
+                  onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
+                >
+                  <MenuItem value="BOLETO">BOLETO BANCÁRIO</MenuItem>
+                  <MenuItem value="MERCADO_PAGO">MERCADO PAGO (CARTÃO/PIX)</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            {formData.tipo === 'BOLETO' && (
+              <Grid item xs={12}>
+                <TextField 
+                  select 
+                  label="Conta Bancária / Banco" 
+                  fullWidth 
+                  size="small" 
+                  value={formData.bank_account_id} 
+                  onChange={(e) => {
+                    const accId = e.target.value;
+                    const acc = bankAccounts.find(a => a.id.toString() === accId);
+                    setFormData({ 
+                      ...formData, 
+                      bank_account_id: accId,
+                      fine_percent: (acc?.multa_atraso_percentual || 2.0).toString(),
+                      interest_percent: (acc?.juros_atraso_percentual || 1.0).toString()
+                    });
+                  }}
+                >
+                  {bankAccounts.map(a => (
+                    <MenuItem key={a.id} value={a.id.toString()}>
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{a.bank}</Typography>
+                        <Typography variant="caption" color="text.secondary">{a.titular} - {a.agencia}/{a.conta}</Typography>
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+            )}
+            <Grid item xs={6}>
               <TextField 
-                select 
-                label="Conta Bancária / Banco" 
+                label="Valor (R$)" 
                 fullWidth 
                 size="small" 
-                value={formData.bank_account_id} 
-                onChange={(e) => {
-                  const accId = e.target.value;
-                  const acc = bankAccounts.find(a => a.id.toString() === accId);
-                  setFormData({ 
-                    ...formData, 
-                    bank_account_id: accId,
-                    fine_percent: (acc?.multa_atraso_percentual || 2.0).toString(),
-                    interest_percent: (acc?.juros_atraso_percentual || 1.0).toString()
-                  });
-                }}
-              >
-                {bankAccounts.map(a => (
-                  <MenuItem key={a.id} value={a.id.toString()}>
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{a.bank}</Typography>
-                      <Typography variant="caption" color="text.secondary">{a.titular} - {a.agencia}/{a.conta}</Typography>
-                    </Box>
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={6}>
-              <TextField label="Valor (R$)" fullWidth size="small" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: e.target.value })} />
+                value={maskCurrency((formData.amount || 0).toFixed(2))} 
+                onChange={(e) => setFormData({ ...formData, amount: unmaskCurrency(e.target.value) })} 
+              />
             </Grid>
             <Grid item xs={6}>
               <TextField type="date" label="Vencimento" fullWidth size="small" value={formData.due_date} onChange={(e) => setFormData({ ...formData, due_date: e.target.value })} InputLabelProps={{ shrink: true }} />
