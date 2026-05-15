@@ -26,9 +26,9 @@ class Settings(BaseSettings):
     # Em desenvolvimento local: permite frontend local (porta 3000)
     # Em produção: adicione o domínio https://nfcom.holeshot.com.br
     # Múltiplas origens separadas por vírgula no .env
-    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,https://brazcom.com.br"
-    FRONTEND_URL: str = "https://brazcom.com.br"
-    BACKEND_URL: str = "https://brazcom.com.br"
+    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,https://isp.brazcom.com.br"
+    FRONTEND_URL: str = "https://isp.brazcom.com.br"
+    BACKEND_URL: str = "https://isp.brazcom.com.br"
 
     # Uploads
     UPLOAD_DIR: str = "uploads"

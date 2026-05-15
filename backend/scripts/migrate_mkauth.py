@@ -18,7 +18,7 @@ from app.models.radius import RadiusUser
 from app.models.servico_model import Servico, TipoServico
 
 # Configurações
-DATA_DIR = "/Users/orlando/Downloads/opt/mk-auth/dados/2405K1305WJpHxJZ"
+DATA_DIR = "/Users/orlando/Downloads/opt/mk-auth/dados/2405A1405YJrFvMR"
 EMPRESA_ID = 1
 CUTOFF_YEARS = 2
 CUTOFF_DATE = datetime.now() - timedelta(days=CUTOFF_YEARS * 365)
@@ -37,7 +37,10 @@ def parse_date(date_str):
         try:
             return datetime.strptime(date_str, "%Y-%m-%d")
         except ValueError:
-            return None
+            try:
+                return datetime.strptime(date_str, "%d/%m/%Y")
+            except ValueError:
+                return None
 
 def read_mk_file(filename):
     path = os.path.join(DATA_DIR, filename)
@@ -185,9 +188,15 @@ def migrate(dry_run=True):
                     tipo_conexao=TipoConexao.FIBRA, metodo_autenticacao=MetodoAutenticacao.RADIUS,
                     router_id=router_id, interface_id=if_id, ip_class_id=p_id,
                     pppoe_username=login[:50], pppoe_password=clean_val(row[42]) or "123456",
-                    endereco_instalacao=(f"{row[3]}, {row[43]} - {row[4]}")[:500], is_active=(status_ativado != 'n')
+                    endereco_instalacao=(f"{row[3]}, {row[43]} - {row[4]}")[:500], is_active=(status_ativado != 'n'),
+                    created_at=parse_date(row[13]) or datetime.now()
                 ))
                 stats["contratos"] += 1
+            else:
+                # Atualizar data de emissão se estiver diferente
+                new_date = parse_date(row[13])
+                if new_date and exist_cont.created_at != new_date:
+                    exist_cont.created_at = new_date
             
             if not dry_run and i % 100 == 0: db.commit()
 
@@ -225,12 +234,29 @@ def migrate(dry_run=True):
                 # Check if receivable exists
                 exist_rec = db.query(Receivable).filter(Receivable.cliente_id == cl_id, Receivable.nosso_numero == nosso_num).first()
                 if not exist_rec:
+                    # Mapeamento de status mais completo
+                    mk_status = (row[6] or "").lower()
+                    rec_status = "PAID" if mk_status == "pago" else ("CANCELLED" if mk_status == "cancelado" else "OPEN")
+                    
                     db.add(Receivable(
                         amount=float(clean_val(row[18]) or 0), due_date=venc or datetime.now(), paid_at=pag,
-                        status="PAID" if row[6] == "pago" else "PENDING", nosso_numero=nosso_num,
+                        issue_date=parse_date(row[12]) or datetime.now(),
+                        status=rec_status, nosso_numero=nosso_num,
                         empresa_id=EMPRESA_ID, cliente_id=cl_id, bank="SICREDI"
                     ))
                     stats["financeiro"] += 1
+                else:
+                    # Atualizar status e data de emissão se necessário
+                    mk_status = (row[6] or "").lower()
+                    rec_status = "PAID" if mk_status == "pago" else ("CANCELLED" if mk_status == "cancelado" else "OPEN")
+                    new_issue_date = parse_date(row[12])
+                    
+                    if exist_rec.status != rec_status or (new_issue_date and exist_rec.issue_date != new_issue_date):
+                        exist_rec.status = rec_status
+                        if new_issue_date:
+                            exist_rec.issue_date = new_issue_date
+                        if pag:
+                            exist_rec.paid_at = pag
 
         if not dry_run:
             db.commit()

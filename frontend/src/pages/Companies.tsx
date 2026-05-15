@@ -1410,7 +1410,7 @@ const Companies: React.FC = () => {
                         label="Site da Empresa"
                         value={formData.site}
                         onChange={(e) => handleInputChange('site', e.target.value)}
-                        placeholder="Ex: www.brazcom.com.br"
+                        placeholder="Ex: isp.brazcom.com.br"
                         size="small"
                       />
                     </div>
@@ -1443,7 +1443,7 @@ const Companies: React.FC = () => {
                         label="URL de Suspensão"
                         value={formData.suspension_url}
                         onChange={(e) => handleInputChange('suspension_url', e.target.value)}
-                        placeholder="Ex: https://central.brazcom.com.br"
+                        placeholder="Ex: https://isp.brazcom.com.br"
                         size="small"
                         helperText="URL para onde o cliente será redirecionado se estiver bloqueado"
                       />

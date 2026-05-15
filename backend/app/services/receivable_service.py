@@ -74,7 +74,7 @@ def generate_receivable_from_contract(db: Session, contrato: ServicoContratado, 
         recv.tipo = 'MERCADO_PAGO'
         recv.payment_token = secrets.token_urlsafe(32)
         
-        # Obter URL base do ambiente (brazcom.com.br)
+        # Obter URL base do ambiente (isp.brazcom.com.br)
         base_url = settings.FRONTEND_URL.rstrip("/")
             
         recv.payment_url = f"{base_url}/checkout?token={recv.payment_token}"

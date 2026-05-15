@@ -181,7 +181,7 @@ def process_block_if_needed(db: Session, contrato_id: int):
                 # O IP de aviso deve ser o IP do servidor onde o frontend está rodando
                 import os
                 # Buscar a URL de suspensão da empresa ou usar padrão
-                notice_url = contrato.empresa.suspension_url if contrato.empresa and contrato.empresa.suspension_url else os.getenv("NOTICE_PAGE_URL", f"http://brazcom.com.br/aviso/{contrato.empresa_id}")
+                notice_url = contrato.empresa.suspension_url if contrato.empresa and contrato.empresa.suspension_url else os.getenv("NOTICE_PAGE_URL", f"http://isp.brazcom.com.br/aviso/{contrato.empresa_id}")
                 
                 if notice_url:
                     mk.setup_suspension_nat_rule(notice_url)

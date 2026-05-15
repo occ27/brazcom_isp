@@ -132,7 +132,7 @@ def setup_router_suspension(
 
     # URL de aviso (usa padrão se não houver personalizada)
     # Importante: A RB precisa conseguir chegar nessa URL.
-    suspension_url = empresa.suspension_url or f"http://brazcom.com.br/aviso/{empresa.id}"
+    suspension_url = empresa.suspension_url or f"http://isp.brazcom.com.br/aviso/{empresa.id}"
 
     from app.mikrotik.controller import MikrotikController
     from app.core.security import decrypt_password

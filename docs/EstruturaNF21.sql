@@ -293,7 +293,7 @@ CREATE TABLE `federacoes` (
   `email` varchar(200) NOT NULL,
   `nome` varchar(50) NOT NULL,
   `id_sigla` int DEFAULT NULL COMMENT 'Ex.: IFBB-SC',
-  `dominio` varchar(100) DEFAULT NULL COMMENT 'Domínio da federação. Ex.: brazcom.com.br',
+  `dominio` varchar(100) DEFAULT NULL COMMENT 'Domínio da federação. Ex.: isp.brazcom.com.br',
   `logo` varchar(100) DEFAULT 'img/ifbbsc.png',
   `ativo` tinyint DEFAULT '0',
   `cep` varchar(9) NOT NULL,
