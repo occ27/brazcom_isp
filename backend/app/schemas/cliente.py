@@ -61,9 +61,8 @@ class ClienteBase(BaseModel):
 
 class ClienteCreate(ClienteBase):
     enderecos: List[ClienteEnderecoBase] = []
-    # Campos opcionais para criação com senha
     password: Optional[str] = Field(None, min_length=6, description="Senha para autenticação no portal")
-
+    @validator('nome_razao_social')
     def clean_and_upper_name(cls, v):
         """Remover espaços duplos, strip e converter nome/razão social para maiúsculas."""
         if isinstance(v, str):
@@ -72,12 +71,14 @@ class ClienteCreate(ClienteBase):
             return cleaned.upper()
         return v
 
+    @validator('email', 'inscricao_estadual', pre=True, always=True)
     def clean_string_fields(cls, v):
         if isinstance(v, str):
             from app.core.validators import clean_string
             return clean_string(v)
         return v
 
+    @validator('telefone')
     def validate_and_format_telefone(cls, v):
         """Remove caracteres não numéricos e valida comprimento mínimo para telefone."""
         if not v:
@@ -86,8 +87,9 @@ class ClienteCreate(ClienteBase):
         telefone_clean = re.sub(r'[^0-9]', '', v)
         if len(telefone_clean) < 8:
             raise ValueError('Telefone inválido')
-        return telefone_clean
+        return v
 
+    @validator('cpf_cnpj')
     def validate_cpf_cnpj(cls, v):
         if not v:
             raise ValueError('CPF/CNPJ é obrigatório')
@@ -101,13 +103,16 @@ class ClienteCreate(ClienteBase):
         if len(cpf_cnpj_clean) == 11:
             if not cls._validate_cpf(cpf_cnpj_clean):
                 raise ValueError('CPF inválido')
+            return f"{cpf_cnpj_clean[:3]}.{cpf_cnpj_clean[3:6]}.{cpf_cnpj_clean[6:9]}-{cpf_cnpj_clean[9:]}"
         elif len(cpf_cnpj_clean) == 14:
             from app.core.validators import validate_cnpj
             if not validate_cnpj(cpf_cnpj_clean):
                 raise ValueError('CNPJ inválido')
+            return f"{cpf_cnpj_clean[:2]}.{cpf_cnpj_clean[2:5]}.{cpf_cnpj_clean[5:8]}/{cpf_cnpj_clean[8:12]}-{cpf_cnpj_clean[12:]}"
 
         return cpf_cnpj_clean
 
+    @validator('tipo_pessoa')
     def validate_tipo_pessoa(cls, v, values):
         cpf_cnpj = values.get('cpf_cnpj')
         if cpf_cnpj:
@@ -118,6 +123,7 @@ class ClienteCreate(ClienteBase):
                 raise ValueError('Para CNPJ, tipo pessoa deve ser Jurídica')
         return v
 
+    @validator('inscricao_estadual')
     def check_inscricao_estadual_logic(cls, v, values):
         """Valida a Inscrição Estadual com base no Indicador de IE (ind_ie_dest)."""
         ind_ie = values.get('ind_ie_dest')
@@ -160,12 +166,14 @@ class ClienteCreate(ClienteBase):
         
         return v
 
+    @validator('email')
     def validate_email(cls, v):
         if v:
             if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', v):
                 raise ValueError('Email inválido')
         return v
 
+    @validator('enderecos')
     def validate_enderecos(cls, v, values):
         """Para NFCom, pessoa jurídica deve ter pelo menos um endereço completo"""
         tipo_pessoa = values.get('tipo_pessoa')
@@ -213,17 +221,53 @@ class ClienteUpdate(BaseModel):
     password: Optional[str] = Field(None, min_length=6, description="Nova senha para autenticação no portal")
     email_verified: Optional[bool] = Field(None, description="Se o email foi verificado")
 
+    @validator('nome_razao_social', 'cpf_cnpj', 'email', 'telefone', 'inscricao_estadual', pre=True, always=True)
     def clean_string_fields(cls, v):
         if isinstance(v, str):
             from app.core.validators import clean_string
             return clean_string(v)
         return v
 
+    @validator('email')
     def validate_email(cls, v):
         if v:
             if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', v):
                 raise ValueError('Email inválido')
         return v
+
+    @validator('telefone')
+    def validate_and_format_telefone(cls, v):
+        if not v:
+            return v
+        import re
+        telefone_clean = re.sub(r'[^0-9]', '', v)
+        if len(telefone_clean) < 8:
+            raise ValueError('Telefone inválido')
+        return v
+
+    @validator('cpf_cnpj')
+    def validate_cpf_cnpj(cls, v):
+        if not v:
+            return v
+        from app.core.validators import clean_string
+        v = clean_string(v)
+        import re
+        cpf_cnpj_clean = re.sub(r'[^0-9]', '', v)
+
+        if len(cpf_cnpj_clean) not in [11, 14]:
+            raise ValueError('CPF deve ter 11 dígitos ou CNPJ deve ter 14 dígitos')
+
+        if len(cpf_cnpj_clean) == 11:
+            if not ClienteCreate._validate_cpf(cpf_cnpj_clean):
+                raise ValueError('CPF inválido')
+            return f"{cpf_cnpj_clean[:3]}.{cpf_cnpj_clean[3:6]}.{cpf_cnpj_clean[6:9]}-{cpf_cnpj_clean[9:]}"
+        elif len(cpf_cnpj_clean) == 14:
+            from app.core.validators import validate_cnpj
+            if not validate_cnpj(cpf_cnpj_clean):
+                raise ValueError('CNPJ inválido')
+            return f"{cpf_cnpj_clean[:2]}.{cpf_cnpj_clean[2:5]}.{cpf_cnpj_clean[5:8]}/{cpf_cnpj_clean[8:12]}-{cpf_cnpj_clean[12:]}"
+
+        return cpf_cnpj_clean
 
 # NEW Schemas for the "new model"
 class EmpresaClienteEnderecoResponse(ClienteEnderecoBase):

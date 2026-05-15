@@ -174,3 +174,11 @@ async def validation_exception_handler(request, exc):
         status_code=422,
         content={"detail": exc.errors()},
     )
+
+@app.exception_handler(ValueError)
+async def value_error_exception_handler(request, exc):
+    """Captura ValueError disparados em qualquer lugar e retorna como 400 Bad Request."""
+    return JSONResponse(
+        status_code=400,
+        content={"detail": str(exc)},
+    )

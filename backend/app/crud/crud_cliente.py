@@ -69,6 +69,21 @@ def create_cliente(db: Session, cliente: ClienteCreate, empresa_id: int, created
     db_cliente = None
     if cpf_cnpj:
         db_cliente = db.query(Cliente).filter(Cliente.cpf_cnpj == cpf_cnpj).first()
+        if db_cliente:
+            # Verificar se já está associado a ESTA empresa
+            assoc = db.query(EmpresaCliente).filter(
+                EmpresaCliente.empresa_id == empresa_id, 
+                EmpresaCliente.cliente_id == db_cliente.id
+            ).first()
+            if assoc:
+                raise ValueError(f"O CPF/CNPJ {cpf_cnpj} já está cadastrado para esta empresa.")
+            
+            # Se já existir globalmente mas não nesta empresa, o comportamento padrão era associar.
+            # No entanto, o usuário disse: "tentativa de cadastrar o cliente com cpf já existente no banco de dados"
+            # Se eles consideram isso um erro, vamos bloquear duplicidade global também ou apenas informar?
+            # Para ISPs, geralmente é um erro de digitação se já existe.
+            # Vou bloquear a criação se já existir globalmente para atender ao pedido de "notificar duplicidade no banco de dados".
+            raise ValueError(f"O CPF/CNPJ {cpf_cnpj} já existe no banco de dados (cadastrado em outra unidade ou empresa).")
 
     # Se não existir, criar Cliente (legacy: define empresa_id como a empresa que está criando)
     if not db_cliente:
@@ -123,6 +138,13 @@ def update_cliente(db: Session, db_obj: Cliente, obj_in: ClienteUpdate):
     
     if "password" in update_data:
         del update_data["password"]
+
+    # Verificar duplicidade se o CPF/CNPJ estiver sendo alterado
+    new_cpf = update_data.get('cpf_cnpj')
+    if new_cpf and new_cpf != db_obj.cpf_cnpj:
+        existing = db.query(Cliente).filter(Cliente.cpf_cnpj == new_cpf).first()
+        if existing:
+            raise ValueError(f"O CPF/CNPJ {new_cpf} já existe no banco de dados.")
 
     for field in update_data:
         setattr(db_obj, field, update_data[field])
