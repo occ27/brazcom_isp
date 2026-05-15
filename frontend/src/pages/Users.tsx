@@ -61,7 +61,7 @@ const Users: React.FC = () => {
   const [assignedRoles, setAssignedRoles] = useState<Role[]>([]);
   const [roleToAssign, setRoleToAssign] = useState<number | string>('');
   const [selectedClient, setSelectedClient] = useState<any | null>(null);
-  
+
   // Estados para associação de usuário existente
   const [openAssociateDialog, setOpenAssociateDialog] = useState(false);
   const [associateData, setAssociateData] = useState({
@@ -73,8 +73,8 @@ const Users: React.FC = () => {
   // Verificar permissões
   const canManageUsers = currentUser?.is_superuser ||
     (activeCompany && currentUser &&
-     // Verificar se é admin da empresa selecionada (isso seria checado no backend)
-     true); // Por enquanto, assumimos que se tem empresa selecionada, pode gerenciar
+      // Verificar se é admin da empresa selecionada (isso seria checado no backend)
+      true); // Por enquanto, assumimos que se tem empresa selecionada, pode gerenciar
 
   const loadClientById = async (clientId: number) => {
     try {
@@ -217,7 +217,7 @@ const Users: React.FC = () => {
       } else {
         // Criar novo usuário e associar à empresa
         const created = await userService.createUserForEmpresa(activeCompany.id, formData);
-        
+
         // Se foi marcado como admin, atualizar a associação (pois o endpoint de criação padrão cria como não-admin)
         if (formData.is_admin) {
           await userService.associateUserToEmpresa(activeCompany.id, created.id, undefined, true);
@@ -252,9 +252,9 @@ const Users: React.FC = () => {
     try {
       setLoading(true);
       await userService.associateUserToEmpresa(
-        activeCompany.id, 
-        undefined, 
-        associateData.email, 
+        activeCompany.id,
+        undefined,
+        associateData.email,
         associateData.is_admin
       );
       await loadUsers();
@@ -479,9 +479,9 @@ const Users: React.FC = () => {
               required={!editingUser}
               helperText={editingUser ? "Deixe em branco para manter a senha atual" : ""}
             />
-            
-                {/* Cliente (Portal do Cliente) removed from user form */}
-            
+
+            {/* Cliente (Portal do Cliente) removed from user form */}
+
             {/* O acesso de Superusuário (Global) foi removido da interface por segurança, sendo restrito apenas a desenvolvedores via banco de dados */}
 
             <FormControlLabel
@@ -574,9 +574,9 @@ const Users: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenAssociateDialog(false)}>Cancelar</Button>
-          <Button 
-            onClick={handleAssociateSubmit} 
-            variant="contained" 
+          <Button
+            onClick={handleAssociateSubmit}
+            variant="contained"
             disabled={!associateData.email || loading}
           >
             {loading ? 'Processando...' : 'Vincular'}

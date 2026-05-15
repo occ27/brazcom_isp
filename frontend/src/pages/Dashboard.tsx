@@ -1,20 +1,69 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Typography, Box, Paper, Grid, CircularProgress } from '@mui/material';
+import { Typography, Box, Grid, CircularProgress, Fade, Grow } from '@mui/material';
 import {
+  UsersIcon,
+  DocumentCheckIcon,
+  CurrencyDollarIcon,
+  ExclamationTriangleIcon,
   DocumentTextIcon,
+  ChartPieIcon,
   BuildingOfficeIcon,
-  UserIcon,
-  ChartBarIcon,
-  UsersIcon
+  WifiIcon
 } from '@heroicons/react/24/outline';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend
+} from 'recharts';
 import api from '../services/api';
 import useFitText from '../hooks/useFitText';
 import { useNavigate } from 'react-router-dom';
 
+// Custom Card Component with Glassmorphism and Hover Effects
+const PremiumCard = React.forwardRef<HTMLDivElement, { children: React.ReactNode; sx?: any; onClick?: () => void }>(
+  ({ children, sx, onClick }, ref) => (
+    <Box
+      ref={ref}
+      onClick={onClick}
+      sx={{
+        background: 'rgba(255, 255, 255, 0.85)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        borderRadius: '24px',
+        border: '1px solid rgba(255, 255, 255, 0.4)',
+        boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.05)',
+        padding: 3,
+        transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
+        cursor: onClick ? 'pointer' : 'default',
+        position: 'relative',
+        overflow: 'hidden',
+        '&:hover': onClick ? {
+          transform: 'translateY(-6px)',
+          boxShadow: '0 12px 40px 0 rgba(31, 38, 135, 0.1)',
+          border: '1px solid rgba(255, 255, 255, 0.6)',
+        } : {},
+        ...sx
+      }}
+    >
+      {children}
+    </Box>
+  )
+);
+
+PremiumCard.displayName = 'PremiumCard';
+
 const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<any>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -23,31 +72,6 @@ const Dashboard: React.FC = () => {
         setDashboardData(response.data);
       } catch (error) {
         console.error('Erro ao carregar dados do dashboard:', error);
-        // Fallback para dados estáticos se houver erro
-        setDashboardData({
-          stats: {
-            nfcom_emitidas: 127,
-            valor_total: 0,
-            autorizadas: 85,
-            pendentes: 32,
-            canceladas: 10,
-          },
-          charts: {
-            status: [
-              { name: 'Autorizadas', value: 85, color: '#4caf50' },
-              { name: 'Pendentes', value: 32, color: '#ff9800' },
-              { name: 'Canceladas', value: 10, color: '#f44336' },
-            ],
-            monthly: [
-              { month: 'Jan', valor: 45000 },
-              { month: 'Fev', valor: 52000 },
-              { month: 'Mar', valor: 48000 },
-              { month: 'Abr', valor: 61000 },
-              { month: 'Mai', valor: 55000 },
-              { month: 'Jun', valor: 67000 },
-            ]
-          }
-        });
       } finally {
         setLoading(false);
       }
@@ -56,252 +80,299 @@ const Dashboard: React.FC = () => {
     fetchDashboardData();
   }, []);
 
-  const navigate = useNavigate();
-
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-        <CircularProgress />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+        <CircularProgress size={60} thickness={4} sx={{ color: '#4f46e5' }} />
       </Box>
     );
   }
 
-  const colorMap: Record<string, { bg: string; border: string; iconBg: string; text: string }> = {
-    blue: { bg: '#e3f2fd', border: '#2196f320', iconBg: '#1976d2', text: '#1565c0' },
-    green: { bg: '#e8f5e9', border: '#4caf5020', iconBg: '#2e7d32', text: '#2e7d32' },
-    purple: { bg: '#f3e5f5', border: '#9c27b020', iconBg: '#6a1b9a', text: '#6a1b9a' },
-    orange: { bg: '#fff3e0', border: '#ff980020', iconBg: '#f57c00', text: '#f57c00' },
-  };
+  const stats = dashboardData?.stats || {};
+  const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 
-  const stats = [
+  // Main Metrics
+  const mainMetrics = [
     {
-      title: 'Emitidas',
-      value: dashboardData?.stats?.nfcom_emitidas?.toString() || '0',
-      icon: DocumentTextIcon,
-      color: 'blue',
+      title: 'Total de Clientes',
+      value: stats.clientes_total || 0,
+      icon: UsersIcon,
+      color: '#4f46e5', // Indigo
+      bgLight: '#e0e7ff',
+      trend: '+12% vs mês ant.',
     },
     {
-      title: 'Valor Total',
-      value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(dashboardData?.stats?.valor_total || 0),
-      icon: ChartBarIcon,
-      color: 'green',
+      title: 'Contratos Ativos',
+      value: stats.contratos_ativos || 0,
+      icon: DocumentCheckIcon,
+      color: '#10b981', // Emerald
+      bgLight: '#d1fae5',
+      trend: '+5 novos hoje',
     },
     {
-      title: 'Autorizadas',
-      value: dashboardData?.stats?.autorizadas?.toString() || '0',
-      icon: UserIcon,
-      color: 'purple',
+      title: 'Recebido (Mês)',
+      value: formatCurrency(stats.recebido_mes),
+      icon: CurrencyDollarIcon,
+      color: '#06b6d4', // Cyan
+      bgLight: '#cffafe',
+      trend: 'Dentro da meta',
     },
     {
-      title: 'Pendentes',
-      value: dashboardData?.stats?.pendentes?.toString() || '0',
-      icon: BuildingOfficeIcon,
-      color: 'orange',
+      title: 'Inadimplência',
+      value: formatCurrency(stats.vencido_total),
+      icon: ExclamationTriangleIcon,
+      color: '#f43f5e', // Rose
+      bgLight: '#ffe4e6',
+      trend: 'Atenção necessária',
     },
   ];
 
-  
-
-  const computeFontSizes = (value: string | number) => {
-    const s = String(value);
-    const len = s.length;
-    if (len <= 3) return { xs: '1.25rem', sm: '1.5rem', md: '1.875rem' };
-    if (len <= 6) return { xs: '1rem', sm: '1.25rem', md: '1.5rem' };
-    if (len <= 10) return { xs: '0.9rem', sm: '1rem', md: '1.25rem' };
-  };
-
-  // Small component to render the number with auto-fit
   const StatNumber: React.FC<{ value: string | number; color?: string }> = ({ value, color }) => {
     const ref = useRef<HTMLElement | null>(null);
-    const fitPx = useFitText(ref, { min: 12, max: 36 });
+    const fitPx = useFitText(ref, { min: 20, max: 42 });
     return (
       <Typography
         ref={ref as any}
-        variant="h4"
         component="div"
         sx={{
-          fontWeight: 'bold',
-          mb: 1,
-          color: color || 'text.primary',
-          lineHeight: 1.05,
-          width: '100%',
-          textAlign: 'center',
+          fontWeight: 800,
+          color: color || '#1e293b',
+          lineHeight: 1.2,
+          mb: 0.5,
+          fontFamily: '"Plus Jakarta Sans", "Inter", sans-serif',
+          letterSpacing: '-1px'
         }}
         style={{ fontSize: `${Math.round(fitPx)}px` }}
-        title={typeof value === 'string' ? value : undefined}
       >
         {value}
       </Typography>
     );
   };
 
-  // Dados para gráfico de pizza - Status das NFComs
+  const monthlyData = dashboardData?.charts?.monthly || [];
   const statusData = dashboardData?.charts?.status || [
-    { name: 'Autorizadas', value: 85, color: '#4caf50' },
-    { name: 'Pendentes', value: 32, color: '#ff9800' },
-    { name: 'Canceladas', value: 10, color: '#f44336' },
+    { name: 'Ativos', value: 1, color: '#10b981' },
+    { name: 'Bloqueados', value: 0, color: '#f43f5e' },
   ];
 
-  // Dados para gráfico de barras - Valores mensais
-  const monthlyData = dashboardData?.charts?.monthly || [
-    { month: 'Jan', valor: 45000 },
-    { month: 'Fev', valor: 52000 },
-    { month: 'Mar', valor: 48000 },
-    { month: 'Abr', valor: 61000 },
-    { month: 'Mai', valor: 55000 },
-    { month: 'Jun', valor: 67000 },
-  ];
+  // Custom Tooltip for Area Chart
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <Box sx={{ background: 'rgba(255,255,255,0.95)', p: 2, borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0' }}>
+          <Typography variant="subtitle2" color="text.secondary">{label}</Typography>
+          <Typography variant="h6" color="primary.main" fontWeight="bold">
+            {formatCurrency(payload[0].value)}
+          </Typography>
+        </Box>
+      );
+    }
+    return null;
+  };
 
   return (
-    <Box>
-      {/* Header com logo */}
-      <Box
-        component="img"
-        src={'/logo_retangular.png'}
-        alt="Brazcom ISP Logo"
-        sx={{
-          height: { xs: 40, sm: 50, md: 60 },
-          width: 'auto',
-          ml: { xs: 0, sm: 1 },
-          mb: { xs: 1, sm: 2, md: 3 },
-          display: 'block',
-          maxWidth: '100%',
-        }}
-      />
-
-      {/* Cards de estatísticas */}
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        {stats.map((stat, index) => (
-          <Grid item key={index} xs={6} sm={6} md={3}>
-            <Paper
-              sx={{
-                p: { xs: 2, sm: 3 },
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                textAlign: 'center',
-                minHeight: { xs: 100, sm: 120, md: 140 },
-                  background: `linear-gradient(135deg, ${colorMap[stat.color].bg} 0%, #ffffff 100%)`,
-                  border: `1px solid ${colorMap[stat.color].border}`,
-              }}
-            >
-              <Box
-                sx={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: 3,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  mb: 2,
-                  bgcolor: colorMap[stat.color].iconBg,
-                  color: '#fff', // ensures icons using currentColor get white stroke/fill
-                  boxShadow: 2,
-                }}
-              >
-                  <stat.icon style={{ width: 28, height: 28 }} />
-              </Box>
-                <StatNumber value={stat.value} color={colorMap[stat.color].text} />
-              <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
-                {stat.title}
-              </Typography>
-            </Paper>
-          </Grid>
-        ))}
-      </Grid>
-
-      {/* Gráficos */}
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: { xs: 2, sm: 3 }, height: { xs: 300, sm: 350 } }}>
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main', fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-              📊 Distribuição por Status das NFComs
+    <Box sx={{ pb: 6, px: { xs: 1, md: 2 } }}>
+      
+      {/* Header / Welcome Area with subtle gradient background */}
+      <Box sx={{ 
+        mb: 5, 
+        p: 4, 
+        borderRadius: '28px', 
+        background: 'linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)',
+        color: 'white',
+        position: 'relative',
+        overflow: 'hidden',
+        boxShadow: '0 10px 30px rgba(79, 70, 229, 0.3)'
+      }}>
+        {/* Abstract shapes in background */}
+        <Box sx={{ position: 'absolute', top: -50, right: -20, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', filter: 'blur(20px)' }} />
+        <Box sx={{ position: 'absolute', bottom: -80, left: '20%', width: 150, height: 150, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', filter: 'blur(15px)' }} />
+        
+        <Grid container spacing={2} alignItems="center" sx={{ position: 'relative', zIndex: 1 }}>
+          <Grid item xs={12} md={8}>
+            <Typography variant="h3" sx={{ fontWeight: 800, mb: 1, letterSpacing: '-1px', fontFamily: '"Plus Jakarta Sans", "Inter", sans-serif' }}>
+              Visão Geral
             </Typography>
-            <ResponsiveContainer width="100%" height="80%">
-              <PieChart>
-                <Pie
-                  data={statusData}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={70}
-                  fill="#8884d8"
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                >
-                  {statusData.map((entry: { name: string; value: number; color: string }, index: number) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: { xs: 2, sm: 3 }, height: { xs: 300, sm: 350 } }}>
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main', fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-              📈 Valores Mensais (R$)
+            <Typography variant="h6" sx={{ fontWeight: 400, opacity: 0.9 }}>
+              Bem-vindo ao centro de comando do seu provedor.
             </Typography>
-            <ResponsiveContainer width="100%" height="80%">
-              <BarChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" fontSize={12} />
-                <YAxis fontSize={12} />
-                <Tooltip formatter={(value) => [new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value as number), 'Valor']} />
-                <Legend />
-                <Bar dataKey="valor" fill="#2196f3" />
-              </BarChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-      </Grid>
-
-      <Box sx={{ mt: 2 }}>
-        <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main', fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
-          ⚡ Ações Rápidas
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={4}>
-              <Paper sx={{ p: { xs: 2, sm: 3 }, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover', transform: 'translateY(-2px)', transition: 'all 0.2s' }, borderRadius: 2, boxShadow: 1 }} onClick={() => navigate('/nfcom?new=true')}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <DocumentTextIcon style={{ width: 24, height: 24, color: '#1976d2', stroke: '#1976d2', marginRight: 12 }} strokeWidth={1.5} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', fontSize: { xs: '1rem', sm: '1.125rem' } }}>
-                  Emitir NFCom
-                </Typography>
-              </Box>
-              <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.875rem' } }}>
-                Criar uma nova NFCom
-              </Typography>
-            </Paper>
           </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-              <Paper sx={{ p: { xs: 2, sm: 3 }, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover', transform: 'translateY(-2px)', transition: 'all 0.2s' }, borderRadius: 2, boxShadow: 1 }} onClick={() => navigate('/clients')}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <UsersIcon style={{ width: 24, height: 24, color: '#2e7d32', stroke: '#2e7d32', marginRight: 12 }} strokeWidth={1.5} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', fontSize: { xs: '1rem', sm: '1.125rem' } }}>
-                    Clientes
-                </Typography>
-              </Box>
-              <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.875rem' } }}>
-                Gerenciar clientes e endereços
-              </Typography>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-              <Paper sx={{ p: { xs: 2, sm: 3 }, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover', transform: 'translateY(-2px)', transition: 'all 0.2s' }, borderRadius: 2, boxShadow: 1 }} onClick={() => navigate('/contracts')}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <DocumentTextIcon style={{ width: 24, height: 24, color: '#f57c00', stroke: '#f57c00', marginRight: 12 }} strokeWidth={1.5} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', fontSize: { xs: '1rem', sm: '1.125rem' } }}>
-                  Contratos
-                </Typography>
-              </Box>
-              <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '0.875rem' } }}>
-                Gerenciar contratos e cobranças
-              </Typography>
-            </Paper>
+          <Grid item xs={12} md={4} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
+             <Box sx={{ background: 'rgba(255,255,255,0.2)', p: 2, borderRadius: '20px', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', gap: 2 }}>
+                <ChartPieIcon className="w-8 h-8 text-white" />
+                <Box>
+                  <Typography variant="caption" sx={{ opacity: 0.8, textTransform: 'uppercase', letterSpacing: '1px' }}>Meta do Mês</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1 }}>{formatCurrency(stats.pendente_mes + stats.recebido_mes)}</Typography>
+                </Box>
+             </Box>
           </Grid>
         </Grid>
       </Box>
+
+      {/* Top Metrics Row */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {mainMetrics.map((metric, idx) => (
+          <Grow in={true} timeout={500 + (idx * 200)} key={idx}>
+            <Grid item xs={12} sm={6} lg={3}>
+              <PremiumCard>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                  <Box sx={{ 
+                    p: 1.5, 
+                    borderRadius: '16px', 
+                    background: metric.bgLight,
+                    color: metric.color,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <metric.icon style={{ width: 26, height: 26 }} strokeWidth={2} />
+                  </Box>
+                  <Typography variant="caption" sx={{ px: 1.5, py: 0.5, borderRadius: '12px', background: '#f1f5f9', color: '#64748b', fontWeight: 600 }}>
+                    {metric.trend}
+                  </Typography>
+                </Box>
+                
+                <StatNumber value={metric.value} />
+                <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '0.75rem' }}>
+                  {metric.title}
+                </Typography>
+              </PremiumCard>
+            </Grid>
+          </Grow>
+        ))}
+      </Grid>
+
+      {/* Charts Row */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        
+        {/* Area Chart - Revenue */}
+        <Grid item xs={12} lg={8}>
+          <Fade in={true} timeout={1000}>
+            <PremiumCard sx={{ height: 420, display: 'flex', flexDirection: 'column' }}>
+              <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+                    Evolução do Faturamento
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">Receitas consolidadas dos últimos 6 meses</Typography>
+                </Box>
+              </Box>
+              
+              <Box sx={{ flexGrow: 1, width: '100%' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorValor" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 500 }} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `R$${val/1000}k`} />
+                    <RechartsTooltip content={<CustomTooltip />} />
+                    <Area type="monotone" dataKey="valor" stroke="#4f46e5" strokeWidth={4} fillOpacity={1} fill="url(#colorValor)" activeDot={{ r: 8, strokeWidth: 0, fill: '#4f46e5' }} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </Box>
+            </PremiumCard>
+          </Fade>
+        </Grid>
+
+        {/* Doughnut Chart - Status */}
+        <Grid item xs={12} lg={4}>
+          <Fade in={true} timeout={1200}>
+            <PremiumCard sx={{ height: 420, display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b', fontFamily: '"Plus Jakarta Sans", sans-serif', mb: 1 }}>
+                Status dos Contratos
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Distribuição atual da base</Typography>
+              
+              <Box sx={{ flexGrow: 1, width: '100%', position: 'relative' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={statusData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={80}
+                      outerRadius={110}
+                      paddingAngle={5}
+                      dataKey="value"
+                      stroke="none"
+                    >
+                      {statusData.map((entry: any, index: number) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} style={{ filter: `drop-shadow(0px 4px 8px ${entry.color}40)` }} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip 
+                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                      itemStyle={{ fontWeight: 'bold' }}
+                    />
+                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontWeight: 600, fontSize: '14px', color: '#475569' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                
+                {/* Center text in Doughnut */}
+                <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -70%)', textAlign: 'center', pointerEvents: 'none' }}>
+                  <Typography variant="h4" sx={{ fontWeight: 800, color: '#1e293b', lineHeight: 1 }}>{stats.contratos_ativos + stats.contratos_bloqueados}</Typography>
+                  <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>TOTAL</Typography>
+                </Box>
+              </Box>
+            </PremiumCard>
+          </Fade>
+        </Grid>
+
+      </Grid>
+
+      {/* Quick Actions & Extra Stats */}
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={7}>
+          <Typography variant="h6" sx={{ fontWeight: 800, mb: 3, color: '#1e293b', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+            Ações Rápidas
+          </Typography>
+          <Grid container spacing={2}>
+            {[
+              { label: 'Novo Cliente', icon: UsersIcon, color: '#3b82f6', path: '/clients' },
+              { label: 'Gerar Faturas', icon: CurrencyDollarIcon, color: '#10b981', path: '/receivables' },
+              { label: 'Emitir NFCom', icon: DocumentTextIcon, color: '#8b5cf6', path: '/nfcom?new=true' },
+              { label: 'Provisionar', icon: WifiIcon, color: '#f59e0b', path: '/routers' },
+            ].map((action, idx) => (
+              <Grid item xs={6} sm={3} key={idx}>
+                <PremiumCard onClick={() => navigate(action.path)} sx={{ p: 2, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ p: 1.5, borderRadius: '14px', background: `${action.color}15`, color: action.color }}>
+                    <action.icon className="w-8 h-8" strokeWidth={2} />
+                  </Box>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#334155' }}>
+                    {action.label}
+                  </Typography>
+                </PremiumCard>
+              </Grid>
+            ))}
+          </Grid>
+        </Grid>
+        
+        <Grid item xs={12} md={5}>
+           <Typography variant="h6" sx={{ fontWeight: 800, mb: 3, color: '#1e293b', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+            Métricas de NFCom
+          </Typography>
+          <PremiumCard sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, background: '#f8fafc', borderRadius: '16px' }}>
+                <Typography variant="body1" sx={{ fontWeight: 600, color: '#475569' }}>Notas Emitidas (Total)</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: '#0f172a' }}>{stats.nfcom_emitidas || 0}</Typography>
+             </Box>
+             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, background: '#f8fafc', borderRadius: '16px' }}>
+                <Typography variant="body1" sx={{ fontWeight: 600, color: '#475569' }}>Valor Faturado em Notas</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: '#10b981' }}>{formatCurrency(stats.valor_total_nfcom)}</Typography>
+             </Box>
+             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, background: '#f8fafc', borderRadius: '16px' }}>
+                <Typography variant="body1" sx={{ fontWeight: 600, color: '#475569' }}>Notas Pendentes de Sefaz</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: '#f59e0b' }}>{dashboardData?.stats?.pendentes || 0}</Typography>
+             </Box>
+          </PremiumCard>
+        </Grid>
+      </Grid>
+      
     </Box>
   );
 };

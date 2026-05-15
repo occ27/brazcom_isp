@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from types import SimpleNamespace
 from app.models.models import Empresa, UsuarioEmpresa, Cliente, NFCom
+from app.models.access_control import Role
 from app.schemas.empresa import EmpresaCreate, EmpresaUpdate, UsuarioEmpresaCreate
 from app.core.security import encrypt_sensitive_data, decrypt_sensitive_data
 
@@ -115,6 +116,27 @@ def create_empresa(db: Session, empresa: EmpresaCreate, user_id: int):
     )
     db.add(usuario_empresa)
     db.commit()
+
+    # Clonar Roles da Empresa ID 1 para a nova empresa
+    try:
+        source_empresa_id = 1
+        source_roles = db.query(Role).filter(Role.empresa_id == source_empresa_id).all()
+        
+        for src_role in source_roles:
+            new_role = Role(
+                name=src_role.name,
+                description=src_role.description,
+                empresa_id=db_empresa.id
+            )
+            # Copiar permissões associadas (relacionamento many-to-many)
+            new_role.permissions = src_role.permissions[:]
+            db.add(new_role)
+        
+        db.commit()
+    except Exception as e:
+        # Logar erro mas não impedir a criação da empresa
+        print(f"Erro ao clonar roles da empresa 1: {e}")
+        db.rollback()
 
     return db_empresa
 

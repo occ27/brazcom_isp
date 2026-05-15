@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.core.database import get_db
-from app.models import NFCom, Empresa, Usuario
+from app.models.models import NFCom, Empresa, Usuario, Cliente, ServicoContratado, Receivable
 from app.routes.auth import get_current_active_user
-from app.models import Usuario
 from typing import Dict, Any
+from datetime import datetime, timedelta, date
 
 router = APIRouter()
 
@@ -44,24 +44,70 @@ def get_dashboard_stats(
     
     valor_total = db.query(func.sum(NFCom.valor_total)).filter(NFCom.empresa_id == empresa_id).scalar() or 0.0
     
-    # Dados para gráfico de status
+    # --- Estatísticas de Clientes ---
+    total_clientes = db.query(Cliente).filter(Cliente.empresa_id == empresa_id).count()
+    
+    # --- Estatísticas de Contratos ---
+    total_contratos_ativos = db.query(ServicoContratado).filter(
+        ServicoContratado.empresa_id == empresa_id,
+        ServicoContratado.status == 'ATIVO'
+    ).count()
+    total_contratos_bloqueados = db.query(ServicoContratado).filter(
+        ServicoContratado.empresa_id == empresa_id,
+        ServicoContratado.status == 'BLOQUEADO'
+    ).count()
+    
+    # --- Estatísticas Financeiras (Receivables) ---
+    today = date.today()
+    first_day_of_month = today.replace(day=1)
+    
+    # Recebido no Mês
+    recebido_mes = db.query(func.sum(Receivable.amount)).filter(
+        Receivable.empresa_id == empresa_id,
+        Receivable.status == 'PAID',
+        func.date(Receivable.paid_at) >= first_day_of_month
+    ).scalar() or 0.0
+
+    # Pendente a receber no Mês (vencimento no mês atual, não pago)
+    if today.month == 12:
+        next_month = today.replace(year=today.year + 1, month=1, day=1)
+    else:
+        next_month = today.replace(month=today.month + 1, day=1)
+        
+    pendente_mes = db.query(func.sum(Receivable.amount)).filter(
+        Receivable.empresa_id == empresa_id,
+        Receivable.status.in_(['PENDING', 'REGISTERED', 'PRINTED', 'SENT']),
+        func.date(Receivable.due_date) >= first_day_of_month,
+        func.date(Receivable.due_date) < next_month
+    ).scalar() or 0.0
+
+    # Vencido (Inadimplência total)
+    vencido_total = db.query(func.sum(Receivable.amount)).filter(
+        Receivable.empresa_id == empresa_id,
+        Receivable.status.in_(['PENDING', 'REGISTERED', 'PRINTED', 'SENT']),
+        func.date(Receivable.due_date) < today
+    ).scalar() or 0.0
+
+    # Dados para gráfico de status (NFComs mantido como exemplo, ou pode ser contratos)
     status_data = [
-        {"name": "Autorizadas", "value": total_autorizadas, "color": "#4caf50"},
-        {"name": "Pendentes", "value": total_pendentes, "color": "#ff9800"},
-        {"name": "Canceladas", "value": total_canceladas, "color": "#f44336"},
+        {"name": "Ativos", "value": total_contratos_ativos, "color": "#10b981"}, # emerald-500
+        {"name": "Bloqueados", "value": total_contratos_bloqueados, "color": "#f43f5e"}, # rose-500
     ]
     
-    # Dados mensais (últimos 6 meses)
-    from datetime import datetime, timedelta
+    # Dados mensais de Faturamento (Receivables) dos últimos 6 meses
     monthly_data = []
     for i in range(5, -1, -1):
         month_start = (datetime.now().replace(day=1) - timedelta(days=i*30)).replace(day=1)
-        month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+        if month_start.month == 12:
+            month_end = month_start.replace(year=month_start.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            month_end = month_start.replace(month=month_start.month + 1, day=1) - timedelta(days=1)
         
-        month_value = db.query(func.sum(NFCom.valor_total)).filter(
-            NFCom.empresa_id == empresa_id,
-            NFCom.data_emissao >= month_start,
-            NFCom.data_emissao <= month_end
+        month_value = db.query(func.sum(Receivable.amount)).filter(
+            Receivable.empresa_id == empresa_id,
+            Receivable.status == 'PAID',
+            func.date(Receivable.paid_at) >= month_start.date(),
+            func.date(Receivable.paid_at) <= month_end.date()
         ).scalar() or 0.0
         
         monthly_data.append({
@@ -71,11 +117,14 @@ def get_dashboard_stats(
     
     return {
         "stats": {
+            "clientes_total": total_clientes,
+            "contratos_ativos": total_contratos_ativos,
+            "contratos_bloqueados": total_contratos_bloqueados,
             "nfcom_emitidas": total_nfcom,
-            "valor_total": float(valor_total),
-            "autorizadas": total_autorizadas,
-            "pendentes": total_pendentes,
-            "canceladas": total_canceladas,
+            "valor_total_nfcom": float(valor_total),
+            "recebido_mes": float(recebido_mes),
+            "pendente_mes": float(pendente_mes),
+            "vencido_total": float(vencido_total),
         },
         "charts": {
             "status": status_data,
