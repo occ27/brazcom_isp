@@ -83,9 +83,21 @@ const Clients: React.FC = () => {
     if (errors[field]) setErrors((prev: Record<string, string>) => ({ ...prev, [field]: '' }));
   };
 
-  const handleCepChange = async (value: string) => {
+  const handleAddressChange = (index: number, field: string, value: any) => {
+    setFormData((prev: any) => {
+      const newEnderecos = [...(prev.enderecos || [])];
+      if (!newEnderecos[index]) newEnderecos[index] = {};
+      newEnderecos[index] = { ...newEnderecos[index], [field]: value };
+      return { ...prev, enderecos: newEnderecos };
+    });
+    if (errors[`enderecos[${index}].${field}`]) {
+      setErrors((prev: Record<string, string>) => ({ ...prev, [`enderecos[${index}].${field}`]: '' }));
+    }
+  };
+
+  const handleCepChange = async (index: number, value: string) => {
     const formattedCep = companyService.formatCEPInput(value);
-    handleInputChange('cep', formattedCep);
+    handleAddressChange(index, 'cep', formattedCep);
 
     const cepClean = formattedCep.replace(/\D/g, '');
     if (cepClean.length === 8 && companyService.validateCEP(formattedCep)) {
@@ -93,14 +105,11 @@ const Clients: React.FC = () => {
       try {
         const addressData = await companyService.searchCEP(formattedCep);
         if (addressData) {
-          setFormData((prev: any) => ({
-            ...prev,
-            endereco: addressData.endereco,
-            bairro: addressData.bairro,
-            municipio: addressData.municipio,
-            uf: addressData.uf,
-            codigo_ibge: addressData.codigo_ibge
-          }));
+          handleAddressChange(index, 'endereco', addressData.endereco);
+          handleAddressChange(index, 'bairro', addressData.bairro);
+          handleAddressChange(index, 'municipio', addressData.municipio);
+          handleAddressChange(index, 'uf', addressData.uf);
+          handleAddressChange(index, 'codigo_ibge', addressData.codigo_ibge);
         }
       } catch (error) {
         console.error('Erro ao buscar CEP:', error);
@@ -108,6 +117,29 @@ const Clients: React.FC = () => {
         setCepLoading(false);
       }
     }
+  };
+
+  const handleAddAddress = () => {
+    setFormData((prev: any) => ({
+      ...prev,
+      enderecos: [
+        ...(prev.enderecos || []),
+        {
+          is_principal: !(prev.enderecos && prev.enderecos.length > 0),
+          cep: '', endereco: '', numero: '', complemento: '', bairro: '', municipio: '', uf: '', codigo_ibge: ''
+        }
+      ]
+    }));
+  };
+
+  const handleRemoveAddress = (index: number) => {
+    setFormData((prev: any) => {
+      const newEnderecos = prev.enderecos.filter((_: any, i: number) => i !== index);
+      if (newEnderecos.length > 0 && prev.enderecos[index].is_principal) {
+        newEnderecos[0].is_principal = true;
+      }
+      return { ...prev, enderecos: newEnderecos };
+    });
   };
 
   const handleOpen = async (client?: any) => {
@@ -131,15 +163,12 @@ const Clients: React.FC = () => {
           inscricao_estadual: fullClient.inscricao_estadual || '',
           email: fullClient.email || '',
           telefone: fullClient.telefone || '',
-          endereco: primaryAddr?.endereco || '',
-          numero: primaryAddr?.numero || '',
-          complemento: primaryAddr?.complemento || '',
-          bairro: primaryAddr?.bairro || '',
-          municipio: primaryAddr?.municipio || '',
-          uf: primaryAddr?.uf || '',
-          codigo_ibge: primaryAddr?.codigo_ibge || '',
-          cep: primaryAddr?.cep ? companyService.formatCEP(primaryAddr.cep) : '',
-          enderecos: fullClient.enderecos || [],
+          email: fullClient.email || '',
+          telefone: fullClient.telefone || '',
+          enderecos: fullClient.enderecos && fullClient.enderecos.length > 0 ? fullClient.enderecos : [{
+            is_principal: true,
+            endereco: '', numero: '', complemento: '', bairro: '', municipio: '', uf: '', codigo_ibge: '', cep: ''
+          }],
         });
         setOpen(true);
       } catch (error) {
@@ -157,15 +186,12 @@ const Clients: React.FC = () => {
         inscricao_estadual: '',
         email: '',
         telefone: '',
-        endereco: '',
-        numero: '',
-        complemento: '',
-        bairro: '',
-        municipio: '',
-        uf: '',
-        codigo_ibge: '',
-        cep: '',
-        enderecos: [],
+        email: '',
+        telefone: '',
+        enderecos: [{
+          is_principal: true,
+          endereco: '', numero: '', complemento: '', bairro: '', municipio: '', uf: '', codigo_ibge: '', cep: ''
+        }],
       });
       setOpen(true);
     }
@@ -208,33 +234,32 @@ const Clients: React.FC = () => {
 
     // Regras para Pessoa Jurídica
     if (formData.tipo_pessoa === 'J') {
-      // Endereço obrigatório para PJ (conforme regra anterior)
-      if (!formData.endereco || !String(formData.endereco).trim()) {
-        newErrors.endereco = 'Endereço é obrigatório para Pessoa Jurídica';
-      }
-
       // Inscrição estadual conforme indicador
       if (formData.ind_ie_dest && formData.ind_ie_dest !== '9') {
-        if (!companyService.validateInscricaoEstadual(formData.inscricao_estadual || '', formData.uf)) {
+        if (!companyService.validateInscricaoEstadual(formData.inscricao_estadual || '', formData.enderecos?.[0]?.uf || '')) {
           newErrors.inscricao_estadual = 'Inscrição estadual inválida ou obrigatória conforme indicador';
         }
       }
     }
 
-    // Validação de endereço: se qualquer campo do endereço foi preenchido, exigir campos mínimos
-    const addressTouched = ['endereco', 'numero', 'bairro', 'municipio', 'uf', 'cep'].some((k) => !!(formData as any)[k]);
-    if (addressTouched) {
-      if (!formData.endereco) newErrors.endereco = newErrors.endereco || 'Endereço é obrigatório';
-      if (!formData.bairro) newErrors.bairro = newErrors.bairro || 'Bairro é obrigatório';
-      if (!formData.municipio) newErrors.municipio = newErrors.municipio || 'Município é obrigatório';
-      if (!formData.uf) newErrors.uf = newErrors.uf || 'UF é obrigatório';
-      if (!formData.cep) newErrors.cep = newErrors.cep || 'CEP é obrigatório';
-      else if (!companyService.validateCEP(formData.cep)) newErrors.cep = 'CEP inválido';
+    // Validação de endereço
+    const enderecos = formData.enderecos || [];
+    enderecos.forEach((end: any, idx: number) => {
+      const addressTouched = ['endereco', 'numero', 'bairro', 'municipio', 'uf', 'cep'].some((k) => !!end[k]);
+      // Se for PJ tem que ter o primeiro endereço. Se for PF tem que ter se algo foi tocado ou se é o único e está parcialmente preenchido.
+      if (addressTouched || (formData.tipo_pessoa === 'J' && idx === 0)) {
+        if (!end.endereco) newErrors[`enderecos[${idx}].endereco`] = 'Endereço é obrigatório';
+        if (!end.bairro) newErrors[`enderecos[${idx}].bairro`] = 'Bairro é obrigatório';
+        if (!end.municipio) newErrors[`enderecos[${idx}].municipio`] = 'Município é obrigatório';
+        if (!end.uf) newErrors[`enderecos[${idx}].uf`] = 'UF é obrigatório';
+        if (!end.cep) newErrors[`enderecos[${idx}].cep`] = 'CEP é obrigatório';
+        else if (!companyService.validateCEP(end.cep)) newErrors[`enderecos[${idx}].cep`] = 'CEP inválido';
 
-      if (formData.codigo_ibge && !companyService.validateCodigoIBGE(formData.codigo_ibge, formData.uf)) {
-        newErrors.codigo_ibge = 'Código IBGE inválido ou incompatível com a UF';
+        if (end.codigo_ibge && !companyService.validateCodigoIBGE(end.codigo_ibge, end.uf)) {
+          newErrors[`enderecos[${idx}].codigo_ibge`] = 'Código IBGE inválido ou incompatível com a UF';
+        }
       }
-    }
+    });
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -247,38 +272,13 @@ const Clients: React.FC = () => {
     }
     if (!activeCompany) return;
     try {
-      // Prepare payload: ensure backend receives `enderecos` as an array when address fields are filled
       const payload: any = { ...formData };
-      const addressTouched = ['endereco', 'numero', 'bairro', 'municipio', 'uf', 'cep'].some((k) => !!(payload as any)[k]);
-      if (addressTouched) {
-        // If enderecos is empty or not provided, create a primary address from the flat fields
-        if (!payload.enderecos || payload.enderecos.length === 0) {
-          payload.enderecos = [{
-            descricao: undefined,
-            endereco: payload.endereco || '',
-            numero: payload.numero || '',
-            complemento: payload.complemento || '',
-            bairro: payload.bairro || '',
-            municipio: payload.municipio || '',
-            uf: payload.uf || '',
-            cep: payload.cep || '',
-            codigo_ibge: payload.codigo_ibge || '',
-            is_principal: true,
-          }];
-        } else {
-          // merge flat fields into the first endereco entry to keep data in sync
-          payload.enderecos[0] = {
-            ...payload.enderecos[0],
-            endereco: payload.endereco || payload.enderecos[0].endereco,
-            numero: payload.numero || payload.enderecos[0].numero,
-            complemento: payload.complemento || payload.enderecos[0].complemento,
-            bairro: payload.bairro || payload.enderecos[0].bairro,
-            municipio: payload.municipio || payload.enderecos[0].municipio,
-            uf: payload.uf || payload.enderecos[0].uf,
-            cep: payload.cep || payload.enderecos[0].cep,
-            codigo_ibge: payload.codigo_ibge || payload.enderecos[0].codigo_ibge,
-          };
-        }
+      
+      // Filtrar endereços vazios se não for PJ
+      if (payload.tipo_pessoa === 'F') {
+         payload.enderecos = payload.enderecos.filter((end: any) => 
+            ['endereco', 'numero', 'bairro', 'municipio', 'uf', 'cep'].some((k) => !!end[k])
+         );
       }
 
       if (editingClient) {
@@ -551,7 +551,7 @@ const Clients: React.FC = () => {
                     }`}
                   >
                     <span className="text-sm sm:text-base">{tab.icon}</span>
-                    <span className="text-xs sm:text-sm font-semibold hidden xs:inline">{tab.label}</span>
+                    <span className="text-xs sm:text-sm font-semibold">{tab.label}</span>
                     {activeTab === tab.id && (
                       <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${
                         tab.color === 'blue' ? 'from-blue-500 to-blue-600' :
@@ -669,111 +669,142 @@ const Clients: React.FC = () => {
                 </div>
               )}
               {activeTab === 'address' && (
-                <div className="space-y-4 sm:space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <div>
-                      <TextField
-                        fullWidth
-                        label="CEP"
-                        value={formData.cep || ''}
-                        onChange={(e) => handleCepChange(e.target.value)}
-                        error={!!errors.cep}
-                        helperText={errors.cep}
-                        placeholder="00000-000"
-                        InputProps={{
-                          endAdornment: cepLoading ? <CircularProgress size={16} /> : null,
-                        }}
-                        size="small"
-                      />
-                    </div>
+                <div className="space-y-6">
+                  {(formData.enderecos || []).map((endereco: any, index: number) => (
+                    <div key={index} className="relative bg-gray-50 p-4 rounded-xl border border-gray-200">
+                      <div className="absolute top-2 right-2 flex gap-2">
+                        {index === 0 && (
+                           <Chip label="Principal" size="small" color="primary" />
+                        )}
+                        {index > 0 && (
+                          <IconButton size="small" onClick={() => handleRemoveAddress(index)} color="error" title="Remover este endereço">
+                            <TrashIcon className="w-4 h-4" />
+                          </IconButton>
+                        )}
+                      </div>
+                      
+                      <Typography variant="subtitle2" sx={{ mb: 2, color: 'text.secondary', fontWeight: 'bold' }}>
+                        Endereço {index + 1}
+                      </Typography>
 
-                    <div className="sm:col-span-2">
-                      <TextField
-                        fullWidth
-                        label="Endereço"
-                        value={formData.endereco || ''}
-                        onChange={(e) => handleInputChange('endereco', e.target.value)}
-                        error={!!errors.endereco}
-                        helperText={errors.endereco}
-                        size="small"
-                      />
-                    </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                        <div>
+                          <TextField
+                            fullWidth
+                            label="CEP *"
+                            value={endereco.cep || ''}
+                            onChange={(e) => handleCepChange(index, e.target.value)}
+                            error={!!errors[`enderecos[${index}].cep`]}
+                            helperText={errors[`enderecos[${index}].cep`]}
+                            placeholder="00000-000"
+                            InputProps={{
+                              endAdornment: cepLoading ? <CircularProgress size={16} /> : null,
+                            }}
+                            size="small"
+                          />
+                        </div>
 
-                    <div>
-                      <TextField
-                        fullWidth
-                        label="Número"
-                        value={formData.numero || ''}
-                        onChange={(e) => handleInputChange('numero', e.target.value)}
-                        error={!!errors.numero}
-                        helperText={errors.numero}
-                        size="small"
-                      />
-                    </div>
+                        <div className="sm:col-span-2">
+                          <TextField
+                            fullWidth
+                            label="Endereço *"
+                            value={endereco.endereco || ''}
+                            onChange={(e) => handleAddressChange(index, 'endereco', e.target.value)}
+                            error={!!errors[`enderecos[${index}].endereco`]}
+                            helperText={errors[`enderecos[${index}].endereco`]}
+                            size="small"
+                          />
+                        </div>
 
-                    <div>
-                      <TextField
-                        fullWidth
-                        label="Complemento"
-                        value={formData.complemento || ''}
-                        onChange={(e) => handleInputChange('complemento', e.target.value)}
-                        size="small"
-                      />
-                    </div>
+                        <div>
+                          <TextField
+                            fullWidth
+                            label="Número"
+                            value={endereco.numero || ''}
+                            onChange={(e) => handleAddressChange(index, 'numero', e.target.value)}
+                            error={!!errors[`enderecos[${index}].numero`]}
+                            helperText={errors[`enderecos[${index}].numero`]}
+                            size="small"
+                          />
+                        </div>
 
-                    <div>
-                      <TextField
-                        fullWidth
-                        label="Bairro"
-                        value={formData.bairro || ''}
-                        onChange={(e) => handleInputChange('bairro', e.target.value)}
-                        error={!!errors.bairro}
-                        helperText={errors.bairro}
-                        size="small"
-                      />
-                    </div>
+                        <div>
+                          <TextField
+                            fullWidth
+                            label="Complemento"
+                            value={endereco.complemento || ''}
+                            onChange={(e) => handleAddressChange(index, 'complemento', e.target.value)}
+                            size="small"
+                          />
+                        </div>
 
-                    <div>
-                      <TextField
-                        fullWidth
-                        label="Município"
-                        value={formData.municipio || ''}
-                        InputProps={{
-                          readOnly: true,
-                        }}
-                        error={!!errors.municipio}
-                        helperText={errors.municipio || "Preenchido automaticamente pelo CEP"}
-                        size="small"
-                      />
-                    </div>
+                        <div>
+                          <TextField
+                            fullWidth
+                            label="Bairro *"
+                            value={endereco.bairro || ''}
+                            onChange={(e) => handleAddressChange(index, 'bairro', e.target.value)}
+                            error={!!errors[`enderecos[${index}].bairro`]}
+                            helperText={errors[`enderecos[${index}].bairro`]}
+                            size="small"
+                          />
+                        </div>
 
-                    <div>
-                      <TextField
-                        fullWidth
-                        label="UF"
-                        value={formData.uf || ''}
-                        InputProps={{
-                          readOnly: true,
-                        }}
-                        error={!!errors.uf}
-                        helperText={errors.uf || "Preenchido automaticamente"}
-                        size="small"
-                      />
-                    </div>
+                        <div>
+                          <TextField
+                            fullWidth
+                            label="Município *"
+                            value={endereco.municipio || ''}
+                            InputProps={{
+                              readOnly: true,
+                            }}
+                            error={!!errors[`enderecos[${index}].municipio`]}
+                            helperText={errors[`enderecos[${index}].municipio`] || "Preenchido automaticamente pelo CEP"}
+                            size="small"
+                          />
+                        </div>
 
-                    <div>
-                      <TextField
-                        fullWidth
-                        label="Código IBGE"
-                        value={formData.codigo_ibge || ''}
-                        InputProps={{
-                          readOnly: true,
-                        }}
-                        error={!!errors.codigo_ibge}
-                        helperText={errors.codigo_ibge || "Código do município"}
-                        size="small"
-                      />
+                        <div>
+                          <TextField
+                            fullWidth
+                            label="UF *"
+                            value={endereco.uf || ''}
+                            InputProps={{
+                              readOnly: true,
+                            }}
+                            error={!!errors[`enderecos[${index}].uf`]}
+                            helperText={errors[`enderecos[${index}].uf`] || "Automático"}
+                            size="small"
+                          />
+                        </div>
+
+                        <div>
+                          <TextField
+                            fullWidth
+                            label="Código IBGE"
+                            value={endereco.codigo_ibge || ''}
+                            InputProps={{
+                              readOnly: true,
+                            }}
+                            error={!!errors[`enderecos[${index}].codigo_ibge`]}
+                            helperText={errors[`enderecos[${index}].codigo_ibge`] || "Automático"}
+                            size="small"
+                          />
+                        </div>
+                      </div>
                     </div>
+                  ))}
+                  
+                  <div className="flex justify-center mt-4">
+                    <Button
+                      variant="outlined"
+                      startIcon={<PlusIcon className="w-4 h-4" />}
+                      onClick={handleAddAddress}
+                      size="small"
+                      sx={{ borderRadius: '8px' }}
+                    >
+                      Adicionar Novo Endereço
+                    </Button>
                   </div>
                 </div>
               )}

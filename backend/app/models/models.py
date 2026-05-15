@@ -411,7 +411,8 @@ class ServicoContratado(Base):
     status = Column(SQLAlchemyEnum(StatusContrato), nullable=False, server_default=StatusContrato.PENDENTE_INSTALACAO.value)
 
     # Informações de instalação (específicas para ISPs)
-    endereco_instalacao = Column(Text, nullable=True)  # Endereço onde o serviço é instalado (pode ser diferente do endereço do cliente)
+    endereco_id = Column(Integer, ForeignKey("empresa_cliente_enderecos.id"), nullable=True) # ID real do endereço do cliente
+    endereco_instalacao = Column(Text, nullable=True)  # Endereço formatado para fallback/histórico
     tipo_conexao = Column(SQLAlchemyEnum(TipoConexao), nullable=True)
     coordenadas_gps = Column(String(50), nullable=True)  # Latitude,Longitude para mapeamento
     data_instalacao = Column(Date, nullable=True)  # Quando foi instalado fisicamente

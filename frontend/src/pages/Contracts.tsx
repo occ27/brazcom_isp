@@ -129,6 +129,7 @@ const Contracts: React.FC = () => {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
+  const [clientAddresses, setClientAddresses] = useState<any[]>([]);
 
   // Tab state for form organization
   const [tabValue, setTabValue] = useState(0);
@@ -997,6 +998,11 @@ const Contracts: React.FC = () => {
         try {
           const clientResponse = await clientService.getClientById(c.cliente_id, activeCompany.id);
           setClients([clientResponse]);
+          if (clientResponse.enderecos && clientResponse.enderecos.length > 0) {
+            setClientAddresses(clientResponse.enderecos);
+          } else {
+            setClientAddresses([]);
+          }
           setClientSearch(clientResponse.nome_razao_social || '');
         } catch (error) {
           console.error('Erro ao carregar cliente:', error);
@@ -1097,6 +1103,7 @@ const Contracts: React.FC = () => {
       // Reset input values and prefetch the first 10 clients and services
       setClientSearch('');
       setServicoSearch('');
+      setClientAddresses([]);
 
       // Prefetch defaults (do not await)
       if (activeCompany) {
@@ -1208,10 +1215,10 @@ const Contracts: React.FC = () => {
     const newErrors: Record<string, string> = { ...errors };
 
     // Campos sempre obrigatórios
-    if (!currentForm.endereco_instalacao || currentForm.endereco_instalacao.trim() === '') {
-      newErrors.endereco_instalacao = 'Endereço de instalação é obrigatório';
+    if (!currentForm.endereco_id) {
+      newErrors.endereco_id = 'Endereço de instalação é obrigatório';
     } else {
-      delete newErrors.endereco_instalacao;
+      delete newErrors.endereco_id;
     }
 
     if (!currentForm.tipo_conexao) {
@@ -1360,8 +1367,8 @@ const Contracts: React.FC = () => {
     }
 
     // Endereço de instalação obrigatório
-    if (!form.endereco_instalacao || form.endereco_instalacao.trim() === '') {
-      newErrors.endereco_instalacao = 'Endereço de instalação é obrigatório';
+    if (!form.endereco_id) {
+      newErrors.endereco_id = 'Endereço de instalação é obrigatório';
     }
 
     // Tipo de conexão obrigatório
@@ -1445,7 +1452,7 @@ const Contracts: React.FC = () => {
       const dadosPlanoFields = [
         'numero_contrato', 'cliente_id', 'servico_id', 'periodicidade', 'dia_emissao',
         'd_contrato_ini', 'd_contrato_fim', 'dia_vencimento', 'quantidade', 'valor_unitario',
-        'auto_emit', 'is_active', 'status', 'endereco_instalacao', 'tipo_conexao',
+        'auto_emit', 'is_active', 'status', 'endereco_id', 'tipo_conexao',
         'coordenadas_gps', 'data_instalacao', 'responsavel_tecnico', 'velocidade_garantida'
       ];
 
@@ -1854,25 +1861,28 @@ const Contracts: React.FC = () => {
                               return [value, ...prev];
                             });
 
-                            // Preencher automaticamente o endereço de instalação com o primeiro endereço do cliente
-                            // apenas se o campo estiver vazio
-                            if (activeCompany && !form.endereco_instalacao) {
+                            if (activeCompany) {
                               try {
                                 const clientDetails = await clientService.getClientById(value.id, activeCompany.id);
                                 if (clientDetails.enderecos && clientDetails.enderecos.length > 0) {
-                                  // Pegar o primeiro endereço (ou o principal se existir)
-                                  const enderecoPrincipal = clientDetails.enderecos.find(e => e.is_principal) || clientDetails.enderecos[0];
-                                  // Formatar o endereço completo
-                                  const enderecoCompleto = `${enderecoPrincipal.endereco}, ${enderecoPrincipal.numero}${enderecoPrincipal.complemento ? ', ' + enderecoPrincipal.complemento : ''} - ${enderecoPrincipal.bairro}, ${enderecoPrincipal.municipio}/${enderecoPrincipal.uf}, CEP: ${enderecoPrincipal.cep}`;
-                                  handleInputChange('endereco_instalacao', enderecoCompleto);
+                                  setClientAddresses(clientDetails.enderecos);
+                                  
+                                  if (!form.endereco_id) {
+                                    const primary = clientDetails.enderecos.find((e: any) => e.is_principal) || clientDetails.enderecos[0];
+                                    handleInputChange('endereco_id', primary.id);
+                                  }
+                                } else {
+                                  setClientAddresses([]);
                                 }
                               } catch (error) {
                                 console.error('Erro ao buscar endereços do cliente:', error);
+                                setClientAddresses([]);
                               }
                             }
                           } else {
                             // Limpar o endereço se nenhum cliente foi selecionado
-                            handleInputChange('endereco_instalacao', '');
+                            handleInputChange('endereco_id', undefined);
+                            setClientAddresses([]);
                           }
                         }}
                         inputValue={clientSearch}
@@ -2190,17 +2200,21 @@ const Contracts: React.FC = () => {
                       Dados específicos da instalação do serviço de internet no endereço do cliente.
                     </p>
                     <div className="mt-3 sm:mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                      <TextField
-                        label="Endereço de Instalação"
-                        value={form.endereco_instalacao || ''}
-                        onChange={e => handleInputChange('endereco_instalacao', e.target.value)}
-                        fullWidth
-                        size="small"
-                        multiline
-                        rows={2}
-                        error={!!errors.endereco_instalacao}
-                        helperText={errors.endereco_instalacao || "Endereço onde o serviço será instalado"}
-                      />
+                      <FormControl fullWidth size="small" error={!!errors.endereco_id}>
+                        <InputLabel>Endereço de Instalação *</InputLabel>
+                        <Select
+                          value={form.endereco_id || ''}
+                          label="Endereço de Instalação *"
+                          onChange={(e: SelectChangeEvent<any>) => handleInputChange('endereco_id', e.target.value)}
+                        >
+                          {clientAddresses.map((end: any) => (
+                            <MenuItem key={end.id} value={end.id}>
+                              {`${end.endereco}, ${end.numero}${end.complemento ? ' - ' + end.complemento : ''} - ${end.bairro}, ${end.municipio}/${end.uf}`}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        {errors.endereco_id && <p className="text-sm text-red-600 mt-1">{errors.endereco_id}</p>}
+                      </FormControl>
                       <FormControl fullWidth size="small" error={!!errors.tipo_conexao}>
                         <InputLabel>Tipo de Conexão</InputLabel>
                         <Select

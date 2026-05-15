@@ -14,6 +14,7 @@ class ServicoContratadoBase(BaseModel):
     status: StatusContrato = StatusContrato.PENDENTE_INSTALACAO
     
     # Informações de instalação
+    endereco_id: Optional[int] = Field(None, description="ID do endereço de instalação (referência a empresa_cliente_enderecos)")
     endereco_instalacao: Optional[str] = Field(None, max_length=500)
     tipo_conexao: Optional[TipoConexao] = None
     coordenadas_gps: Optional[str] = Field(None, max_length=50)
@@ -129,6 +130,7 @@ class ServicoContratadoUpdate(BaseModel):
     d_contrato_ini: Optional[date] = None
     d_contrato_fim: Optional[date] = None
     status: Optional[StatusContrato] = None
+    endereco_id: Optional[int] = Field(None)
     endereco_instalacao: Optional[str] = Field(None, max_length=500)
     tipo_conexao: Optional[TipoConexao] = None
     coordenadas_gps: Optional[str] = Field(None, max_length=50)
