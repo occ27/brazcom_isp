@@ -163,8 +163,6 @@ const Clients: React.FC = () => {
           inscricao_estadual: fullClient.inscricao_estadual || '',
           email: fullClient.email || '',
           telefone: fullClient.telefone || '',
-          email: fullClient.email || '',
-          telefone: fullClient.telefone || '',
           enderecos: fullClient.enderecos && fullClient.enderecos.length > 0 ? fullClient.enderecos : [{
             is_principal: true,
             endereco: '', numero: '', complemento: '', bairro: '', municipio: '', uf: '', codigo_ibge: '', cep: ''
@@ -184,8 +182,6 @@ const Clients: React.FC = () => {
         tipo_pessoa: 'F',
         ind_ie_dest: '9',
         inscricao_estadual: '',
-        email: '',
-        telefone: '',
         email: '',
         telefone: '',
         enderecos: [{

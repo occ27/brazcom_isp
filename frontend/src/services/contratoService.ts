@@ -20,6 +20,7 @@ export interface Contrato {
 
   // Novos campos específicos para ISPs
   status?: 'ATIVO' | 'SUSPENSO' | 'CANCELADO' | 'PENDENTE_INSTALACAO' | 'AGUARDANDO_ASSINATURA';
+  endereco_id?: number;
   endereco_instalacao?: string;
   tipo_conexao?: 'FIBRA' | 'RADIO' | 'CABO' | 'SATELITE' | 'ADSL' | 'OUTRO';
   coordenadas_gps?: string;
