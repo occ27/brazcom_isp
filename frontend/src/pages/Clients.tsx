@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Box, Paper, Typography, Button, IconButton, TextField, CircularProgress, Chip, Snackbar, Alert, useMediaQuery, useTheme, MenuItem, FormControl, InputLabel, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination, Card, CardContent, Divider, Pagination, SelectChangeEvent, InputAdornment } from '@mui/material';
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { Box, Paper, Typography, Button, IconButton, TextField, CircularProgress, Chip, Snackbar, Alert, useMediaQuery, useTheme, MenuItem, FormControl, InputLabel, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination, Card, CardContent, Divider, Pagination, SelectChangeEvent, InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions, Menu, ListItemIcon, ListItemText } from '@mui/material';
+import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon, DocumentTextIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline';
+import api from '../services/authService';
+import { formatCurrency } from '../utils/currencyUtils';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
 import clientService, { ClientCreate } from '../services/clientService';
@@ -30,6 +32,29 @@ const Clients: React.FC = () => {
   const [formData, setFormData] = useState<any>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
+
+  // Statement state
+  const [statementOpen, setStatementOpen] = useState(false);
+  const [selectedClientForStatement, setSelectedClientForStatement] = useState<any | null>(null);
+  const [clientReceivables, setClientReceivables] = useState<any[]>([]);
+  const [clientContracts, setClientContracts] = useState<any[]>([]);
+  const [statementFilterContract, setStatementFilterContract] = useState<string>('all');
+  const [statementFilterStatus, setStatementFilterStatus] = useState<string>('all');
+  const [statementLoading, setStatementLoading] = useState(false);
+
+  // Menu state
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedClientForMenu, setSelectedClientForMenu] = useState<any | null>(null);
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, client: any) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedClientForMenu(client);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+    setSelectedClientForMenu(null);
+  };
 
   const loadClients = useCallback(async () => {
     if (!activeCompany) return;
@@ -195,6 +220,41 @@ const Clients: React.FC = () => {
 
   const handleClose = () => { setOpen(false); setEditingClient(null); };
 
+  const handleOpenStatement = async (client: any) => {
+    if (!activeCompany) return;
+    setSelectedClientForStatement(client);
+    setStatementOpen(true);
+    setStatementLoading(true);
+    setStatementFilterContract('all');
+    setStatementFilterStatus('all');
+    try {
+      // Load Receivables
+      const recRes = await api.get(`/receivables/cliente/${client.id}?empresa_id=${activeCompany.id}`);
+      setClientReceivables(recRes.data || []);
+      
+      // Load Contracts
+      const conRes = await api.get(`/servicos-contratados/cliente/${client.id}?empresa_id=${activeCompany.id}`);
+      setClientContracts(conRes.data || []);
+    } catch (e) {
+      console.error('Erro ao carregar dados do extrato', e);
+      setSnackbar({ open: true, message: 'Erro ao carregar extrato financeiro', severity: 'error' });
+    } finally {
+      setStatementLoading(false);
+    }
+  };
+
+  const filteredReceivables = clientReceivables.filter(r => {
+    const matchContract = statementFilterContract === 'all' || r.servico_contratado_id?.toString() === statementFilterContract;
+    const matchStatus = statementFilterStatus === 'all' || r.status === statementFilterStatus;
+    return matchContract && matchStatus;
+  });
+
+  const statementTotals = filteredReceivables.reduce((acc, r) => {
+    if (r.status === 'PAID') acc.paid += (r.paid_amount !== null && r.paid_amount !== undefined ? r.paid_amount : r.amount);
+    else if (r.status !== 'CANCELLED') acc.pending += r.amount;
+    return acc;
+  }, { paid: 0, pending: 0 });
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -331,17 +391,14 @@ const Clients: React.FC = () => {
               <Chip label={c.is_active ? 'Ativo' : 'Inativo'} color={c.is_active ? 'success' : 'default'} size="small" />
             </Box>
             <Divider sx={{ my: 1.5 }} />
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="body2">{c.email || '-'}</Typography>
-              <Box>
-                <IconButton size="small" onClick={() => handleOpen(c)} title="Editar">
-                  <PencilIcon className="w-5 h-5" />
+             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+               <Typography variant="body2">{c.email || '-'}</Typography>
+               <Box>
+                <IconButton size="small" onClick={(e) => handleMenuOpen(e, c)}>
+                  <EllipsisVerticalIcon className="w-5 h-5" />
                 </IconButton>
-                <IconButton size="small" onClick={() => handleDelete(c.id)} title="Excluir">
-                  <TrashIcon className="w-5 h-5 text-red-500" />
-                </IconButton>
-              </Box>
-            </Box>
+               </Box>
+             </Box>
           </CardContent>
         </Card>
       ))}
@@ -370,11 +427,8 @@ const Clients: React.FC = () => {
                 <Chip label={c.is_active ? 'Ativo' : 'Inativo'} color={c.is_active ? 'success' : 'default'} size="small" />
               </TableCell>
               <TableCell align="right">
-                <IconButton size="small" onClick={() => handleOpen(c)} title="Editar">
-                  <PencilIcon className="w-5 h-5" />
-                </IconButton>
-                <IconButton size="small" onClick={() => handleDelete(c.id)} title="Excluir">
-                  <TrashIcon className="w-5 h-5 text-red-500" />
+                <IconButton size="small" onClick={(e) => handleMenuOpen(e, c)}>
+                  <EllipsisVerticalIcon className="w-5 h-5" />
                 </IconButton>
               </TableCell>
             </TableRow>
@@ -819,6 +873,159 @@ const Clients: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Menu de Ações Único */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleMenuClose}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        <MenuItem onClick={() => { if (selectedClientForMenu) handleOpenStatement(selectedClientForMenu); handleMenuClose(); }}>
+          <ListItemIcon><DocumentTextIcon className="w-4 h-4 text-indigo-500" /></ListItemIcon>
+          <ListItemText primary="Extrato Financeiro" />
+        </MenuItem>
+        <MenuItem onClick={() => { if (selectedClientForMenu) handleOpen(selectedClientForMenu); handleMenuClose(); }}>
+          <ListItemIcon><PencilIcon className="w-4 h-4 text-blue-500" /></ListItemIcon>
+          <ListItemText primary="Editar" />
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={() => { if (selectedClientForMenu) handleDelete(selectedClientForMenu.id); handleMenuClose(); }} sx={{ color: 'error.main' }}>
+          <ListItemIcon><TrashIcon className="w-4 h-4 text-red-500" /></ListItemIcon>
+          <ListItemText primary="Excluir" />
+        </MenuItem>
+      </Menu>
+
+      {/* Modal Extrato Financeiro */}
+      <Dialog open={statementOpen} onClose={() => setStatementOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 'bold' }}>
+          Extrato Financeiro: {selectedClientForStatement?.nome_razao_social}
+          <IconButton onClick={() => setStatementOpen(false)}><XMarkIcon className="w-6 h-6" /></IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+            <FormControl size="small" sx={{ minWidth: 250 }}>
+              <InputLabel>Filtrar por Contrato</InputLabel>
+              <Select
+                value={statementFilterContract}
+                label="Filtrar por Contrato"
+                onChange={(e) => setStatementFilterContract(e.target.value)}
+              >
+                <MenuItem value="all">Todos os Contratos / Lançamentos</MenuItem>
+                {clientContracts.map(c => (
+                  <MenuItem key={c.id} value={c.id.toString()}>
+                    Contrato #{c.id} - {c.servico_descricao || 'Serviço'}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={statementFilterStatus}
+                label="Status"
+                onChange={(e) => setStatementFilterStatus(e.target.value)}
+              >
+                <MenuItem value="all">Todos os Status</MenuItem>
+                <MenuItem value="PENDING">PENDENTE</MenuItem>
+                <MenuItem value="PAID">PAGO</MenuItem>
+                <MenuItem value="CANCELLED">CANCELADO</MenuItem>
+              </Select>
+            </FormControl>
+            
+            <Paper variant="outlined" sx={{ p: 1, px: 2, display: 'flex', gap: 3, bgcolor: 'grey.50' }}>
+              <Box>
+                <Typography variant="caption" color="text.secondary" display="block">Total Recebido</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'success.main' }}>{formatCurrency(statementTotals.paid)}</Typography>
+              </Box>
+              <Divider orientation="vertical" flexItem />
+              <Box>
+                <Typography variant="caption" color="text.secondary" display="block">Total Pendente</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'warning.main' }}>{formatCurrency(statementTotals.pending)}</Typography>
+              </Box>
+            </Paper>
+          </Box>
+
+          {statementLoading ? (
+            <Box sx={{ py: 10, textAlign: 'center' }}><CircularProgress /></Box>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Vencimento</TableCell>
+                    <TableCell>Contrato</TableCell>
+                    <TableCell>Método</TableCell>
+                    <TableCell align="right">Valor</TableCell>
+                    <TableCell align="right">Vlr Pago</TableCell>
+                    <TableCell>Status</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredReceivables.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} align="center" sx={{ py: 3 }}>Nenhuma cobrança encontrada.</TableCell></TableRow>
+                  ) : filteredReceivables.map(r => (
+                    <TableRow key={r.id} hover>
+                      <TableCell>{new Date(r.due_date).toLocaleDateString('pt-BR')}</TableCell>
+                      <TableCell>{r.servico_contratado_id ? `#${r.servico_contratado_id}` : 'Avulso'}</TableCell>
+                      <TableCell>{r.tipo === 'MERCADO_PAGO' ? 'Mercado Pago' : r.bank}</TableCell>
+                      <TableCell align="right">{formatCurrency(r.amount)}</TableCell>
+                      <TableCell align="right">
+                        {r.paid_amount !== null && r.paid_amount !== undefined ? formatCurrency(r.paid_amount) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={r.status} 
+                          size="small" 
+                          color={r.status === 'PAID' ? 'success' : r.status === 'CANCELLED' ? 'default' : 'warning'} 
+                          variant="outlined"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {filteredReceivables.length > 0 && (
+                    <TableRow sx={{ bgcolor: 'grey.100', '& td': { fontWeight: 'bold' } }}>
+                      <TableCell colSpan={3} align="right">TOTAIS:</TableCell>
+                      <TableCell align="right">
+                        {formatCurrency(filteredReceivables.reduce((acc, r) => acc + r.amount, 0))}
+                      </TableCell>
+                      <TableCell align="right">
+                        {formatCurrency(filteredReceivables.reduce((acc, r) => acc + (r.paid_amount || 0), 0))}
+                      </TableCell>
+                      <TableCell />
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+
+          {!statementLoading && filteredReceivables.length > 0 && (
+            <Box sx={{ mt: 3, p: 2, bgcolor: 'primary.50', borderRadius: 2, border: '1px solid', borderColor: 'primary.100' }}>
+              <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.700' }}>
+                Resumo do Filtro Atual
+              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Quantidade</Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 'bold' }}>{filteredReceivables.length} registro(s)</Typography>
+                </Box>
+                <Box alignSelf="flex-end" sx={{ textAlign: 'right' }}>
+                  <Typography variant="caption" color="text.secondary">Soma dos Valores</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.800' }}>
+                    {formatCurrency(filteredReceivables.reduce((acc, r) => acc + r.amount, 0))}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setStatementOpen(false)}>Fechar</Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar open={snackbar.open} autoHideDuration={5000} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}>
         <Alert severity={snackbar.severity} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}>{snackbar.message}</Alert>

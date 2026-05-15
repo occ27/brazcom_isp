@@ -21,6 +21,9 @@ from app.core.config import settings
 
 router = APIRouter(prefix="/receivables", tags=["Receivables"])
 
+class SettlePayload(BaseModel):
+    paid_amount: Optional[float] = None
+
 class ReceivableResponse(BaseModel):
     id: int
     empresa_id: int
@@ -40,6 +43,7 @@ class ReceivableResponse(BaseModel):
     carteira: Optional[str] = None
     agencia: Optional[str] = None
     conta: Optional[str] = None
+    paid_amount: Optional[float] = None
     nosso_numero: Optional[str] = None
     bank_registration_id: Optional[str] = None
     codigo_barras: Optional[str] = None
@@ -309,8 +313,21 @@ def list_receivables(
         result.append(response)
     
     return {"data": result, "total": total}
+    
+@router.get("/cliente/{cliente_id}", response_model=List[ReceivableResponse])
+def list_receivables_by_client(cliente_id: int, empresa_id: Optional[int] = None, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+    """Lista todas as cobranças de um cliente específico."""
+    deps.permission_checker('receivables_view')(db=db, current_user=current_user)
+    
+    query = db.query(Receivable).filter(Receivable.cliente_id == cliente_id)
+    
+    if empresa_id:
+        query = query.filter(Receivable.empresa_id == empresa_id)
+        
+    items = query.order_by(Receivable.due_date.desc()).all()
+    return [ReceivableResponse.from_orm(r) for r in items]
 @router.put("/{receivable_id}/settle", response_model=ReceivableResponse)
-def settle_receivable(receivable_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+def settle_receivable(receivable_id: int, payload: SettlePayload = Body(...), db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     """Marca uma cobrança como paga manualmente."""
     deps.permission_checker('receivables_manage')(db=db, current_user=current_user)
     recv = db.query(Receivable).filter(Receivable.id == receivable_id).first()
@@ -319,6 +336,7 @@ def settle_receivable(receivable_id: int, db: Session = Depends(get_db), current
     
     recv.status = 'PAID'
     recv.paid_at = datetime.utcnow()
+    recv.paid_amount = payload.paid_amount if payload.paid_amount is not None else recv.amount
     
     # Se for boleto BB registrado, solicita a baixa (cancelamento) no banco
     if recv.bank == 'BANCO_DO_BRASIL' and recv.bb_boleto_numero:

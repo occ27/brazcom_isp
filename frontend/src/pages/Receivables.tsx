@@ -63,6 +63,8 @@ const Receivables: React.FC = () => {
   const [openDetails, setOpenDetails] = useState(false);
   const [openPdfModal, setOpenPdfModal] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [openSettle, setOpenSettle] = useState(false);
+  const [settleAmount, setSettleAmount] = useState('');
   
   // Data for Form
   const [clients, setClients] = useState<any[]>([]);
@@ -247,8 +249,29 @@ const Receivables: React.FC = () => {
     }
   };
 
+  const handleOpenSettle = (r: Receivable) => {
+    setSelectedReceivable(r);
+    setSettleAmount(maskCurrency(r.amount.toString()));
+    setOpenSettle(true);
+    setAnchorEl(null);
+  };
+
+  const handleConfirmSettle = async () => {
+    if (!selectedReceivable) return;
+    try {
+      const paidAmount = unmaskCurrency(settleAmount);
+      await receivableService.settleReceivable(selectedReceivable.id, paidAmount);
+      setSnackbar({ open: true, message: 'Cobrança baixada manualmente', severity: 'success' });
+      setOpenSettle(false);
+      loadReceivables();
+    } catch (e) {
+      setSnackbar({ open: true, message: stringifyError(e), severity: 'error' });
+    }
+  };
+
   const handleSettle = async (id: number) => {
-    if (!window.confirm('Confirmar o recebimento manual desta cobrança? O sistema marcará como PAGO e solicitará baixa no banco se houver boleto registrado.')) return;
+    // This function is kept for backward compatibility if needed, but we use handleOpenSettle now
+    if (!window.confirm('Confirmar o recebimento manual desta cobrança? O sistema marcará como PAGO.')) return;
     try {
       await receivableService.settleReceivable(id);
       setSnackbar({ open: true, message: 'Cobrança baixada manualmente', severity: 'success' });
@@ -396,6 +419,7 @@ const Receivables: React.FC = () => {
                 <TableCell>Emissão</TableCell>
                 <TableCell>Vencimento</TableCell>
                 <TableCell align="right">Valor</TableCell>
+                <TableCell align="right">Vlr Pago</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Gateway / Link</TableCell>
                 <TableCell align="right">Ações</TableCell>
@@ -417,6 +441,11 @@ const Receivables: React.FC = () => {
                   <TableCell>{new Date(r.issue_date).toLocaleDateString('pt-BR')}</TableCell>
                   <TableCell>{new Date(r.due_date).toLocaleDateString('pt-BR')}</TableCell>
                   <TableCell align="right">{(r.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
+                  <TableCell align="right">
+                    {r.paid_amount !== null && r.paid_amount !== undefined 
+                      ? (r.paid_amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) 
+                      : '-'}
+                  </TableCell>
                   <TableCell>
                     {r.status === 'REGISTRATION_FAILED' ? (
                       <Chip label="Falha" size="small" color="error" variant="outlined" onClick={() => setErrorDialog({ open: true, msg: r.registro_result || '' })} sx={{ cursor: 'pointer' }} />
@@ -507,7 +536,7 @@ const Receivables: React.FC = () => {
         )}
         
         {selectedReceivable?.status !== 'PAID' && selectedReceivable?.status !== 'CANCELLED' && (
-          <MenuItem onClick={() => { handleSettle(selectedReceivable!.id); setAnchorEl(null); }}>
+          <MenuItem onClick={() => { handleOpenSettle(selectedReceivable!); setAnchorEl(null); }}>
             <CheckCircleIcon className="w-4 h-4 mr-2 text-green-500" /> Baixar
           </MenuItem>
         )}
@@ -714,6 +743,37 @@ const Receivables: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenDetails(false)}>Fechar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal Confirmar Recebimento */}
+      <Dialog open={openSettle} onClose={() => setOpenSettle(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>Confirmar Recebimento</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" gutterBottom>
+            Confirme o valor recebido para a cobrança do cliente <strong>{selectedReceivable?.cliente_nome}</strong>.
+          </Typography>
+          <Box sx={{ mt: 2 }}>
+            <TextField
+              label="Valor Pago"
+              fullWidth
+              variant="outlined"
+              value={settleAmount}
+              onChange={(e) => setSettleAmount(maskCurrency(e.target.value))}
+              InputProps={{
+                startAdornment: <InputAdornment position="start">R$</InputAdornment>,
+              }}
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              Valor original devido: {selectedReceivable?.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenSettle(false)}>Cancelar</Button>
+          <Button variant="contained" color="success" onClick={handleConfirmSettle}>
+            Confirmar Baixa
+          </Button>
         </DialogActions>
       </Dialog>
 

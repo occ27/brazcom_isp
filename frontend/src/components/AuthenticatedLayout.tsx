@@ -71,13 +71,18 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
                 <h1 className="text-xl font-semibold text-gray-900">Portal do Cliente</h1>
               </div>
               <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-700">Olá, {user?.full_name}</span>
+                <div className="flex flex-col items-end pr-4 border-r border-gray-200">
+                  <span className="text-sm font-bold text-gray-900 leading-none">{user?.full_name}</span>
+                  <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-tighter mt-1">
+                    Cliente
+                  </span>
+                </div>
                 <button
                   onClick={() => {
                     logout();
                     navigate('/');
                   }}
-                  className="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium"
+                  className="text-gray-500 hover:text-red-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                 >
                   Sair
                 </button>
@@ -374,9 +379,20 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
               <Bars3Icon className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
 
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <div>
+            <div className="flex items-center flex-1">
+              <div className="ml-2 sm:ml-4">
                 <CompanySelector />
+              </div>
+              
+              <div className="ml-auto flex flex-col items-end pl-2 sm:pl-4 border-l border-gray-200">
+                <span className="text-[11px] font-extrabold text-indigo-700 leading-tight">
+                  <span className="hidden sm:inline">{user?.full_name || user?.nome || 'Usuário'}</span>
+                  <span className="sm:hidden">{(user?.full_name || user?.nome || 'Usuário').split(' ')[0]}</span>
+                </span>
+                <span className="text-[9px] text-gray-400 font-bold uppercase tracking-tight">
+                  {user?.is_superuser || user?.is_company_admin ? 'Admin' : 'Op'}
+                  <span className="hidden xs:inline"> {user?.is_superuser || user?.is_company_admin ? '' : 'Sistema'}</span>
+                </span>
               </div>
             </div>
           </div>

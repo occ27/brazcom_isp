@@ -34,9 +34,29 @@ def register_usuario(
 
 @router.get("/me", response_model=UsuarioResponse)
 def read_usuario_me(
+    db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_active_user)
 ):
     """Obtém os dados do usuário autenticado."""
+    # Se for superuser, ele é admin de qualquer empresa
+    if current_user.is_superuser:
+        current_user.is_company_admin = True
+        return current_user
+        
+    # Verificar se é admin da empresa ativa
+    from app.models.models import UsuarioEmpresa
+    if current_user.active_empresa_id:
+        assoc = db.query(UsuarioEmpresa).filter(
+            UsuarioEmpresa.usuario_id == current_user.id,
+            UsuarioEmpresa.empresa_id == current_user.active_empresa_id
+        ).first()
+        if assoc:
+            current_user.is_company_admin = assoc.is_admin
+        else:
+            current_user.is_company_admin = False
+    else:
+        current_user.is_company_admin = False
+        
     return current_user
 
 

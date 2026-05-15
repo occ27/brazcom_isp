@@ -11,6 +11,7 @@ export interface User {
   ativo?: boolean; // Mantido para compatibilidade
   tipo?: 'admin' | 'user'; // Mantido para compatibilidade
   active_empresa_id?: number;
+  is_company_admin: boolean;
   cliente_id?: number; // Para identificar usuários que são clientes
   created_at: string;
   updated_at: string;
@@ -186,19 +187,22 @@ export async function getCurrentUser(): Promise<User> {
       try {
         const response = await api.get('/usuarios/me');
         const userData = response.data;
+        const name = userData.full_name || userData.nome;
+        
         // Se conseguimos dados de admin, salvar o tipo para a próxima vez
         if (!userType) localStorage.setItem('user_type', 'admin');
         
         return {
           id: userData.id,
           email: userData.email,
-          full_name: userData.full_name,
-          nome: userData.full_name,
+          full_name: name,
+          nome: name,
           is_superuser: userData.is_superuser,
           is_active: userData.is_active,
           ativo: userData.is_active,
           tipo: userData.is_superuser ? 'admin' : 'user',
           active_empresa_id: userData.active_empresa_id,
+          is_company_admin: userData.is_company_admin || false,
           created_at: userData.created_at,
           updated_at: userData.updated_at,
         };

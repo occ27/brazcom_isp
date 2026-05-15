@@ -135,6 +135,7 @@ def get_financial_report_pdf(
             "tipo": r.tipo,
             "due_date": r.due_date.strftime('%d/%m/%Y') if r.due_date else "",
             "amount": r.amount,
+            "paid_amount": r.paid_amount,
             "status": status_map_fin.get(r.status, r.status),
             "paid_at": r.paid_at.strftime('%d/%m/%Y') if r.paid_at else None,
             "servico_nome": servico_nome

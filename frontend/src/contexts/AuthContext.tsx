@@ -12,6 +12,7 @@ interface AppUser {
   ativo?: boolean; // Mantido para compatibilidade
   tipo?: 'admin' | 'user'; // Mantido para compatibilidade
   active_empresa_id?: number;
+  is_company_admin: boolean;
   cliente_id?: number; // Para identificar usuários que são clientes
   created_at: string;
   updated_at: string;

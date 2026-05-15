@@ -28,6 +28,7 @@ export interface Receivable {
   printed_at?: string;
   sent_at?: string;
   paid_at?: string;
+  paid_amount?: number;
   registro_result?: string;
   pdf_url?: string;
   bb_boleto_numero?: string;
@@ -71,8 +72,8 @@ const testSicoobIntegration = async (empresaId: number, bankAccountId?: number, 
   return resp.data;
 };
 
-const settleReceivable = async (receivableId: number) => {
-  const resp = await api.put(`/receivables/${receivableId}/settle`);
+const settleReceivable = async (receivableId: number, paidAmount?: number) => {
+  const resp = await api.put(`/receivables/${receivableId}/settle`, { paid_amount: paidAmount });
   return resp.data;
 };
 

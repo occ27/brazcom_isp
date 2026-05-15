@@ -163,13 +163,14 @@ class ReportService:
         
         # Agrupamento por Plano (Serviço)
         grouped_fin = defaultdict(list)
-        status_summary = defaultdict(lambda: {'count': 0, 'total': 0.0})
+        status_summary = defaultdict(lambda: {'count': 0, 'total': 0.0, 'paid_total': 0.0})
         
         for r in receivables:
             plan_name = r.get('servico_nome', 'Avulso/Outros')
             grouped_fin[plan_name].append(r)
             status_summary[r.get('status', 'Indefinido')]['count'] += 1
             status_summary[r.get('status', 'Indefinido')]['total'] += r.get('amount', 0.0)
+            status_summary[r.get('status', 'Indefinido')]['paid_total'] += r.get('paid_amount', 0.0) if r.get('paid_amount') is not None else 0.0
 
         for plan_name, items in sorted(grouped_fin.items()):
             elements.append(Paragraph(f"Plano: {plan_name}", group_title_style))
@@ -180,28 +181,33 @@ class ReportService:
                 Paragraph('Tipo', header_style),
                 Paragraph('Vencimento', header_style),
                 Paragraph('Valor', header_style),
+                Paragraph('Vlr Pago', header_style),
                 Paragraph('Status', header_style),
                 Paragraph('Pago Em', header_style)
             ]
             
             data = [headers]
             plan_total = 0.0
+            plan_paid_total = 0.0
             for r in items:
                 amt = r.get('amount', 0.0)
+                p_amt = r.get('paid_amount', 0.0) if r.get('paid_amount') is not None else 0.0
                 plan_total += amt
+                plan_paid_total += p_amt
                 data.append([
                     Paragraph(str(r.get('id', '')), cell_style),
                     Paragraph(r.get('cliente_nome', ''), cell_style),
                     Paragraph(r.get('tipo', ''), cell_style),
                     Paragraph(r.get('due_date', ''), cell_style),
                     Paragraph(f"R$ {amt:.2f}", cell_style),
+                    Paragraph(f"R$ {p_amt:.2f}" if r.get('paid_amount') is not None else "-", cell_style),
                     Paragraph(r.get('status', ''), cell_style),
                     Paragraph(r.get('paid_at', '') or '-', cell_style)
                 ])
             
-            data.append(['', Paragraph('Subtotal do Grupo', cell_style), '', '', Paragraph(f"R$ {plan_total:.2f}", cell_style), '', ''])
+            data.append(['', Paragraph('Subtotal do Grupo', cell_style), '', '', Paragraph(f"R$ {plan_total:.2f}", cell_style), Paragraph(f"R$ {plan_paid_total:.2f}", cell_style), '', ''])
                 
-            table = Table(data, colWidths=[1.5*cm, 8.5*cm, 3*cm, 3*cm, 3*cm, 3*cm, 3.5*cm])
+            table = Table(data, colWidths=[1.2*cm, 6.8*cm, 2.5*cm, 2.8*cm, 2.8*cm, 2.8*cm, 2.8*cm, 3*cm])
             table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
@@ -221,27 +227,32 @@ class ReportService:
         sum_data = [[
             Paragraph('Status', header_style),
             Paragraph('Qtd. Títulos', header_style),
-            Paragraph('Valor Total', header_style)
+            Paragraph('Valor Total Devido', header_style),
+            Paragraph('Valor Total Pago', header_style)
         ]]
         
         g_qty = 0
         g_total = 0.0
+        g_paid_total = 0.0
         for stat, s_data in sorted(status_summary.items()):
             g_qty += s_data['count']
             g_total += s_data['total']
+            g_paid_total += s_data['paid_total']
             sum_data.append([
                 Paragraph(stat, cell_style),
                 Paragraph(str(s_data['count']), cell_style),
-                Paragraph(f"R$ {s_data['total']:.2f}", cell_style)
+                Paragraph(f"R$ {s_data['total']:.2f}", cell_style),
+                Paragraph(f"R$ {s_data['paid_total']:.2f}", cell_style)
             ])
             
         sum_data.append([
             Paragraph('TOTAL GERAL', header_style),
             Paragraph(str(g_qty), header_style),
-            Paragraph(f"R$ {g_total:.2f}", header_style)
+            Paragraph(f"R$ {g_total:.2f}", header_style),
+            Paragraph(f"R$ {g_paid_total:.2f}", header_style)
         ])
         
-        sum_table = Table(sum_data, colWidths=[10*cm, 7*cm, 7*cm])
+        sum_table = Table(sum_data, colWidths=[9*cm, 5*cm, 5*cm, 5*cm])
         sum_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.darkgrey),
             ('BACKGROUND', (0, -1), (-1, -1), colors.black),

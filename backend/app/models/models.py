@@ -569,6 +569,7 @@ class Receivable(Base):
     discount = Column(Float, nullable=True, default=0.0)
     interest_percent = Column(Float, nullable=True, default=0.0)
     fine_percent = Column(Float, nullable=True, default=0.0)
+    paid_amount = Column(Float, nullable=True)
 
     # Informações do boleto / registro bancário
     bank = Column(String(50), nullable=False, server_default='SICOB')
