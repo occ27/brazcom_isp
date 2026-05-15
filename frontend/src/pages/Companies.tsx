@@ -1183,6 +1183,7 @@ const Companies: React.FC = () => {
                         onChange={(e) => handleInputChange('mp_access_token', e.target.value)}
                         size="small"
                         helperText="Token de acesso (Access Token) do Mercado Pago."
+                        inputProps={{ autoComplete: 'new-password' }}
                       />
                     </div>
                     <div className="sm:col-span-2">
@@ -1193,6 +1194,7 @@ const Companies: React.FC = () => {
                         onChange={(e) => handleInputChange('mp_public_key', e.target.value)}
                         size="small"
                         helperText="Chave pública (Public Key) do Mercado Pago."
+                        inputProps={{ autoComplete: 'new-password' }}
                       />
                     </div>
                     
@@ -1294,6 +1296,7 @@ const Companies: React.FC = () => {
                           placeholder="Digite a senha do certificado"
                           size="small"
                           helperText="Necessária para usar o certificado"
+                          inputProps={{ autoComplete: 'new-password' }}
                         />
                       </div>
                     </div>
@@ -1355,6 +1358,7 @@ const Companies: React.FC = () => {
                         placeholder="Senha do email"
                         size="small"
                         helperText={smtpPasswordConfigured ? 'Senha já configurada — deixe em branco para manter' : ''}
+                        inputProps={{ autoComplete: 'new-password' }}
                       />
                     </div>
                   </div>

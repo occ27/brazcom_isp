@@ -19,7 +19,7 @@ from app.models.servico_model import Servico, TipoServico
 
 # Configurações
 DATA_DIR = "/Users/orlando/Downloads/opt/mk-auth/dados/2405A1405YJrFvMR"
-EMPRESA_ID = 1
+EMPRESA_ID = 4
 CUTOFF_YEARS = 2
 CUTOFF_DATE = datetime.now() - timedelta(days=CUTOFF_YEARS * 365)
 
@@ -80,7 +80,7 @@ def migrate(dry_run=True):
             nome = row[0]
             plano = db.query(Servico).filter(Servico.codigo == nome[:60], Servico.empresa_id == EMPRESA_ID).first()
             if not plano:
-                plano = Servico(codigo=nome[:60], descricao=nome[:120], valor_unitario=float(clean_val(row[2]) or 0), tipo=TipoServico.PLANO_INTERNET.value, empresa_id=EMPRESA_ID, is_active=True)
+                plano = Servico(codigo=nome[:60], descricao=nome[:120], valor_unitario=float(clean_val(row[2]) or 0), tipo=TipoServico.PLANO_INTERNET.value, empresa_id=EMPRESA_ID, is_active=True, cClass="01", unidade_medida="UN")
                 db.add(plano)
                 db.flush()
                 stats["planos"] += 1
@@ -236,7 +236,7 @@ def migrate(dry_run=True):
                 if not exist_rec:
                     # Mapeamento de status mais completo
                     mk_status = (row[6] or "").lower()
-                    rec_status = "PAID" if mk_status == "pago" else ("CANCELLED" if mk_status == "cancelado" else "OPEN")
+                    rec_status = "PAID" if mk_status == "pago" else ("CANCELLED" if mk_status == "cancelado" else "PENDING")
                     
                     db.add(Receivable(
                         amount=float(clean_val(row[18]) or 0), due_date=venc or datetime.now(), paid_at=pag,
@@ -248,7 +248,7 @@ def migrate(dry_run=True):
                 else:
                     # Atualizar status e data de emissão se necessário
                     mk_status = (row[6] or "").lower()
-                    rec_status = "PAID" if mk_status == "pago" else ("CANCELLED" if mk_status == "cancelado" else "OPEN")
+                    rec_status = "PAID" if mk_status == "pago" else ("CANCELLED" if mk_status == "cancelado" else "PENDING")
                     new_issue_date = parse_date(row[12])
                     
                     if exist_rec.status != rec_status or (new_issue_date and exist_rec.issue_date != new_issue_date):

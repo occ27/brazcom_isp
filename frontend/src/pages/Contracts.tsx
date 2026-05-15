@@ -1985,9 +1985,7 @@ const Contracts: React.FC = () => {
                             }
                           }
                         }}
-                        inputValue={servicoSearch}
                         onInputChange={(_, value, reason) => {
-                          setServicoSearch(value);
                           if (reason === 'input') {
                             if (servicoSearchTimer.current) clearTimeout(servicoSearchTimer.current);
 
@@ -1998,10 +1996,24 @@ const Contracts: React.FC = () => {
                                 loadServicos('');
                               }
                             }, 400);
+                          } else if (reason === 'clear') {
+                             loadServicos('');
                           }
                         }}
                         loading={servicoLoading}
-                        renderInput={(params) => <TextField {...params} label="Plano de Internet *" error={!!errors.servico_id} helperText={errors.servico_id || 'Digite para buscar um plano'} size="small" />}
+                        renderInput={(params) => (
+                          <TextField 
+                            {...params} 
+                            label="Plano de Internet *" 
+                            error={!!errors.servico_id} 
+                            helperText={errors.servico_id || 'Selecione um plano'} 
+                            size="small" 
+                            inputProps={{
+                              ...params.inputProps,
+                              autoComplete: 'new-password', // Evita o autofill do navegador (ex: Chrome)
+                            }}
+                          />
+                        )}
                       />
                     </div>
                   </div>
