@@ -162,7 +162,29 @@ def update_usuario(
     db_user = crud_usuario.get_usuario(db, usuario_id=usuario_id)
     if db_user is None:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    if current_user.id != usuario_id and not current_user.is_superuser:
+    is_authorized = current_user.id == usuario_id or current_user.is_superuser
+    
+    if not is_authorized:
+        # Verificar se o usuário atual é admin da empresa ativa e se o alvo pertence a ela
+        active_empresa_id = getattr(current_user, 'active_empresa_id', None)
+        if active_empresa_id:
+            from app.models.models import UsuarioEmpresa
+            current_admin = db.query(UsuarioEmpresa).filter(
+                UsuarioEmpresa.usuario_id == current_user.id,
+                UsuarioEmpresa.empresa_id == active_empresa_id,
+                UsuarioEmpresa.is_admin == True
+            ).first()
+            
+            if current_admin:
+                # Verificar se o usuário alvo pertence à mesma empresa e NÃO é um superuser
+                target_assoc = db.query(UsuarioEmpresa).filter(
+                    UsuarioEmpresa.usuario_id == usuario_id,
+                    UsuarioEmpresa.empresa_id == active_empresa_id
+                ).first()
+                if target_assoc and not db_user.is_superuser:
+                    is_authorized = True
+
+    if not is_authorized:
         raise HTTPException(status_code=403, detail="Não tem permissão para atualizar este usuário")
     
     # Impedir que usuários não-superusuários alterem o status de superusuário
@@ -342,16 +364,42 @@ def create_usuario_for_empresa(
 def delete_usuario(
     usuario_id: int,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_active_superuser)
+    current_user: Usuario = Depends(get_current_active_user)
 ):
-    """Exclui um usuário. Apenas superusuários podem excluir usuários."""
+    """Exclui um usuário."""
     db_user = crud_usuario.get_usuario(db, usuario_id=usuario_id)
     if db_user is None:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     
-    # Impedir que um superusuário exclua a si mesmo
+    # Verificar permissão
+    is_authorized = current_user.is_superuser
+    
+    if not is_authorized:
+        # Verificar se o usuário atual é admin da empresa ativa e se o alvo pertence a ela
+        active_empresa_id = getattr(current_user, 'active_empresa_id', None)
+        if active_empresa_id:
+            from app.models.models import UsuarioEmpresa
+            current_admin = db.query(UsuarioEmpresa).filter(
+                UsuarioEmpresa.usuario_id == current_user.id,
+                UsuarioEmpresa.empresa_id == active_empresa_id,
+                UsuarioEmpresa.is_admin == True
+            ).first()
+            
+            if current_admin:
+                # Verificar se o usuário alvo pertence à mesma empresa e NÃO é um superuser
+                target_assoc = db.query(UsuarioEmpresa).filter(
+                    UsuarioEmpresa.usuario_id == usuario_id,
+                    UsuarioEmpresa.empresa_id == active_empresa_id
+                ).first()
+                if target_assoc and not db_user.is_superuser:
+                    is_authorized = True
+
+    if not is_authorized:
+        raise HTTPException(status_code=403, detail="Não tem permissão para excluir este usuário")
+    
+    # Impedir que um usuário exclua a si mesmo
     if db_user.id == current_user.id:
-        raise HTTPException(status_code=400, detail="Um superusuário não pode excluir a si mesmo")
+        raise HTTPException(status_code=400, detail="Você não pode excluir a si mesmo")
     
     # Deletar associações com empresas primeiro
     from app.models.models import UsuarioEmpresa
