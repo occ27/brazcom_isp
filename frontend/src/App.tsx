@@ -4,6 +4,16 @@ import { ThemeProvider, createTheme, CssBaseline, Box, CircularProgress } from '
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CompanyProvider } from './contexts/CompanyContext';
 import { SnackbarProvider } from 'notistack';
+
+declare module '@mui/material/styles' {
+  interface Palette {
+    indigo: Palette['primary'];
+  }
+  interface PaletteOptions {
+    indigo?: PaletteOptions['primary'];
+  }
+}
+
 import Home from './components/Home';
 import Login from './pages/Login';
 import ClientLogin from './pages/ClientLogin';
