@@ -58,8 +58,13 @@ const AdminLicenses: React.FC = () => {
                 const data = await licenseService.getPendingLicenses();
                 setLicenses(data);
             } else if (tab === 1) {
-                const data = await licenseService.getAdminCompaniesStatus();
-                setCompanies(data);
+                // Precisamos dos planos aqui para o modal de Liberação Manual
+                const [companiesData, plansData] = await Promise.all([
+                    licenseService.getAdminCompaniesStatus(),
+                    licenseService.getAllPlans()
+                ]);
+                setCompanies(companiesData);
+                setPricingPlans(plansData);
             } else if (tab === 2) {
                 const data = await licenseService.getAllLicenses();
                 setLicenses(data);
@@ -403,6 +408,12 @@ const AdminLicenses: React.FC = () => {
                                 </MenuItem>
                             ))}
                         </TextField>
+                        
+                        {pricingPlans.length === 0 && (
+                            <Alert severity="warning" sx={{ mt: 1 }}>
+                                Nenhum plano de venda cadastrado. Cadastre um plano na aba "Configurar Planos" primeiro.
+                            </Alert>
+                        )}
                         
                         <Typography variant="caption" color="text.secondary">
                             * Ao confirmar, uma solicitação será criada. Você precisará aprová-la na aba de pendências para liberar o acesso.
