@@ -10,8 +10,11 @@ def check_company_license(db: Session, empresa_id: int, current_user: Usuario):
     Superusers ignoram essa verificação.
     Lança HTTPException(402) se não houver licença válida.
     """
-    if current_user.is_superuser:
-        return None
+    # Superusers podem opcionalmente ignorar, mas para fins de teste de bloqueio do sistema
+    # e para garantir que ninguém use recursos sem licença, vamos remover o bypass.
+    # Se o superuser precisar de acesso de emergência, ele pode ativar a licença manualmente.
+    # if current_user.is_superuser:
+    #     return None
 
     license_db = db.query(CompanyLicense).filter(
         CompanyLicense.empresa_id == empresa_id,

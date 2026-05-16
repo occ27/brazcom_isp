@@ -62,7 +62,11 @@ def check_empresa_access(db: Session, empresa_id: int, current_user: Usuario):
     if not db_empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
 
-    # Superusers ignoram verificações de associação e licença
+    # Verificar Licença (Bloqueio do sistema se inválida para QUALQUER usuário)
+    from app.utils.license_utils import check_company_license
+    check_company_license(db, empresa_id, current_user)
+
+    # Superusers ignoram verificações de associação (podem acessar qualquer empresa com licença ativa)
     if current_user.is_superuser:
         return db_empresa
 
@@ -75,8 +79,4 @@ def check_empresa_access(db: Session, empresa_id: int, current_user: Usuario):
     if not assoc:
         raise HTTPException(status_code=403, detail="Usuário não tem permissão para acessar esta empresa")
 
-    # Verificar Licença
-    from app.utils.license_utils import check_company_license
-    check_company_license(db, empresa_id, current_user)
-    
     return db_empresa

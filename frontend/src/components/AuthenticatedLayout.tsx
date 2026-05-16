@@ -21,10 +21,15 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   LockClosedIcon,
-  BanknotesIcon
+  BanknotesIcon,
+  ExclamationTriangleIcon,
+  InformationCircleIcon,
+  ShieldExclamationIcon
 } from '@heroicons/react/24/outline';
+import { licenseService } from '../services/licenseService';
 import { PageType } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { useCompany } from '../contexts/CompanyContext';
 import CompanySelector from './CompanySelector';
 
 interface MenuItemType {
@@ -58,7 +63,9 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
     'Rede': false,
     'Relatórios': false
   });
+  const [licenseInfo, setLicenseInfo] = useState<{ is_active: boolean, license: any } | null>(null);
   const { user, logout, hasPermission, isClientUser } = useAuth();
+  const { activeCompany } = useCompany();
 
   // Ouvir evento de licença requerida (erro 402 do backend)
   React.useEffect(() => {
@@ -68,6 +75,48 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
     window.addEventListener('license-required', handler);
     return () => window.removeEventListener('license-required', handler);
   }, [onNavigate]);
+
+  // Verificar status da licença para alertas de vencimento
+  React.useEffect(() => {
+    const checkLicense = async () => {
+      const empresaId = activeCompany?.id || user?.active_empresa_id;
+      if (empresaId && !isClientUser()) {
+        try {
+          const data = await licenseService.checkStatus(empresaId);
+          setLicenseInfo(data);
+        } catch (err) {
+          console.error("Erro ao verificar licença:", err);
+          setLicenseInfo(null);
+        }
+      } else {
+        setLicenseInfo(null);
+      }
+    };
+    checkLicense();
+  }, [activeCompany?.id, user?.active_empresa_id, isClientUser]);
+
+  const isLicensePage = currentPage === 'licenses';
+  const isSuperUser = user?.is_superuser;
+
+  // Bloqueio estrito se a licença não estiver ativa
+  const isBlocked = licenseInfo && !licenseInfo.is_active && !isLicensePage && !isClientUser();
+
+  const handleBypass = () => {
+    if (licenseInfo) {
+      setLicenseInfo({ ...licenseInfo, is_active: true });
+    }
+  };
+
+  const daysRemaining = React.useMemo(() => {
+    if (!licenseInfo?.license?.end_date) return null;
+    const end = new Date(licenseInfo.license.end_date);
+    const today = new Date();
+    // Zerar as horas para comparação apenas de data
+    today.setHours(0, 0, 0, 0);
+    const diffTime = end.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  }, [licenseInfo]);
 
   // Se for usuário cliente, renderiza layout simplificado
   if (isClientUser()) {
@@ -411,7 +460,81 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-2 sm:p-3 md:p-4 lg:p-6">
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-2 sm:p-3 md:p-4 lg:p-6 relative">
+          {/* Bloqueio de Licença */}
+          {isBlocked && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-md p-4">
+              <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full text-center border border-gray-100">
+                <div className="bg-red-100 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 transform rotate-3">
+                  <ShieldExclamationIcon className="h-12 w-12 text-red-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Sistema Bloqueado</h2>
+                <p className="text-gray-600 mb-8">
+                  A licença da empresa <span className="font-bold text-indigo-600">{activeCompany?.nome_fantasia || activeCompany?.razao_social}</span> não está ativa ou expirou.
+                </p>
+                
+                <div className="space-y-3">
+                  <button 
+                    onClick={() => onNavigate('licenses')}
+                    className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
+                  >
+                    <span>Regularizar Licença</span>
+                  </button>
+                  
+                  <button 
+                    onClick={logout}
+                    className="w-full bg-gray-100 text-gray-700 py-3 rounded-2xl font-semibold hover:bg-gray-200 transition-all"
+                  >
+                    Sair do Sistema
+                  </button>
+
+                  {isSuperUser && (
+                    <button 
+                      onClick={handleBypass}
+                      className="w-full text-gray-400 hover:text-gray-500 text-xs mt-4 underline"
+                    >
+                      Bypass temporário (Apenas Superuser)
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {daysRemaining !== null && daysRemaining <= 30 && (
+            <div className={`mb-6 p-4 rounded-xl border flex items-center shadow-sm transition-all duration-300 ${
+              daysRemaining <= 5 
+                ? 'bg-red-50 border-red-200 text-red-800' 
+                : 'bg-amber-50 border-amber-200 text-amber-800'
+            }`}>
+              <div className={`p-2 rounded-lg mr-4 ${
+                daysRemaining <= 5 ? 'bg-red-100' : 'bg-amber-100'
+              }`}>
+                <ExclamationTriangleIcon className={`h-6 w-6 ${
+                  daysRemaining <= 5 ? 'text-red-600' : 'text-amber-600'
+                }`} />
+              </div>
+              <div className="flex-1">
+                <h4 className="text-sm font-bold uppercase tracking-tight">Aviso de Licenciamento</h4>
+                <p className="text-sm opacity-90">
+                  {daysRemaining <= 0 
+                    ? `Sua licença expirou em ${new Date(licenseInfo?.license?.end_date).toLocaleDateString('pt-BR')}.`
+                    : `Sua licença vence em ${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'} (${new Date(licenseInfo?.license?.end_date).toLocaleDateString('pt-BR')}).`
+                  } Renove para evitar interrupções no acesso.
+                </p>
+              </div>
+              <button 
+                onClick={() => handleNavigate('licenses')}
+                className={`ml-4 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all ${
+                  daysRemaining <= 5
+                    ? 'bg-red-600 text-white hover:bg-red-700'
+                    : 'bg-amber-600 text-white hover:bg-amber-700'
+                }`}
+              >
+                Renovar Agora
+              </button>
+            </div>
+          )}
           {children}
         </main>
       </div>

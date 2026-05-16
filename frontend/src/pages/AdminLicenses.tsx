@@ -235,7 +235,7 @@ const AdminLicenses: React.FC = () => {
             <Table>
                 <TableHead sx={{ bgcolor: 'grey.50' }}>
                     <TableRow>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Empresa (ID)</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold' }}>Empresa ID</TableCell>
                         <TableCell sx={{ fontWeight: 'bold' }}>Plano / Valor</TableCell>
                         <TableCell sx={{ fontWeight: 'bold' }}>Solicitado em</TableCell>
                         <TableCell align="right" sx={{ fontWeight: 'bold' }}>Ações</TableCell>
@@ -246,7 +246,7 @@ const AdminLicenses: React.FC = () => {
                         <TableRow><TableCell colSpan={4} align="center" sx={{ py: 4 }}>Nenhuma solicitação pendente</TableCell></TableRow>
                     ) : licenses.map((s) => (
                         <TableRow key={s.id} hover>
-                            <TableCell>Empresa ID: {s.empresa_id}</TableCell>
+                            <TableCell>ID: {s.empresa_id}</TableCell>
                             <TableCell>
                                 <Chip label={s.plan} size="small" variant="outlined" sx={{ mr: 1, fontWeight: 'bold' }} />
                                 R$ {s.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}

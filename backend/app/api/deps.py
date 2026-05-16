@@ -22,11 +22,16 @@ def permission_checker(permission_name: str) -> Callable:
         db: Session = Depends(get_db),
         current_user: Usuario = Depends(get_current_active_user),
     ):
-        # Superuser bypass
+        empresa_id = getattr(current_user, "active_empresa_id", None)
+
+        # Verificar Licença (Bloqueio do sistema se inválida para QUALQUER usuário, se houver empresa ativa)
+        if empresa_id:
+            from app.utils.license_utils import check_company_license
+            check_company_license(db, empresa_id, current_user)
+
+        # Superuser bypass (pula verificações de permissão, mas já validou a licença acima)
         if getattr(current_user, "is_superuser", False):
             return True
-
-        empresa_id = getattr(current_user, "active_empresa_id", None)
 
         # Admin da Empresa bypass: se o usuário for admin da empresa ativa, libera tudo
         if empresa_id:
@@ -37,15 +42,7 @@ def permission_checker(permission_name: str) -> Callable:
                 UsuarioEmpresa.is_admin == True
             ).first()
             if is_admin_assoc:
-                # Verificar Licença (Bloqueio do sistema se inválida) mesmo para admins da empresa
-                from app.utils.license_utils import check_company_license
-                check_company_license(db, empresa_id, current_user)
                 return True
-
-        # Verificar Licença para usuários comuns com permissão específica
-        if empresa_id:
-            from app.utils.license_utils import check_company_license
-            check_company_license(db, empresa_id, current_user)
 
         # Monta query: existe role para este usuário com a permissão desejada?
         q = db.query(Role).join(user_role_association, Role.id == user_role_association.c.role_id)

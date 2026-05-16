@@ -413,14 +413,8 @@ def autocomplete_clientes(
     current_user: Usuario = Depends(get_current_active_user)
 ):
     """Retorna lista de clientes para autocomplete com busca por nome, CPF/CNPJ, email ou telefone."""
-    db_empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
-    if not db_empresa:
-        raise HTTPException(status_code=404, detail="Empresa não encontrada")
-
-    # Verifica permissão
-    user_empresas_ids = [e.empresa_id for e in current_user.empresas]
-    if empresa_id not in user_empresas_ids and not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Usuário não tem permissão para ver os clientes desta empresa")
+    # Verifica permissão e licença
+    deps.check_empresa_access(db, empresa_id, current_user)
 
     # Buscar clientes com paginação limitada para autocomplete
     from sqlalchemy import select

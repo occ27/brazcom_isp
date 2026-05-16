@@ -54,14 +54,9 @@ def get_public_suspension_notice_by_empresa(empresa_id: int, request: Request, d
 
 @router.get("/", response_model=List[sc_schema.ServicoContratadoResponse])
 def list_servicos_contratados(empresa_id: int = None, q: str = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user), response: Response = None):
-    # If empresa_id provided, check permission
+    # If empresa_id provided, check permission and license
     if empresa_id is not None:
-        db_empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
-        if not db_empresa:
-            raise HTTPException(status_code=404, detail="Empresa não encontrada")
-        user_empresas_ids = [e.empresa_id for e in current_user.empresas]
-        if empresa_id not in user_empresas_ids and not current_user.is_superuser:
-            raise HTTPException(status_code=403, detail="Usuário não tem permissão")
+        deps.check_empresa_access(db, empresa_id, current_user)
     # compute total for UX and set header
     total = crud_servico_contratado.count_servicos_contratados_by_empresa(db, empresa_id=empresa_id, qstr=q)
     if response is not None:
@@ -80,11 +75,9 @@ def get_contrato_html(contrato_id: int, db: Session = Depends(get_db), current_u
     if not c_dict:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
     
-    # 2. Verificar permissão
+    # 2. Verificar permissão e licença
     if c_dict.get('empresa_id'):
-        user_empresas_ids = [e.empresa_id for e in current_user.empresas]
-        if c_dict['empresa_id'] not in user_empresas_ids and not current_user.is_superuser:
-            raise HTTPException(status_code=403, detail="Usuário não tem permissão")
+        deps.check_empresa_access(db, c_dict['empresa_id'], current_user)
             
     # 3. Buscar objetos para o template
     db_contrato = crud_servico_contratado.get_servico_contratado(db, contrato_id=contrato_id)
@@ -103,11 +96,9 @@ def get_contrato(contrato_id: int, db: Session = Depends(get_db), current_user: 
     c = crud_servico_contratado.get_servico_contratado_with_relations(db, contrato_id=contrato_id)
     if not c:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
-    # If contrato belongs to an empresa, check permission
+    # If contrato belongs to an empresa, check permission and license
     if c.get('empresa_id'):
-        user_empresas_ids = [e.empresa_id for e in current_user.empresas]
-        if c['empresa_id'] not in user_empresas_ids and not current_user.is_superuser:
-            raise HTTPException(status_code=403, detail="Usuário não tem permissão")
+        deps.check_empresa_access(db, c['empresa_id'], current_user)
     return c
 
 
@@ -118,14 +109,12 @@ def enviar_contrato_email(contrato_id: int, db: Session = Depends(get_db), curre
     from app.services.email_service import EmailService
     from app.crud import crud_empresa, crud_cliente, crud_servico
     
-    # 1. Buscar dados e verificar permissão
+    # 1. Buscar dados e verificar permissão e licença
     db_contrato = crud_servico_contratado.get_servico_contratado(db, contrato_id=contrato_id)
     if not db_contrato:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
         
-    user_empresas_ids = [e.empresa_id for e in current_user.empresas]
-    if db_contrato.empresa_id not in user_empresas_ids and not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Usuário não tem permissão")
+    deps.check_empresa_access(db, db_contrato.empresa_id, current_user)
         
     # 2. Carregar objetos relacionados
     empresa = crud_empresa.get_empresa_raw(db, empresa_id=db_contrato.empresa_id)
@@ -200,15 +189,12 @@ def enviar_contrato_email(contrato_id: int, db: Session = Depends(get_db), curre
 @router.post("/{contrato_id}/reiniciar-assinatura")
 def reiniciar_assinatura(contrato_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     """Limpa dados de assinatura existentes e gera um novo token para o cliente assinar novamente."""
-    # 1. Buscar dados e verificar permissão
+    # 1. Buscar dados e verificar permissão e licença
     db_contrato = crud_servico_contratado.get_servico_contratado(db, contrato_id=contrato_id)
     if not db_contrato:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
         
-    # Verificar permissão de gerenciamento de contratos
-    user_empresas_ids = [e.empresa_id for e in current_user.empresas]
-    if db_contrato.empresa_id not in user_empresas_ids and not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Usuário não tem permissão")
+    deps.check_empresa_access(db, db_contrato.empresa_id, current_user)
         
     # 2. Limpar dados de assinatura
     db_contrato.assinado_em = None
@@ -262,23 +248,9 @@ def list_contratos_cliente(cliente_id: int, empresa_id: int = None, db: Session 
     logger.info(f"Endpoint /cliente/{cliente_id} chamado com empresa_id={empresa_id}")
     logger.info(f"Usuário: {current_user.email}, is_superuser: {current_user.is_superuser}")
 
-    # If empresa_id provided, check permission
+    # If empresa_id provided, check permission and license
     if empresa_id is not None:
-        logger.info(f"Verificando empresa_id={empresa_id}")
-        db_empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
-        if not db_empresa:
-            logger.error(f"Empresa {empresa_id} não encontrada")
-            raise HTTPException(status_code=404, detail="Empresa não encontrada")
-        logger.info(f"Empresa {empresa_id} encontrada: {db_empresa.razao_social}")
-
-        user_empresas_ids = [e.empresa_id for e in current_user.empresas]
-        logger.info(f"Empresas do usuário: {user_empresas_ids}")
-
-        if empresa_id not in user_empresas_ids and not current_user.is_superuser:
-            logger.error(f"Usuário não tem permissão para empresa {empresa_id}")
-            raise HTTPException(status_code=403, detail="Usuário não tem permissão")
-
-        logger.info("Permissão para empresa verificada com sucesso")
+        deps.check_empresa_access(db, empresa_id, current_user)
 
     # Get contratos for the cliente, optionally filtered by empresa
     logger.info(f"Executando query para cliente_id={cliente_id}, empresa_id={empresa_id}")
@@ -289,18 +261,12 @@ def list_contratos_cliente(cliente_id: int, empresa_id: int = None, db: Session 
         logger.error(f"Erro na execução da query: {e}", exc_info=True)
         raise
 
-    # Additional permission check: ensure user has access to the empresas of these contratos
+    # Additional permission check: ensure user has access to the empresas of these contratos (and license is valid)
     if not current_user.is_superuser:
-        logger.info("Verificando permissões para cada contrato (usuário não é superuser)")
-        user_empresas_ids = [e.empresa_id for e in current_user.empresas]
-        logger.info(f"Empresas do usuário: {user_empresas_ids}")
-
         for i, contrato in enumerate(contratos):
-            logger.info(f"Verificando contrato {i+1}: empresa_id={contrato.get('empresa_id')}")
-            if contrato.get('empresa_id') not in user_empresas_ids:
-                logger.error(f"Usuário não tem permissão para contrato da empresa {contrato.get('empresa_id')}")
-                raise HTTPException(status_code=403, detail="Usuário não tem permissão para acessar contratos desta empresa")
-        logger.info("Todas as permissões verificadas com sucesso")
+            c_emp_id = contrato.get('empresa_id')
+            if c_emp_id:
+                deps.check_empresa_access(db, c_emp_id, current_user)
     else:
         logger.info("Usuário é superuser, pulando verificação de permissões")
 
