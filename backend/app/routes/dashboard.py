@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.core.database import get_db
+from app.api import deps
 from app.models.models import NFCom, Empresa, Usuario, Cliente, ServicoContratado, Receivable
-from app.routes.auth import get_current_active_user
 from typing import Dict, Any
 from datetime import datetime, timedelta, date
 
@@ -12,15 +12,10 @@ router = APIRouter()
 @router.get("/dashboard/stats", response_model=Dict[str, Any])
 def get_dashboard_stats(
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_active_user)
+    empresa: Empresa = Depends(deps.get_active_empresa)
 ):
     """Obtém estatísticas para o dashboard"""
-    
-    # Verificar se o usuário tem empresa ativa
-    if not current_user.active_empresa_id:
-        raise HTTPException(status_code=400, detail="Usuário deve ter empresa ativa")
-    
-    empresa_id = current_user.active_empresa_id
+    empresa_id = empresa.id
     
     # Estatísticas gerais
     total_nfcom = db.query(NFCom).filter(NFCom.empresa_id == empresa_id).count()

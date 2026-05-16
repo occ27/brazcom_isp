@@ -15,18 +15,10 @@ from app.core.config import settings
 
 router = APIRouter(prefix="/empresas", tags=["Empresas"])
 
-# Helper function for permission checking
 def _check_user_permission_for_empresa(empresa_id: int, current_user: Usuario, db: Session):
-    """Helper function to check if a user can access a company's resources."""
-    # Usar get_empresa_raw para evitar descriptografar a senha e causar efeitos colaterais
-    db_empresa = crud_empresa.get_empresa_raw(db, empresa_id=empresa_id)
-    if not db_empresa:
-        raise HTTPException(status_code=404, detail="Empresa não encontrada")
-
-    user_empresas_ids = [assoc.empresa_id for assoc in current_user.empresas]
-    if not current_user.is_superuser and empresa_id not in user_empresas_ids:
-        raise HTTPException(status_code=403, detail="Usuário não tem permissão para acessar recursos desta empresa")
-    return db_empresa
+    """Helper function to check if a user can access a company's resources and if license is valid."""
+    from app.api import deps # Import local para evitar circular dependancy se necessário
+    return deps.check_empresa_access(db, empresa_id, current_user)
 
 @router.post("/", response_model=EmpresaResponse, status_code=status.HTTP_201_CREATED)
 def create_empresa(

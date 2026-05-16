@@ -18,6 +18,8 @@ export type PageType =
   | 'pppoe'
   | 'dhcp'
   | 'radius-nas'
+  | 'licenses'
+  | 'admin-licenses'
   | 'settings';
 
 
@@ -367,4 +369,25 @@ export interface TicketUpdate {
 export interface TicketCommentCreate {
   comentario: string;
   is_internal: boolean;
+}
+
+// ===== TIPOS DE LICENÇAS / ASSINATURAS =====
+export type LicenseStatus = 'PENDENTE' | 'ATIVA' | 'EXPIRADA' | 'CANCELADA';
+export type LicensePlan = 'ANUAL' | 'BIANUAL';
+
+export interface License {
+  id: number;
+  empresa_id: number;
+  user_id: number;
+  plan: LicensePlan;
+  status: LicenseStatus;
+  price: number;
+  start_date?: string;
+  end_date?: string;
+  payment_date?: string;
+  payment_method?: string;
+  notes?: string;
+  approved_by_id?: number;
+  created_at: string;
+  updated_at?: string;
 }

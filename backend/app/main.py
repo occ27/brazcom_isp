@@ -26,6 +26,8 @@ from app.routes import webhooks
 from app.routes import public_contracts
 from app.routes import mercadopago
 from app.routes import reports
+from app.routes import licenses
+from app.routes import license_plans
 
 # A criação das tabelas será feita no evento de startup, após o DB ficar disponível
 
@@ -136,6 +138,8 @@ app.include_router(webhooks.router)
 app.include_router(public_contracts.router)
 app.include_router(mercadopago.router)
 app.include_router(reports.router)
+app.include_router(licenses.router)
+app.include_router(license_plans.router)
 
 @app.get("/")
 def read_root():

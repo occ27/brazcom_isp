@@ -44,4 +44,39 @@ def get_active_empresa(
         if not assoc:
             raise HTTPException(status_code=403, detail="Usuário não está associado à empresa selecionada")
 
+    # Verificar Licença (Bloqueio do sistema se inválida)
+    from app.utils.license_utils import check_company_license
+    check_company_license(db, empresa_id, current_user)
+
     return empresa
+
+
+def check_empresa_access(db: Session, empresa_id: int, current_user: Usuario):
+    """Verifica se o usuário tem acesso à empresa e se a licença está ativa.
+    
+    Lança 404 se a empresa não existir.
+    Lança 403 se o usuário não tiver permissão.
+    Lança 402 se a licença estiver inválida.
+    """
+    db_empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
+    if not db_empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+
+    # Superusers ignoram verificações de associação e licença
+    if current_user.is_superuser:
+        return db_empresa
+
+    # Verificar associação
+    assoc = db.query(UsuarioEmpresa).filter(
+        UsuarioEmpresa.usuario_id == current_user.id,
+        UsuarioEmpresa.empresa_id == empresa_id
+    ).first()
+    
+    if not assoc:
+        raise HTTPException(status_code=403, detail="Usuário não tem permissão para acessar esta empresa")
+
+    # Verificar Licença
+    from app.utils.license_utils import check_company_license
+    check_company_license(db, empresa_id, current_user)
+    
+    return db_empresa

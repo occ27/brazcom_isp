@@ -1,8 +1,26 @@
+import React, { useState, useEffect } from 'react';
 import { Typography, Box } from '@mui/material';
-import React from 'react';
 import { Link } from 'react-router-dom';
+import { licenseService } from '../services/licenseService';
 
 const Home = () => {
+  const [plans, setPlans] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadPlans = async () => {
+      try {
+        const data = await licenseService.getActivePlans();
+        setPlans(data);
+      } catch (err) {
+        console.error("Erro ao carregar planos:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadPlans();
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
@@ -225,203 +243,76 @@ const Home = () => {
             Planos e Preços
           </h3>
           <p className="text-center text-gray-600 mb-4 sm:mb-6 md:mb-8 lg:mb-12 max-w-2xl mx-auto text-xs sm:text-sm md:text-base px-4">
-            Escolha o plano ideal para seu negócio. Comece gratuitamente e faça upgrade quando precisar.
+            Escolha o plano ideal para seu negócio e faça upgrade quando precisar.
           </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 lg:gap-8">
-            {/* Plano Gratuito */}
-            <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 border-2 border-gray-200">
-              <div className="text-center">
-                <h4 className="text-base sm:text-lg font-semibold text-gray-900">Gratuito</h4>
-                <div className="mt-4">
-                  <span className="text-3xl sm:text-4xl font-bold">R$ 0</span>
-                  <span className="text-gray-600 text-sm sm:text-base">/mês</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6 lg:gap-8">
+            {loading ? (
+              <div className="col-span-full text-center py-10">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+                <p className="mt-2 text-gray-600 font-medium">Carregando planos...</p>
+              </div>
+            ) : plans.length === 0 ? (
+              <div className="col-span-full text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                <p className="text-gray-500">Nenhum plano disponível no momento.</p>
+              </div>
+            ) : (
+              plans.map((plan) => (
+                <div key={plan.id} className={`bg-white rounded-xl shadow-lg p-6 border-2 flex flex-col h-full transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 ${plan.is_highlighted ? 'border-indigo-500 relative ring-4 ring-indigo-500 ring-opacity-10' : 'border-gray-100'}`}>
+                  {plan.is_highlighted && (
+                    <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-indigo-600 text-white px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg">
+                      Mais Popular
+                    </div>
+                  )}
+                  <div className="text-center flex-grow">
+                    <h4 className="text-xl font-bold text-gray-900 uppercase tracking-tight mb-2">{plan.name}</h4>
+                    <div className="mb-4">
+                      <span className="text-4xl font-extrabold text-indigo-600 whitespace-nowrap">
+                        R$ {plan.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="h-12 flex items-center justify-center">
+                      <p className="text-gray-500 text-sm font-medium leading-tight">
+                        {plan.description || `Válido por ${plan.duration_months} meses de acesso`}
+                      </p>
+                    </div>
+                    
+                    <ul className="mt-8 space-y-4 text-left border-t border-gray-50 pt-6">
+                      <li className="flex items-start text-sm text-gray-600">
+                        <svg className="w-5 h-5 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Acesso completo ao sistema
+                      </li>
+                      <li className="flex items-start text-sm text-gray-600">
+                        <svg className="w-5 h-5 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Emissão de NFCom ilimitada
+                      </li>
+                      <li className="flex items-start text-sm text-gray-600">
+                        <svg className="w-5 h-5 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Suporte prioritário
+                      </li>
+                    </ul>
+                  </div>
+                  
+                  <div className="mt-8">
+                    <Link
+                      to="/register"
+                      className={`block w-full text-center py-3 rounded-lg font-bold transition-all duration-200 ${
+                        plan.is_highlighted 
+                          ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md transform hover:scale-[1.02]' 
+                          : 'bg-gray-50 text-gray-900 hover:bg-gray-100 border border-gray-200'
+                      }`}
+                    >
+                      {plan.price === 0 ? 'Começar Grátis' : 'Assinar Agora'}
+                    </Link>
+                  </div>
                 </div>
-                <p className="text-gray-600 mt-2 text-sm">Para começar</p>
-              </div>
-              <ul className="mt-4 sm:mt-6 space-y-2 sm:space-y-3">
-                <li className="flex items-center text-sm">
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  Até 10 NFCom/mês
-                </li>
-                <li className="flex items-center text-sm">
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  1 empresa
-                </li>
-                <li className="flex items-center text-sm">
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  Suporte por email
-                </li>
-              </ul>
-              <div className="mt-4 sm:mt-6">
-                <Link
-                  to="/register"
-                  className="w-full bg-gray-100 text-gray-900 px-3 sm:px-4 py-2 rounded-md hover:bg-gray-200 text-center block font-medium text-sm sm:text-base"
-                >
-                  Começar Gratuitamente
-                </Link>
-              </div>
-            </div>
-
-            {/* Plano Básico */}
-            <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 border-2 border-indigo-200 relative">
-              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <span className="bg-indigo-600 text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
-                  Mais Popular
-                </span>
-              </div>
-              <div className="text-center">
-                <h4 className="text-base sm:text-lg font-semibold text-gray-900">Básico</h4>
-                <div className="mt-3 sm:mt-4">
-                  <span className="text-3xl sm:text-4xl font-bold">R$ 49</span>
-                  <span className="text-gray-600 text-sm sm:text-base">/mês</span>
-                </div>
-                <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">Para pequenos negócios</p>
-              </div>
-              <ul className="mt-4 sm:mt-6 space-y-2 sm:space-y-3">
-                <li className="flex items-center text-sm sm:text-base">
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  Até 500 NFCom/mês
-                </li>
-                <li className="flex items-center text-sm sm:text-base">
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  Até 3 empresas
-                </li>
-                <li className="flex items-center text-sm sm:text-base">
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  Relatórios básicos
-                </li>
-                <li className="flex items-center text-sm sm:text-base">
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  Suporte prioritário
-                </li>
-              </ul>
-              <div className="mt-4 sm:mt-6">
-                <Link
-                  to="/register"
-                  className="w-full bg-indigo-600 text-white px-4 py-3 sm:py-2 rounded-md hover:bg-indigo-700 text-center block font-medium text-sm sm:text-base"
-                >
-                  Escolher Básico
-                </Link>
-              </div>
-            </div>
-
-            {/* Plano Profissional */}
-            <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 border-2 border-gray-200">
-              <div className="text-center">
-                <h4 className="text-base sm:text-lg font-semibold text-gray-900">Profissional</h4>
-                <div className="mt-3 sm:mt-4">
-                  <span className="text-3xl sm:text-4xl font-bold">R$ 149</span>
-                  <span className="text-gray-600 text-sm sm:text-base">/mês</span>
-                </div>
-                <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">Para médias empresas</p>
-              </div>
-              <ul className="mt-4 sm:mt-6 space-y-2 sm:space-y-3">
-                <li className="flex items-center text-sm sm:text-base">
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  Até 2.000 NFCom/mês
-                </li>
-                <li className="flex items-center text-sm sm:text-base">
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  Até 10 empresas
-                </li>
-                <li className="flex items-center text-sm sm:text-base">
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  API completa
-                </li>
-                <li className="flex items-center text-sm sm:text-base">
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  Integração ERP
-                </li>
-                <li className="flex items-center text-sm sm:text-base">
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  Suporte por telefone
-                </li>
-              </ul>
-              <div className="mt-4 sm:mt-6">
-                <Link
-                  to="/register"
-                  className="w-full bg-gray-100 text-gray-900 px-4 py-3 sm:py-2 rounded-md hover:bg-gray-200 text-center block font-medium text-sm sm:text-base"
-                >
-                  Escolher Profissional
-                </Link>
-              </div>
-            </div>
-
-            {/* Plano Enterprise */}
-            <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 border-2 border-gray-200">
-              <div className="text-center">
-                <h4 className="text-base sm:text-lg font-semibold text-gray-900">Enterprise</h4>
-                <div className="mt-3 sm:mt-4">
-                  <span className="text-2xl sm:text-3xl font-bold">Sob Consulta</span>
-                </div>
-                <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">Para grandes corporações</p>
-              </div>
-              <ul className="mt-4 sm:mt-6 space-y-2 sm:space-y-3">
-                <li className="flex items-center text-sm sm:text-base">
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  NFCom ilimitadas
-                </li>
-                <li className="flex items-center text-sm sm:text-base">
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  Empresas ilimitadas
-                </li>
-                <li className="flex items-center text-sm sm:text-base">
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  SLA garantido
-                </li>
-                <li className="flex items-center text-sm sm:text-base">
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  Consultoria dedicada
-                </li>
-                <li className="flex items-center text-sm sm:text-base">
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  Infraestrutura dedicada
-                </li>
-              </ul>
-              <div className="mt-4 sm:mt-6">
-                <a
-                  href="mailto:contato@nfcom.com.br"
-                  className="w-full bg-gray-100 text-gray-900 px-4 py-3 sm:py-2 rounded-md hover:bg-gray-200 text-center block font-medium text-sm sm:text-base"
-                >
-                  Fale Conosco
-                </a>
-              </div>
-            </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -557,10 +448,9 @@ const Home = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
             <div>
-              <h4 className="text-base sm:text-lg md:text-xl font-semibold mb-2 sm:mb-3 md:mb-4">Brazcom NFCom</h4>
+              <h4 className="text-base sm:text-lg md:text-xl font-semibold mb-2 sm:mb-3 md:mb-4">Brazcom ISP Suite</h4>
               <p className="text-gray-400 text-xs sm:text-sm">
-                Sistema completo para emissão de Nota Fiscal de Comunicação (NFCom).
-                Tecnologia de ponta para empresas de comunicação.
+                Plataforma completa para gestão de Provedores de Internet (ISP), incluindo emissão de NFCom e automação financeira.
               </p>
             </div>
             <div>

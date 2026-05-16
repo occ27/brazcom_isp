@@ -29,6 +29,8 @@ import Receivables from './pages/Receivables';
 import Tickets from './pages/Tickets';
 import ClientPortal from './pages/ClientPortal';
 import SuspensionNotice from './pages/SuspensionNotice';
+import Licenses from './pages/Licenses';
+import AdminLicenses from './pages/AdminLicenses';
 import AuthenticatedLayout from './components/AuthenticatedLayout';
 import PublicSignature from './pages/PublicSignature';
 import Checkout from './pages/Checkout';
@@ -80,6 +82,13 @@ const theme = createTheme({
     background: {
       default: '#f5f5f5',
       paper: '#ffffff',
+    },
+    // Adicionando cor indigo para combinar com o design
+    indigo: {
+      main: '#4f46e5',
+      dark: '#4338ca',
+      light: '#6366f1',
+      contrastText: '#ffffff',
     },
   },
   typography: {
@@ -164,6 +173,8 @@ const AuthenticatedApp: React.FC<{ children: React.ReactNode }> = ({ children })
     if (path === '/pppoe') return 'pppoe';
     if (path === '/dhcp') return 'dhcp';
     if (path === '/radius-nas') return 'radius-nas';
+    if (path === '/licenses') return 'licenses';
+    if (path === '/admin-licenses') return 'admin-licenses';
     if (path === '/profile') return 'profile';
     return 'dashboard';
   };
@@ -187,6 +198,8 @@ const AuthenticatedApp: React.FC<{ children: React.ReactNode }> = ({ children })
     else if (page === 'pppoe') navigate('/pppoe');
     else if (page === 'dhcp') navigate('/dhcp');
     else if (page === 'radius-nas') navigate('/radius-nas');
+    else if (page === 'licenses') navigate('/licenses');
+    else if (page === 'admin-licenses') navigate('/admin-licenses');
     else if (page === 'profile') navigate('/profile');
   };
 
@@ -434,6 +447,26 @@ const AppContent: React.FC = () => {
           <ProtectedRoute>
             <AuthenticatedApp>
               <RadiusNAS />
+            </AuthenticatedApp>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/licenses"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedApp>
+              <Licenses />
+            </AuthenticatedApp>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin-licenses"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedApp>
+              <AdminLicenses />
             </AuthenticatedApp>
           </ProtectedRoute>
         }

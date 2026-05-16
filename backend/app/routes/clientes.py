@@ -27,15 +27,9 @@ def create_cliente(
     current_user: Usuario = Depends(get_current_active_user)
 ):
     """Cria um novo cliente para uma empresa."""
-    # Verifica se a empresa existe
-    db_empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
-    if not db_empresa:
-        raise HTTPException(status_code=404, detail="Empresa não encontrada")
-
-    # Verifica permissão (se o usuário pertence à empresa)
-    user_empresas_ids = [e.empresa_id for e in current_user.empresas]
-    if empresa_id not in user_empresas_ids and not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Usuário não tem permissão para adicionar clientes a esta empresa")
+    # Verifica permissão e licença
+    from app.api import deps
+    db_empresa = deps.check_empresa_access(db, empresa_id, current_user)
 
     # Backend permission: require clients_manage to create clientes
     deps.permission_checker('clients_manage')(db=db, current_user=current_user)
@@ -60,14 +54,10 @@ def read_clientes(
     current_user: Usuario = Depends(get_current_active_user)
 ):
     """Lista os clientes de uma empresa específica."""
-    db_empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
-    if not db_empresa:
-        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+    # Verifica permissão e licença
+    from app.api import deps
+    db_empresa = deps.check_empresa_access(db, empresa_id, current_user)
 
-    # Verifica permissão
-    user_empresas_ids = [e.empresa_id for e in current_user.empresas]
-    if empresa_id not in user_empresas_ids and not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Usuário não tem permissão para ver os clientes desta empresa")
 
     # Buscar clientes com paginação e também contar o total (mesmos filtros)
     clients = crud_cliente.get_clientes_by_empresa(db, empresa_id=empresa_id, q=q, skip=skip, limit=limit)
@@ -160,13 +150,13 @@ async def update_cliente(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_active_user)
 ):
-    # Verifica empresa
-    db_empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
-    if not db_empresa:
-        raise HTTPException(status_code=404, detail="Empresa não encontrada")
-
+    # Verifica permissão e licença
+    from app.api import deps
+    db_empresa = deps.check_empresa_access(db, empresa_id, current_user)
+    
     # Verificar associação
-    assoc = crud_cliente.get_empresa_cliente(db, empresa_id=empresa_id, cliente_id=cliente_id)
+    from app.crud import crud_cliente as _crud_cliente
+    assoc = _crud_cliente.get_empresa_cliente(db, empresa_id=empresa_id, cliente_id=cliente_id)
     if not assoc:
         raise HTTPException(status_code=404, detail="Associação empresa-cliente não encontrada")
 

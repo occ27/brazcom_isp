@@ -76,6 +76,11 @@ api.interceptors.response.use(
           window.location.href = '/';
         }
     }
+    if (error.response?.status === 402) {
+      const detail = error.response?.data?.detail || '';
+      window.dispatchEvent(new CustomEvent('license-required', { detail: { message: detail } }));
+    }
+
     return Promise.reject(error);
   }
 );

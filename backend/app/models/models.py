@@ -160,6 +160,10 @@ class Empresa(Base):
     # Configuração de cobrança: conta bancária padrão (opcional)
     default_bank_account_id = Column(Integer, ForeignKey("bank_accounts.id"), nullable=True)
 
+    # Licenças de uso do software
+    licenses = relationship("CompanyLicense", back_populates="empresa", cascade="all, delete-orphan")
+
+
     # Especifica explicitamente que esta relação usa a coluna user_id como FK
     usuario_criador = relationship(
         "Usuario",

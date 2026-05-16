@@ -20,7 +20,8 @@ import {
   ServerStackIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  LockClosedIcon
+  LockClosedIcon,
+  BanknotesIcon
 } from '@heroicons/react/24/outline';
 import { PageType } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -58,6 +59,15 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
     'Relatórios': false
   });
   const { user, logout, hasPermission, isClientUser } = useAuth();
+
+  // Ouvir evento de licença requerida (erro 402 do backend)
+  React.useEffect(() => {
+    const handler = () => {
+      onNavigate('licenses');
+    };
+    window.addEventListener('license-required', handler);
+    return () => window.removeEventListener('license-required', handler);
+  }, [onNavigate]);
 
   // Se for usuário cliente, renderiza layout simplificado
   if (isClientUser()) {
@@ -140,9 +150,11 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
       items: [
         { label: 'Empresas', icon: BuildingOfficeIcon, path: 'companies' as PageType, group: 'cadastros' },
         { label: 'Usuários', icon: UserIcon, path: 'users' as PageType, group: 'administracao' },
+        { label: 'Minha Licença', icon: BanknotesIcon, path: 'licenses' as PageType, group: 'administracao' },
         ...(user?.is_superuser ? [
           { label: 'Roles', icon: ShieldCheckIcon, path: 'roles' as PageType, group: 'administracao' },
-          { label: 'Permissões', icon: ShieldCheckIcon, path: 'permissions' as PageType, group: 'administracao' }
+          { label: 'Permissões', icon: ShieldCheckIcon, path: 'permissions' as PageType, group: 'administracao' },
+          { label: 'Aprovar Licenças', icon: BanknotesIcon, path: 'admin-licenses' as PageType, group: 'administracao' }
         ] : []),
       ]
     },

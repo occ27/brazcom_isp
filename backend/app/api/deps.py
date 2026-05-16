@@ -1,4 +1,5 @@
-from typing import Callable
+from typing import Callable, Optional
+from app.deps import get_active_empresa, check_empresa_access
 
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -36,7 +37,15 @@ def permission_checker(permission_name: str) -> Callable:
                 UsuarioEmpresa.is_admin == True
             ).first()
             if is_admin_assoc:
+                # Verificar Licença (Bloqueio do sistema se inválida) mesmo para admins da empresa
+                from app.utils.license_utils import check_company_license
+                check_company_license(db, empresa_id, current_user)
                 return True
+
+        # Verificar Licença para usuários comuns com permissão específica
+        if empresa_id:
+            from app.utils.license_utils import check_company_license
+            check_company_license(db, empresa_id, current_user)
 
         # Monta query: existe role para este usuário com a permissão desejada?
         q = db.query(Role).join(user_role_association, Role.id == user_role_association.c.role_id)
