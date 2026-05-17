@@ -126,6 +126,16 @@ const Contracts: React.FC = () => {
     pppoe_username: '',
     pppoe_password: '',
     payment_method: 'BOLETO',
+    // Campos Fibra (FTTH)
+    onu_serial: '',
+    onu_modelo: '',
+    onu_sinal: '',
+    olt_nome: '',
+    olt_pon: '',
+    cto_nome: '',
+    cto_porta: '',
+    metragem_drop: undefined,
+    vlan_id: undefined,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
@@ -1074,6 +1084,15 @@ const Contracts: React.FC = () => {
         metodo_autenticacao: undefined,
         pppoe_username: '',
         pppoe_password: '',
+        onu_serial: '',
+        onu_modelo: '',
+        onu_sinal: '',
+        olt_nome: '',
+        olt_pon: '',
+        cto_nome: '',
+        cto_porta: '',
+        metragem_drop: undefined,
+        vlan_id: undefined,
         ativos: [],
         contrato_anatel_url: ''
       };
@@ -1094,6 +1113,10 @@ const Contracts: React.FC = () => {
           initialForm.mac_address = '';
           initialForm.pppoe_username = '';
           initialForm.pppoe_password = '';
+          initialForm.onu_serial = '';
+          initialForm.onu_sinal = '';
+          initialForm.cto_porta = '';
+          initialForm.metragem_drop = undefined;
         } catch (e) {
           console.error('Erro ao processar dados salvos do localStorage:', e);
         }
@@ -1231,6 +1254,17 @@ const Contracts: React.FC = () => {
       newErrors.responsavel_tecnico = 'Responsável técnico é obrigatório';
     } else {
       delete newErrors.responsavel_tecnico;
+    }
+
+    // CTO obrigatória para fibra ativa
+    if (currentForm.tipo_conexao === 'FIBRA' && currentForm.status === 'ATIVO') {
+      if (!currentForm.cto_nome || currentForm.cto_nome.trim() === '') {
+        newErrors.cto_nome = 'Caixa de Atendimento (CTO) é obrigatória para contratos de Fibra ativos';
+      } else {
+        delete newErrors.cto_nome;
+      }
+    } else {
+      delete newErrors.cto_nome;
     }
 
     // Campos condicionais para rede
@@ -1381,6 +1415,13 @@ const Contracts: React.FC = () => {
       newErrors.responsavel_tecnico = 'Responsável técnico é obrigatório';
     }
 
+    // CTO obrigatória para fibra ativa
+    if (form.tipo_conexao === 'FIBRA' && form.status === 'ATIVO') {
+      if (!form.cto_nome || form.cto_nome.trim() === '') {
+        newErrors.cto_nome = 'Caixa de Atendimento (CTO) é obrigatória para contratos de Fibra ativos';
+      }
+    }
+
     // Validação condicional para rede
     if (form.router_id) {
       // Para IP_MAC, interface e classe IP são obrigatórios
@@ -1452,8 +1493,7 @@ const Contracts: React.FC = () => {
       const dadosPlanoFields = [
         'numero_contrato', 'cliente_id', 'servico_id', 'periodicidade', 'dia_emissao',
         'd_contrato_ini', 'd_contrato_fim', 'dia_vencimento', 'quantidade', 'valor_unitario',
-        'auto_emit', 'is_active', 'status', 'endereco_id', 'tipo_conexao',
-        'coordenadas_gps', 'data_instalacao', 'responsavel_tecnico', 'velocidade_garantida'
+        'auto_emit', 'is_active', 'status'
       ];
 
       const redeFields = ['router_id', 'interface_id', 'ip_class_id', 'mac_address', 'assigned_ip', 'metodo_autenticacao', 'pppoe_username', 'pppoe_password'];
@@ -1463,12 +1503,20 @@ const Contracts: React.FC = () => {
         'taxa_instalacao_paga', 'sla_garantido', 'subscription_id'
       ];
 
+      const instalacaoFields = [
+        'endereco_id', 'tipo_conexao', 'coordenadas_gps', 'data_instalacao', 'responsavel_tecnico',
+        'velocidade_garantida', 'onu_serial', 'onu_modelo', 'onu_sinal', 'olt_nome', 'olt_pon',
+        'cto_nome', 'cto_porta', 'metragem_drop', 'vlan_id'
+      ];
+
       if (errorFields.some(field => dadosPlanoFields.includes(field))) {
         setTabValue(0);
       } else if (errorFields.some(field => redeFields.includes(field))) {
         setTabValue(1);
       } else if (errorFields.some(field => cobrancaFields.includes(field))) {
         setTabValue(2);
+      } else if (errorFields.some(field => instalacaoFields.includes(field))) {
+        setTabValue(3);
       }
 
       return false;
@@ -1557,7 +1605,12 @@ const Contracts: React.FC = () => {
         is_active: form.is_active,
         velocidade_garantida: form.velocidade_garantida,
         sla_garantido: form.sla_garantido,
-        responsavel_tecnico: form.responsavel_tecnico
+        responsavel_tecnico: form.responsavel_tecnico,
+        olt_nome: form.olt_nome,
+        olt_pon: form.olt_pon,
+        cto_nome: form.cto_nome,
+        vlan_id: form.vlan_id,
+        onu_modelo: form.onu_modelo
       };
       localStorage.setItem('last_contract_tech_data', JSON.stringify(technicalData));
 
@@ -2268,7 +2321,109 @@ const Contracts: React.FC = () => {
                         size="small"
                         placeholder="Ex: 10M/10M"
                         helperText="Velocidade de download/upload garantida"
+                        disabled={viewOnly}
                       />
+
+                      {form.tipo_conexao === 'FIBRA' && (
+                        <div className="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-2 p-3 sm:p-4 bg-white/75 rounded-xl border border-emerald-100 shadow-sm">
+                          <h4 className="col-span-1 sm:col-span-3 text-xs sm:text-sm font-bold text-emerald-800 border-b border-emerald-100/60 pb-1.5 flex items-center">
+                            <span className="mr-1.5">🔌</span> Instalação da Fibra (FTTH)
+                          </h4>
+                          <TextField
+                            label="Serial da ONU"
+                            value={form.onu_serial || ''}
+                            onChange={e => handleInputChange('onu_serial', e.target.value)}
+                            fullWidth
+                            size="small"
+                            placeholder="Ex: FHTT12345678"
+                            helperText="Número de série/MAC da ONU do cliente"
+                            disabled={viewOnly}
+                          />
+                          <TextField
+                            label="Modelo da ONU"
+                            value={form.onu_modelo || ''}
+                            onChange={e => handleInputChange('onu_modelo', e.target.value)}
+                            fullWidth
+                            size="small"
+                            placeholder="Ex: Huawei EG8145V5"
+                            helperText="Fabricante/modelo da ONU"
+                            disabled={viewOnly}
+                          />
+                          <TextField
+                            label="Sinal Óptico (dBm)"
+                            value={form.onu_sinal || ''}
+                            onChange={e => handleInputChange('onu_sinal', e.target.value)}
+                            fullWidth
+                            size="small"
+                            placeholder="Ex: -22.5"
+                            helperText="Potência óptica medida no cliente"
+                            disabled={viewOnly}
+                          />
+                          <TextField
+                            label="Nome da OLT"
+                            value={form.olt_nome || ''}
+                            onChange={e => handleInputChange('olt_nome', e.target.value)}
+                            fullWidth
+                            size="small"
+                            placeholder="Ex: OLT-CENTRAL-01"
+                            helperText="Identificação da OLT de origem"
+                            disabled={viewOnly}
+                          />
+                          <TextField
+                            label="Porta PON da OLT"
+                            value={form.olt_pon || ''}
+                            onChange={e => handleInputChange('olt_pon', e.target.value)}
+                            fullWidth
+                            size="small"
+                            placeholder="Ex: GPON 0/1/2"
+                            helperText="Porta PON do slot da OLT"
+                            disabled={viewOnly}
+                          />
+                          <TextField
+                            label="VLAN ID"
+                            type="number"
+                            value={form.vlan_id || ''}
+                            onChange={e => handleInputChange('vlan_id', e.target.value ? Number(e.target.value) : undefined)}
+                            fullWidth
+                            size="small"
+                            placeholder="Ex: 100"
+                            helperText="VLAN do serviço de internet"
+                            disabled={viewOnly}
+                          />
+                          <TextField
+                            label="Caixa de Atendimento (CTO) *"
+                            value={form.cto_nome || ''}
+                            onChange={e => handleInputChange('cto_nome', e.target.value)}
+                            fullWidth
+                            size="small"
+                            placeholder="Ex: CTO-04-A"
+                            helperText="Identificação da caixa (CTO) no poste"
+                            disabled={viewOnly}
+                            error={!!errors.cto_nome}
+                          />
+                          <TextField
+                            label="Porta na CTO"
+                            value={form.cto_porta || ''}
+                            onChange={e => handleInputChange('cto_porta', e.target.value)}
+                            fullWidth
+                            size="small"
+                            placeholder="Ex: 8"
+                            helperText="Número da porta de atendimento"
+                            disabled={viewOnly}
+                          />
+                          <TextField
+                            label="Metragem Drop (Metros)"
+                            type="number"
+                            value={form.metragem_drop || ''}
+                            onChange={e => handleInputChange('metragem_drop', e.target.value ? Number(e.target.value) : undefined)}
+                            fullWidth
+                            size="small"
+                            placeholder="Ex: 120"
+                            helperText="Comprimento do cabo drop de fibra usado"
+                            disabled={viewOnly}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
 

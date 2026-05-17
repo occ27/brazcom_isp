@@ -62,6 +62,17 @@ class ServicoContratadoBase(BaseModel):
     pppoe_username: Optional[str] = Field(None, max_length=50, description="Username PPPoE do cliente")
     pppoe_password: Optional[str] = Field(None, max_length=50, description="Password PPPoE do cliente")
 
+    # Informações de instalação de Fibra Óptica (FTTH)
+    onu_serial: Optional[str] = Field(None, max_length=100, description="Serial/MAC da ONU")
+    onu_modelo: Optional[str] = Field(None, max_length=100, description="Modelo da ONU")
+    onu_sinal: Optional[str] = Field(None, max_length=20, description="Sinal Óptico/Rx Power")
+    olt_nome: Optional[str] = Field(None, max_length=100, description="Nome/ID da OLT")
+    olt_pon: Optional[str] = Field(None, max_length=50, description="Porta PON da OLT")
+    cto_nome: Optional[str] = Field(None, max_length=100, description="Nome da Caixa de Atendimento (CTO)")
+    cto_porta: Optional[str] = Field(None, max_length=20, description="Porta da CTO conectada")
+    metragem_drop: Optional[int] = Field(None, description="Metragem do cabo drop utilizado")
+    vlan_id: Optional[int] = Field(None, description="VLAN de serviço do cliente")
+
     # Documentação Jurídica
     contrato_anatel_url: Optional[str] = Field(None, max_length=500)
     
@@ -160,6 +171,15 @@ class ServicoContratadoUpdate(BaseModel):
     metodo_autenticacao: Optional[MetodoAutenticacao] = None
     pppoe_username: Optional[str] = Field(None, max_length=50)
     pppoe_password: Optional[str] = Field(None, max_length=50)
+    onu_serial: Optional[str] = Field(None, max_length=100)
+    onu_modelo: Optional[str] = Field(None, max_length=100)
+    onu_sinal: Optional[str] = Field(None, max_length=20)
+    olt_nome: Optional[str] = Field(None, max_length=100)
+    olt_pon: Optional[str] = Field(None, max_length=50)
+    cto_nome: Optional[str] = Field(None, max_length=100)
+    cto_porta: Optional[str] = Field(None, max_length=20)
+    metragem_drop: Optional[int] = Field(None)
+    vlan_id: Optional[int] = Field(None)
     contrato_anatel_url: Optional[str] = Field(None, max_length=500)
     payment_method: Optional[str] = Field(None, max_length=30)
     

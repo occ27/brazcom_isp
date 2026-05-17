@@ -487,6 +487,17 @@ class ServicoContratado(Base):
     pppoe_username = Column(String(50), nullable=True)  # Username PPPoE do cliente
     pppoe_password = Column(String(50), nullable=True)  # Password PPPoE do cliente
 
+    # Informações de instalação de Fibra Óptica (FTTH)
+    onu_serial = Column(String(100), nullable=True)     # Serial/MAC da ONU
+    onu_modelo = Column(String(100), nullable=True)     # Modelo da ONU
+    onu_sinal = Column(String(20), nullable=True)       # Sinal Óptico/Rx Power
+    olt_nome = Column(String(100), nullable=True)       # Nome/ID da OLT
+    olt_pon = Column(String(50), nullable=True)         # Porta PON da OLT
+    cto_nome = Column(String(100), nullable=True)       # Nome da Caixa de Atendimento (CTO)
+    cto_porta = Column(String(20), nullable=True)       # Porta da CTO conectada
+    metragem_drop = Column(Integer, nullable=True)      # Metragem do cabo drop utilizado
+    vlan_id = Column(Integer, nullable=True)            # VLAN de serviço do cliente
+
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
