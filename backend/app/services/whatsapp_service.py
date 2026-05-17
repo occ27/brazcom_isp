@@ -85,7 +85,8 @@ class WhatsAppService:
             os.makedirs(log_dir, exist_ok=True)
             log_path = os.path.join(log_dir, "whatsapp_sent.log")
             with open(log_path, "a", encoding="utf-8") as f:
-                f.write(f"[{empresa.razao_social}] Para: {cleaned_phone} | Msg: {message.replace('\n', ' ')}\n")
+                clean_msg = message.replace('\n', ' ')
+                f.write(f"[{empresa.razao_social}] Para: {cleaned_phone} | Msg: {clean_msg}\n")
 
             return True
         except Exception as e:
