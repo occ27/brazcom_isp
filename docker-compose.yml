@@ -76,6 +76,8 @@ services:
       - DATABASE_ENABLED=true
       - DATABASE_PROVIDER=mysql
       - DATABASE_CONNECTION_URI=mysql://root:${MYSQL_ROOT_PASSWORD}@db:3306/brazcom_evolution
+      - CACHE_REDIS_ENABLED=false
+      - CACHE_LOCAL_ENABLED=true
     volumes:
       - brazcom_evolution_data:/evolution/instances
     networks:
