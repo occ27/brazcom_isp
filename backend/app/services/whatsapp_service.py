@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import requests
+import time
 from typing import Dict, Any, Optional
 from app.models.models import Empresa
 
@@ -215,16 +216,28 @@ class WhatsAppService:
             except Exception as e:
                 print(f"\n[DEBUG WHATSAPP] ERRO EXCECAO CRIACAO: {e}\n")
 
-            # 2. Solicita o QR Code
+            # 2. Solicita o QR Code (com retentativa caso a inicialização do Baileys ainda esteja ocorrendo)
             connect_endpoint = f"{api_url}/instance/connect/{instance_name}"
-            print(f"\n[DEBUG WHATSAPP] SOLICITANDO QR CODE EM: {connect_endpoint}")
-            response = requests.get(connect_endpoint, headers={"apikey": api_key}, timeout=20)
-            print(f"[DEBUG WHATSAPP] RESPOSTA QR CODE: {response.status_code} - {response.text}\n")
-            if response.status_code == 200:
-                data = response.json()
-                base64_qr = data.get("base64")
-                return {"success": True, "base64": base64_qr}
-            return {"success": False, "message": f"Erro da API: {response.text}"}
+            
+            base64_qr = None
+            for attempt in range(1, 6):  # Tenta até 5 vezes
+                print(f"\n[DEBUG WHATSAPP] SOLICITANDO QR CODE EM: {connect_endpoint} (Tentativa {attempt}/5)")
+                response = requests.get(connect_endpoint, headers={"apikey": api_key}, timeout=20)
+                print(f"[DEBUG WHATSAPP] RESPOSTA QR CODE: {response.status_code} - {response.text}\n")
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    # A Evolution API pode retornar o base64 direto ou dentro de um objeto 'qrcode'
+                    base64_qr = data.get("base64") or (data.get("qrcode", {}) if isinstance(data.get("qrcode"), dict) else {}).get("base64")
+                    
+                    if base64_qr:
+                        return {"success": True, "base64": base64_qr}
+                
+                # Se não obtivemos o base64, aguardamos 2 segundos antes de tentar novamente
+                print(f"[DEBUG WHATSAPP] QR Code ainda não está pronto, aguardando 2 segundos para tentar novamente...")
+                time.sleep(2)
+            
+            return {"success": False, "message": f"Erro da API: QR Code não foi gerado a tempo pela Evolution API."}
         except Exception as e:
             logger.error(f"Erro ao gerar QR Code do WhatsApp: {e}", exc_info=True)
             return {"success": False, "error": str(e)}
