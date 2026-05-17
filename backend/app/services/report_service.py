@@ -33,6 +33,8 @@ class ReportService:
 
         elements.append(Paragraph(f"Relatório de Contratos - {empresa.nome_fantasia or empresa.razao_social}", title_style))
         
+        address_style = ParagraphStyle('AddressStyle', parent=styles['Normal'], fontSize=7, leading=9, textColor=colors.grey)
+
         filter_text = f"Período: {filters.get('start_date', 'Início')} até {filters.get('end_date', 'Fim')}"
         if filters.get('status'):
             filter_text += f" | Status: {filters.get('status')}"
@@ -46,6 +48,12 @@ class ReportService:
                 filter_parts.append(f"Bairros: {', '.join(b_list)}")
             else:
                 filter_parts.append(f"Bairro: {b_list}")
+        if filters.get('router'):
+            filter_parts.append(f"Concentrador: {filters.get('router')}")
+        if filters.get('interface'):
+            filter_parts.append(f"Interface: {filters.get('interface')}")
+        if filters.get('ip_class'):
+            filter_parts.append(f"Classe IP: {filters.get('ip_class')}")
         if filter_parts:
             filter_text += f" | {' | '.join(filter_parts)}"
             
@@ -68,7 +76,7 @@ class ReportService:
             
             headers = [
                 Paragraph('ID', header_style),
-                Paragraph('Cliente', header_style),
+                Paragraph('Cliente / Endereço / Conexão', header_style),
                 Paragraph('Emissão', header_style),
                 Paragraph('Valor', header_style),
                 Paragraph('Status', header_style)
@@ -79,9 +87,33 @@ class ReportService:
             for c in plan_contracts:
                 val = c.get('valor_unitario', 0.0)
                 plan_total += val
+                
+                # Montar bloco de metadados
+                sub_parts = []
+                if c.get('municipio') or c.get('bairro'):
+                    sub_parts.append(f"{c.get('bairro', 'Sem Bairro')} ({c.get('municipio', '')})")
+                if c.get('endereco_completo'):
+                    sub_parts.append(c.get('endereco_completo'))
+                
+                net_parts = []
+                if c.get('ip_address'):
+                    net_parts.append(f"IP: {c.get('ip_address')}")
+                if c.get('router_nome'):
+                    net_parts.append(f"Concentrador: {c.get('router_nome')}")
+                if c.get('interface_nome'):
+                    net_parts.append(f"Interface: {c.get('interface_nome')}")
+                    
+                client_cell = [
+                    Paragraph(f"<b>{c.get('cliente_nome', '')}</b>", cell_style)
+                ]
+                if sub_parts:
+                    client_cell.append(Paragraph(f"End: {' - '.join(sub_parts)}", address_style))
+                if net_parts:
+                    client_cell.append(Paragraph(f"Rede: {' | '.join(net_parts)}", address_style))
+
                 data.append([
                     Paragraph(str(c.get('id', '')), cell_style),
-                    Paragraph(c.get('cliente_nome', ''), cell_style),
+                    client_cell,
                     Paragraph(c.get('created_at', ''), cell_style),
                     Paragraph(f"R$ {val:.2f}", cell_style),
                     Paragraph(c.get('status', ''), cell_style)
@@ -168,6 +200,8 @@ class ReportService:
 
         elements.append(Paragraph(f"Relatório Financeiro - {empresa.nome_fantasia or empresa.razao_social}", title_style))
         
+        address_style = ParagraphStyle('AddressStyle', parent=styles['Normal'], fontSize=7, leading=9, textColor=colors.grey)
+
         filter_text = f"Período: {filters.get('start_date', 'Início')} até {filters.get('end_date', 'Fim')}"
         if filters.get('status'):
             filter_text += f" | Status: {filters.get('status')}"
@@ -203,7 +237,7 @@ class ReportService:
             
             headers = [
                 Paragraph('ID', header_style),
-                Paragraph('Cliente', header_style),
+                Paragraph('Cliente / Endereço', header_style),
                 Paragraph('Tipo', header_style),
                 Paragraph('Vencimento', header_style),
                 Paragraph('Valor', header_style),
@@ -220,9 +254,23 @@ class ReportService:
                 p_amt = r.get('paid_amount', 0.0) if r.get('paid_amount') is not None else 0.0
                 plan_total += amt
                 plan_paid_total += p_amt
+                
+                # Montar bloco de endereço
+                sub_parts = []
+                if r.get('municipio') or r.get('bairro'):
+                    sub_parts.append(f"{r.get('bairro', 'Sem Bairro')} ({r.get('municipio', '')})")
+                if r.get('endereco_completo'):
+                    sub_parts.append(r.get('endereco_completo'))
+                    
+                client_cell = [
+                    Paragraph(f"<b>{r.get('cliente_nome', '')}</b>", cell_style)
+                ]
+                if sub_parts:
+                    client_cell.append(Paragraph(f"End: {' - '.join(sub_parts)}", address_style))
+
                 data.append([
                     Paragraph(str(r.get('id', '')), cell_style),
-                    Paragraph(r.get('cliente_nome', ''), cell_style),
+                    client_cell,
                     Paragraph(r.get('tipo', ''), cell_style),
                     Paragraph(r.get('due_date', ''), cell_style),
                     Paragraph(f"R$ {amt:.2f}", cell_style),

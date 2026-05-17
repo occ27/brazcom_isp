@@ -63,7 +63,7 @@ def get_contracts_report_pdf(
     # Query de contratos com join de endereço para filtros de cidade/bairro
     from app.models.models import EmpresaClienteEndereco
     
-    query = db.query(ServicoContratado).join(
+    query = db.query(ServicoContratado, EmpresaClienteEndereco).join(
         EmpresaClienteEndereco, ServicoContratado.endereco_id == EmpresaClienteEndereco.id, isouter=True
     ).filter(ServicoContratado.empresa_id == empresa_id)
     
@@ -113,22 +113,54 @@ def get_contracts_report_pdf(
         "AGUARDANDO_ASSINATURA": "Aguardando Assinatura"
     }
     
-    for c in contracts_db:
+    for c, end_inst in contracts_db:
         contracts_data.append({
             "id": c.id,
             "cliente_nome": c.cliente.nome_razao_social if c.cliente else "N/A",
             "servico_descricao": c.servico.descricao if c.servico else "N/A",
             "created_at": c.created_at.strftime('%d/%m/%Y') if c.created_at else "",
             "valor_unitario": c.valor_unitario,
-            "status": status_map.get(c.status, c.status)
+            "status": status_map.get(c.status, c.status),
+            # Informações adicionais para agrupamento e detalhamento
+            "bairro": end_inst.bairro if end_inst else "Sem Bairro",
+            "municipio": end_inst.municipio if end_inst else "",
+            "endereco_completo": f"{end_inst.endereco or ''}, {end_inst.numero or ''}" if end_inst else "",
+            "router_nome": c.router.nome if c.router else "",
+            "interface_nome": c.interface.nome if c.interface else "",
+            "ip_class_nome": c.ip_class.nome if c.ip_class else "",
+            "ip_address": c.assigned_ip or ""
         })
+        
+    router_name = None
+    if router_id:
+        from app.models.network import Router
+        r_obj = db.query(Router.nome).filter(Router.id == router_id).first()
+        if r_obj:
+            router_name = r_obj[0]
+            
+    interface_name = None
+    if interface_id:
+        from app.models.network import RouterInterface
+        i_obj = db.query(RouterInterface.nome).filter(RouterInterface.id == interface_id).first()
+        if i_obj:
+            interface_name = i_obj[0]
+            
+    ip_class_name = None
+    if ip_class_id:
+        from app.models.network import IPClass
+        ipc_obj = db.query(IPClass.nome).filter(IPClass.id == ip_class_id).first()
+        if ipc_obj:
+            ip_class_name = ipc_obj[0]
         
     filters = {
         "start_date": start_date.strftime('%d/%m/%Y') if start_date else "",
         "end_date": end_date.strftime('%d/%m/%Y') if end_date else "",
         "status": status,
         "municipio": municipio,
-        "bairro": bairro
+        "bairro": bairro,
+        "router": router_name,
+        "interface": interface_name,
+        "ip_class": ip_class_name
     }
     
     pdf_buffer = ReportService.generate_contracts_report(empresa, contracts_data, filters)
@@ -163,7 +195,7 @@ def get_financial_report_pdf(
     # Query de faturamento com join do endereço do cliente para filtros de cidade/bairro
     from app.models.models import Cliente, EmpresaCliente, EmpresaClienteEndereco
     
-    query = db.query(Receivable).join(
+    query = db.query(Receivable, EmpresaClienteEndereco).join(
         Cliente, Receivable.cliente_id == Cliente.id
     ).join(
         EmpresaCliente, (Cliente.id == EmpresaCliente.cliente_id) & (EmpresaCliente.empresa_id == empresa_id)
@@ -214,7 +246,7 @@ def get_financial_report_pdf(
         "REJECTED": "Rejeitado"
     }
 
-    for r in receivables_db:
+    for r, end_principal in receivables_db:
         servico_nome = "N/A"
         if r.servico_contratado and r.servico_contratado.servico:
             servico_nome = r.servico_contratado.servico.descricao
@@ -228,7 +260,11 @@ def get_financial_report_pdf(
             "paid_amount": r.paid_amount,
             "status": status_map_fin.get(r.status, r.status),
             "paid_at": r.paid_at.strftime('%d/%m/%Y') if r.paid_at else None,
-            "servico_nome": servico_nome
+            "servico_nome": servico_nome,
+            # Informações adicionais de endereço
+            "bairro": end_principal.bairro if end_principal else "Sem Bairro",
+            "municipio": end_principal.municipio if end_principal else "",
+            "endereco_completo": f"{end_principal.endereco or ''}, {end_principal.numero or ''}" if end_principal else ""
         })
         
     filters = {
