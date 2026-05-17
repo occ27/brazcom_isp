@@ -25,12 +25,12 @@ def get_contracts_filters(
     from app.models.network import Router, RouterInterface, IPClass
     
     routers = db.query(Router.id, Router.nome).filter(Router.empresa_id == empresa_id).order_by(Router.nome).all()
-    ip_classes = db.query(IPClass.id, IPClass.name).filter(IPClass.empresa_id == empresa_id).order_by(IPClass.name).all()
+    ip_classes = db.query(IPClass.id, IPClass.nome).filter(IPClass.empresa_id == empresa_id).order_by(IPClass.nome).all()
     
-    interfaces = db.query(RouterInterface.id, RouterInterface.name, RouterInterface.router_id)\
+    interfaces = db.query(RouterInterface.id, RouterInterface.nome, RouterInterface.router_id)\
         .join(Router, Router.id == RouterInterface.router_id)\
         .filter(Router.empresa_id == empresa_id)\
-        .order_by(RouterInterface.name).all()
+        .order_by(RouterInterface.nome).all()
         
     return {
         "routers": [{"id": r[0], "nome": r[1]} for r in routers],
