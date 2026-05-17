@@ -64,7 +64,7 @@ services:
 
   # Serviço do Evolution API (WhatsApp Gateway)
   evolution_api:
-    image: atendare/evolution-api:v2.1.1
+    image: atendai/evolution-api:v2.1.1
     container_name: brazcom_evolution_api
     restart: unless-stopped
     ports:
