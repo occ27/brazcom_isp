@@ -217,7 +217,9 @@ class WhatsAppService:
 
             # 2. Solicita o QR Code
             connect_endpoint = f"{api_url}/instance/connect/{instance_name}"
+            print(f"\n[DEBUG WHATSAPP] SOLICITANDO QR CODE EM: {connect_endpoint}")
             response = requests.get(connect_endpoint, headers={"apikey": api_key}, timeout=20)
+            print(f"[DEBUG WHATSAPP] RESPOSTA QR CODE: {response.status_code} - {response.text}\n")
             if response.status_code == 200:
                 data = response.json()
                 base64_qr = data.get("base64")
