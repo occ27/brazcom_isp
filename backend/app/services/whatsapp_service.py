@@ -208,9 +208,12 @@ class WhatsAppService:
             }
             try:
                 res = requests.post(create_endpoint, json=create_payload, headers=headers, timeout=5)
-                logger.info(f"Resposta de criacao da instancia {instance_name}: {res.status_code} - {res.text}")
+                print(f"\n[DEBUG WHATSAPP] ENVIADO PARA: {create_endpoint}")
+                print(f"[DEBUG WHATSAPP] PAYLOAD: {create_payload}")
+                print(f"[DEBUG WHATSAPP] HEADERS: {headers}")
+                print(f"[DEBUG WHATSAPP] RESPOSTA CRIACAO: {res.status_code} - {res.text}\n")
             except Exception as e:
-                logger.warning(f"Erro ao tentar criar a instancia {instance_name}: {e}")
+                print(f"\n[DEBUG WHATSAPP] ERRO EXCECAO CRIACAO: {e}\n")
 
             # 2. Solicita o QR Code
             connect_endpoint = f"{api_url}/instance/connect/{instance_name}"
