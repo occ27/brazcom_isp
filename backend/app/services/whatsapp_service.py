@@ -44,7 +44,7 @@ class WhatsAppService:
             
             # 1. Tenta envio via Evolution API (Real)
             api_url = getattr(empresa, 'whatsapp_api_server', None) or os.getenv("EVOLUTION_API_URL", "http://localhost:8080")
-            api_key = getattr(empresa, 'whatsapp_api_password', None) or os.getenv("EVOLUTION_API_TOKEN", "brazcom_secure_token_12345")
+            api_key = os.getenv("EVOLUTION_API_TOKEN", "brazcom_secure_token_12345")
             
             if api_url:
                 if api_url.endswith("/"):
@@ -157,7 +157,7 @@ class WhatsAppService:
         """
         try:
             api_url = getattr(empresa, 'whatsapp_api_server', None) or os.getenv("EVOLUTION_API_URL", "http://localhost:8080")
-            api_key = getattr(empresa, 'whatsapp_api_password', None) or os.getenv("EVOLUTION_API_TOKEN", "brazcom_secure_token_12345")
+            api_key = os.getenv("EVOLUTION_API_TOKEN", "brazcom_secure_token_12345")
             instance_name = getattr(empresa, 'whatsapp_api_instance', 'mega-net-telecom') or 'mega-net-telecom'
 
             if not api_url:
@@ -188,7 +188,7 @@ class WhatsAppService:
         """
         try:
             api_url = getattr(empresa, 'whatsapp_api_server', None) or os.getenv("EVOLUTION_API_URL", "http://localhost:8080")
-            api_key = getattr(empresa, 'whatsapp_api_password', None) or os.getenv("EVOLUTION_API_TOKEN", "brazcom_secure_token_12345")
+            api_key = os.getenv("EVOLUTION_API_TOKEN", "brazcom_secure_token_12345")
             instance_name = getattr(empresa, 'whatsapp_api_instance', 'mega-net-telecom') or 'mega-net-telecom'
 
             if not api_url:
@@ -231,7 +231,7 @@ class WhatsAppService:
         """
         try:
             api_url = getattr(empresa, 'whatsapp_api_server', None) or os.getenv("EVOLUTION_API_URL", "http://localhost:8080")
-            api_key = getattr(empresa, 'whatsapp_api_password', None) or os.getenv("EVOLUTION_API_TOKEN", "brazcom_secure_token_12345")
+            api_key = os.getenv("EVOLUTION_API_TOKEN", "brazcom_secure_token_12345")
             instance_name = getattr(empresa, 'whatsapp_api_instance', 'mega-net-telecom') or 'mega-net-telecom'
 
             if not api_url:
