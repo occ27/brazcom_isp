@@ -394,20 +394,20 @@ const Contracts: React.FC = () => {
     }
   };
 
-  const handleSendContractEmail = async (contratoId: number) => {
+  const handleSendContractNotification = async (contratoId: number) => {
     try {
       setLoading(true);
       await api.post(`/servicos-contratados/${contratoId}/enviar-email`);
       setSnackbar({
         open: true,
-        message: 'Contrato enviado com sucesso para o email do cliente!',
+        message: 'Notificação do contrato enviada com sucesso!',
         severity: 'success'
       });
     } catch (error: any) {
-      console.error('Erro ao enviar contrato por email:', error);
+      console.error('Erro ao enviar notificação do contrato:', error);
       setSnackbar({
         open: true,
-        message: `Erro ao enviar contrato: ${error.response?.data?.detail || 'Erro desconhecido'}`,
+        message: `Erro ao enviar notificação: ${error.response?.data?.detail || 'Erro desconhecido'}`,
         severity: 'error'
       });
     } finally {
@@ -2831,10 +2831,10 @@ const Contracts: React.FC = () => {
             variant="outlined"
             color="info"
             startIcon={<EnvelopeIcon className="w-5 h-5" />}
-            onClick={() => viewingContractId && handleSendContractEmail(viewingContractId)}
+            onClick={() => viewingContractId && handleSendContractNotification(viewingContractId)}
             disabled={!viewingContractId || loading}
           >
-            Enviar por Email
+            Enviar Notificação
           </Button>
           <Button
             variant="contained"

@@ -54,6 +54,17 @@ const Companies: React.FC = () => {
   const [testingSMTP, setTestingSMTP] = useState(false);
   const [smtpPasswordConfigured, setSmtpPasswordConfigured] = useState(false);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [isNumbersOpen, setIsNumbersOpen] = useState(true);
+  const [isIntegrationOpen, setIsIntegrationOpen] = useState(false);
+  const [isSecurityOpen, setIsSecurityOpen] = useState(true);
+  const [newIpInput, setNewIpInput] = useState('');
+  const [whatsappConnected, setWhatsappConnected] = useState<boolean | null>(null);
+  const [loadingWhatsAppState, setLoadingWhatsAppState] = useState(false);
+  const [whatsappQrCode, setWhatsappQrCode] = useState<string | null>(null);
+  const [loadingQrCode, setLoadingQrCode] = useState(false);
+  const [isGatewayOpen, setIsGatewayOpen] = useState(false);
+  const [showExternalIntegration, setShowExternalIntegration] = useState(false);
+
   const [formData, setFormData] = useState<CompanyCreate>({
     razao_social: '',
     nome_fantasia: '',
@@ -82,8 +93,8 @@ const Companies: React.FC = () => {
     smtp_server: '',
     smtp_port: undefined,
     smtp_user: '',
-    smtp_password: ''
-    ,
+    smtp_password: '',
+    
     // Preferência de ambiente padrão
     ambiente_nfcom: 'producao',
     
@@ -102,7 +113,17 @@ const Companies: React.FC = () => {
     mp_public_key: '',
     mp_allow_boleto: true,
     mp_allow_pix: true,
-    mp_allow_credit_card: true
+    mp_allow_credit_card: true,
+
+    // WhatsApp Integration Config
+    send_method_email: true,
+    send_method_whatsapp: false,
+    whatsapp_api_system: 'MK Auth',
+    whatsapp_api_user: '',
+    whatsapp_api_server: '',
+    whatsapp_api_password: '',
+    whatsapp_api_ips: '',
+    whatsapp_api_instance: 'mega-net-telecom'
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [snackbar, setSnackbar] = useState({
@@ -156,10 +177,17 @@ const Companies: React.FC = () => {
     }
   }, [editingCompany]);
 
+  useEffect(() => {
+    if (editingCompany && activeTab === "email" && formData.send_method_whatsapp) {
+      handleCheckWhatsAppConnection(editingCompany.id);
+    }
+  }, [editingCompany, activeTab, formData.send_method_whatsapp]);
+
   const handleOpenDialog = (company?: Company) => {
     if (company) {
       setEditingCompany(company);
       setSmtpPasswordConfigured(!!company.smtp_password);
+      setShowExternalIntegration(!!company.whatsapp_api_ips);
       setFormData({
         razao_social: company.razao_social,
         nome_fantasia: company.nome_fantasia || '',
@@ -205,10 +233,23 @@ const Companies: React.FC = () => {
         mp_public_key: company.mp_public_key || '',
         mp_allow_boleto: company.mp_allow_boleto !== false, // Default to true if undefined
         mp_allow_pix: company.mp_allow_pix !== false,
-        mp_allow_credit_card: company.mp_allow_credit_card !== false
+        mp_allow_credit_card: company.mp_allow_credit_card !== false,
+        
+        // WhatsApp Integration Config
+        send_method_email: company.send_method_email !== false,
+        send_method_whatsapp: !!company.send_method_whatsapp,
+        whatsapp_api_system: company.whatsapp_api_system || 'MK Auth',
+        whatsapp_api_user: company.whatsapp_api_user || 'usr_' + Math.random().toString(36).substring(2, 10),
+        whatsapp_api_server: company.whatsapp_api_server || `${window.location.origin}/api/whatsapp/send`,
+        whatsapp_api_password: company.whatsapp_api_password || 'tok_' + Math.random().toString(36).substring(2, 14),
+        whatsapp_api_ips: company.whatsapp_api_ips || '',
+        whatsapp_api_instance: company.whatsapp_api_instance || 'mega-net-telecom'
       });
     } else {
       setEditingCompany(null);
+      setShowExternalIntegration(false);
+      const randomUser = 'usr_' + Math.random().toString(36).substring(2, 10);
+      const randomPassword = 'tok_' + Math.random().toString(36).substring(2, 14);
       setFormData({
         razao_social: '',
         nome_fantasia: '',
@@ -234,8 +275,8 @@ const Companies: React.FC = () => {
         smtp_server: '',
         smtp_port: undefined,
         smtp_user: '',
-        smtp_password: ''
-        ,
+        smtp_password: '',
+        
         ambiente_nfcom: 'producao',
         suspension_message: '',
         suspension_url: '',
@@ -248,7 +289,17 @@ const Companies: React.FC = () => {
         mp_public_key: '',
         mp_allow_boleto: true,
         mp_allow_pix: true,
-        mp_allow_credit_card: true
+        mp_allow_credit_card: true,
+
+        // WhatsApp Integration Config
+        send_method_email: true,
+        send_method_whatsapp: false,
+        whatsapp_api_system: 'MK Auth',
+        whatsapp_api_user: randomUser,
+        whatsapp_api_server: `${window.location.origin}/api/whatsapp/send`,
+        whatsapp_api_password: randomPassword,
+        whatsapp_api_ips: '',
+        whatsapp_api_instance: 'mega-net-telecom'
       });
     }
     setErrors({});
@@ -448,6 +499,107 @@ const Companies: React.FC = () => {
         message: errorMessage,
         severity: 'error'
       });
+    }
+  };
+
+  const handleCopyToClipboard = (text: string, label: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setSnackbar({
+      open: true,
+      message: `${label} copiado para a área de transferência!`,
+      severity: 'success'
+    });
+  };
+
+  const handleAddIp = (newIp: string) => {
+    if (!newIp.trim()) return;
+    // Validação simples de formato de IP
+    const ipPattern = /^([0-9]{1,3}\.){3}[0-9]{1,3}$/;
+    if (!ipPattern.test(newIp.trim())) {
+      setSnackbar({
+        open: true,
+        message: 'Por favor, informe um endereço IP válido.',
+        severity: 'warning'
+      });
+      return;
+    }
+    const currentIps = formData.whatsapp_api_ips ? formData.whatsapp_api_ips.split(',').map(ip => ip.trim()).filter(Boolean) : [];
+    if (currentIps.includes(newIp.trim())) return;
+    currentIps.push(newIp.trim());
+    handleInputChange('whatsapp_api_ips', currentIps.join(', '));
+  };
+
+  const handleRemoveIp = (ipToRemove: string) => {
+    const currentIps = formData.whatsapp_api_ips ? formData.whatsapp_api_ips.split(',').map(ip => ip.trim()).filter(Boolean) : [];
+    const updatedIps = currentIps.filter(ip => ip !== ipToRemove);
+    handleInputChange('whatsapp_api_ips', updatedIps.join(', '));
+  };
+
+  const handleCheckWhatsAppConnection = async (companyId: number) => {
+    setLoadingWhatsAppState(true);
+    try {
+      const result = await companyService.getWhatsAppConnectionState(companyId);
+      setWhatsappConnected(result.connected);
+      if (result.connected) {
+        setWhatsappQrCode(null);
+      }
+    } catch (e) {
+      console.error('Erro ao verificar conexão WhatsApp:', e);
+      setWhatsappConnected(false);
+    } finally {
+      setLoadingWhatsAppState(false);
+    }
+  };
+
+  const handleGetWhatsAppQrCode = async (companyId: number) => {
+    setLoadingQrCode(true);
+    setWhatsappQrCode(null);
+    try {
+      const result = await companyService.getWhatsAppQrCode(companyId);
+      if (result.success && result.base64) {
+        setWhatsappQrCode(result.base64);
+      } else {
+        setSnackbar({
+          open: true,
+          message: result.message || 'Erro ao gerar QR Code de conexão',
+          severity: 'error'
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao gerar QR Code WhatsApp:', e);
+      setSnackbar({
+        open: true,
+        message: 'Falha de conexão com a API de WhatsApp',
+        severity: 'error'
+      });
+    } finally {
+      setLoadingQrCode(false);
+    }
+  };
+
+  const handleDisconnectWhatsApp = async (companyId: number) => {
+    setLoadingWhatsAppState(true);
+    try {
+      const result = await companyService.disconnectWhatsApp(companyId);
+      if (result.success) {
+        setWhatsappConnected(false);
+        setWhatsappQrCode(null);
+        setSnackbar({
+          open: true,
+          message: 'WhatsApp desconectado com sucesso!',
+          severity: 'success'
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao desconectar WhatsApp:', e);
+      setSnackbar({
+        open: true,
+        message: 'Erro ao desconectar WhatsApp',
+        severity: 'error'
+      });
+    } finally {
+      setLoadingWhatsAppState(false);
     }
   };
 
@@ -830,13 +982,13 @@ const Companies: React.FC = () => {
 
             {/* Tabs */}
             <div className="relative border-b border-borderLight bg-surfaceElevated shadow-modern flex-shrink-0">
-              <div className="flex overflow-x-auto sm:overflow-x-visible">
+              <div className="flex overflow-x-auto scrollbar-thin">
                 {[
                   { id: "basic", label: "Dados Básicos", icon: "📋", color: "blue" },
                   { id: "address", label: "Endereço", icon: "📍", color: "green" },
                   { id: "billing", label: "Cobrança", icon: "💳", color: "teal" },
                   { id: "files", label: "Arquivos", icon: "📁", color: "purple" },
-                  { id: "email", label: "E-mail", icon: "📧", color: "orange" },
+                  { id: "email", label: "Canais & Notificações", icon: "💬", color: "orange" },
                   { id: "isp", label: "ISP / Contratos", icon: "📄", color: "indigo" },
                 ].map((tab) => (
                   <button
@@ -1305,72 +1457,526 @@ const Companies: React.FC = () => {
               )}
 
               {activeTab === "email" && (
-                <div className="space-y-4 sm:space-y-6">
-                  <div className="bg-gradient-to-r from-orange-50 to-amber-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-orange-100">
-                    <h3 className="text-lg sm:text-xl font-bold text-orange-800 mb-1 sm:mb-2 flex items-center">
-                      <span className="mr-2 text-base sm:text-lg">📧</span>
-                      <span className="text-sm sm:text-base">Configuração de E-mail (SMTP)</span>
+                <div className="space-y-6">
+                  {/* Título da Seção */}
+                  <div className="bg-gradient-to-r from-orange-50 to-amber-50 p-4 rounded-2xl border border-orange-100/70 shadow-sm">
+                    <h3 className="text-lg font-bold text-orange-800 mb-1 flex items-center">
+                      <span className="mr-2 text-xl">💬</span>
+                      <span>Canais de Comunicação & Notificações</span>
                     </h3>
-                    <p className="text-xs sm:text-sm text-orange-600 hidden sm:block">
-                      Configure o servidor SMTP para envio de emails da empresa.
+                    <p className="text-xs sm:text-sm text-orange-600">
+                      Escolha como as faturas e contratos da sua empresa serão disparados para os clientes.
                     </p>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <div>
-                      <TextField
-                        fullWidth
-                        label="Servidor SMTP"
-                        value={formData.smtp_server}
-                        onChange={(e) => handleInputChange('smtp_server', e.target.value)}
-                        placeholder="smtp.gmail.com"
-                        size="small"
-                      />
-                    </div>
-                    <div>
-                      <TextField
-                        fullWidth
-                        label="Porta SMTP"
-                        type="number"
-                        value={formData.smtp_port || ''}
-                        onChange={(e) => handleInputChange('smtp_port', e.target.value ? parseInt(e.target.value) : undefined)}
-                        placeholder="587"
-                        inputProps={{ min: 1, max: 65535 }}
-                        size="small"
-                      />
-                    </div>
-                    <div>
-                      <TextField
-                        fullWidth
-                        label="Usuário SMTP"
-                        value={formData.smtp_user}
-                        onChange={(e) => handleInputChange('smtp_user', e.target.value)}
-                        placeholder="seu-email@gmail.com"
-                        size="small"
-                      />
-                    </div>
-                    <div>
-                      <TextField
-                        fullWidth
-                        label="Senha SMTP"
-                        type="password"
-                        value={formData.smtp_password}
-                        onChange={(e) => handleInputChange('smtp_password', e.target.value)}
-                        placeholder="Senha do email"
-                        size="small"
-                        helperText={smtpPasswordConfigured ? 'Senha já configurada — deixe em branco para manter' : ''}
-                        inputProps={{ autoComplete: 'new-password' }}
-                      />
+
+                  {/* Seleção de Métodos Ativos */}
+                  <div className="bg-white p-5 rounded-2xl border border-borderLight shadow-sm">
+                    <Typography variant="subtitle2" sx={{ mb: 2, color: 'text.secondary', fontWeight: 600, fontSize: '0.875rem' }}>
+                      Métodos de Disparo Ativos:
+                    </Typography>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* E-mail Toggle Card */}
+                      <label className={`flex items-start p-4 rounded-xl border-2 transition-all cursor-pointer select-none group ${
+                        formData.send_method_email
+                          ? 'border-orange-500 bg-orange-50/30'
+                          : 'border-gray-200 hover:border-gray-300 bg-white'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={formData.send_method_email}
+                          onChange={(e) => handleInputChange('send_method_email', e.target.checked)}
+                          className="w-5 h-5 text-orange-600 rounded border-gray-300 focus:ring-orange-500 transition-all cursor-pointer mt-0.5"
+                        />
+                        <div className="ml-3">
+                          <span className="font-bold text-sm text-text flex items-center gap-1.5">
+                            📧 Enviar por E-mail
+                          </span>
+                          <span className="block text-xs text-textLight mt-1">
+                            Dispara cobranças e links de assinatura diretamente para o e-mail do cliente usando SMTP próprio.
+                          </span>
+                        </div>
+                      </label>
+
+                      {/* WhatsApp Toggle Card */}
+                      <label className={`flex items-start p-4 rounded-xl border-2 transition-all cursor-pointer select-none group ${
+                        formData.send_method_whatsapp
+                          ? 'border-green-500 bg-green-50/20'
+                          : 'border-gray-200 hover:border-gray-300 bg-white'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={formData.send_method_whatsapp}
+                          onChange={(e) => handleInputChange('send_method_whatsapp', e.target.checked)}
+                          className="w-5 h-5 text-green-600 rounded border-gray-300 focus:ring-green-500 transition-all cursor-pointer mt-0.5"
+                        />
+                        <div className="ml-3">
+                          <span className="font-bold text-sm text-text flex items-center gap-1.5">
+                            <svg className="w-4 h-4 text-green-500 fill-current" viewBox="0 0 448 512">
+                              <path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L3 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7 .9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/>
+                            </svg>
+                            <span>Enviar por WhatsApp</span>
+                          </span>
+                          <span className="block text-xs text-textLight mt-1">
+                            Notifica os clientes e envia links de assinatura do termo e chaves Pix diretamente para o celular via WhatsApp.
+                          </span>
+                        </div>
+                      </label>
                     </div>
                   </div>
-                  <div className="mt-4 flex justify-end">
-                    <button
-                      onClick={handleTestSMTP}
-                      disabled={testingSMTP}
-                      className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold"
-                    >
-                      {testingSMTP ? 'Testando...' : 'Testar SMTP'}
-                    </button>
+
+                  {/* CONFIGURAÇÃO DE EMAIL SMTP */}
+                  {formData.send_method_email && (
+                    <div className="bg-white p-5 rounded-2xl border border-borderLight shadow-sm space-y-4 transition-all">
+                      <div className="flex items-center space-x-2 pb-2 border-b border-gray-100">
+                        <span className="text-lg">📧</span>
+                        <h4 className="font-bold text-sm text-text">Configuração de E-mail (SMTP)</h4>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <TextField
+                          fullWidth
+                          label="Servidor SMTP"
+                          value={formData.smtp_server || ''}
+                          onChange={(e) => handleInputChange('smtp_server', e.target.value)}
+                          placeholder="smtp.gmail.com"
+                          size="small"
+                        />
+                        <TextField
+                          fullWidth
+                          label="Porta SMTP"
+                          type="number"
+                          value={formData.smtp_port || ''}
+                          onChange={(e) => handleInputChange('smtp_port', e.target.value ? parseInt(e.target.value) : undefined)}
+                          placeholder="587"
+                          inputProps={{ min: 1, max: 65535 }}
+                          size="small"
+                        />
+                        <TextField
+                          fullWidth
+                          label="Usuário SMTP"
+                          value={formData.smtp_user || ''}
+                          onChange={(e) => handleInputChange('smtp_user', e.target.value)}
+                          placeholder="seu-email@gmail.com"
+                          size="small"
+                        />
+                        <TextField
+                          fullWidth
+                          label="Senha SMTP"
+                          type="password"
+                          value={formData.smtp_password || ''}
+                          onChange={(e) => handleInputChange('smtp_password', e.target.value)}
+                          placeholder="Senha do email"
+                          size="small"
+                          helperText={smtpPasswordConfigured ? 'Senha já configurada — deixe em branco para manter' : ''}
+                          inputProps={{ autoComplete: 'new-password' }}
+                        />
+                      </div>
+                      
+                      <div className="flex justify-end pt-2">
+                        <button
+                          type="button"
+                          onClick={handleTestSMTP}
+                          disabled={testingSMTP}
+                          className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 transition-all duration-200 font-semibold text-xs shadow-md hover:shadow-lg flex items-center gap-1.5"
+                        >
+                          {testingSMTP ? (
+                            <>
+                              <CircularProgress size={12} color="inherit" />
+                              <span>Testando...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>⚡</span>
+                              <span>Testar SMTP</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* CONFIGURAÇÃO DE WHATSAPP API */}
+                  {formData.send_method_whatsapp && (
+                    <div className="space-y-4 transition-all">
+                      {/* CARD 1: NÚMEROS DE DISPARO */}
+                      <div className="bg-white rounded-2xl border border-borderLight shadow-sm overflow-hidden transition-all duration-200">
+                        <button
+                          type="button"
+                          onClick={() => setIsNumbersOpen(!isNumbersOpen)}
+                          className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-white hover:from-gray-100/50 transition-colors border-b border-borderLight"
+                        >
+                          <div className="flex items-center space-x-2.5">
+                            <span className="text-lg">📲</span>
+                            <span className="font-bold text-sm text-text">Números de disparo</span>
+                          </div>
+                          <span className={`transform transition-transform duration-200 text-gray-400 ${isNumbersOpen ? 'rotate-180' : ''}`}>
+                            ▼
+                          </span>
+                        </button>
+
+                        {isNumbersOpen && (
+                          <div className="p-5 space-y-4">
+                            {!editingCompany ? (
+                              <div className="p-4 rounded-xl border border-blue-100 bg-blue-50/50 text-center">
+                                <span className="text-xl block mb-1">📋</span>
+                                <span className="font-bold text-xs text-blue-800 block">Empresa Não Salva</span>
+                                <span className="text-2xs sm:text-xs text-blue-600">
+                                  Cadastre e salve a empresa primeiro para poder vincular um número de WhatsApp.
+                                </span>
+                              </div>
+                            ) : loadingWhatsAppState ? (
+                              <div className="flex flex-col items-center justify-center p-6 space-y-2">
+                                <CircularProgress size={24} color="success" />
+                                <span className="text-xs text-textLight font-semibold">Consultando status do WhatsApp...</span>
+                              </div>
+                            ) : whatsappConnected ? (
+                              <>
+                                {/* Conexão Conectada */}
+                                <div className="flex items-center justify-between p-4 rounded-xl border border-emerald-100 bg-emerald-50/20">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shadow-sm">
+                                      <svg className="w-5 h-5 text-emerald-600 fill-current" viewBox="0 0 448 512">
+                                        <path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L3 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7 .9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/>
+                                      </svg>
+                                    </div>
+                                    <div>
+                                      <span className="font-bold text-sm text-text block">
+                                        Instância: {formData.whatsapp_api_instance || 'mega-net-telecom'}
+                                      </span>
+                                      <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                        <span>Conectado & Pronto</span>
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDisconnectWhatsApp(editingCompany.id)}
+                                    className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-bold transition-all"
+                                  >
+                                    Desconectar
+                                  </button>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="space-y-4">
+                                {/* Conexão Desconectada */}
+                                <div className="flex flex-col sm:flex-row items-center justify-between p-4 rounded-xl border border-amber-100 bg-amber-50/20 gap-3">
+                                  <div className="flex items-center space-x-3 text-center sm:text-left">
+                                    <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shadow-sm">
+                                      <span>⚠️</span>
+                                    </div>
+                                    <div>
+                                      <span className="font-bold text-sm text-text block">
+                                        Instância: {formData.whatsapp_api_instance || 'mega-net-telecom'}
+                                      </span>
+                                      <span className="text-xs text-amber-600 font-semibold">
+                                        Status: Desconectado
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCheckWhatsAppConnection(editingCompany.id)}
+                                      className="px-3 py-1.5 border border-gray-300 bg-white hover:bg-gray-50 text-text rounded-lg text-xs font-semibold transition-all"
+                                    >
+                                      🔄 Verificar Status
+                                    </button>
+                                    {!whatsappQrCode && !loadingQrCode && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleGetWhatsAppQrCode(editingCompany.id)}
+                                        className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
+                                      >
+                                        📲 Conectar WhatsApp
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {loadingQrCode && (
+                                  <div className="flex flex-col items-center justify-center p-6 space-y-2 border border-gray-100 rounded-xl bg-gray-50/50">
+                                    <CircularProgress size={24} color="success" />
+                                    <span className="text-xs text-textLight font-semibold">Gerando QR Code na Evolution API...</span>
+                                  </div>
+                                )}
+
+                                {whatsappQrCode && !loadingQrCode && (
+                                  <div className="p-4 border border-gray-200 rounded-xl bg-white space-y-4 text-center">
+                                    <h5 className="font-bold text-sm text-text">Escaneie o QR Code abaixo</h5>
+                                    <img
+                                      src={whatsappQrCode}
+                                      alt="WhatsApp QR Code"
+                                      className="w-48 h-48 mx-auto border border-gray-200 rounded-lg shadow-sm p-1 bg-white"
+                                    />
+                                    <div className="text-2xs sm:text-xs text-textLight text-left space-y-1 max-w-sm mx-auto bg-gray-50 p-3 rounded-lg">
+                                      <p className="font-semibold text-text">Passo a passo:</p>
+                                      <p>1. Abra o WhatsApp no seu smartphone.</p>
+                                      <p>2. Toque em <strong>Mais Opções / Configurações</strong> e selecione <strong>Aparelhos Conectados</strong>.</p>
+                                      <p>3. Clique em <strong>Conectar um Aparelho</strong> e aponte a câmera para esta tela.</p>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCheckWhatsAppConnection(editingCompany.id)}
+                                      className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all"
+                                    >
+                                      ✅ Já escaneei (Confirmar Conexão)
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Campo de edição do ID do Dispositivo */}
+                            <TextField
+                              fullWidth
+                          value={formData.whatsapp_api_instance || ''}
+                          onChange={(e) => handleInputChange('whatsapp_api_instance', e.target.value)}
+                          placeholder="mega-net-telecom"
+                          size="small"
+                          helperText="Nome identificador único da sua instância (ex. nome-da-empresa) para controle no gateway."
+                        />
+                      </div>
+                    )}
                   </div>
+
+                      {/* CARD GRUPADO: CONFIGURAÇÕES AVANÇADAS & INTEGRAÇÕES EXTERNAS */}
+                      <div className="bg-white rounded-2xl border border-borderLight shadow-sm overflow-hidden transition-all duration-200">
+                        <button
+                          type="button"
+                          onClick={() => setIsIntegrationOpen(!isIntegrationOpen)}
+                          className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-white hover:from-gray-100/50 transition-colors border-b border-borderLight"
+                        >
+                          <div className="flex items-center space-x-2.5">
+                            <span className="text-lg">⚙️</span>
+                            <span className="font-bold text-sm text-text">Configurações Avançadas de API & Gateway (Opcional)</span>
+                          </div>
+                          <span className={`transform transition-transform duration-200 text-gray-400 ${isIntegrationOpen ? 'rotate-180' : ''}`}>
+                            ▼
+                          </span>
+                        </button>
+
+                        {isIntegrationOpen && (
+                          <div className="p-5 space-y-6 bg-gray-50/30">
+                            {/* SUB-SEÇÃO 1: GATEWAY DE WHATSAPP PRIVADO */}
+                            <div className="bg-white p-4 rounded-xl border border-gray-200 space-y-3">
+                              <h5 className="font-bold text-xs text-text uppercase tracking-wider flex items-center gap-1.5">
+                                <span>🌐</span> Servidor de Gateway Privado
+                              </h5>
+                              <p className="text-2xs sm:text-xs text-textLight">
+                                Por padrão, o Brazcom ISP Suite utiliza o servidor Evolution API centralizado da plataforma (configurado no seu Docker/Mac). Configure os campos abaixo <strong>apenas</strong> se você deseja usar um servidor Evolution API privado para esta empresa específica.
+                              </p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <TextField
+                                  fullWidth
+                                  label="URL do Servidor Evolution API"
+                                  value={formData.whatsapp_api_server || ''}
+                                  onChange={(e) => handleInputChange('whatsapp_api_server', e.target.value)}
+                                  placeholder="http://seu-servidor:8080"
+                                  size="small"
+                                  helperText="Deixe em branco para usar o gateway padrão."
+                                />
+                                <TextField
+                                  fullWidth
+                                  label="API Key / Token da API"
+                                  type="password"
+                                  value={formData.whatsapp_api_password || ''}
+                                  onChange={(e) => handleInputChange('whatsapp_api_password', e.target.value)}
+                                  placeholder="Token do seu gateway"
+                                  size="small"
+                                  helperText="Deixe em branco para usar a chave padrão."
+                                  inputProps={{ autoComplete: 'new-password' }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* SWITCH DE INTEGRAÇÃO EXTERNA */}
+                            <label className="flex items-center space-x-3 cursor-pointer p-4 rounded-xl border border-blue-100 bg-blue-50/10 hover:bg-blue-50/20 transition-all select-none">
+                              <input
+                                type="checkbox"
+                                checked={showExternalIntegration}
+                                onChange={(e) => setShowExternalIntegration(e.target.checked)}
+                                className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer transition-all"
+                              />
+                              <div>
+                                <span className="font-bold text-sm text-text block">Ativar Integrações com Sistemas Externos (Opcional)</span>
+                                <span className="text-2xs sm:text-xs text-textLight block mt-0.5">
+                                  Marque esta opção se você possui um financeiro externo (como MK-Auth, IXC, SGP) e quer que ele faça disparos de WhatsApp através do Brazcom ISP Suite.
+                                </span>
+                              </div>
+                            </label>
+
+                            {showExternalIntegration && (
+                              <>
+                                {/* SUB-SEÇÃO 2: DADOS PARA INTEGRAÇÃO EXTERNA (MK-Auth, SGP, etc.) */}
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 space-y-3">
+                                  <h5 className="font-bold text-xs text-text uppercase tracking-wider flex items-center gap-1.5">
+                                    <span>🔌</span> Integração com Sistemas Externos (ex: MK-Auth, IXC, SGP)
+                                  </h5>
+                                  <p className="text-2xs sm:text-xs text-textLight">
+                                    Credenciais de webhook geradas para integrar sistemas de cobrança externos à API de disparos do Brazcom ISP Suite.
+                                  </p>
+                                  <div>
+                                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, mb: 1, display: 'block' }}>
+                                      Sistema de integração:
+                                    </Typography>
+                                    <div className="flex flex-wrap gap-2">
+                                      {[
+                                        'MK Solutions', 'IXC', 'SGP', 'MK Auth', 'Vigo', 'Controllr', 'RouterBox', 'ISPCloud', 'API'
+                                      ].map((sys) => (
+                                        <button
+                                          key={sys}
+                                          type="button"
+                                          onClick={() => handleInputChange('whatsapp_api_system', sys)}
+                                          className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                                            formData.whatsapp_api_system === sys
+                                              ? 'border-blue-500 bg-blue-50 text-blue-700 font-bold'
+                                              : 'border-gray-200 bg-white hover:bg-gray-50 text-textLight'
+                                          }`}
+                                        >
+                                          {sys}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 gap-3 pt-2">
+                                    <div className="flex items-center gap-2">
+                                      <TextField
+                                        fullWidth
+                                        label="Usar"
+                                        value={formData.whatsapp_api_user || ''}
+                                        size="small"
+                                        InputProps={{ readOnly: true }}
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCopyToClipboard(formData.whatsapp_api_user || '', 'Usuário')}
+                                        className="w-9 h-9 flex items-center justify-center border border-gray-200 hover:bg-gray-50 rounded-lg text-sm"
+                                      >
+                                        📋
+                                      </button>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <TextField
+                                        fullWidth
+                                        label="Servidor"
+                                        value={formData.whatsapp_api_server || ''}
+                                        size="small"
+                                        InputProps={{ readOnly: true }}
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCopyToClipboard(formData.whatsapp_api_server || '', 'URL do Servidor')}
+                                        className="w-9 h-9 flex items-center justify-center border border-gray-200 hover:bg-gray-50 rounded-lg text-sm"
+                                      >
+                                        📋
+                                      </button>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <TextField
+                                        fullWidth
+                                        label="Senha"
+                                        value={formData.whatsapp_api_password || ''}
+                                        size="small"
+                                        InputProps={{ readOnly: true }}
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCopyToClipboard(formData.whatsapp_api_password || '', 'Senha de Integração')}
+                                        className="w-9 h-9 flex items-center justify-center border border-gray-200 hover:bg-gray-50 rounded-lg text-sm"
+                                      >
+                                        📋
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="pt-1 flex flex-col sm:flex-row gap-2 items-center justify-between">
+                                    <a
+                                      href="https://wa.me/5549999251349?text=Ol%C3%A1%2C+gostaria+de+solicitar+um+novo+sistema+de+gerenciamento+de+provedores+para+o+MK+Mensagens."
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs rounded-lg transition-all decoration-none border border-blue-100"
+                                    >
+                                      🚀 Solicitar novo sistema
+                                    </a>
+                                    <span className="text-2xs text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100 font-semibold">
+                                      ⚠️ O campo <strong>Conta</strong> no seu SGP/MK-Auth deve ficar vazio!
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* SUB-SEÇÃO 3: SEGURANÇA (IP WHITELIST) */}
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 space-y-3">
+                                  <h5 className="font-bold text-xs text-text uppercase tracking-wider flex items-center gap-1.5">
+                                    <span>🔒</span> Segurança (Whitelist de IPs)
+                                  </h5>
+                                  <p className="text-2xs sm:text-xs text-textLight">
+                                    Se configurado, apenas requisições originadas destes IPs poderão efetuar disparos usando estas credenciais de integração.
+                                  </p>
+                                  <div className="flex items-center gap-2">
+                                    <TextField
+                                      fullWidth
+                                      label="Novo IP (ex: 200.123.45.67)"
+                                      value={newIpInput}
+                                      onChange={(e) => setNewIpInput(e.target.value)}
+                                      placeholder="Digite o IP do servidor"
+                                      size="small"
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          handleAddIp(newIpInput);
+                                          setNewIpInput('');
+                                        }
+                                      }}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleAddIp(newIpInput);
+                                        setNewIpInput('');
+                                      }}
+                                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all font-semibold text-xs shadow-sm flex-shrink-0"
+                                      style={{ height: '40px' }}
+                                    >
+                                      Adicionar
+                                    </button>
+                                  </div>
+
+                                  <div className="flex flex-wrap gap-2 pt-1">
+                                    {formData.whatsapp_api_ips
+                                      ? formData.whatsapp_api_ips.split(',').map(ip => ip.trim()).filter(Boolean).map((ip) => (
+                                          <div
+                                            key={ip}
+                                            className="flex items-center space-x-1.5 px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full border border-gray-200 transition-colors text-xs font-semibold text-text"
+                                          >
+                                            <span>🌐 {ip}</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleRemoveIp(ip)}
+                                              className="text-red-500 hover:text-red-700 font-bold ml-1 cursor-pointer focus:outline-none"
+                                              title="Remover IP"
+                                            >
+                                              ×
+                                            </button>
+                                          </div>
+                                        ))
+                                      : (
+                                          <div className="w-full text-center p-3 border border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+                                            <span className="text-xs text-textLight italic">Nenhum IP restrito. Conexões aceitas de qualquer IP.</span>
+                                          </div>
+                                        )
+                                    }
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

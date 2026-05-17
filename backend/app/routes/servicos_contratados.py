@@ -122,12 +122,23 @@ def enviar_contrato_email(contrato_id: int, db: Session = Depends(get_db), curre
     servico = crud_servico.get_servico(db, servico_id=db_contrato.servico_id, empresa_id=db_contrato.empresa_id)
     c_dict = crud_servico_contratado.get_servico_contratado_with_relations(db, contrato_id=contrato_id)
     
-    if not cliente or not cliente.email:
-        raise HTTPException(status_code=400, detail="Cliente não possui email cadastrado")
-        
-    # 3. Validar SMTP da empresa
-    if not empresa.smtp_server or not empresa.smtp_user:
-        raise HTTPException(status_code=400, detail="Empresa não possui configurações de SMTP configuradas")
+    send_email = getattr(empresa, "send_method_email", True)
+    send_whatsapp = getattr(empresa, "send_method_whatsapp", False)
+    
+    # Fallback caso nenhum esteja marcado
+    if not send_email and not send_whatsapp:
+        send_email = True
+
+    if send_email:
+        if not cliente or not cliente.email:
+            raise HTTPException(status_code=400, detail="Cliente não possui email cadastrado")
+        # 3. Validar SMTP da empresa
+        if not empresa.smtp_server or not empresa.smtp_user:
+            raise HTTPException(status_code=400, detail="Empresa não possui configurações de SMTP configuradas")
+            
+    if send_whatsapp:
+        if not cliente or not cliente.telefone:
+            raise HTTPException(status_code=400, detail="Cliente não possui telefone cadastrado")
         
     # 4. Gerar ou recuperar token de assinatura
     if not db_contrato.assinatura_token:
@@ -169,21 +180,44 @@ def enviar_contrato_email(contrato_id: int, db: Session = Depends(get_db), curre
     </div>
     """
     
-    # 9. Enviar email
-    subject = f"ASSINATURA PENDENTE - Termo de Adesão - Contrato Nº {db_contrato.id} - {empresa.razao_social}"
+    success_email = False
+    success_whatsapp = False
+    channels_sent = []
     
-    success = EmailService.send_email(
-        empresa=empresa,
-        to_email=cliente.email,
-        subject=subject,
-        body=html_content,
-        is_html=True
-    )
-    
-    if not success:
-        raise HTTPException(status_code=500, detail="Falha ao enviar email. Verifique as configurações de SMTP da empresa.")
+    # 9. Enviar email se ativo
+    if send_email:
+        subject = f"ASSINATURA PENDENTE - Termo de Adesão - Contrato Nº {db_contrato.id} - {empresa.razao_social}"
+        success_email = EmailService.send_email(
+            empresa=empresa,
+            to_email=cliente.email,
+            subject=subject,
+            body=html_content,
+            is_html=True
+        )
+        if success_email:
+            channels_sent.append("E-mail")
+
+    # 10. Enviar WhatsApp se ativo
+    if send_whatsapp:
+        from app.services.whatsapp_service import WhatsAppService
+        success_whatsapp = WhatsAppService.send_contract_message(
+            empresa=empresa,
+            cliente_nome=cliente.nome_razao_social,
+            cliente_phone=cliente.telefone,
+            signing_url=signing_url
+        )
+        if success_whatsapp:
+            channels_sent.append("WhatsApp")
+
+    if (send_email and not success_email) or (send_whatsapp and not success_whatsapp):
+        failed_channels = []
+        if send_email and not success_email:
+            failed_channels.append("E-mail")
+        if send_whatsapp and not success_whatsapp:
+            failed_channels.append("WhatsApp")
+        raise HTTPException(status_code=500, detail=f"Falha ao enviar por: {', '.join(failed_channels)}. Verifique as configurações.")
         
-    return {"message": f"Contrato enviado para {cliente.email}. O status foi alterado para 'Aguardando Assinatura'."}
+    return {"message": f"Contrato enviado com sucesso via {', '.join(channels_sent)}. O status foi alterado para 'Aguardando Assinatura'."}
 
 
 @router.post("/{contrato_id}/reiniciar-assinatura")

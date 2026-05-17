@@ -94,6 +94,16 @@ export interface Company {
   mp_allow_boleto: boolean;
   mp_allow_pix: boolean;
   mp_allow_credit_card: boolean;
+  
+  // WhatsApp Integration Config
+  send_method_email?: boolean;
+  send_method_whatsapp?: boolean;
+  whatsapp_api_system?: string;
+  whatsapp_api_user?: string;
+  whatsapp_api_server?: string;
+  whatsapp_api_password?: string;
+  whatsapp_api_ips?: string;
+  whatsapp_api_instance?: string;
 }
 
 export interface Cliente {

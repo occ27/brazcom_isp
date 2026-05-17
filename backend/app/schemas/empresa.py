@@ -51,10 +51,16 @@ class EmpresaBase(BaseModel):
 
     # Novos campos
     logo_url: Optional[str] = Field(None, max_length=500)
-    # Campos sensíveis (não expostos por padrão nas respostas)
-    # NOTA: certificado_path, certificado_senha e smtp_password foram removidos daqui
-    # para evitar que apareçam no `EmpresaResponse`. Eles são declarados em
-    # `EmpresaCreate` e `EmpresaUpdate` (para entrada/atualização) apenas.
+    
+    # WhatsApp Integration Config
+    send_method_email: bool = True
+    send_method_whatsapp: bool = False
+    whatsapp_api_system: Optional[str] = Field("MK Auth", max_length=50)
+    whatsapp_api_user: Optional[str] = Field(None, max_length=100)
+    whatsapp_api_server: Optional[str] = Field(None, max_length=255)
+    whatsapp_api_password: Optional[str] = Field(None, max_length=500)
+    whatsapp_api_ips: Optional[str] = Field(None, description="IPs confiáveis (comma separated)")
+    whatsapp_api_instance: Optional[str] = Field("mega-net-telecom", max_length=100)
 
     @validator('razao_social', 'nome_fantasia', 'endereco', 'numero', 'complemento', 'bairro', 'municipio', 'uf', 'cep', 'telefone', 'email', 'regime_tributario', 'pais', 'codigo_pais', pre=True)
     def clean_string_fields(cls, v):
@@ -190,6 +196,16 @@ class EmpresaResponse(BaseModel):
     mp_allow_credit_card: bool = True
     mp_configurado: bool = False
     
+    # WhatsApp Integration Config
+    send_method_email: bool = True
+    send_method_whatsapp: bool = False
+    whatsapp_api_system: Optional[str] = None
+    whatsapp_api_user: Optional[str] = None
+    whatsapp_api_server: Optional[str] = None
+    whatsapp_api_password: Optional[str] = None
+    whatsapp_api_ips: Optional[str] = None
+    whatsapp_api_instance: Optional[str] = None
+    
     # Campos específicos de EmpresaResponse
     id: int
     ambiente_nfcom: str
@@ -273,6 +289,17 @@ class EmpresaUpdate(BaseModel):
     mp_allow_boleto: Optional[bool] = None
     mp_allow_pix: Optional[bool] = None
     mp_allow_credit_card: Optional[bool] = None
+    
+    # WhatsApp Integration Config
+    send_method_email: Optional[bool] = None
+    send_method_whatsapp: Optional[bool] = None
+    whatsapp_api_system: Optional[str] = None
+    whatsapp_api_user: Optional[str] = None
+    whatsapp_api_server: Optional[str] = None
+    whatsapp_api_password: Optional[str] = None
+    whatsapp_api_ips: Optional[str] = None
+    whatsapp_api_instance: Optional[str] = None
+    
     certificado_path: Optional[str] = Field(None, max_length=500)
     certificado_senha: Optional[str] = Field(None, max_length=500)
     smtp_server: Optional[str] = Field(None, max_length=255)

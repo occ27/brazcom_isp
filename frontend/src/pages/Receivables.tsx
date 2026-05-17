@@ -311,9 +311,9 @@ const Receivables: React.FC = () => {
     setLoading(true);
     try {
       await receivableService.sendEmail(id);
-      setSnackbar({ open: true, message: 'Cobrança enviada com sucesso!', severity: 'success' });
+      setSnackbar({ open: true, message: 'Notificação enviada com sucesso!', severity: 'success' });
     } catch (e) {
-      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao enviar email', severity: 'error' });
+      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao enviar notificação', severity: 'error' });
     } finally {
       setLoading(false);
     }
@@ -520,7 +520,7 @@ const Receivables: React.FC = () => {
         <MenuItem onClick={() => { setOpenDetails(true); setAnchorEl(null); }}><EyeIcon className="w-4 h-4 mr-2" /> Detalhes</MenuItem>
         
         <MenuItem onClick={() => { selectedReceivable && handleSendEmail(selectedReceivable.id); setAnchorEl(null); }}>
-          <EnvelopeIcon className="w-4 h-4 mr-2 text-blue-500" /> Enviar por Email
+          <EnvelopeIcon className="w-4 h-4 mr-2 text-blue-500" /> Enviar Notificação
         </MenuItem>
 
         {(selectedReceivable?.status === 'REGISTERED' || selectedReceivable?.status === 'PAID') && (

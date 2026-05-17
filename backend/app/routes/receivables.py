@@ -517,19 +517,56 @@ def send_receivable_email_route(receivable_id: int, db: Session = Depends(get_db
             "payment_url": payment_url
         }
         
-        success = EmailService.send_receivable_email(
-            empresa=empresa_raw,
-            cliente_email=cliente.email,
-            receivable_data=receivable_data,
-            pdf_path=pdf_path
-        )
+        send_email = getattr(empresa, "send_method_email", True)
+        send_whatsapp = getattr(empresa, "send_method_whatsapp", False)
         
-        if success:
-            recv.sent_at = datetime.utcnow()
-            db.commit()
-            return {"message": f"Cobrança enviada para {cliente.email} com sucesso"}
-        else:
-            raise HTTPException(status_code=500, detail="Falha ao enviar email. Verifique as configurações de SMTP.")
+        # Fallback caso nenhum esteja marcado
+        if not send_email and not send_whatsapp:
+            send_email = True
+
+        success_email = False
+        success_whatsapp = False
+        channels_sent = []
+
+        if send_email:
+            if not cliente.email:
+                raise HTTPException(status_code=400, detail="Cliente não possui email cadastrado para receber por e-mail")
+            success_email = EmailService.send_receivable_email(
+                empresa=empresa_raw,
+                cliente_email=cliente.email,
+                receivable_data=receivable_data,
+                pdf_path=pdf_path
+            )
+            if success_email:
+                channels_sent.append("E-mail")
+
+        if send_whatsapp:
+            if not cliente.telefone:
+                raise HTTPException(status_code=400, detail="Cliente não possui telefone cadastrado para receber por WhatsApp")
+            from app.services.whatsapp_service import WhatsAppService
+            success_whatsapp = WhatsAppService.send_receivable_message(
+                empresa=empresa_raw,
+                cliente_nome=cliente.nome_razao_social,
+                cliente_phone=cliente.telefone,
+                receivable_data=receivable_data
+            )
+            if success_whatsapp:
+                channels_sent.append("WhatsApp")
+
+        if (send_email and not success_email) or (send_whatsapp and not success_whatsapp):
+            failed_channels = []
+            if send_email and not success_email:
+                failed_channels.append("E-mail")
+            if send_whatsapp and not success_whatsapp:
+                failed_channels.append("WhatsApp")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Falha ao enviar por: {', '.join(failed_channels)}. Verifique as configurações."
+            )
+
+        recv.sent_at = datetime.utcnow()
+        db.commit()
+        return {"message": f"Cobrança enviada com sucesso via {', '.join(channels_sent)}!"}
             
     finally:
         # Limpar arquivo temporário

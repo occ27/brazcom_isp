@@ -133,6 +133,16 @@ class Empresa(Base):
     mp_allow_pix = Column(Boolean, default=True)
     mp_allow_credit_card = Column(Boolean, default=True)
     
+    # WhatsApp Integration Config
+    send_method_email = Column(Boolean, default=True)
+    send_method_whatsapp = Column(Boolean, default=False)
+    whatsapp_api_system = Column(String(50), default="MK Auth")
+    whatsapp_api_user = Column(String(100))
+    whatsapp_api_server = Column(String(255))
+    whatsapp_api_password = Column(String(500))
+    whatsapp_api_ips = Column(Text, nullable=True)
+    whatsapp_api_instance = Column(String(100), default="mega-net-telecom")
+    
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False) # Usuário que cadastrou a empresa
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

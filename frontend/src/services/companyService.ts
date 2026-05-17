@@ -46,6 +46,16 @@ export interface CompanyCreate {
   mp_allow_boleto?: boolean;
   mp_allow_pix?: boolean;
   mp_allow_credit_card?: boolean;
+  
+  // WhatsApp Integration Config
+  send_method_email?: boolean;
+  send_method_whatsapp?: boolean;
+  whatsapp_api_system?: string;
+  whatsapp_api_user?: string;
+  whatsapp_api_server?: string;
+  whatsapp_api_password?: string;
+  whatsapp_api_ips?: string;
+  whatsapp_api_instance?: string;
 }
 
 export interface CompanyUpdate {
@@ -93,6 +103,16 @@ export interface CompanyUpdate {
   mp_allow_boleto?: boolean;
   mp_allow_pix?: boolean;
   mp_allow_credit_card?: boolean;
+  
+  // WhatsApp Integration Config
+  send_method_email?: boolean;
+  send_method_whatsapp?: boolean;
+  whatsapp_api_system?: string;
+  whatsapp_api_user?: string;
+  whatsapp_api_server?: string;
+  whatsapp_api_password?: string;
+  whatsapp_api_ips?: string;
+  whatsapp_api_instance?: string;
 }
 
 export const companyService = {
@@ -343,6 +363,24 @@ export const companyService = {
   // Deletar assinatura da empresa
   async deleteCompanySignature(companyId: number): Promise<{ deleted_files: string[] }> {
     const response = await api.delete(`/uploads/empresa/${companyId}/assinatura`);
+    return response.data;
+  },
+
+  // Verificar conexão do WhatsApp
+  async getWhatsAppConnectionState(id: number): Promise<{ connected: boolean; state: string; error?: string }> {
+    const response = await api.get(`/empresas/${id}/whatsapp/connection-state`);
+    return response.data;
+  },
+
+  // Obter QR Code de conexão do WhatsApp
+  async getWhatsAppQrCode(id: number): Promise<{ success: boolean; base64?: string; message?: string }> {
+    const response = await api.get(`/empresas/${id}/whatsapp/connect`);
+    return response.data;
+  },
+
+  // Desconectar instância do WhatsApp
+  async disconnectWhatsApp(id: number): Promise<{ success: boolean; message: string }> {
+    const response = await api.post(`/empresas/${id}/whatsapp/disconnect`);
     return response.data;
   },
 

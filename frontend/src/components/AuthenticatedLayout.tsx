@@ -98,8 +98,8 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
   const isLicensePage = currentPage === 'licenses';
   const isSuperUser = user?.is_superuser;
 
-  // Bloqueio estrito se a licença não estiver ativa
-  const isBlocked = licenseInfo && !licenseInfo.is_active && !isLicensePage && !isClientUser();
+  // Bloqueio estrito se a licença não estiver ativa (Superusers nunca são bloqueados, pois administram a plataforma)
+  const isBlocked = licenseInfo && !licenseInfo.is_active && !isLicensePage && !isClientUser() && !isSuperUser;
 
   const handleBypass = () => {
     if (licenseInfo) {

@@ -15,7 +15,7 @@ services:
     volumes:
       - brazcom_db_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-P", "3306", "-p${MYSQL_ROOT_PASSWORD}"]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-P", "3306", "-p${MYSQL_ROOT_PASSWORD}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -62,10 +62,28 @@ services:
     networks:
       - brazcom_network
 
+  # Serviço do Evolution API (WhatsApp Gateway)
+  evolution_api:
+    image: atendare/evolution-api:v2.1.1
+    container_name: brazcom_evolution_api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_PORT=8080
+      - DELAY_MESSAGE=1000
+      - AUTH_API_KEY=c6145a8e18df283b40d7c0bb9c3a3fe40a927fa1e5c2cf9b33adcdbf84f29107
+    volumes:
+      - brazcom_evolution_data:/evolution/instances
+    networks:
+      - brazcom_network
+
 networks:
   brazcom_network:
     driver: bridge
 
 volumes:
   brazcom_db_data:
+    driver: local
+  brazcom_evolution_data:
     driver: local

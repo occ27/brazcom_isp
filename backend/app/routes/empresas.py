@@ -66,14 +66,24 @@ def update_empresa(
     current_user: Usuario = Depends(get_current_active_user)
 ):
     """Atualiza uma empresa."""
-    db_empresa = _check_user_permission_for_empresa(empresa_id, current_user, db)
+    # Realiza checagem de permissão e licença
+    _check_user_permission_for_empresa(empresa_id, current_user, db)
+    
+    # Obtém o objeto ORM real/raw da empresa para persistência no banco
+    db_empresa = crud_empresa.get_empresa_raw(db, empresa_id=empresa_id)
+    if db_empresa is None:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
     
     # Permitir atualização se for super_admin, o criador original ou admin da empresa
     is_admin = any(assoc.empresa_id == empresa_id and assoc.is_admin for assoc in current_user.empresas)
     
     if not current_user.is_superuser and db_empresa.user_id != current_user.id and not is_admin:
         raise HTTPException(status_code=403, detail="Acesso negado para atualização. Requer privilégios de administrador da empresa.")
-    return crud_empresa.update_empresa(db=db, db_obj=db_empresa, obj_in=empresa)
+        
+    crud_empresa.update_empresa(db=db, db_obj=db_empresa, obj_in=empresa)
+    
+    # Retorna o SimpleNamespace descriptografado/seguro esperado pelo EmpresaResponse
+    return crud_empresa.get_empresa(db, empresa_id=empresa_id)
 
 @router.delete("/{empresa_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_empresa(
@@ -82,7 +92,7 @@ def delete_empresa(
     current_user: Usuario = Depends(get_current_active_superuser)
 ):
     """Deleta uma empresa. Apenas superusuários."""
-    db_empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
+    db_empresa = crud_empresa.get_empresa_raw(db, empresa_id=empresa_id)
     if db_empresa is None:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
     crud_empresa.delete_empresa(db=db, db_obj=db_empresa)
@@ -249,3 +259,42 @@ def get_public_empresa_info(empresa_id: int, db: Session = Depends(get_db)):
     if not db_empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
     return db_empresa
+
+
+@router.get("/{empresa_id}/whatsapp/connection-state")
+def get_whatsapp_connection_state(
+    empresa_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Consulta o status real da conexão do WhatsApp via Evolution API."""
+    db_empresa = _check_user_permission_for_empresa(empresa_id, current_user, db)
+    from app.services.whatsapp_service import WhatsAppService
+    return WhatsAppService.get_connection_state(db_empresa)
+
+
+@router.get("/{empresa_id}/whatsapp/connect")
+def get_whatsapp_connect_qr(
+    empresa_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Gera e retorna o QR Code da Evolution API para conectar o WhatsApp."""
+    db_empresa = _check_user_permission_for_empresa(empresa_id, current_user, db)
+    from app.services.whatsapp_service import WhatsAppService
+    return WhatsAppService.get_qr_code(db_empresa)
+
+
+@router.post("/{empresa_id}/whatsapp/disconnect")
+def post_whatsapp_disconnect(
+    empresa_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Desconecta a instância do WhatsApp na Evolution API."""
+    db_empresa = _check_user_permission_for_empresa(empresa_id, current_user, db)
+    from app.services.whatsapp_service import WhatsAppService
+    success = WhatsAppService.disconnect_instance(db_empresa)
+    if not success:
+        raise HTTPException(status_code=400, detail="Não foi possível desconectar a instância")
+    return {"success": True, "message": "Instância desconectada com sucesso"}
