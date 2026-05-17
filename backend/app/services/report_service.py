@@ -36,6 +36,19 @@ class ReportService:
         filter_text = f"Período: {filters.get('start_date', 'Início')} até {filters.get('end_date', 'Fim')}"
         if filters.get('status'):
             filter_text += f" | Status: {filters.get('status')}"
+            
+        filter_parts = []
+        if filters.get('municipio'):
+            filter_parts.append(f"Cidade: {filters.get('municipio')}")
+        if filters.get('bairro'):
+            b_list = filters.get('bairro')
+            if isinstance(b_list, list):
+                filter_parts.append(f"Bairros: {', '.join(b_list)}")
+            else:
+                filter_parts.append(f"Bairro: {b_list}")
+        if filter_parts:
+            filter_text += f" | {' | '.join(filter_parts)}"
+            
         elements.append(Paragraph(filter_text, styles['Normal']))
         elements.append(Spacer(1, 0.5*cm))
         
@@ -158,6 +171,19 @@ class ReportService:
         filter_text = f"Período: {filters.get('start_date', 'Início')} até {filters.get('end_date', 'Fim')}"
         if filters.get('status'):
             filter_text += f" | Status: {filters.get('status')}"
+            
+        filter_parts = []
+        if filters.get('municipio'):
+            filter_parts.append(f"Cidade: {filters.get('municipio')}")
+        if filters.get('bairro'):
+            b_list = filters.get('bairro')
+            if isinstance(b_list, list):
+                filter_parts.append(f"Bairros: {', '.join(b_list)}")
+            else:
+                filter_parts.append(f"Bairro: {b_list}")
+        if filter_parts:
+            filter_text += f" | {' | '.join(filter_parts)}"
+            
         elements.append(Paragraph(filter_text, styles['Normal']))
         elements.append(Spacer(1, 0.5*cm))
         

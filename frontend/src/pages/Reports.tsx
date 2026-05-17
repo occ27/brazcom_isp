@@ -12,7 +12,7 @@ import {
   AdjustmentsHorizontalIcon
 } from '@heroicons/react/24/outline';
 import { useCompany } from '../contexts/CompanyContext';
-import reportService from '../services/reportService';
+import { reportService, ContractsFiltersData } from '../services/reportService';
 import servicoService, { Servico } from '../services/servicoService';
 import { stringifyError } from '../utils/error';
 
@@ -38,6 +38,16 @@ const Reports: React.FC = () => {
   const [financialStatus, setFinancialStatus] = useState('');
   const [financialDateType, setFinancialDateType] = useState('due_date');
 
+  // Filtros de Rede (Contratos)
+  const [contractsFiltersData, setContractsFiltersData] = useState<ContractsFiltersData>({
+    routers: [],
+    ip_classes: [],
+    interfaces: []
+  });
+  const [selectedRouter, setSelectedRouter] = useState<number | ''>('');
+  const [selectedInterface, setSelectedInterface] = useState<number | ''>('');
+  const [selectedIPClass, setSelectedIPClass] = useState<number | ''>('');
+
   // Filtros de Clientes
   const [locations, setLocations] = useState<Record<string, string[]>>({});
   const [selectedCity, setSelectedCity] = useState('');
@@ -54,8 +64,28 @@ const Reports: React.FC = () => {
     if (activeCompany) {
       loadServices();
       loadClientLocations();
+      loadContractsFilters();
     }
   }, [activeCompany]);
+
+  const loadContractsFilters = async () => {
+    if (!activeCompany) return;
+    try {
+      const data = await reportService.getContractsFilters(activeCompany.id);
+      setContractsFiltersData(data);
+    } catch (error) {
+      console.error('Erro ao carregar filtros de rede para contratos:', error);
+    }
+  };
+
+  const handleRouterChange = (routerId: number | '') => {
+    setSelectedRouter(routerId);
+    setSelectedInterface('');
+  };
+
+  const filteredInterfaces = selectedRouter
+    ? contractsFiltersData.interfaces.filter(i => i.router_id === selectedRouter)
+    : contractsFiltersData.interfaces;
 
   const loadClientLocations = async () => {
     if (!activeCompany) return;
@@ -111,7 +141,12 @@ const Reports: React.FC = () => {
     try {
       const params = cleanFilters({
         ...globalFilters,
-        status: contractStatus
+        status: contractStatus,
+        municipio: selectedCity || undefined,
+        bairro: selectedNeighborhoods.length > 0 ? selectedNeighborhoods : undefined,
+        router_id: selectedRouter || undefined,
+        interface_id: selectedInterface || undefined,
+        ip_class_id: selectedIPClass || undefined
       });
       const blob = await reportService.generateContractsPdf(activeCompany.id, params);
       const url = window.URL.createObjectURL(blob);
@@ -133,7 +168,9 @@ const Reports: React.FC = () => {
       const params = cleanFilters({
         ...globalFilters,
         status: financialStatus,
-        date_type: financialDateType
+        date_type: financialDateType,
+        municipio: selectedCity || undefined,
+        bairro: selectedNeighborhoods.length > 0 ? selectedNeighborhoods : undefined
       });
       const blob = await reportService.generateFinancialPdf(activeCompany.id, params);
       const url = window.URL.createObjectURL(blob);
@@ -181,10 +218,10 @@ const Reports: React.FC = () => {
         <CardContent sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
             <AdjustmentsHorizontalIcon className="w-6 h-6 text-indigo-600 mr-2" />
-            <Typography variant="h6" fontWeight="700">Filtros Gerais (Emissão / Período e Plano)</Typography>
+            <Typography variant="h6" fontWeight="700">Filtros Gerais (Filtro por Localidade, Período e Plano)</Typography>
           </Box>
           <Grid container spacing={3}>
-            <Grid item xs={12} sm={4} md={3}>
+            <Grid item xs={12} sm={6} md={3}>
               <TextField
                 label="Data Início"
                 type="date"
@@ -195,7 +232,7 @@ const Reports: React.FC = () => {
                 onChange={(e) => setGlobalFilters({...globalFilters, start_date: e.target.value})}
               />
             </Grid>
-            <Grid item xs={12} sm={4} md={3}>
+            <Grid item xs={12} sm={6} md={3}>
               <TextField
                 label="Data Fim"
                 type="date"
@@ -206,7 +243,75 @@ const Reports: React.FC = () => {
                 onChange={(e) => setGlobalFilters({...globalFilters, end_date: e.target.value})}
               />
             </Grid>
-            <Grid item xs={12} sm={4} md={6}>
+            <Grid item xs={12} sm={6} md={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Cidade</InputLabel>
+                <Select
+                  value={selectedCity}
+                  label="Cidade"
+                  onChange={(e) => handleCityChange(e.target.value as string)}
+                  disabled={loadingLocations}
+                >
+                  <MenuItem value="">Todas as Cidades</MenuItem>
+                  {clientCities.map((cidade) => (
+                    <MenuItem key={cidade} value={cidade}>{cidade}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Bairros</InputLabel>
+                <Select
+                  multiple
+                  value={selectedNeighborhoods}
+                  label="Bairros"
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSelectedNeighborhoods(
+                      typeof value === 'string' ? value.split(',') : (value as string[])
+                    );
+                  }}
+                  disabled={loadingLocations}
+                  renderValue={(selected) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {selected.length === 0 ? (
+                        'Todos os Bairros'
+                      ) : selected.length > 2 ? (
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                          {selected.length} bairros
+                        </Typography>
+                      ) : (
+                        selected.map((value) => (
+                          <Typography 
+                            key={value} 
+                            variant="caption" 
+                            sx={{ 
+                              bgcolor: 'primary.light', 
+                              color: 'primary.contrastText', 
+                              px: 1, 
+                              py: 0.2, 
+                              borderRadius: 1,
+                              fontWeight: 600
+                            }}
+                          >
+                            {value}
+                          </Typography>
+                        ))
+                      )}
+                    </Box>
+                  )}
+                >
+                  {clientNeighborhoods.map((bairro) => (
+                    <MenuItem key={bairro} value={bairro}>
+                      <Checkbox checked={selectedNeighborhoods.includes(bairro)} />
+                      <ListItemText primary={bairro} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
               <FormControl fullWidth size="small">
                 <InputLabel>Plano / Serviço</InputLabel>
                 <Select
@@ -243,19 +348,68 @@ const Reports: React.FC = () => {
               
               <Divider sx={{ mb: 3 }} />
               
-              <FormControl fullWidth size="small" sx={{ mb: 4 }}>
-                <InputLabel>Status do Contrato</InputLabel>
-                <Select
-                  value={contractStatus}
-                  label="Status do Contrato"
-                  onChange={(e) => setContractStatus(e.target.value)}
-                >
-                  <MenuItem value="">Todos os Status</MenuItem>
-                  <MenuItem value="ATIVO">Ativo</MenuItem>
-                  <MenuItem value="SUSPENSO">Suspenso</MenuItem>
-                  <MenuItem value="CANCELADO">Cancelado</MenuItem>
-                </Select>
-              </FormControl>
+              <Grid container spacing={2} sx={{ mb: 4 }}>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Status do Contrato</InputLabel>
+                    <Select
+                      value={contractStatus}
+                      label="Status do Contrato"
+                      onChange={(e) => setContractStatus(e.target.value)}
+                    >
+                      <MenuItem value="">Todos os Status</MenuItem>
+                      <MenuItem value="ATIVO">Ativo</MenuItem>
+                      <MenuItem value="SUSPENSO">Suspenso</MenuItem>
+                      <MenuItem value="CANCELADO">Cancelado</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Classe de IP</InputLabel>
+                    <Select
+                      value={selectedIPClass}
+                      label="Classe de IP"
+                      onChange={(e) => setSelectedIPClass(e.target.value as number | '')}
+                    >
+                      <MenuItem value="">Todas as Classes</MenuItem>
+                      {contractsFiltersData.ip_classes.map((ipc) => (
+                        <MenuItem key={ipc.id} value={ipc.id}>{ipc.name}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Concentrador (Router)</InputLabel>
+                    <Select
+                      value={selectedRouter}
+                      label="Concentrador (Router)"
+                      onChange={(e) => handleRouterChange(e.target.value as number | '')}
+                    >
+                      <MenuItem value="">Todos os Roteadores</MenuItem>
+                      {contractsFiltersData.routers.map((r) => (
+                        <MenuItem key={r.id} value={r.id}>{r.nome}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Interface</InputLabel>
+                    <Select
+                      value={selectedInterface}
+                      label="Interface"
+                      onChange={(e) => setSelectedInterface(e.target.value as number | '')}
+                    >
+                      <MenuItem value="">Todas as Interfaces</MenuItem>
+                      {filteredInterfaces.map((i) => (
+                        <MenuItem key={i.id} value={i.id}>{i.name}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
 
               <Button 
                 variant="contained" 
@@ -351,80 +505,9 @@ const Reports: React.FC = () => {
               
               <Divider sx={{ mb: 3 }} />
               
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Gera uma listagem completa de todos os clientes cadastrados na empresa, incluindo CPF/CNPJ, contato e localização.
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+                Gera uma listagem completa de todos os clientes cadastrados na empresa, filtrados conforme a localidade (Cidade e Bairros) definida nos Filtros Gerais acima, incluindo CPF/CNPJ, contato e endereço.
               </Typography>
-
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Cidade</InputLabel>
-                    <Select
-                      value={selectedCity}
-                      label="Cidade"
-                      onChange={(e) => handleCityChange(e.target.value as string)}
-                      disabled={loadingLocations}
-                    >
-                      <MenuItem value="">Todas as Cidades</MenuItem>
-                      {clientCities.map((cidade) => (
-                        <MenuItem key={cidade} value={cidade}>{cidade}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Bairros</InputLabel>
-                    <Select
-                      multiple
-                      value={selectedNeighborhoods}
-                      label="Bairros"
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setSelectedNeighborhoods(
-                          typeof value === 'string' ? value.split(',') : (value as string[])
-                        );
-                      }}
-                      disabled={loadingLocations}
-                      renderValue={(selected) => (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {selected.length === 0 ? (
-                            'Todos os Bairros'
-                          ) : selected.length > 2 ? (
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                              {selected.length} bairros selecionados
-                            </Typography>
-                          ) : (
-                            selected.map((value) => (
-                              <Typography 
-                                key={value} 
-                                variant="caption" 
-                                sx={{ 
-                                  bgcolor: 'primary.light', 
-                                  color: 'primary.contrastText', 
-                                  px: 1, 
-                                  py: 0.2, 
-                                  borderRadius: 1,
-                                  fontWeight: 600
-                                }}
-                              >
-                                {value}
-                              </Typography>
-                            ))
-                          )}
-                        </Box>
-                      )}
-                    >
-                      {clientNeighborhoods.map((bairro) => (
-                        <MenuItem key={bairro} value={bairro}>
-                          <Checkbox checked={selectedNeighborhoods.includes(bairro)} />
-                          <ListItemText primary={bairro} />
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </Grid>
 
               <Button 
                 variant="contained" 

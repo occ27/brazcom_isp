@@ -13,6 +13,31 @@ from app.api import deps
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
+@router.get("/contracts/filters")
+def get_contracts_filters(
+    empresa_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Retorna listas de roteadores, interfaces e classes de IP de uma empresa para popular filtros."""
+    deps.permission_checker('contracts_view')(db=db, current_user=current_user)
+    
+    from app.models.network import Router, RouterInterface, IPClass
+    
+    routers = db.query(Router.id, Router.nome).filter(Router.empresa_id == empresa_id).order_by(Router.nome).all()
+    ip_classes = db.query(IPClass.id, IPClass.name).filter(IPClass.empresa_id == empresa_id).order_by(IPClass.name).all()
+    
+    interfaces = db.query(RouterInterface.id, RouterInterface.name, RouterInterface.router_id)\
+        .join(Router, Router.id == RouterInterface.router_id)\
+        .filter(Router.empresa_id == empresa_id)\
+        .order_by(RouterInterface.name).all()
+        
+    return {
+        "routers": [{"id": r[0], "nome": r[1]} for r in routers],
+        "ip_classes": [{"id": ipc[0], "name": ipc[1]} for ipc in ip_classes],
+        "interfaces": [{"id": i[0], "name": i[1], "router_id": i[2]} for i in interfaces]
+    }
+
 @router.get("/contracts/pdf")
 def get_contracts_report_pdf(
     empresa_id: int,
@@ -20,20 +45,27 @@ def get_contracts_report_pdf(
     end_date: Optional[date] = None,
     status: Optional[str] = None,
     servico_id: Optional[int] = None,
+    municipio: Optional[str] = None,
+    bairro: Optional[List[str]] = Query(None),
+    router_id: Optional[int] = None,
+    interface_id: Optional[int] = None,
+    ip_class_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_active_user)
 ):
-    """Gera um relatório de contratos em PDF."""
-    # Verificar permissão (pode usar 'contracts_view' ou similar)
+    """Gera um relatório de contratos em PDF com filtros avançados de provedor."""
     deps.permission_checker('contracts_view')(db=db, current_user=current_user)
     
-    # Verificar se a empresa pertence ao usuário
     empresa = db.query(Empresa).filter(Empresa.id == empresa_id).first()
     if not empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
         
-    # Query de contratos
-    query = db.query(ServicoContratado).filter(ServicoContratado.empresa_id == empresa_id)
+    # Query de contratos com join de endereço para filtros de cidade/bairro
+    from app.models.models import EmpresaClienteEndereco
+    
+    query = db.query(ServicoContratado).join(
+        EmpresaClienteEndereco, ServicoContratado.endereco_id == EmpresaClienteEndereco.id, isouter=True
+    ).filter(ServicoContratado.empresa_id == empresa_id)
     
     if start_date:
         query = query.filter(func.date(ServicoContratado.created_at) >= start_date)
@@ -43,7 +75,32 @@ def get_contracts_report_pdf(
         query = query.filter(ServicoContratado.status == status)
     if servico_id:
         query = query.filter(ServicoContratado.servico_id == servico_id)
+    if router_id:
+        query = query.filter(ServicoContratado.router_id == router_id)
+    if interface_id:
+        query = query.filter(ServicoContratado.interface_id == interface_id)
+    if ip_class_id:
+        query = query.filter(ServicoContratado.ip_class_id == ip_class_id)
         
+    if municipio:
+        query = query.filter(EmpresaClienteEndereco.municipio == municipio)
+        
+    if bairro:
+        from sqlalchemy import or_
+        conditions = []
+        has_sem_bairro = "SEM BAIRRO" in bairro
+        other_bairros = [b for b in bairro if b != "SEM BAIRRO"]
+        
+        if other_bairros:
+            conditions.append(EmpresaClienteEndereco.bairro.in_(other_bairros))
+        if has_sem_bairro:
+            conditions.append(EmpresaClienteEndereco.bairro == None)
+            conditions.append(EmpresaClienteEndereco.bairro == '')
+            conditions.append(ServicoContratado.endereco_id == None)
+            
+        if conditions:
+            query = query.filter(or_(*conditions))
+            
     contracts_db = query.all()
     
     # Preparar dados para o serviço
@@ -69,7 +126,9 @@ def get_contracts_report_pdf(
     filters = {
         "start_date": start_date.strftime('%d/%m/%Y') if start_date else "",
         "end_date": end_date.strftime('%d/%m/%Y') if end_date else "",
-        "status": status
+        "status": status,
+        "municipio": municipio,
+        "bairro": bairro
     }
     
     pdf_buffer = ReportService.generate_contracts_report(empresa, contracts_data, filters)
@@ -89,17 +148,30 @@ def get_financial_report_pdf(
     status: Optional[str] = None,
     date_type: str = Query("due_date", enum=["due_date", "paid_at"]),
     servico_id: Optional[int] = None,
+    municipio: Optional[str] = None,
+    bairro: Optional[List[str]] = Query(None),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_active_user)
 ):
-    """Gera um relatório financeiro em PDF."""
+    """Gera um relatório financeiro em PDF com filtros avançados."""
     deps.permission_checker('receivables_view')(db=db, current_user=current_user)
     
     empresa = db.query(Empresa).filter(Empresa.id == empresa_id).first()
     if not empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
         
-    query = db.query(Receivable).filter(Receivable.empresa_id == empresa_id)
+    # Query de faturamento com join do endereço do cliente para filtros de cidade/bairro
+    from app.models.models import Cliente, EmpresaCliente, EmpresaClienteEndereco
+    
+    query = db.query(Receivable).join(
+        Cliente, Receivable.cliente_id == Cliente.id
+    ).join(
+        EmpresaCliente, (Cliente.id == EmpresaCliente.cliente_id) & (EmpresaCliente.empresa_id == empresa_id)
+    ).join(
+        EmpresaClienteEndereco, (EmpresaCliente.id == EmpresaClienteEndereco.empresa_cliente_id) & (EmpresaClienteEndereco.is_principal == True), isouter=True
+    ).filter(
+        Receivable.empresa_id == empresa_id
+    )
     
     # Determinar coluna de data
     date_col = Receivable.due_date if date_type == "due_date" else Receivable.paid_at
@@ -112,6 +184,24 @@ def get_financial_report_pdf(
         query = query.filter(Receivable.status == status)
     if servico_id:
         query = query.filter(Receivable.servico_contratado.has(ServicoContratado.servico_id == servico_id))
+        
+    if municipio:
+        query = query.filter(EmpresaClienteEndereco.municipio == municipio)
+        
+    if bairro:
+        from sqlalchemy import or_
+        conditions = []
+        has_sem_bairro = "SEM BAIRRO" in bairro
+        other_bairros = [b for b in bairro if b != "SEM BAIRRO"]
+        
+        if other_bairros:
+            conditions.append(EmpresaClienteEndereco.bairro.in_(other_bairros))
+        if has_sem_bairro:
+            conditions.append(EmpresaClienteEndereco.bairro == None)
+            conditions.append(EmpresaClienteEndereco.bairro == '')
+            
+        if conditions:
+            query = query.filter(or_(*conditions))
         
     receivables_db = query.all()
     
@@ -144,7 +234,9 @@ def get_financial_report_pdf(
     filters = {
         "start_date": start_date.strftime('%d/%m/%Y') if start_date else "",
         "end_date": end_date.strftime('%d/%m/%Y') if end_date else "",
-        "status": status
+        "status": status,
+        "municipio": municipio,
+        "bairro": bairro
     }
     
     pdf_buffer = ReportService.generate_financial_report(empresa, receivables_data, filters)
