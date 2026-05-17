@@ -207,7 +207,7 @@ class WhatsAppService:
                 "integration": "WHATSAPP-BAILEYS"
             }
             try:
-                res = requests.post(create_endpoint, json=create_payload, headers=headers, timeout=5)
+                res = requests.post(create_endpoint, json=create_payload, headers=headers, timeout=20)
                 print(f"\n[DEBUG WHATSAPP] ENVIADO PARA: {create_endpoint}")
                 print(f"[DEBUG WHATSAPP] PAYLOAD: {create_payload}")
                 print(f"[DEBUG WHATSAPP] HEADERS: {headers}")
@@ -217,7 +217,7 @@ class WhatsAppService:
 
             # 2. Solicita o QR Code
             connect_endpoint = f"{api_url}/instance/connect/{instance_name}"
-            response = requests.get(connect_endpoint, headers={"apikey": api_key}, timeout=8)
+            response = requests.get(connect_endpoint, headers={"apikey": api_key}, timeout=20)
             if response.status_code == 200:
                 data = response.json()
                 base64_qr = data.get("base64")
