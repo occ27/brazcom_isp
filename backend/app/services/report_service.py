@@ -288,8 +288,20 @@ class ReportService:
 
         elements.append(Paragraph(f"Relatório de Clientes por Bairro - {empresa.nome_fantasia or empresa.razao_social}", title_style))
         
+        filter_parts = []
         if filters.get('q'):
-            elements.append(Paragraph(f"Filtro de busca: {filters.get('q')}", styles['Normal']))
+            filter_parts.append(f"Busca: {filters.get('q')}")
+        if filters.get('municipio'):
+            filter_parts.append(f"Cidade: {filters.get('municipio')}")
+        if filters.get('bairro'):
+            b_list = filters.get('bairro')
+            if isinstance(b_list, list):
+                filter_parts.append(f"Bairros: {', '.join(b_list)}")
+            else:
+                filter_parts.append(f"Bairro: {b_list}")
+            
+        if filter_parts:
+            elements.append(Paragraph(f"Filtros aplicados: {' | '.join(filter_parts)}", styles['Normal']))
         
         elements.append(Spacer(1, 0.5*cm))
         

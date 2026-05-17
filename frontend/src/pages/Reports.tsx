@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   Typography, Box, Grid, TextField, Button, 
   FormControl, InputLabel, Select, MenuItem, Divider,
-  CircularProgress, Card, CardContent, Dialog, DialogContent
+  CircularProgress, Card, CardContent, Dialog, DialogContent,
+  Checkbox, ListItemText
 } from '@mui/material';
 import { 
   DocumentTextIcon, 
@@ -37,11 +38,49 @@ const Reports: React.FC = () => {
   const [financialStatus, setFinancialStatus] = useState('');
   const [financialDateType, setFinancialDateType] = useState('due_date');
 
+  // Filtros de Clientes
+  const [locations, setLocations] = useState<Record<string, string[]>>({});
+  const [selectedCity, setSelectedCity] = useState('');
+  const [selectedNeighborhoods, setSelectedNeighborhoods] = useState<string[]>([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
+
+  // Computar cidades e bairros disponíveis com base na seleção
+  const clientCities = Object.keys(locations).sort();
+  const clientNeighborhoods = selectedCity 
+    ? (locations[selectedCity] || [])
+    : Array.from(new Set(Object.values(locations).flat())).sort();
+
   useEffect(() => {
     if (activeCompany) {
       loadServices();
+      loadClientLocations();
     }
   }, [activeCompany]);
+
+  const loadClientLocations = async () => {
+    if (!activeCompany) return;
+    setLoadingLocations(true);
+    try {
+      const data = await reportService.getClientsLocations(activeCompany.id);
+      setLocations(data);
+    } catch (error) {
+      console.error('Erro ao carregar localizações de clientes:', error);
+    } finally {
+      setLoadingLocations(false);
+    }
+  };
+
+  const handleCityChange = (city: string) => {
+    setSelectedCity(city);
+    // Se mudou a cidade, filtra os bairros mantendo apenas aqueles que pertencem à nova cidade
+    if (city && locations[city]) {
+      const allowed = locations[city];
+      setSelectedNeighborhoods(prev => prev.filter(b => allowed.includes(b)));
+    } else if (!city) {
+      // Se limpou a cidade, limpa também a seleção de bairros para manter o padrão intuitivo
+      setSelectedNeighborhoods([]);
+    }
+  };
 
   const loadServices = async () => {
     if (!activeCompany) return;
@@ -113,7 +152,11 @@ const Reports: React.FC = () => {
     if (!activeCompany) return;
     setLoading('clients');
     try {
-      const blob = await reportService.generateClientsPdf(activeCompany.id, {});
+      const params = cleanFilters({
+        municipio: selectedCity,
+        bairro: selectedNeighborhoods.length > 0 ? selectedNeighborhoods : undefined
+      });
+      const blob = await reportService.generateClientsPdf(activeCompany.id, params);
       const url = window.URL.createObjectURL(blob);
       setPdfUrl(url);
       setReportTitle('Relatório de Clientes');
@@ -308,9 +351,80 @@ const Reports: React.FC = () => {
               
               <Divider sx={{ mb: 3 }} />
               
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                 Gera uma listagem completa de todos os clientes cadastrados na empresa, incluindo CPF/CNPJ, contato e localização.
               </Typography>
+
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Cidade</InputLabel>
+                    <Select
+                      value={selectedCity}
+                      label="Cidade"
+                      onChange={(e) => handleCityChange(e.target.value as string)}
+                      disabled={loadingLocations}
+                    >
+                      <MenuItem value="">Todas as Cidades</MenuItem>
+                      {clientCities.map((cidade) => (
+                        <MenuItem key={cidade} value={cidade}>{cidade}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Bairros</InputLabel>
+                    <Select
+                      multiple
+                      value={selectedNeighborhoods}
+                      label="Bairros"
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setSelectedNeighborhoods(
+                          typeof value === 'string' ? value.split(',') : (value as string[])
+                        );
+                      }}
+                      disabled={loadingLocations}
+                      renderValue={(selected) => (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {selected.length === 0 ? (
+                            'Todos os Bairros'
+                          ) : selected.length > 2 ? (
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                              {selected.length} bairros selecionados
+                            </Typography>
+                          ) : (
+                            selected.map((value) => (
+                              <Typography 
+                                key={value} 
+                                variant="caption" 
+                                sx={{ 
+                                  bgcolor: 'primary.light', 
+                                  color: 'primary.contrastText', 
+                                  px: 1, 
+                                  py: 0.2, 
+                                  borderRadius: 1,
+                                  fontWeight: 600
+                                }}
+                              >
+                                {value}
+                              </Typography>
+                            ))
+                          )}
+                        </Box>
+                      )}
+                    >
+                      {clientNeighborhoods.map((bairro) => (
+                        <MenuItem key={bairro} value={bairro}>
+                          <Checkbox checked={selectedNeighborhoods.includes(bairro)} />
+                          <ListItemText primary={bairro} />
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
 
               <Button 
                 variant="contained" 

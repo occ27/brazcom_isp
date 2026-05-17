@@ -156,10 +156,38 @@ def get_financial_report_pdf(
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
+@router.get("/clients/locations")
+def get_clients_locations(
+    empresa_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Retorna um mapeamento de cidades para seus respectivos bairros únicos dos clientes de uma empresa."""
+    deps.permission_checker('clients_view')(db=db, current_user=current_user)
+    
+    from app.models.models import EmpresaCliente, EmpresaClienteEndereco
+    from collections import defaultdict
+    
+    results = db.query(EmpresaClienteEndereco.municipio, EmpresaClienteEndereco.bairro)\
+        .join(EmpresaCliente, EmpresaCliente.id == EmpresaClienteEndereco.empresa_cliente_id)\
+        .filter(EmpresaCliente.empresa_id == empresa_id)\
+        .distinct().all()
+        
+    locations = defaultdict(set)
+    for m, b in results:
+        city = m.strip() if m else ""
+        neighborhood = b.strip() if b else ""
+        if city:
+            locations[city].add(neighborhood or "SEM BAIRRO")
+            
+    return {city: sorted(list(neighs)) for city, neighs in locations.items() if city}
+
 @router.get("/clients/pdf")
 def get_clients_report_pdf(
     empresa_id: int,
     q: Optional[str] = None,
+    municipio: Optional[str] = None,
+    bairro: Optional[List[str]] = Query(None),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_active_user)
 ):
@@ -172,7 +200,6 @@ def get_clients_report_pdf(
         
     # Buscar todos os endereços vinculados a clientes desta empresa
     from app.models.models import EmpresaCliente, EmpresaClienteEndereco, Cliente
-    from sqlalchemy import and_
     
     query = db.query(
         Cliente.id,
@@ -204,6 +231,24 @@ def get_clients_report_pdf(
             EmpresaClienteEndereco.bairro.ilike(pattern),
             EmpresaClienteEndereco.municipio.ilike(pattern)
         ))
+        
+    if municipio:
+        query = query.filter(EmpresaClienteEndereco.municipio == municipio)
+        
+    if bairro:
+        from sqlalchemy import or_
+        conditions = []
+        has_sem_bairro = "SEM BAIRRO" in bairro
+        other_bairros = [b for b in bairro if b != "SEM BAIRRO"]
+        
+        if other_bairros:
+            conditions.append(EmpresaClienteEndereco.bairro.in_(other_bairros))
+        if has_sem_bairro:
+            conditions.append(EmpresaClienteEndereco.bairro == None)
+            conditions.append(EmpresaClienteEndereco.bairro == '')
+            
+        if conditions:
+            query = query.filter(or_(*conditions))
     
     # Ordenar por Bairro e depois por Nome
     results = query.order_by(EmpresaClienteEndereco.bairro, Cliente.nome_razao_social).all()
@@ -225,7 +270,7 @@ def get_clients_report_pdf(
             "complemento": r.complemento
         })
         
-    filters = {"q": q}
+    filters = {"q": q, "municipio": municipio, "bairro": bairro}
     pdf_buffer = ReportService.generate_clients_report(empresa, clients_data, filters)
     
     filename = f"relatorio_clientes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
