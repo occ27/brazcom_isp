@@ -1093,8 +1093,7 @@ const Contracts: React.FC = () => {
         cto_porta: '',
         metragem_drop: undefined,
         vlan_id: undefined,
-        ativos: [],
-        contrato_anatel_url: ''
+        ativos: []
       };
 
       const savedData = localStorage.getItem('last_contract_tech_data');
@@ -2423,6 +2422,20 @@ const Contracts: React.FC = () => {
                           />
                         </div>
                       )}
+
+                      <div className="col-span-1 sm:col-span-2 mt-2">
+                        <TextField
+                          label="Observações da Instalação"
+                          value={form.observacoes_instalacao || ''}
+                          onChange={e => handleInputChange('observacoes_instalacao', e.target.value)}
+                          fullWidth
+                          size="small"
+                          multiline
+                          rows={3}
+                          placeholder="Detalhes sobre a instalação, fiação, local do roteador, etc."
+                          disabled={viewOnly}
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -2560,34 +2573,6 @@ const Contracts: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="bg-gradient-to-r from-slate-50 to-gray-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-slate-100">
-                    <h3 className="text-lg sm:text-xl font-bold text-slate-800 mb-1 sm:mb-2 flex items-center">
-                      <span className="mr-2 text-base sm:text-lg">📜</span>
-                      <span className="text-sm sm:text-base">Documentação e Segurança</span>
-                    </h3>
-                    <div className="mt-3 sm:mt-4 space-y-4">
-                      <TextField
-                        label="URL do Contrato Anatel"
-                        value={form.contrato_anatel_url || ''}
-                        onChange={e => handleInputChange('contrato_anatel_url', e.target.value)}
-                        fullWidth
-                        size="small"
-                        placeholder="Link para o PDF do contrato assinado"
-                        helperText="Ex: https://arquivos.provedor.com.br/contratos/123.pdf"
-                      />
-
-                      <TextField
-                        label="Observações da Instalação"
-                        value={form.observacoes_instalacao || ''}
-                        onChange={e => handleInputChange('observacoes_instalacao', e.target.value)}
-                        fullWidth
-                        size="small"
-                        multiline
-                        rows={3}
-                        placeholder="Detalhes sobre a instalação, fiação, local do roteador, etc."
-                      />
-                    </div>
-                  </div>
                 </div>
               )}
 
