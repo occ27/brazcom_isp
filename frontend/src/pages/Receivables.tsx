@@ -59,6 +59,13 @@ const Receivables: React.FC = () => {
   const [selectedReceivable, setSelectedReceivable] = useState<Receivable | null>(null);
   const [errorDialog, setErrorDialog] = useState<{open: boolean, msg: string}>({ open: false, msg: '' });
   const [dateType, setDateType] = useState('due_date');
+  const [unblockResultDialogOpen, setUnblockResultDialogOpen] = useState(false);
+  const [unblockResult, setUnblockResult] = useState<{
+    attempted: boolean;
+    success: boolean;
+    message: string;
+    cliente_nome: string;
+  } | null>(null);
   
   // Modals
   const [openCreate, setOpenCreate] = useState(false);
@@ -262,10 +269,21 @@ const Receivables: React.FC = () => {
     if (!selectedReceivable) return;
     try {
       const paidAmount = unmaskCurrency(settleAmount);
-      await receivableService.settleReceivable(selectedReceivable.id, paidAmount);
-      setSnackbar({ open: true, message: 'Cobrança baixada manualmente', severity: 'success' });
+      const response = await receivableService.settleReceivable(selectedReceivable.id, paidAmount);
       setOpenSettle(false);
       loadReceivables();
+
+      if (response.unblock_attempted) {
+        setUnblockResult({
+          attempted: true,
+          success: response.unblock_success || false,
+          message: response.unblock_message || '',
+          cliente_nome: selectedReceivable.cliente_nome || 'Cliente'
+        });
+        setUnblockResultDialogOpen(true);
+      } else {
+        setSnackbar({ open: true, message: 'Cobrança baixada com sucesso.', severity: 'success' });
+      }
     } catch (e) {
       setSnackbar({ open: true, message: stringifyError(e), severity: 'error' });
     }
@@ -275,9 +293,20 @@ const Receivables: React.FC = () => {
     // This function is kept for backward compatibility if needed, but we use handleOpenSettle now
     if (!window.confirm('Confirmar o recebimento manual desta cobrança? O sistema marcará como PAGO.')) return;
     try {
-      await receivableService.settleReceivable(id);
-      setSnackbar({ open: true, message: 'Cobrança baixada manualmente', severity: 'success' });
+      const response = await receivableService.settleReceivable(id);
       loadReceivables();
+
+      if (response.unblock_attempted) {
+        setUnblockResult({
+          attempted: true,
+          success: response.unblock_success || false,
+          message: response.unblock_message || '',
+          cliente_nome: selectedReceivable?.cliente_nome || 'Cliente'
+        });
+        setUnblockResultDialogOpen(true);
+      } else {
+        setSnackbar({ open: true, message: 'Cobrança baixada com sucesso.', severity: 'success' });
+      }
     } catch (e) {
       setSnackbar({ open: true, message: stringifyError(e), severity: 'error' });
     }
@@ -793,6 +822,51 @@ const Receivables: React.FC = () => {
           <Button onClick={() => setOpenSettle(false)}>Cancelar</Button>
           <Button variant="contained" color="success" onClick={handleConfirmSettle}>
             Confirmar Baixa
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal de Status de Desbloqueio Automático ISP */}
+      <Dialog open={unblockResultDialogOpen} onClose={() => setUnblockResultDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <InformationCircleIcon className="w-6 h-6 text-blue-500" />
+          Resultado do Desbloqueio ISP
+        </DialogTitle>
+        <DialogContent dividers sx={{ pb: 3 }}>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body1">
+              A cobrança do cliente <strong>{unblockResult?.cliente_nome}</strong> foi baixada com sucesso no sistema.
+            </Typography>
+          </Box>
+          {unblockResult?.success ? (
+            <Alert severity="success" sx={{ borderLeft: '6px solid #2e7d32', borderRadius: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                🟢 Desbloqueio Concluído!
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                {unblockResult?.message}
+              </Typography>
+            </Alert>
+          ) : (
+            <Alert severity="warning" sx={{ borderLeft: '6px solid #ed6c02', borderRadius: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                ⚠️ Atenção: Falha no Desbloqueio Automático
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                O contrato do cliente não pôde ser ativado no MikroTik/RADIUS de forma automática.
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 1, fontWeight: 'bold', fontFamily: 'monospace', bgcolor: 'rgba(0,0,0,0.05)', p: 1, borderRadius: 1 }}>
+                Motivo: {unblockResult?.message}
+              </Typography>
+              <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'text.secondary' }}>
+                Você precisará acessar a página de Contratos ou Roteadores para realizar o desbloqueio manual ou verificar a conectividade do Roteador.
+              </Typography>
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button variant="contained" color={unblockResult?.success ? "success" : "warning"} onClick={() => setUnblockResultDialogOpen(false)} sx={{ borderRadius: 2, px: 3 }}>
+            Entendido
           </Button>
         </DialogActions>
       </Dialog>

@@ -46,6 +46,9 @@ export interface Receivable {
   bank_payload?: string;
   created_at: string;
   updated_at?: string;
+  unblock_attempted?: boolean;
+  unblock_success?: boolean;
+  unblock_message?: string;
 }
 
 const listReceivables = async (empresaId: number, page = 1, perPage = 25, startDate?: string, endDate?: string, dateType = 'due_date', status?: string, search?: string) => {

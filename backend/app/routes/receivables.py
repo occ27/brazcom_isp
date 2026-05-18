@@ -77,6 +77,11 @@ class ReceivableResponse(BaseModel):
     # Adicionado para suportar filtros de pagamento no checkout
     mp_settings: Optional[dict] = None
 
+    # Campos de status de desbloqueio para settle response
+    unblock_attempted: Optional[bool] = None
+    unblock_success: Optional[bool] = None
+    unblock_message: Optional[str] = None
+
     class Config:
         from_attributes = True
 
@@ -350,15 +355,41 @@ def settle_receivable(receivable_id: int, payload: SettlePayload = Body(...), db
             logger.error(f"Erro ao solicitar baixa no BB para boleto {recv.bb_boleto_numero}: {e}")
 
     # Se a cobrança estiver vinculada a um contrato ISP, realiza o desbloqueio automático
+    unblock_attempted = False
+    unblock_success = False
+    unblock_message = None
+
     if recv.servico_contratado_id:
+        unblock_attempted = True
         try:
-            isp_service.process_unblock_if_needed(db, recv.servico_contratado_id)
+            # Sincroniza com o router e passa raise_on_error=True para obtermos a resposta precisa
+            success = isp_service.process_unblock_if_needed(db, recv.servico_contratado_id, raise_on_error=True)
+            if success:
+                unblock_success = True
+                unblock_message = f"Contrato #{recv.servico_contratado_id} reativado com absoluto sucesso no Router/Radius!"
+            else:
+                from app.models.models import ServicoContratado, StatusContrato
+                contrato = db.query(ServicoContratado).filter(ServicoContratado.id == recv.servico_contratado_id).first()
+                if contrato and contrato.status == StatusContrato.ATIVO:
+                    unblock_success = True
+                    unblock_message = "O contrato associado já estava ativo."
+                else:
+                    unblock_success = False
+                    unblock_message = "O contrato associado não exige desbloqueio no momento."
         except Exception as e:
+            unblock_success = False
+            unblock_message = f"Falha de comunicação com o Router/Radius: {str(e)}"
             logger.error(f"Erro ao processar desbloqueio automático ISP para contrato {recv.servico_contratado_id}: {e}")
 
     db.commit()
     db.refresh(recv)
-    return ReceivableResponse.from_orm(recv)
+    
+    response_obj = ReceivableResponse.from_orm(recv)
+    response_obj.unblock_attempted = unblock_attempted
+    response_obj.unblock_success = unblock_success
+    response_obj.unblock_message = unblock_message
+    
+    return response_obj
 
 @router.put("/{receivable_id}/refund", response_model=ReceivableResponse)
 def refund_receivable(receivable_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):

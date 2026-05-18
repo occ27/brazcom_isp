@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 # Cache global de Roteadores offline/com erro para evitar timeouts sucessivos
 FAILED_ROUTERS = set()
 
-def process_unblock_if_needed(db: Session, contrato_id: int):
+def process_unblock_if_needed(db: Session, contrato_id: int, raise_on_error: bool = False):
     """
     Verifica se o contrato está suspenso e realiza o desbloqueio no router.
     Muda o status para ATIVO.
@@ -26,8 +26,6 @@ def process_unblock_if_needed(db: Session, contrato_id: int):
         return False
     
     old_status = contrato.status
-    contrato.status = StatusContrato.ATIVO
-    db.add(contrato)
 
     # 1. Desbloqueio no RADIUS (se aplicável)
     if contrato.metodo_autenticacao == MetodoAutenticacao.RADIUS:
@@ -44,6 +42,9 @@ def process_unblock_if_needed(db: Session, contrato_id: int):
                 db.add(radius_user)
             except Exception as e:
                 logger.error(f"Erro ao reativar usuário Radius '{radius_user.username}': {e}")
+                if raise_on_error:
+                    raise RuntimeError(f"Erro ao reativar no Radius: {str(e)}")
+                return False
     
     # Se tiver router configurado, realiza o desbloqueio técnico
     if contrato.router_id:
@@ -75,13 +76,13 @@ def process_unblock_if_needed(db: Session, contrato_id: int):
                 cliente_nome = "Cliente"
                 if contrato.cliente:
                     cliente_nome = contrato.cliente.nome_razao_social
-
+ 
                 # Desbloquear primário (remover da pg_corte e regras estritas)
                 # Se for RADIUS, o username no Mikrotik é o username do Radius
                 mk_username = f"contrato_{contrato.id}"
                 if contrato.metodo_autenticacao == MetodoAutenticacao.RADIUS and contrato.cliente.radius_user:
                     mk_username = contrato.cliente.radius_user.username
-
+ 
                 success = mk.unsuspend_client_connection(
                     contrato_id=contrato.id,
                     metodo_autenticacao=contrato.metodo_autenticacao,
@@ -94,7 +95,7 @@ def process_unblock_if_needed(db: Session, contrato_id: int):
                 # Se for RADIUS ou PPPOE, tenta derrubar a sessão ativa para forçar re-conexão com status novo
                 if contrato.metodo_autenticacao in [MetodoAutenticacao.PPPOE, MetodoAutenticacao.RADIUS]:
                     mk.disconnect_pppoe_active(mk_username)
-
+ 
                 # Restaurar a banda original (Simple Queue e DHCP) com base no serviço
                 if success and contrato.servico_id:
                     profile_name = None
@@ -127,11 +128,18 @@ def process_unblock_if_needed(db: Session, contrato_id: int):
                     logger.info(f"Contrato {contrato_id} desbloqueado com sucesso no router {router_db.ip}")
                 else:
                     logger.warning(f"Comando de desbloqueio enviado mas o router retornou falha para o contrato {contrato_id}")
+                    if raise_on_error:
+                        raise RuntimeError("Mikrotik retornou erro ao executar regras de desbloqueio.")
+                    return False
             except Exception as e:
                 logger.error(f"Erro ao desbloquear contrato {contrato_id} no router: {e}")
-                # Não falhamos a transação do banco por erro no router, 
-                # mas o log registrará que o desbloqueio manual pode ser necessário.
-    
+                if raise_on_error:
+                    raise RuntimeError(f"Erro de comunicação com o Router Mikrotik: {str(e)}")
+                return False
+
+    # 3. Atualizar o banco de dados APENAS se as etapas acima foram executadas com absoluto sucesso
+    contrato.status = StatusContrato.ATIVO
+    db.add(contrato)
     return True
 
 def process_block_if_needed(db: Session, contrato_id: int):
