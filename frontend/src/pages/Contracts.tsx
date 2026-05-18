@@ -7,6 +7,9 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination, Pagination,
   Checkbox, Tabs, Tab, FormHelperText, InputAdornment
 } from '@mui/material';
+import L from 'leaflet';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import {
   PlusIcon, ArrowPathIcon, CloudIcon, QrCodeIcon,
   ArrowTopRightOnSquareIcon,
@@ -87,6 +90,7 @@ const Contracts: React.FC = () => {
   };
   // use shared stringifyError from utils
   const [contratos, setContratos] = useState<Contrato[]>([]);
+  const [viewMode, setViewMode] = useState<'table' | 'map'>('table');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [loading, setLoading] = useState<boolean>(true);
@@ -147,6 +151,7 @@ const Contracts: React.FC = () => {
   // Pagination state
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [previousRowsPerPage, setPreviousRowsPerPage] = useState(10);
   const [totalRows, setTotalRows] = useState(0);
 
   // Search state
@@ -370,6 +375,18 @@ const Contracts: React.FC = () => {
       return () => clearTimeout(timeoutId);
     }
   }, [searchTerm, diaVencimentoMin, diaVencimentoMax, activeCompany]);
+
+  // Ajustar paginação para carregar todos os contratos quando estiver no modo mapa
+  useEffect(() => {
+    if (viewMode === 'map') {
+      setPreviousRowsPerPage(rowsPerPage);
+      setPage(0);
+      setRowsPerPage(1000); // Exibe até 1000 contratos de uma vez no mapa
+    } else if (rowsPerPage === 1000) {
+      setPage(0);
+      setRowsPerPage(previousRowsPerPage);
+    }
+  }, [viewMode]);
 
   // Load bank accounts when activeCompany changes
   useEffect(() => {
@@ -745,6 +762,171 @@ const Contracts: React.FC = () => {
       })}
     </Box>
   );
+
+  const renderContractMap = () => {
+    // Filtrar apenas contratos que possuem coordenadas GPS válidas
+    const contractsWithGPS = contratos.filter(c => {
+      if (!c.coordenadas_gps) return false;
+      const parts = c.coordenadas_gps.split(',');
+      if (parts.length !== 2) return false;
+      const lat = parseFloat(parts[0]);
+      const lon = parseFloat(parts[1]);
+      return !isNaN(lat) && !isNaN(lon);
+    });
+
+    if (contractsWithGPS.length === 0) {
+      return (
+        <Box sx={{ textAlign: 'center', p: 6, backgroundColor: '#fff', borderRadius: 2, border: '1px solid', borderColor: 'grey.200' }}>
+          <Typography variant="h6" color="text.secondary" gutterBottom>
+            🗺️ Nenhum contrato com coordenadas válidas
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Para visualizar contratos no mapa, certifique-se de preencher o campo "Coordenadas GPS" nos dados da instalação.
+          </Typography>
+        </Box>
+      );
+    }
+
+    // Calcular o centro médio de todos os pontos para centralizar o mapa
+    let sumLat = 0;
+    let sumLon = 0;
+    contractsWithGPS.forEach(c => {
+      const [lat, lon] = c.coordenadas_gps!.split(',').map(parseFloat);
+      sumLat += lat;
+      sumLon += lon;
+    });
+    const centerLat = sumLat / contractsWithGPS.length;
+    const centerLon = sumLon / contractsWithGPS.length;
+
+    const getStatusColor = (status?: string) => {
+      switch (status) {
+        case 'ATIVO':
+          return '#10B981'; // Emerald
+        case 'AGUARDANDO_ASSINATURA':
+          return '#F59E0B'; // Amber
+        case 'BLOQUEADO':
+          return '#EF4444'; // Red
+        default:
+          return '#6B7280'; // Gray
+      }
+    };
+
+    const getStatusLabel = (status?: string) => {
+      switch (status) {
+        case 'ATIVO':
+          return 'Ativo';
+        case 'AGUARDANDO_ASSINATURA':
+          return 'Aguardando Assinatura';
+        case 'BLOQUEADO':
+          return 'Bloqueado';
+        default:
+          return status || 'Desconhecido';
+      }
+    };
+
+    return (
+      <Box sx={{ height: 'calc(100vh - 280px)', width: '100%', borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: 'grey.300', position: 'relative' }}>
+        <MapContainer
+          center={[centerLat, centerLon]}
+          zoom={13}
+          style={{ height: '100%', width: '100%' }}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          />
+
+          {contractsWithGPS.map(c => {
+            const [lat, lon] = c.coordenadas_gps!.split(',').map(parseFloat);
+            const statusColor = getStatusColor(c.status);
+
+            const customIcon = L.divIcon({
+              html: `<div style="display: flex; justify-content: center; align-items: center; width: 28px; height: 28px; background-color: ${statusColor}; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2.5px solid white; box-shadow: 0 3px 6px rgba(0,0,0,0.35);">
+                      <div style="width: 8px; height: 8px; background-color: white; border-radius: 50%; transform: rotate(45deg);"></div>
+                    </div>`,
+              className: 'custom-gps-pin',
+              iconSize: [28, 28],
+              iconAnchor: [14, 28],
+              popupAnchor: [0, -28]
+            });
+
+            return (
+              <Marker
+                key={c.id}
+                position={[lat, lon]}
+                icon={customIcon}
+              >
+                <Popup maxWidth={300}>
+                  <Box sx={{ p: 0.5 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'indigo.900', mb: 0.5 }}>
+                      👤 {c.cliente_razao_social || c.cliente_nome || 'Cliente'}
+                    </Typography>
+                    <Box sx={{ mb: 1 }}>
+                      <Chip
+                        label={getStatusLabel(c.status)}
+                        size="small"
+                        sx={{
+                          height: 18,
+                          fontSize: '0.675rem',
+                          fontWeight: 'bold',
+                          color: '#fff',
+                          bgcolor: statusColor,
+                          mb: 0.5
+                        }}
+                      />
+                    </Box>
+                    <Divider sx={{ my: 1 }} />
+                    <Typography variant="body2" sx={{ fontSize: '0.8rem', color: 'text.primary', mb: 0.5 }}>
+                      <strong>Plano:</strong> {c.servico_descricao || 'Sem plano'} - R$ {Number(c.valor_unitario || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </Typography>
+                    {c.tipo_conexao && (
+                      <Typography variant="body2" sx={{ fontSize: '0.8rem', color: 'text.secondary', mb: 0.5 }}>
+                        <strong>Conexão:</strong> {c.tipo_conexao}
+                      </Typography>
+                    )}
+                    {c.cto_nome && (
+                      <Typography variant="body2" sx={{ fontSize: '0.8rem', color: 'text.secondary', mb: 0.5 }}>
+                        <strong>Caixa CTO:</strong> {c.cto_nome} {c.cto_porta ? `(Porta ${c.cto_porta})` : ''}
+                      </Typography>
+                    )}
+                    {c.onu_serial && (
+                      <Typography variant="body2" sx={{ fontSize: '0.8rem', color: 'text.secondary', mb: 1 }}>
+                        <strong>ONU Serial:</strong> {c.onu_serial}
+                      </Typography>
+                    )}
+                    <Box sx={{ display: 'flex', gap: 1, mt: 1.5 }}>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        color="primary"
+                        fullWidth
+                        sx={{ fontSize: '0.75rem', py: 0.5, textTransform: 'none' }}
+                        onClick={() => handleOpenForm(c, true)}
+                      >
+                        Visualizar
+                      </Button>
+                      {hasPermission('contract_manage') && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="secondary"
+                          fullWidth
+                          sx={{ fontSize: '0.75rem', py: 0.5, textTransform: 'none' }}
+                          onClick={() => handleOpenForm(c, false)}
+                        >
+                          Editar
+                        </Button>
+                      )}
+                    </Box>
+                  </Box>
+                </Popup>
+              </Marker>
+            );
+          })}
+        </MapContainer>
+      </Box>
+    );
+  };
 
   const renderContractTable = () => (
     <TableContainer component={Paper} sx={{ maxHeight: '70vh', overflow: 'auto' }}>
@@ -1806,7 +1988,51 @@ const Contracts: React.FC = () => {
 
       <Paper sx={{ p: { xs: 1, sm: 2 }, backgroundColor: 'grey.50', minHeight: 'calc(100vh - 250px)' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-          <Typography variant="h6">Contratos Cadastrados</Typography>
+          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Contratos Cadastrados</Typography>
+            <Box sx={{ display: 'inline-flex', borderRadius: 2, p: 0.5, bgcolor: 'grey.200' }}>
+              <Button
+                size="small"
+                variant={viewMode === 'table' ? 'contained' : 'text'}
+                color="inherit"
+                sx={{
+                  borderRadius: 1.5,
+                  textTransform: 'none',
+                  fontWeight: 'bold',
+                  py: 0.5,
+                  px: 1.5,
+                  fontSize: '0.75rem',
+                  boxShadow: viewMode === 'table' ? '0px 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  bgcolor: viewMode === 'table' ? '#fff' : 'transparent',
+                  '&:hover': { bgcolor: viewMode === 'table' ? '#fff' : 'grey.300' }
+                }}
+                onClick={() => setViewMode('table')}
+                startIcon={<span style={{ fontSize: '0.9rem' }}>📋</span>}
+              >
+                Lista
+              </Button>
+              <Button
+                size="small"
+                variant={viewMode === 'map' ? 'contained' : 'text'}
+                color="inherit"
+                sx={{
+                  borderRadius: 1.5,
+                  textTransform: 'none',
+                  fontWeight: 'bold',
+                  py: 0.5,
+                  px: 1.5,
+                  fontSize: '0.75rem',
+                  boxShadow: viewMode === 'map' ? '0px 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  bgcolor: viewMode === 'map' ? '#fff' : 'transparent',
+                  '&:hover': { bgcolor: viewMode === 'map' ? '#fff' : 'grey.300' }
+                }}
+                onClick={() => setViewMode('map')}
+                startIcon={<span style={{ fontSize: '0.9rem' }}>🗺️</span>}
+              >
+                Mapa
+              </Button>
+            </Box>
+          </Box>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
             <TextField
               size="small"
@@ -1859,13 +2085,15 @@ const Contracts: React.FC = () => {
               </Button>
             )}
           </Box>
+        ) : viewMode === 'map' ? (
+          renderContractMap()
         ) : isMobile ? (
           renderContractCards()
         ) : (
           renderContractTable()
         )}
 
-        {!loading && contratos.length > 0 && renderPagination()}
+        {!loading && contratos.length > 0 && viewMode === 'table' && renderPagination()}
       </Paper>
 
       {openForm && (
