@@ -248,7 +248,7 @@ const Companies: React.FC = () => {
         send_method_whatsapp: !!company.send_method_whatsapp,
         whatsapp_api_system: company.whatsapp_api_system || 'MK Auth',
         whatsapp_api_user: company.whatsapp_api_user || 'usr_' + Math.random().toString(36).substring(2, 10),
-        whatsapp_api_server: company.whatsapp_api_server || `${window.location.origin}/api/whatsapp/send`,
+        whatsapp_api_server: company.whatsapp_api_server || '',
         whatsapp_api_password: company.whatsapp_api_password || 'tok_' + Math.random().toString(36).substring(2, 14),
         whatsapp_api_ips: company.whatsapp_api_ips || '',
         whatsapp_api_instance: company.whatsapp_api_instance || ''
@@ -305,7 +305,7 @@ const Companies: React.FC = () => {
         send_method_whatsapp: false,
         whatsapp_api_system: 'MK Auth',
         whatsapp_api_user: randomUser,
-        whatsapp_api_server: `${window.location.origin}/api/whatsapp/send`,
+        whatsapp_api_server: '',
         whatsapp_api_password: randomPassword,
         whatsapp_api_ips: '',
         whatsapp_api_instance: ''
@@ -352,7 +352,8 @@ const Companies: React.FC = () => {
       smtp_user: '',
       smtp_password: '',
       dias_bloqueio_inadimplentes: 15,
-      whatsapp_api_instance: ''
+      whatsapp_api_instance: '',
+      whatsapp_api_server: ''
     });
     setErrors({});
     setLogoFile(null);
