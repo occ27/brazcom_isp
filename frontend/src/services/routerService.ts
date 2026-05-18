@@ -105,4 +105,10 @@ export const routerService = {
     const response = await api.post(`/radius/router/${routerId}/provision`);
     return response.data;
   },
+
+  // Executar processamento de inadimplentes no roteador
+  processDelinquents: async (routerId: number): Promise<any> => {
+    const response = await api.post(`/routers/${routerId}/process-delinquents`);
+    return response.data;
+  },
 };

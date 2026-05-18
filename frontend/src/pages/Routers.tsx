@@ -24,6 +24,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Menu,
+  Divider,
   useMediaQuery,
   useTheme,
   Grid,
@@ -41,7 +43,8 @@ import {
   PlusIcon,
   PencilIcon,
   TrashIcon,
-  ServerIcon
+  ServerIcon,
+  EllipsisVerticalIcon
 } from '@heroicons/react/24/outline';
 import { SettingsEthernet as InterfaceIcon, Block as BlockIcon, Bolt as BoltIcon } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
@@ -77,11 +80,37 @@ const Routers: React.FC = () => {
   const [provisioning, setProvisioning] = useState(false);
   const [provisionDialogOpen, setProvisionDialogOpen] = useState(false);
   const [provisionResult, setProvisionResult] = useState<{ success: boolean; steps: string[]; router_nome?: string } | null>(null);
-  const [snackbar, setSnackbar] = useState({
+  const [processingDelinquents, setProcessingDelinquents] = useState<{ [key: number]: boolean }>({});
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [activeMenuRouterId, setActiveMenuRouterId] = useState<number | null>(null);
+  const [delinquentsDialogOpen, setDelinquentsDialogOpen] = useState(false);
+  const [delinquentsResult, setDelinquentsResult] = useState<{
+    success: boolean;
+    router_nome: string;
+    contracts_blocked: number;
+    contracts_reactivated: number;
+    blocked_details: string[];
+    reactivated_details: string[];
+    errors: string[];
+  } | null>(null);
+
+  const handleOpenMenu = (event: React.MouseEvent<HTMLElement>, routerId: number) => {
+    setAnchorEl(event.currentTarget);
+    setActiveMenuRouterId(routerId);
+  };
+
+  const handleCloseMenu = () => {
+    setAnchorEl(null);
+    setActiveMenuRouterId(null);
+  };
+
+  const snackbarState = useState({
     open: false,
     message: '',
-    severity: 'success' as 'success' | 'error'
+    severity: 'success' as 'success' | 'error' | 'warning'
   });
+  const snackbar = snackbarState[0];
+  const setSnackbar = snackbarState[1];
 
   const loadRouters = async () => {
     try {
@@ -305,6 +334,53 @@ const Routers: React.FC = () => {
     }
   };
 
+  const handleProcessDelinquents = async (router: Router) => {
+    if (!window.confirm(`Deseja executar o bloqueio/desbloqueio automático de inadimplentes conectados no roteador "${router.nome}" agora?`)) {
+      return;
+    }
+
+    setProcessingDelinquents(prev => ({ ...prev, [router.id]: true }));
+
+    try {
+      const response = await routerService.processDelinquents(router.id);
+      if (response.success) {
+        setDelinquentsResult({
+          success: true,
+          router_nome: router.nome,
+          contracts_blocked: response.contracts_blocked,
+          contracts_reactivated: response.contracts_reactivated,
+          blocked_details: response.blocked_details || [],
+          reactivated_details: response.reactivated_details || [],
+          errors: response.errors || []
+        });
+        setDelinquentsDialogOpen(true);
+
+        const msg = `Processamento concluído! Suspensos: ${response.contracts_blocked} | Reativados: ${response.contracts_reactivated}`;
+        setSnackbar({
+          open: true,
+          message: msg,
+          severity: response.errors && response.errors.length > 0 ? 'warning' : 'success'
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'Falha ao processar inadimplentes.',
+          severity: 'error'
+        });
+      }
+    } catch (error: any) {
+      console.error('Erro ao processar inadimplentes no roteador:', error);
+      const msg = error?.response?.data?.detail || stringifyError(error);
+      setSnackbar({
+        open: true,
+        message: 'Erro ao processar inadimplentes: ' + msg,
+        severity: 'error'
+      });
+    } finally {
+      setProcessingDelinquents(prev => ({ ...prev, [router.id]: false }));
+    }
+  };
+
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
@@ -353,7 +429,7 @@ const Routers: React.FC = () => {
                 <TableCell>Autenticação</TableCell>
                 <TableCell>Codificação</TableCell>
                 <TableCell>Status</TableCell>
-                <TableCell>Ações</TableCell>
+                <TableCell align="right">Ações</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -396,39 +472,58 @@ const Routers: React.FC = () => {
                       color={router.is_active ? 'success' : 'error'}
                     />
                   </TableCell>
-                  <TableCell>
-                    <Tooltip title={router.metodo_autenticacao_padrao === 'RADIUS' ? "Provisionar RADIUS" : "Configurar Suspensão"}>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleProvision(router)}
+                  <TableCell align="right">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => handleOpenMenu(e, router.id)}
+                    >
+                      <EllipsisVerticalIcon className="w-5 h-5" />
+                    </IconButton>
+                    <Menu
+                      anchorEl={anchorEl}
+                      open={activeMenuRouterId === router.id}
+                      onClose={handleCloseMenu}
+                      transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                      anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                    >
+                      <MenuItem onClick={() => { handleOpenDialog(router); handleCloseMenu(); }}>
+                        <PencilIcon className="w-4 h-4 mr-2" />
+                        Editar
+                      </MenuItem>
+                      
+                      <MenuItem onClick={() => { navigate(`/routers/${router.id}/interfaces`); handleCloseMenu(); }}>
+                        <InterfaceIcon className="w-4 h-4 mr-2" />
+                        Gerenciar Interfaces
+                      </MenuItem>
+
+                      <MenuItem 
+                        onClick={() => { handleProvision(router); handleCloseMenu(); }}
                         sx={{ color: router.metodo_autenticacao_padrao === 'RADIUS' ? 'primary.main' : '#f59e0b' }}
                       >
-                        <BoltIcon />
-                      </IconButton>
-                    </Tooltip>
-                    <IconButton
-                      size="small"
-                      onClick={() => navigate(`/routers/${router.id}/interfaces`)}
-                      title="Gerenciar Interfaces"
-                      color="primary"
-                    >
-                      <InterfaceIcon />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleOpenDialog(router)}
-                      title="Editar"
-                    >
-                      <PencilIcon className="w-4 h-4" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDelete(router)}
-                      title="Excluir"
-                      color="error"
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </IconButton>
+                        <BoltIcon className="w-4 h-4 mr-2" />
+                        {router.metodo_autenticacao_padrao === 'RADIUS' ? "Provisionar RADIUS" : "Configurar Suspensão"}
+                      </MenuItem>
+
+                      <MenuItem 
+                        onClick={() => { handleProcessDelinquents(router); handleCloseMenu(); }}
+                        disabled={!!processingDelinquents[router.id]}
+                        sx={{ color: 'error.main' }}
+                      >
+                        {processingDelinquents[router.id] ? (
+                          <MuiCircularProgress size={16} color="error" className="mr-2" />
+                        ) : (
+                          <BlockIcon className="w-4 h-4 mr-2" />
+                        )}
+                        Processar Inadimplentes
+                      </MenuItem>
+
+                      <Divider />
+
+                      <MenuItem onClick={() => { handleDelete(router); handleCloseMenu(); }} sx={{ color: 'error.main' }}>
+                        <TrashIcon className="w-4 h-4 mr-2" />
+                        Excluir
+                      </MenuItem>
+                    </Menu>
                   </TableCell>
                 </TableRow>
               ))}
@@ -637,6 +732,88 @@ const Routers: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setProvisionDialogOpen(false)} disabled={provisioning}>Fechar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog resultado do processamento de inadimplentes */}
+      <Dialog open={delinquentsDialogOpen} onClose={() => setDelinquentsDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
+          <BlockIcon color="error" />
+          Resumo do Processamento de Inadimplentes
+        </DialogTitle>
+        <DialogContent dividers>
+          {delinquentsResult ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Alert severity={delinquentsResult.errors.length > 0 ? 'warning' : 'success'} icon={<CheckCircleIcon />}>
+                {delinquentsResult.errors.length > 0 
+                  ? 'Sincronização concluída com alguns alertas.' 
+                  : 'Sincronização executada com sucesso absoluto!'}
+              </Alert>
+
+              <Typography variant="body2" color="text.secondary">
+                Roteador: <strong>{delinquentsResult.router_nome}</strong>
+              </Typography>
+
+              {/* Seção Bloqueios */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold', mb: 1, color: 'error.main' }}>
+                  🔴 Contratos Suspensos ({delinquentsResult.contracts_blocked})
+                </Typography>
+                {delinquentsResult.blocked_details.length > 0 ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, pl: 1 }}>
+                    {delinquentsResult.blocked_details.map((detail, idx) => (
+                      <Typography key={idx} variant="body2" fontFamily="monospace" sx={{ py: 0.3, px: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                        {detail}
+                      </Typography>
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ pl: 1, fontStyle: 'italic' }}>
+                    Nenhum novo bloqueio efetuado.
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Seção Desbloqueios */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold', mb: 1, color: 'success.main' }}>
+                  🟢 Contratos Reativados ({delinquentsResult.contracts_reactivated})
+                </Typography>
+                {delinquentsResult.reactivated_details.length > 0 ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, pl: 1 }}>
+                    {delinquentsResult.reactivated_details.map((detail, idx) => (
+                      <Typography key={idx} variant="body2" fontFamily="monospace" sx={{ py: 0.3, px: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                        {detail}
+                      </Typography>
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ pl: 1, fontStyle: 'italic' }}>
+                    Nenhum contrato reativado.
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Seção Erros / Alertas */}
+              {delinquentsResult.errors.length > 0 && (
+                <Box>
+                  <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold', mb: 1, color: 'warning.main' }}>
+                    ⚠️ Alertas / Erros ({delinquentsResult.errors.length})
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, pl: 1 }}>
+                    {delinquentsResult.errors.map((error, idx) => (
+                      <Typography key={idx} variant="body2" fontFamily="monospace" sx={{ py: 0.5, px: 1, bgcolor: '#fffde7', border: '1px solid #fff59d', color: '#f57f17', borderRadius: 1 }}>
+                        {error}
+                      </Typography>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+            </Box>
+          ) : null}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setDelinquentsDialogOpen(false)} variant="contained" color="primary">Fechar</Button>
         </DialogActions>
       </Dialog>
 

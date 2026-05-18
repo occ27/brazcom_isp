@@ -154,3 +154,114 @@ def setup_router_suspension(
         return {"success": True, "details": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao configurar roteador: {str(e)}")
+
+@router_api.post("/{router_id}/process-delinquents")
+def process_router_delinquents(
+    *,
+    db: Session = Depends(get_db),
+    router_id: int,
+    current_user: models.Usuario = Depends(get_current_active_user),
+    _: bool = Depends(permission_checker("router_manage"))
+):
+    """
+    Executa o bloqueio e desbloqueio automático de inadimplentes associados a este roteador.
+    """
+    # 1. Buscar o roteador e verificar se pertence à empresa ativa do usuário
+    empresa_id = current_user.active_empresa_id or 2
+    router_db = crud.crud_router.get_router(db=db, router_id=router_id, empresa_id=empresa_id)
+    if not router_db:
+        raise HTTPException(status_code=404, detail="Roteador não encontrado")
+
+    empresa = db.query(models.Empresa).filter(models.Empresa.id == empresa_id).first()
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+
+    dias_limite = empresa.dias_bloqueio_inadimplentes
+    if dias_limite is None or dias_limite < 0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Bloqueio automático desabilitado ou não configurado para esta empresa (limite atual: {dias_limite})."
+        )
+
+    # 2. Executar a lógica de bloqueio/desbloqueio apenas para contratos deste roteador
+    from datetime import datetime, timezone, timedelta
+    from app.models.models import Cliente, Receivable, ServicoContratado, StatusContrato
+    from app.services.isp_service import process_block_if_needed, process_unblock_if_needed
+
+    now = datetime.now(timezone.utc)
+    limit_date = now - timedelta(days=dias_limite)
+
+    # Buscar todos os clientes ativos da empresa
+    clients = db.query(Cliente).filter(
+        Cliente.empresa_id == empresa_id,
+        Cliente.is_active == True
+    ).all()
+
+    contracts_blocked = 0
+    contracts_reactivated = 0
+    blocked_details = []
+    reactivated_details = []
+    errors = []
+
+    for client in clients:
+        # Encontrar cobranças pendentes e vencidas acima do limite
+        overdue_receivables = db.query(Receivable).filter(
+            Receivable.cliente_id == client.id,
+            Receivable.empresa_id == empresa_id,
+            Receivable.status == 'PENDING',
+            Receivable.due_date <= limit_date
+        ).all()
+
+        should_be_blocked = len(overdue_receivables) > 0
+
+        if should_be_blocked:
+            # Buscar apenas os contratos ativos deste cliente que pertencem a ESTE roteador
+            contracts = db.query(ServicoContratado).filter(
+                ServicoContratado.cliente_id == client.id,
+                ServicoContratado.empresa_id == empresa_id,
+                ServicoContratado.router_id == router_id,
+                ServicoContratado.status != StatusContrato.SUSPENSO,
+                ServicoContratado.status != StatusContrato.CANCELADO
+            ).all()
+
+            for contract in contracts:
+                try:
+                    success = process_block_if_needed(db, contract.id)
+                    if success:
+                        contracts_blocked += 1
+                        blocked_details.append(f"Contrato #{contract.id} - {client.nome_razao_social}")
+                    else:
+                        errors.append(f"Não foi possível bloquear o contrato #{contract.id} ({client.nome_razao_social})")
+                except Exception as e:
+                    errors.append(f"Erro ao processar bloqueio do contrato #{contract.id}: {str(e)}")
+        else:
+            # Buscar apenas os contratos suspensos deste cliente que pertencem a ESTE roteador
+            suspended_contracts = db.query(ServicoContratado).filter(
+                ServicoContratado.cliente_id == client.id,
+                ServicoContratado.empresa_id == empresa_id,
+                ServicoContratado.router_id == router_id,
+                ServicoContratado.status == StatusContrato.SUSPENSO
+            ).all()
+
+            for contract in suspended_contracts:
+                try:
+                    success = process_unblock_if_needed(db, contract.id)
+                    if success:
+                        contracts_reactivated += 1
+                        reactivated_details.append(f"Contrato #{contract.id} - {client.nome_razao_social}")
+                    else:
+                        errors.append(f"Não foi possível reativar o contrato #{contract.id} ({client.nome_razao_social})")
+                except Exception as e:
+                    errors.append(f"Erro ao processar reativação do contrato #{contract.id}: {str(e)}")
+
+    if contracts_blocked > 0 or contracts_reactivated > 0:
+        db.commit()
+
+    return {
+        "success": True,
+        "contracts_blocked": contracts_blocked,
+        "contracts_reactivated": contracts_reactivated,
+        "blocked_details": blocked_details,
+        "reactivated_details": reactivated_details,
+        "errors": errors
+    }
