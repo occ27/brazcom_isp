@@ -20,6 +20,7 @@ import {
   EyeIcon
 } from '@heroicons/react/24/outline';
 import { useCompany } from '../contexts/CompanyContext';
+import { useAuth } from '../contexts/AuthContext';
 import receivableService, { Receivable } from '../services/receivableService';
 import bankAccountService, { BankAccount } from '../services/bankAccountService';
 import { stringifyError } from '../utils/error';
@@ -30,6 +31,7 @@ import { maskCurrency, unmaskCurrency } from '../utils/currencyUtils';
 const Receivables: React.FC = () => {
   const navigate = useNavigate();
   const { activeCompany } = useCompany();
+  const { user } = useAuth();
   const theme = useTheme();
   
   // State
@@ -541,7 +543,7 @@ const Receivables: React.FC = () => {
           </MenuItem>
         )}
         
-        {selectedReceivable?.status !== 'PAID' && (
+        {(selectedReceivable?.status !== 'PAID' || user?.is_superuser || user?.is_company_admin) && (
           <MenuItem onClick={() => { handleDelete(selectedReceivable!.id); setAnchorEl(null); }}>
             <TrashIcon className="w-4 h-4 mr-2 text-red-500" /> Excluir Permanentemente
           </MenuItem>

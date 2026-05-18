@@ -579,14 +579,16 @@ def send_receivable_email_route(receivable_id: int, db: Session = Depends(get_db
 
 @router.delete("/{receivable_id}")
 def delete_receivable(receivable_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
-    """Exclui permanentemente uma cobrança se não estiver paga."""
+    """Exclui permanentemente uma cobrança se não estiver paga (ou se o usuário for administrador)."""
     deps.permission_checker('receivables_manage')(db=db, current_user=current_user)
     recv = db.query(Receivable).filter(Receivable.id == receivable_id).first()
     if not recv:
         raise HTTPException(status_code=404, detail="Cobrança não encontrada")
     
     if recv.status == 'PAID':
-        raise HTTPException(status_code=400, detail="Não é possível excluir uma cobrança já paga. Estorne o pagamento primeiro se necessário.")
+        is_admin = current_user.is_superuser or any(assoc.empresa_id == recv.empresa_id and assoc.is_admin for assoc in current_user.empresas)
+        if not is_admin:
+            raise HTTPException(status_code=400, detail="Não é possível excluir uma cobrança já paga. Apenas administradores podem realizar esta ação.")
     
     # Solicitar baixa no banco associado se estiver registrado
     if recv.status == 'REGISTERED':
