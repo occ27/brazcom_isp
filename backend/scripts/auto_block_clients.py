@@ -10,6 +10,12 @@ from app.models.models import Empresa, Cliente, Receivable, ServicoContratado, S
 from app.services.isp_service import process_block_if_needed, process_unblock_if_needed
 
 def run_auto_blocking():
+    import argparse
+    parser = argparse.ArgumentParser(description="Script de bloqueio automático de clientes inadimplentes.")
+    parser.add_argument("--company", type=int, help="ID da empresa para processar especificamente")
+    parser.add_argument("--force-days", type=int, help="Força a quantidade de dias limite de atraso para teste")
+    args, unknown = parser.parse_known_args()
+
     print("=============================================================")
     print("Starting daily processing: Auto-blocking/Unblocking clients...")
     print("=============================================================")
@@ -22,19 +28,22 @@ def run_auto_blocking():
     db_changed = False
     
     try:
-        # Get all active companies
-        companies = session.query(Empresa).filter(Empresa.is_active == True).all()
+        # Get active companies (with optional company filter)
+        query = session.query(Empresa).filter(Empresa.is_active == True)
+        if args.company is not None:
+            query = query.filter(Empresa.id == args.company)
+        companies = query.all()
         
         if not companies:
-            print("No active companies found. Exiting.")
+            print("No active companies found matching filters. Exiting.")
             return
             
         for company in companies:
             print(f"\n>>> Processing company: {company.razao_social or company.nome_fantasia} (ID: {company.id})")
             
-            dias_limite = company.dias_bloqueio_inadimplentes
+            dias_limite = args.force_days if args.force_days is not None else company.dias_bloqueio_inadimplentes
             if dias_limite is None or dias_limite <= 0:
-                print("  [AUTO-BLOCK] Disabled or not configured (dias_bloqueio_inadimplentes is empty or <= 0).")
+                print(f"  [AUTO-BLOCK] Disabled or not configured (dias_bloqueio_inadimplentes is {company.dias_bloqueio_inadimplentes}).")
                 continue
                 
             print(f"  [AUTO-BLOCK] Enabled with limit: {dias_limite} days.")
