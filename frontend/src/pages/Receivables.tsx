@@ -251,7 +251,7 @@ const Receivables: React.FC = () => {
 
   const handleOpenSettle = (r: Receivable) => {
     setSelectedReceivable(r);
-    setSettleAmount(maskCurrency(r.amount.toString()));
+    setSettleAmount(maskCurrency(r.amount.toFixed(2)));
     setOpenSettle(true);
     setAnchorEl(null);
   };
