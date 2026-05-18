@@ -13,7 +13,6 @@ def run_auto_blocking():
     import argparse
     parser = argparse.ArgumentParser(description="Script de bloqueio automático de clientes inadimplentes.")
     parser.add_argument("--company", type=int, help="ID da empresa para processar especificamente")
-    parser.add_argument("--force-days", type=int, help="Força a quantidade de dias limite de atraso para teste")
     args, unknown = parser.parse_known_args()
 
     print("=============================================================")
@@ -41,8 +40,8 @@ def run_auto_blocking():
         for company in companies:
             print(f"\n>>> Processing company: {company.razao_social or company.nome_fantasia} (ID: {company.id})")
             
-            dias_limite = args.force_days if args.force_days is not None else company.dias_bloqueio_inadimplentes
-            if dias_limite is None or dias_limite <= 0:
+            dias_limite = company.dias_bloqueio_inadimplentes
+            if dias_limite is None or dias_limite < 0:
                 print(f"  [AUTO-BLOCK] Disabled or not configured (dias_bloqueio_inadimplentes is {company.dias_bloqueio_inadimplentes}).")
                 continue
                 

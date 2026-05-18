@@ -8,6 +8,9 @@ from app.services.radius_sync_service import RadiusSyncService
 
 logger = logging.getLogger(__name__)
 
+# Cache global de Roteadores offline/com erro para evitar timeouts sucessivos
+FAILED_ROUTERS = set()
+
 def process_unblock_if_needed(db: Session, contrato_id: int):
     """
     Verifica se o contrato está suspenso e realiza o desbloqueio no router.
@@ -133,7 +136,7 @@ def process_unblock_if_needed(db: Session, contrato_id: int):
 
 def process_block_if_needed(db: Session, contrato_id: int):
     """
-    Bloqueia o contrato no router e muda status para SUSPENSO.
+    Bloqueia o contrato no router/RADIUS e muda status para SUSPENSO apenas se bem-sucedido.
     """
     contrato = db.query(ServicoContratado).filter(ServicoContratado.id == contrato_id).first()
     if not contrato:
@@ -141,9 +144,13 @@ def process_block_if_needed(db: Session, contrato_id: int):
     
     if contrato.status == StatusContrato.SUSPENSO:
         return False
-    
-    contrato.status = StatusContrato.SUSPENSO
-    db.add(contrato)
+
+    # Se o roteador deste contrato já falhou nesta execução, não tenta novamente para poupar tempo
+    if contrato.router_id and contrato.router_id in FAILED_ROUTERS:
+        logger.warning(f"Ignorando tentativa de bloqueio do contrato {contrato_id}: Roteador {contrato.router_id} está offline.")
+        return False
+
+    radius_user = None
 
     # 1. Bloqueio no RADIUS (se aplicável)
     if contrato.metodo_autenticacao == MetodoAutenticacao.RADIUS:
@@ -155,12 +162,11 @@ def process_block_if_needed(db: Session, contrato_id: int):
                         sync = RadiusSyncService(radius_db)
                         sync.disable_user(radius_user.username)
                         logger.info(f"Usuário Radius '{radius_user.username}' suspenso no FreeRadius.")
-                
-                radius_user.is_active = False
-                db.add(radius_user)
             except Exception as e:
-                logger.error(f"Erro ao suspender usuário Radius '{radius_user.username}': {e}")
+                logger.error(f"Erro ao suspender usuário Radius '{radius_user.username}': {e}. Abortando bloqueio.")
+                return False
     
+    # 2. Bloqueio no MikroTik RouterOS (se aplicável)
     if contrato.router_id:
         router_db = db.query(Router).filter(Router.id == contrato.router_id).first()
         if router_db:
@@ -178,9 +184,7 @@ def process_block_if_needed(db: Session, contrato_id: int):
                 )
                 
                 # Configurar regra de redirecionamento se necessário
-                # O IP de aviso deve ser o IP do servidor onde o frontend está rodando
                 import os
-                # Buscar a URL de suspensão da empresa ou usar padrão
                 notice_url = contrato.empresa.suspension_url if contrato.empresa and contrato.empresa.suspension_url else os.getenv("NOTICE_PAGE_URL", f"http://isp.brazcom.com.br/aviso/{contrato.empresa_id}")
                 
                 if notice_url:
@@ -189,7 +193,6 @@ def process_block_if_needed(db: Session, contrato_id: int):
                 
                 cliente_nome = contrato.cliente.nome_razao_social if contrato.cliente else "Cliente"
                 
-                # Determinar username para desconexão
                 mk_username = f"contrato_{contrato.id}"
                 if contrato.metodo_autenticacao == MetodoAutenticacao.RADIUS and contrato.cliente and contrato.cliente.radius_user:
                     mk_username = contrato.cliente.radius_user.username
@@ -201,13 +204,23 @@ def process_block_if_needed(db: Session, contrato_id: int):
                     comment=cliente_nome
                 )
 
-                # Se for RADIUS ou PPPOE, derruba a conexão imediatamente para o bloqueio valer
                 if contrato.metodo_autenticacao in [MetodoAutenticacao.PPPOE, MetodoAutenticacao.RADIUS]:
                     mk.disconnect_pppoe_active(mk_username)
 
                 mk.close()
-                logger.info(f"Contrato {contrato_id} bloqueado no router {router_db.ip}")
+                logger.info(f"Contrato {contrato_id} bloqueado com sucesso no router {router_db.ip}")
             except Exception as e:
-                logger.error(f"Erro ao bloquear contrato {contrato_id} no router: {e}")
+                logger.error(f"Erro ao bloquear contrato {contrato_id} no router {router_db.ip}: {e}")
+                # Marca este roteador como falho para não tentar mais conexões com ele nesta execução
+                FAILED_ROUTERS.add(contrato.router_id)
+                return False
                 
+    # 3. Atualizar o banco de dados APENAS se as etapas acima foram executadas com absoluto sucesso
+    contrato.status = StatusContrato.SUSPENSO
+    db.add(contrato)
+    
+    if radius_user:
+        radius_user.is_active = False
+        db.add(radius_user)
+        
     return True
