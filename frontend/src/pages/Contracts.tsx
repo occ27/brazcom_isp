@@ -2354,6 +2354,21 @@ const Contracts: React.FC = () => {
                         InputProps={{
                           endAdornment: (
                             <InputAdornment position="end">
+                              {!form.coordenadas_gps && form.endereco_id && (
+                                <Tooltip title="Buscar coordenadas automaticamente via API">
+                                  <span>
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => fetchCoordinatesForAddress(form.endereco_id!)}
+                                      disabled={viewOnly}
+                                      color="secondary"
+                                      sx={{ mr: 0.5 }}
+                                    >
+                                      ⚡
+                                    </IconButton>
+                                  </span>
+                                </Tooltip>
+                              )}
                               <Tooltip title={form.coordenadas_gps ? "Visualizar no Google Maps" : "Buscar endereço no Google Maps"}>
                                 <span>
                                   <IconButton
