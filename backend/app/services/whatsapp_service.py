@@ -30,6 +30,14 @@ class WhatsAppService:
         return cleaned
 
     @staticmethod
+    def _get_api_url(empresa: Empresa) -> str:
+        """Retorna a URL da Evolution API resolvida da empresa ou do fallback local (.env)"""
+        url = getattr(empresa, 'whatsapp_api_server', None)
+        if not url or ":3000" in url:
+            url = os.getenv("EVOLUTION_API_URL", "http://localhost:8080")
+        return url
+
+    @staticmethod
     def send_message(empresa: Empresa, to_phone: str, message: str) -> bool:
         """
         Envia uma mensagem de WhatsApp real via Evolution API com fallback de simulação em log local.
@@ -44,7 +52,7 @@ class WhatsAppService:
             system_name = getattr(empresa, 'whatsapp_api_system', 'MK Auth') or 'MK Auth'
             
             # 1. Tenta envio via Evolution API (Real)
-            api_url = getattr(empresa, 'whatsapp_api_server', None) or os.getenv("EVOLUTION_API_URL", "http://localhost:8080")
+            api_url = WhatsAppService._get_api_url(empresa)
             api_key = os.getenv("EVOLUTION_API_TOKEN", "brazcom_secure_token_12345")
             
             if api_url:
@@ -62,15 +70,15 @@ class WhatsAppService:
                 }
                 
                 try:
-                    logger.info(f"Tentando envio real de WhatsApp via Evolution API para {cleaned_phone}")
+                    logger.info(f"Tentando envio real de WhatsApp via Brazcom API para {cleaned_phone}")
                     response = requests.post(endpoint, json=payload, headers=headers, timeout=5)
                     if response.status_code in [200, 201]:
-                        logger.info(f"Mensagem enviada com sucesso via Evolution API para {cleaned_phone}!")
+                        logger.info(f"Mensagem enviada com sucesso via Brazcom API para {cleaned_phone}!")
                         return True
                     else:
-                        logger.warning(f"Evolution API retornou status {response.status_code}: {response.text}. Ativando fallback de simulação.")
+                        logger.warning(f"Brazcom API retornou status {response.status_code}: {response.text}. Ativando fallback de simulação.")
                 except Exception as api_err:
-                    logger.warning(f"Falha de conexão com a Evolution API ({api_err}). Ativando fallback de simulação local.")
+                    logger.warning(f"Falha de conexão com a Brazcom API ({api_err}). Ativando fallback de simulação local.")
             
             # 2. Fallback de Simulação em arquivo local de logs (Garante que nunca quebra o fluxo local)
             logger.info("=========================================")
@@ -157,7 +165,7 @@ class WhatsAppService:
         Retorna {"connected": True/False, "state": "open"/"close"/etc.}
         """
         try:
-            api_url = getattr(empresa, 'whatsapp_api_server', None) or os.getenv("EVOLUTION_API_URL", "http://localhost:8080")
+            api_url = WhatsAppService._get_api_url(empresa)
             api_key = os.getenv("EVOLUTION_API_TOKEN", "brazcom_secure_token_12345")
             instance_name = getattr(empresa, 'whatsapp_api_instance', 'mega-net-telecom') or 'mega-net-telecom'
 
@@ -188,7 +196,7 @@ class WhatsAppService:
         Cria/conecta a instância na Evolution API e retorna o QR Code em base64.
         """
         try:
-            api_url = getattr(empresa, 'whatsapp_api_server', None) or os.getenv("EVOLUTION_API_URL", "http://localhost:8080")
+            api_url = WhatsAppService._get_api_url(empresa)
             api_key = os.getenv("EVOLUTION_API_TOKEN", "brazcom_secure_token_12345")
             instance_name = getattr(empresa, 'whatsapp_api_instance', 'mega-net-telecom') or 'mega-net-telecom'
 
@@ -237,7 +245,7 @@ class WhatsAppService:
                 print(f"[DEBUG WHATSAPP] QR Code ainda não está pronto, aguardando 2 segundos para tentar novamente...")
                 time.sleep(2)
             
-            return {"success": False, "message": f"Erro da API: QR Code não foi gerado a tempo pela Evolution API."}
+            return {"success": False, "message": f"Erro da API: QR Code não foi gerado a tempo pela Brazcom API."}
         except Exception as e:
             logger.error(f"Erro ao gerar QR Code do WhatsApp: {e}", exc_info=True)
             return {"success": False, "error": str(e)}
@@ -245,10 +253,10 @@ class WhatsAppService:
     @staticmethod
     def disconnect_instance(empresa: Empresa) -> bool:
         """
-        Desconecta e faz logout da instância do WhatsApp na Evolution API.
+        Desconecta, faz logout e exclui a instância do WhatsApp na Evolution API.
         """
         try:
-            api_url = getattr(empresa, 'whatsapp_api_server', None) or os.getenv("EVOLUTION_API_URL", "http://localhost:8080")
+            api_url = WhatsAppService._get_api_url(empresa)
             api_key = os.getenv("EVOLUTION_API_TOKEN", "brazcom_secure_token_12345")
             instance_name = getattr(empresa, 'whatsapp_api_instance', 'mega-net-telecom') or 'mega-net-telecom'
 
@@ -258,9 +266,17 @@ class WhatsAppService:
             if api_url.endswith("/"):
                 api_url = api_url[:-1]
 
-            endpoint = f"{api_url}/instance/logout/{instance_name}"
-            response = requests.delete(endpoint, headers={"apikey": api_key}, timeout=5)
-            return response.status_code in [200, 201]
+            # 1. Tenta fazer logout (desconecta a sessão do WhatsApp)
+            logout_endpoint = f"{api_url}/instance/logout/{instance_name}"
+            try:
+                requests.delete(logout_endpoint, headers={"apikey": api_key}, timeout=5)
+            except Exception as e:
+                logger.warning(f"Erro ao solicitar logout da instância: {e}")
+
+            # 2. Exclui por completo a instância do gateway
+            delete_endpoint = f"{api_url}/instance/delete/{instance_name}"
+            response = requests.delete(delete_endpoint, headers={"apikey": api_key}, timeout=5)
+            return response.status_code in [200, 201, 404]  # 404 significa que ela já não existia, o que também é sucesso para nós
         except Exception as e:
-            logger.error(f"Erro ao desconectar instância do WhatsApp: {e}", exc_info=True)
+            logger.error(f"Erro ao desconectar/excluir instância do WhatsApp: {e}", exc_info=True)
             return False

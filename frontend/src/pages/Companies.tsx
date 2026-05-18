@@ -1790,12 +1790,12 @@ const Companies: React.FC = () => {
                                                 <button
                                                   type="button"
                                                   onClick={async () => {
-                                                    if (window.confirm("Tem certeza que deseja excluir esta instância? A sessão do WhatsApp será encerrada no Evolution API e desvinculada desta empresa.")) {
+                                                    if (window.confirm("Tem certeza que deseja excluir esta instância? A sessão do WhatsApp será encerrada na Brazcom API e desvinculada desta empresa.")) {
                                                       try {
-                                                        // Desconecta da Evolution API primeiro
+                                                        // Desconecta da Brazcom API primeiro
                                                         await handleDisconnectWhatsApp(editingCompany.id);
                                                       } catch (e) {
-                                                        console.warn("Evolution API logout failed/already offline:", e);
+                                                        console.warn("Brazcom API logout failed/already offline:", e);
                                                       }
                                                       
                                                       handleInputChange('whatsapp_api_instance', '');
@@ -1830,7 +1830,7 @@ const Companies: React.FC = () => {
                                     {loadingQrCode && (
                                       <div className="flex flex-col items-center justify-center p-6 space-y-2 border border-gray-100 rounded-xl bg-gray-50/50">
                                         <CircularProgress size={24} color="success" />
-                                        <span className="text-xs text-textLight font-semibold">Gerando QR Code na Evolution API...</span>
+                                        <span className="text-xs text-textLight font-semibold">Gerando QR Code na Brazcom API...</span>
                                       </div>
                                     )}
 
@@ -1902,12 +1902,12 @@ const Companies: React.FC = () => {
                                 <span>🌐</span> Servidor de Gateway Privado
                               </h5>
                               <p className="text-2xs sm:text-xs text-textLight">
-                                Por padrão, o Brazcom ISP Suite utiliza o servidor Evolution API centralizado da plataforma (configurado no seu Docker/Mac). Configure os campos abaixo <strong>apenas</strong> se você deseja usar um servidor Evolution API privado para esta empresa específica.
+                                Por padrão, o Brazcom ISP Suite utiliza o servidor Brazcom API centralizado da plataforma (configurado no seu Docker/Mac). Configure os campos abaixo <strong>apenas</strong> se você deseja usar um servidor Brazcom API privado para esta empresa específica.
                               </p>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <TextField
                                   fullWidth
-                                  label="URL do Servidor Evolution API"
+                                  label="URL do Servidor Brazcom API"
                                   value={formData.whatsapp_api_server || ''}
                                   onChange={(e) => handleInputChange('whatsapp_api_server', e.target.value)}
                                   placeholder="http://seu-servidor:8080"
