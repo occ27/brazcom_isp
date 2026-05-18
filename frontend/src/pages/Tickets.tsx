@@ -645,7 +645,7 @@ const Tickets: React.FC = () => {
         sx={{
           '& .MuiDialog-paper': {
             margin: isMobile ? 0 : 32,
-            width: isMobile ? '100%' : 'auto',
+            width: isMobile ? '100%' : '100%',
             maxWidth: isMobile ? 'none' : 'md',
             height: isMobile ? '100%' : 'auto'
           }
@@ -791,7 +791,7 @@ const Tickets: React.FC = () => {
         sx={{
           '& .MuiDialog-paper': {
             margin: isMobile ? 0 : 32,
-            width: isMobile ? '100%' : 'auto',
+            width: isMobile ? '100%' : '100%',
             maxWidth: isMobile ? 'none' : 'lg',
             height: isMobile ? '100%' : 'auto'
           }
