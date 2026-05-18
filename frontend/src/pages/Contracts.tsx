@@ -793,7 +793,22 @@ const Contracts: React.FC = () => {
                     size="small"
                   />
                 </TableCell>
-                <TableCell>{c.numero_contrato || `Contrato #${c.id}`}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1.5">
+                    <span>{c.numero_contrato || `Contrato #${c.id}`}</span>
+                    {c.contrato_anatel_url && (
+                      <Tooltip title="Abrir Link do Contrato (Anatel/PDF)">
+                        <IconButton
+                          size="small"
+                          onClick={() => window.open(c.contrato_anatel_url, '_blank')}
+                          sx={{ p: 0.25, color: 'primary.main' }}
+                        >
+                          <span className="text-xs">🔗</span>
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell>{c.cliente_razao_social || c.cliente_nome || `Cliente #${c.cliente_id}`}</TableCell>
                 <TableCell>{c.cliente_municipio ? `${c.cliente_municipio}${c.cliente_uf ? '/' + c.cliente_uf : ''}` : '-'}</TableCell>
                 <TableCell>{c.cliente_cpf_cnpj ? clientService.formatCpfCnpj(c.cliente_cpf_cnpj) : '-'}</TableCell>
@@ -864,6 +879,13 @@ const Contracts: React.FC = () => {
                       <PrinterIcon className="w-4 h-4 mr-2" />
                       Imprimir Contrato
                     </MenuItem>
+
+                    {c.contrato_anatel_url && (
+                      <MenuItem onClick={() => { window.open(c.contrato_anatel_url, '_blank'); handleCloseMenu(); }} sx={{ color: 'indigo.700' }}>
+                        <span className="w-4 h-4 mr-2 text-sm">🔗</span>
+                        Contrato Digital / Anatel
+                      </MenuItem>
+                    )}
 
                     {hasPermission('contract_manage') && (
                       <MenuItem onClick={() => { handleOpenForm(c); handleCloseMenu(); }}>
