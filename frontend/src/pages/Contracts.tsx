@@ -1160,33 +1160,42 @@ const Contracts: React.FC = () => {
     return limited.replace(/(.{2})(?=.)/g, '$1:').toUpperCase();
   };
 
-  const fetchCoordinatesForAddress = async (enderecoId: number) => {
-    const selectedAddress = clientAddresses.find(end => end.id === Number(enderecoId));
+  const fetchCoordinatesForAddress = async (enderecoId: number, addressesList?: any[]) => {
+    const listToSearch = addressesList || clientAddresses;
+    const selectedAddress = listToSearch.find(end => end.id === Number(enderecoId));
     if (!selectedAddress) return;
 
-    const addressStr = `${selectedAddress.endereco}, ${selectedAddress.numero}, ${selectedAddress.bairro || ''}, ${selectedAddress.municipio} - ${selectedAddress.uf}, Brasil`;
+    // Queries com níveis de fallbacks crescentes (Completo -> Sem bairro -> Apenas rua e cidade)
+    const queries = [
+      `${selectedAddress.endereco}, ${selectedAddress.numero}, ${selectedAddress.bairro || ''}, ${selectedAddress.municipio} - ${selectedAddress.uf}, Brasil`,
+      `${selectedAddress.endereco}, ${selectedAddress.numero}, ${selectedAddress.municipio} - ${selectedAddress.uf}, Brasil`,
+      `${selectedAddress.endereco}, ${selectedAddress.municipio} - ${selectedAddress.uf}, Brasil`
+    ];
 
-    try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressStr)}&limit=1`, {
-        headers: {
-          'Accept-Language': 'pt-BR,pt;q=0.9',
-          'User-Agent': 'BrazcomISP-App/1.0'
-        }
-      });
-      if (!response.ok) return;
-      const data = await response.json();
-      if (data && data.length > 0) {
-        const { lat, lon } = data[0];
-        const coords = `${lat},${lon}`;
-        setForm(prev => ({ ...prev, coordenadas_gps: coords }));
-        setSnackbar({
-          open: true,
-          message: '📍 Coordenadas GPS localizadas e preenchidas automaticamente para o endereço selecionado!',
-          severity: 'success'
+    for (const query of queries) {
+      try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
+          headers: {
+            'Accept-Language': 'pt-BR,pt;q=0.9'
+          }
         });
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.length > 0) {
+            const { lat, lon } = data[0];
+            const coords = `${lat},${lon}`;
+            setForm(prev => ({ ...prev, coordenadas_gps: coords }));
+            setSnackbar({
+              open: true,
+              message: '📍 Coordenadas GPS localizadas e preenchidas automaticamente para o endereço selecionado!',
+              severity: 'success'
+            });
+            break; // Encontrou as coordenadas, interrompe as tentativas
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao buscar coordenadas via Nominatim:', error);
       }
-    } catch (error) {
-      console.error('Erro ao buscar coordenadas via Nominatim:', error);
     }
   };
 
@@ -1971,6 +1980,7 @@ const Contracts: React.FC = () => {
                                   if (!form.endereco_id) {
                                     const primary = clientDetails.enderecos.find((e: any) => e.is_principal) || clientDetails.enderecos[0];
                                     handleInputChange('endereco_id', primary.id);
+                                    fetchCoordinatesForAddress(primary.id, clientDetails.enderecos);
                                   }
                                 } else {
                                   setClientAddresses([]);
