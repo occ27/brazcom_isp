@@ -76,9 +76,9 @@ class MikrotikController:
             try:
                 # Ajusta a codificação padrão do routeros_api dinamicamente para este roteador
                 import collections
-                import routeros_api.api_structure
-                routeros_api.api_structure.default_structure = collections.defaultdict(
-                    lambda: routeros_api.api_structure.StringField(encoding=self.api_encoding)
+                import routeros_api.api_structure as api_struct
+                api_struct.default_structure = collections.defaultdict(
+                    lambda: api_struct.StringField(encoding=self.api_encoding)
                 )
 
                 logger.info(f"Tentando conectar via routeros_api: {self.host}:{self.port} (user: {self.username}, encoding: {self.api_encoding})")
