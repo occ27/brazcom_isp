@@ -22,6 +22,7 @@ RUN apt-get update \
 	libxmlsec1-dev \
 	libxmlsec1-openssl \
 	xmlsec1 \
+	cron \
 	&& rm -rf /var/lib/apt/lists/*
 
 # Copiar o arquivo de dependências
@@ -39,6 +40,13 @@ RUN python3 -m pip install --no-cache-dir --no-binary=:all: lxml xmlsec
 
 # Copiar o restante do código da aplicação
 COPY . .
+
+# Copy cron files and set permissions
+COPY crontab /etc/cron.d/scheduler-cron
+COPY scheduler-entrypoint.sh /scheduler-entrypoint.sh
+RUN chmod 0644 /etc/cron.d/scheduler-cron && \
+    chmod +x /scheduler-entrypoint.sh && \
+    sed -i 's/\r$//' /scheduler-entrypoint.sh
 
 # Expor a porta que a aplicação vai rodar
 EXPOSE 8000

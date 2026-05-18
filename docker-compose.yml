@@ -47,6 +47,24 @@ services:
       - DATABASE_URL=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
       - CERTIFICATES_DIR=/etc/ssl/nfcom
 
+  # Serviço do Scheduler (Cron para processamento diário)
+  scheduler:
+    build: ./backend
+    container_name: brazcom_scheduler
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - brazcom_network
+    environment:
+      - DATABASE_URL=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
+    entrypoint: /scheduler-entrypoint.sh
+
   # Serviço do Frontend (React)
   frontend:
     build: ./frontend
