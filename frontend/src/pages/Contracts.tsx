@@ -793,22 +793,7 @@ const Contracts: React.FC = () => {
                     size="small"
                   />
                 </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1.5">
-                    <span>{c.numero_contrato || `Contrato #${c.id}`}</span>
-                    {c.contrato_anatel_url && (
-                      <Tooltip title="Abrir Link do Contrato (Anatel/PDF)">
-                        <IconButton
-                          size="small"
-                          onClick={() => window.open(c.contrato_anatel_url, '_blank')}
-                          sx={{ p: 0.25, color: 'primary.main' }}
-                        >
-                          <span className="text-xs">🔗</span>
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                  </div>
-                </TableCell>
+                <TableCell>{c.numero_contrato || `Contrato #${c.id}`}</TableCell>
                 <TableCell>{c.cliente_razao_social || c.cliente_nome || `Cliente #${c.cliente_id}`}</TableCell>
                 <TableCell>{c.cliente_municipio ? `${c.cliente_municipio}${c.cliente_uf ? '/' + c.cliente_uf : ''}` : '-'}</TableCell>
                 <TableCell>{c.cliente_cpf_cnpj ? clientService.formatCpfCnpj(c.cliente_cpf_cnpj) : '-'}</TableCell>
@@ -879,13 +864,6 @@ const Contracts: React.FC = () => {
                       <PrinterIcon className="w-4 h-4 mr-2" />
                       Imprimir Contrato
                     </MenuItem>
-
-                    {c.contrato_anatel_url && (
-                      <MenuItem onClick={() => { window.open(c.contrato_anatel_url, '_blank'); handleCloseMenu(); }} sx={{ color: 'indigo.700' }}>
-                        <span className="w-4 h-4 mr-2 text-sm">🔗</span>
-                        Contrato Digital / Anatel
-                      </MenuItem>
-                    )}
 
                     {hasPermission('contract_manage') && (
                       <MenuItem onClick={() => { handleOpenForm(c); handleCloseMenu(); }}>
@@ -1940,7 +1918,7 @@ const Contracts: React.FC = () => {
                                 const clientDetails = await clientService.getClientById(value.id, activeCompany.id);
                                 if (clientDetails.enderecos && clientDetails.enderecos.length > 0) {
                                   setClientAddresses(clientDetails.enderecos);
-                                  
+
                                   if (!form.endereco_id) {
                                     const primary = clientDetails.enderecos.find((e: any) => e.is_principal) || clientDetails.enderecos[0];
                                     handleInputChange('endereco_id', primary.id);
@@ -2081,17 +2059,17 @@ const Contracts: React.FC = () => {
                               }
                             }, 400);
                           } else if (reason === 'clear') {
-                             loadServicos('');
+                            loadServicos('');
                           }
                         }}
                         loading={servicoLoading}
                         renderInput={(params) => (
-                          <TextField 
-                            {...params} 
-                            label="Plano de Internet *" 
-                            error={!!errors.servico_id} 
-                            helperText={errors.servico_id || 'Selecione um plano'} 
-                            size="small" 
+                          <TextField
+                            {...params}
+                            label="Plano de Internet *"
+                            error={!!errors.servico_id}
+                            helperText={errors.servico_id || 'Selecione um plano'}
+                            size="small"
                             inputProps={{
                               ...params.inputProps,
                               autoComplete: 'new-password', // Evita o autofill do navegador (ex: Chrome)
