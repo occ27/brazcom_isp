@@ -447,11 +447,11 @@ class MikrotikController:
         all_queues = resource.get()
         existing = [q for q in all_queues if q.get('name') == name]
         
-        data = {'name': name, 'target': target, 'max-limit': max_limit}
+        # O cliente não quer que preencha o comentário para Simple Queues.
+        # Definimos 'comment': '' para limpar qualquer comentário existente no RouterOS.
+        data = {'name': name, 'target': target, 'max-limit': max_limit, 'comment': ''}
         if burst:
             data['burst-limit'] = burst
-        if comment:
-            data['comment'] = comment
             
         if existing:
             # atualiza o primeiro encontrado
