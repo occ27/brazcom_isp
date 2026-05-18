@@ -200,7 +200,9 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
       items: [
         { label: 'Empresas', icon: BuildingOfficeIcon, path: 'companies' as PageType, group: 'cadastros' },
         { label: 'Usuários', icon: UserIcon, path: 'users' as PageType, group: 'administracao' },
-        { label: 'Minha Licença', icon: BanknotesIcon, path: 'licenses' as PageType, group: 'administracao' },
+        ...(user?.is_superuser || user?.is_company_admin ? [
+          { label: 'Minha Licença', icon: BanknotesIcon, path: 'licenses' as PageType, group: 'administracao' }
+        ] : []),
         ...(user?.is_superuser ? [
           { label: 'Roles', icon: ShieldCheckIcon, path: 'roles' as PageType, group: 'administracao' },
           { label: 'Permissões', icon: ShieldCheckIcon, path: 'permissions' as PageType, group: 'administracao' },

@@ -23,7 +23,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 const Tickets: React.FC = () => {
   const { activeCompany } = useCompany();
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -31,9 +31,11 @@ const Tickets: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const isTecnico = !user?.is_superuser && !hasPermission('clients_manage');
+
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusTicket | ''>('');
+  const [statusFilter, setStatusFilter] = useState<StatusTicket | ''>(isTecnico ? 'ABERTO' : '');
   const [prioridadeFilter, setPrioridadeFilter] = useState<PrioridadeTicket | ''>('');
   const [categoriaFilter, setCategoriaFilter] = useState<CategoriaTicket | ''>('');
 
@@ -97,6 +99,12 @@ const Tickets: React.FC = () => {
       setLoading(false);
     }
   }, [activeCompany, page, rowsPerPage, statusFilter, prioridadeFilter, categoriaFilter, searchTerm]);
+
+  useEffect(() => {
+    if (isTecnico) {
+      setStatusFilter('ABERTO');
+    }
+  }, [isTecnico]);
 
   useEffect(() => {
     loadTickets();
@@ -310,140 +318,142 @@ const Tickets: React.FC = () => {
       </Box>
 
       {/* Filtros */}
-      <Paper sx={{ 
-        p: isMobile ? 1.5 : 2, 
-        mb: isMobile ? 1.5 : 2,
-        mx: isMobile ? -1 : 0
-      }}>
-        <Box 
-          display="flex" 
-          gap={isMobile ? 1.5 : 2} 
-          flexWrap="wrap" 
-          alignItems="center"
-          sx={{ 
-            flexDirection: isMobile ? 'column' : 'row',
-            alignItems: isMobile ? 'stretch' : 'center'
-          }}
-        >
-          <TextField
-            label="Buscar"
-            variant="outlined"
-            size="small"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: <MagnifyingGlassIcon className="w-4 h-4 mr-2" />,
-            }}
-            sx={{ 
-              minWidth: isMobile ? '100%' : 200,
-              width: isMobile ? '100%' : 'auto',
-              '& .MuiInputBase-root': {
-                height: isMobile ? 48 : 'auto'
-              }
-            }}
-          />
-
+      {!isTecnico && (
+        <Paper sx={{ 
+          p: isMobile ? 1.5 : 2, 
+          mb: isMobile ? 1.5 : 2,
+          mx: isMobile ? -1 : 0
+        }}>
           <Box 
             display="flex" 
             gap={isMobile ? 1.5 : 2} 
+            flexWrap="wrap" 
+            alignItems="center"
             sx={{ 
               flexDirection: isMobile ? 'column' : 'row',
-              width: isMobile ? '100%' : 'auto'
+              alignItems: isMobile ? 'stretch' : 'center'
             }}
           >
-            <FormControl 
-              size="small" 
+            <TextField
+              label="Buscar"
+              variant="outlined"
+              size="small"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: <MagnifyingGlassIcon className="w-4 h-4 mr-2" />,
+              }}
               sx={{ 
-                minWidth: isMobile ? '100%' : 120,
+                minWidth: isMobile ? '100%' : 200,
+                width: isMobile ? '100%' : 'auto',
                 '& .MuiInputBase-root': {
                   height: isMobile ? 48 : 'auto'
                 }
               }}
-            >
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => setStatusFilter(e.target.value as StatusTicket)}
-              >
-                <MenuItem value="">Todos</MenuItem>
-                <MenuItem value="ABERTO">Aberto</MenuItem>
-                <MenuItem value="EM_ANDAMENTO">Em Andamento</MenuItem>
-                <MenuItem value="AGUARDANDO_CLIENTE">Aguardando Cliente</MenuItem>
-                <MenuItem value="RESOLVIDO">Resolvido</MenuItem>
-                <MenuItem value="FECHADO">Fechado</MenuItem>
-                <MenuItem value="CANCELADO">Cancelado</MenuItem>
-              </Select>
-            </FormControl>
+            />
 
-            <FormControl 
-              size="small" 
+            <Box 
+              display="flex" 
+              gap={isMobile ? 1.5 : 2} 
               sx={{ 
-                minWidth: isMobile ? '100%' : 120,
-                '& .MuiInputBase-root': {
-                  height: isMobile ? 48 : 'auto'
-                }
+                flexDirection: isMobile ? 'column' : 'row',
+                width: isMobile ? '100%' : 'auto'
               }}
             >
-              <InputLabel>Prioridade</InputLabel>
-              <Select
-                value={prioridadeFilter}
-                label="Prioridade"
-                onChange={(e) => setPrioridadeFilter(e.target.value as PrioridadeTicket)}
+              <FormControl 
+                size="small" 
+                sx={{ 
+                  minWidth: isMobile ? '100%' : 120,
+                  '& .MuiInputBase-root': {
+                    height: isMobile ? 48 : 'auto'
+                  }
+                }}
               >
-                <MenuItem value="">Todas</MenuItem>
-                <MenuItem value="BAIXA">Baixa</MenuItem>
-                <MenuItem value="NORMAL">Normal</MenuItem>
-                <MenuItem value="ALTA">Alta</MenuItem>
-                <MenuItem value="URGENTE">Urgente</MenuItem>
-              </Select>
-            </FormControl>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={statusFilter}
+                  label="Status"
+                  onChange={(e) => setStatusFilter(e.target.value as StatusTicket)}
+                >
+                  <MenuItem value="">Todos</MenuItem>
+                  <MenuItem value="ABERTO">Aberto</MenuItem>
+                  <MenuItem value="EM_ANDAMENTO">Em Andamento</MenuItem>
+                  <MenuItem value="AGUARDANDO_CLIENTE">Aguardando Cliente</MenuItem>
+                  <MenuItem value="RESOLVIDO">Resolvido</MenuItem>
+                  <MenuItem value="FECHADO">Fechado</MenuItem>
+                  <MenuItem value="CANCELADO">Cancelado</MenuItem>
+                </Select>
+              </FormControl>
 
-            <FormControl 
-              size="small" 
+              <FormControl 
+                size="small" 
+                sx={{ 
+                  minWidth: isMobile ? '100%' : 120,
+                  '& .MuiInputBase-root': {
+                    height: isMobile ? 48 : 'auto'
+                  }
+                }}
+              >
+                <InputLabel>Prioridade</InputLabel>
+                <Select
+                  value={prioridadeFilter}
+                  label="Prioridade"
+                  onChange={(e) => setPrioridadeFilter(e.target.value as PrioridadeTicket)}
+                >
+                  <MenuItem value="">Todas</MenuItem>
+                  <MenuItem value="BAIXA">Baixa</MenuItem>
+                  <MenuItem value="NORMAL">Normal</MenuItem>
+                  <MenuItem value="ALTA">Alta</MenuItem>
+                  <MenuItem value="URGENTE">Urgente</MenuItem>
+                </Select>
+              </FormControl>
+
+              <FormControl 
+                size="small" 
+                sx={{ 
+                  minWidth: isMobile ? '100%' : 120,
+                  '& .MuiInputBase-root': {
+                    height: isMobile ? 48 : 'auto'
+                  }
+                }}
+              >
+                <InputLabel>Categoria</InputLabel>
+                <Select
+                  value={categoriaFilter}
+                  label="Categoria"
+                  onChange={(e) => setCategoriaFilter(e.target.value as CategoriaTicket)}
+                >
+                  <MenuItem value="">Todas</MenuItem>
+                  <MenuItem value="TECNICO">Técnico</MenuItem>
+                  <MenuItem value="COBRANCA">Cobrança</MenuItem>
+                  <MenuItem value="INSTALACAO">Instalação</MenuItem>
+                  <MenuItem value="SUPORTE">Suporte</MenuItem>
+                  <MenuItem value="CANCELAMENTO">Cancelamento</MenuItem>
+                  <MenuItem value="OUTRO">Outro</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setSearchTerm('');
+                setStatusFilter('');
+                setPrioridadeFilter('');
+                setCategoriaFilter('');
+              }}
+              startIcon={<XMarkIcon className="w-4 h-4" />}
               sx={{ 
-                minWidth: isMobile ? '100%' : 120,
-                '& .MuiInputBase-root': {
-                  height: isMobile ? 48 : 'auto'
-                }
+                width: isMobile ? '100%' : 'auto',
+                mt: isMobile ? 1 : 0,
+                height: isMobile ? 48 : 'auto'
               }}
             >
-              <InputLabel>Categoria</InputLabel>
-              <Select
-                value={categoriaFilter}
-                label="Categoria"
-                onChange={(e) => setCategoriaFilter(e.target.value as CategoriaTicket)}
-              >
-                <MenuItem value="">Todas</MenuItem>
-                <MenuItem value="TECNICO">Técnico</MenuItem>
-                <MenuItem value="COBRANCA">Cobrança</MenuItem>
-                <MenuItem value="INSTALACAO">Instalação</MenuItem>
-                <MenuItem value="SUPORTE">Suporte</MenuItem>
-                <MenuItem value="CANCELAMENTO">Cancelamento</MenuItem>
-                <MenuItem value="OUTRO">Outro</MenuItem>
-              </Select>
-            </FormControl>
+              Limpar
+            </Button>
           </Box>
-
-          <Button
-            variant="outlined"
-            onClick={() => {
-              setSearchTerm('');
-              setStatusFilter('');
-              setPrioridadeFilter('');
-              setCategoriaFilter('');
-            }}
-            startIcon={<XMarkIcon className="w-4 h-4" />}
-            sx={{ 
-              width: isMobile ? '100%' : 'auto',
-              mt: isMobile ? 1 : 0,
-              height: isMobile ? 48 : 'auto'
-            }}
-          >
-            Limpar
-          </Button>
-        </Box>
-      </Paper>
+        </Paper>
+      )}
 
       {/* Tabela de Tickets */}
       <Paper sx={{ 
