@@ -180,11 +180,17 @@ const Companies: React.FC = () => {
 
   useEffect(() => {
     if (editingCompany && activeTab === "email" && formData.send_method_whatsapp) {
+      setWhatsappConnected(null);
+      setWhatsappQrCode(null);
       handleCheckWhatsAppConnection(editingCompany.id);
     }
   }, [editingCompany, activeTab, formData.send_method_whatsapp]);
 
   const handleOpenDialog = (company?: Company) => {
+    setWhatsappConnected(null);
+    setWhatsappQrCode(null);
+    setLoadingWhatsAppState(false);
+    setLoadingQrCode(false);
     if (company) {
       setEditingCompany(company);
       setSmtpPasswordConfigured(!!company.smtp_password);
@@ -313,6 +319,10 @@ const Companies: React.FC = () => {
   };
 
   const handleCloseDialog = () => {
+    setWhatsappConnected(null);
+    setWhatsappQrCode(null);
+    setLoadingWhatsAppState(false);
+    setLoadingQrCode(false);
     setOpen(false);
     setEditingCompany(null);
     setFormData({
@@ -1642,75 +1652,80 @@ const Companies: React.FC = () => {
                                   Cadastre e salve a empresa primeiro para poder vincular um número de WhatsApp.
                                 </span>
                               </div>
-                            ) : loadingWhatsAppState ? (
-                              <div className="flex flex-col items-center justify-center p-6 space-y-2">
-                                <CircularProgress size={24} color="success" />
-                                <span className="text-xs text-textLight font-semibold">Consultando status do WhatsApp...</span>
-                              </div>
-                            ) : whatsappConnected ? (
-                              <>
-                                {/* Conexão Conectada */}
-                                <div className="flex items-center justify-between p-4 rounded-xl border border-emerald-100 bg-emerald-50/20">
-                                  <div className="flex items-center space-x-3">
-                                    <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shadow-sm">
-                                      <svg className="w-5 h-5 text-emerald-600 fill-current" viewBox="0 0 448 512">
-                                        <path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L3 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7 .9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/>
-                                      </svg>
-                                    </div>
-                                    <div>
-                                      <span className="font-bold text-sm text-text block">
-                                        Instância: {formData.whatsapp_api_instance || 'mega-net-telecom'}
-                                      </span>
-                                      <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                                        <span>Conectado & Pronto</span>
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDisconnectWhatsApp(editingCompany.id)}
-                                    className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-bold transition-all"
-                                  >
-                                    Desconectar
-                                  </button>
-                                </div>
-                              </>
                             ) : (
                               <div className="space-y-4">
-                                {/* Conexão Desconectada */}
-                                <div className="flex flex-col sm:flex-row items-center justify-between p-4 rounded-xl border border-amber-100 bg-amber-50/20 gap-3">
-                                  <div className="flex items-center space-x-3 text-center sm:text-left">
-                                    <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shadow-sm">
-                                      <span>⚠️</span>
-                                    </div>
-                                    <div>
-                                      <span className="font-bold text-sm text-text block">
-                                        Instância: {formData.whatsapp_api_instance || 'mega-net-telecom'}
-                                      </span>
-                                      <span className="text-xs text-amber-600 font-semibold">
-                                        Status: Desconectado
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <div className="flex gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleCheckWhatsAppConnection(editingCompany.id)}
-                                      className="px-3 py-1.5 border border-gray-300 bg-white hover:bg-gray-50 text-text rounded-lg text-xs font-semibold transition-all"
-                                    >
-                                      🔄 Verificar Status
-                                    </button>
-                                    {!whatsappQrCode && !loadingQrCode && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleGetWhatsAppQrCode(editingCompany.id)}
-                                        className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
-                                      >
-                                        📲 Conectar WhatsApp
-                                      </button>
-                                    )}
-                                  </div>
+                                <div className="overflow-hidden border border-gray-200 rounded-xl bg-white shadow-sm">
+                                  <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50/70">
+                                      <tr>
+                                        <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Instância</th>
+                                        <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Telefone</th>
+                                        <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Ações</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                      <tr className="hover:bg-gray-50/40 transition-colors">
+                                        <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                          {formData.whatsapp_api_instance || 'mega-net-telecom'}
+                                        </td>
+                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">
+                                          {formData.telefone || 'Não cadastrado'}
+                                        </td>
+                                        <td className="px-4 py-4 whitespace-nowrap">
+                                          {loadingWhatsAppState ? (
+                                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                                              <CircularProgress size={12} color="inherit" />
+                                              <span>Verificando...</span>
+                                            </div>
+                                          ) : whatsappConnected ? (
+                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                              <span className="w-1.5 h-1.5 mr-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                              Conectado
+                                            </span>
+                                          ) : (
+                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100">
+                                              Desconectado
+                                            </span>
+                                          )}
+                                        </td>
+                                        <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                          <div className="flex justify-end gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleCheckWhatsAppConnection(editingCompany.id)}
+                                              disabled={loadingWhatsAppState}
+                                              className="px-3 py-1.5 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 rounded-lg text-xs font-bold transition-all disabled:opacity-50 shadow-sm"
+                                            >
+                                              🔄 Verificar
+                                            </button>
+                                            
+                                            {whatsappConnected ? (
+                                              <button
+                                                type="button"
+                                                onClick={() => handleDisconnectWhatsApp(editingCompany.id)}
+                                                className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-bold transition-all shadow-sm"
+                                              >
+                                                Desconectar
+                                              </button>
+                                            ) : (
+                                              <>
+                                                {!whatsappQrCode && !loadingQrCode && (
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleGetWhatsAppQrCode(editingCompany.id)}
+                                                    className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
+                                                  >
+                                                    📲 Conectar
+                                                  </button>
+                                                )}
+                                              </>
+                                            )}
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
                                 </div>
 
                                 {loadingQrCode && (
@@ -1743,20 +1758,23 @@ const Companies: React.FC = () => {
                                     </button>
                                   </div>
                                 )}
+
+                                {/* Campo de edição do ID do Dispositivo */}
+                                <div className="pt-2">
+                                  <TextField
+                                    fullWidth
+                                    label="Nome identificador da instância"
+                                    value={formData.whatsapp_api_instance || ''}
+                                    onChange={(e) => handleInputChange('whatsapp_api_instance', e.target.value)}
+                                    placeholder="mega-net-telecom"
+                                    size="small"
+                                    helperText="Nome identificador único da sua instância (ex. nome-da-empresa) para controle no gateway."
+                                  />
+                                </div>
                               </div>
                             )}
-
-                            {/* Campo de edição do ID do Dispositivo */}
-                            <TextField
-                              fullWidth
-                          value={formData.whatsapp_api_instance || ''}
-                          onChange={(e) => handleInputChange('whatsapp_api_instance', e.target.value)}
-                          placeholder="mega-net-telecom"
-                          size="small"
-                          helperText="Nome identificador único da sua instância (ex. nome-da-empresa) para controle no gateway."
-                        />
-                      </div>
-                    )}
+                          </div>
+                        )}
                   </div>
 
                       {/* CARD GRUPADO: CONFIGURAÇÕES AVANÇADAS & INTEGRAÇÕES EXTERNAS */}
