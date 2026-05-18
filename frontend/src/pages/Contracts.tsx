@@ -2110,9 +2110,9 @@ const Contracts: React.FC = () => {
                 </div>
                 <div>
                   <h2 className="text-base sm:text-xl font-bold text-text bg-gradient-to-r from-indigo-700 to-indigo-600 bg-clip-text text-transparent">
-                    {viewOnly ? 'Visualizar Plano de Internet' : (editing ? 'Editar Plano de Internet' : 'Novo Plano de Internet')}
+                    {viewOnly ? 'Visualizar Contrato' : (editing ? 'Editar Contrato' : 'Novo Contrato')}
                   </h2>
-                  <p className="text-xs sm:text-sm text-textLight hidden sm:block">Configure o plano de acesso à internet do cliente.</p>
+                  <p className="text-xs sm:text-sm text-textLight hidden sm:block">Configure as informações e os termos do contrato de internet do cliente.</p>
                 </div>
               </div>
               <button
@@ -2135,7 +2135,7 @@ const Contracts: React.FC = () => {
                   variant="scrollable"
                   scrollButtons="auto"
                 >
-                  <Tab label="📋 Dados do Plano" />
+                  <Tab label="📋 Dados do Contrato" />
                   <Tab label="🌐 Configuração de Rede" />
                   <Tab label="💰 Cobrança e SLA" />
                   <Tab label="🛠️ Instalação e Ativos" />
@@ -2151,7 +2151,7 @@ const Contracts: React.FC = () => {
                       <span className="text-sm sm:text-base">Identificação</span>
                     </h3>
                     <p className="text-xs sm:text-sm text-blue-600 hidden sm:block">
-                      Informações básicas do plano de internet.
+                      Informações básicas do contrato de internet.
                     </p>
                     <div className="mt-3 sm:mt-4">
                       <TextField
