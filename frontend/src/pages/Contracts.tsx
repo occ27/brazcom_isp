@@ -5,7 +5,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete, FormControl, InputLabel, Select, MenuItem, Menu,
   Card, CardContent, Divider, Chip, Tooltip, SelectChangeEvent, useMediaQuery, useTheme,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination, Pagination,
-  Checkbox, Tabs, Tab, FormHelperText
+  Checkbox, Tabs, Tab, FormHelperText, InputAdornment
 } from '@mui/material';
 import {
   PlusIcon, ArrowPathIcon, CloudIcon, QrCodeIcon,
@@ -1160,6 +1160,51 @@ const Contracts: React.FC = () => {
     return limited.replace(/(.{2})(?=.)/g, '$1:').toUpperCase();
   };
 
+  const fetchCoordinatesForAddress = async (enderecoId: number) => {
+    const selectedAddress = clientAddresses.find(end => end.id === Number(enderecoId));
+    if (!selectedAddress) return;
+
+    const addressStr = `${selectedAddress.endereco}, ${selectedAddress.numero}, ${selectedAddress.bairro || ''}, ${selectedAddress.municipio} - ${selectedAddress.uf}, Brasil`;
+
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressStr)}&limit=1`, {
+        headers: {
+          'Accept-Language': 'pt-BR,pt;q=0.9',
+          'User-Agent': 'BrazcomISP-App/1.0'
+        }
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data && data.length > 0) {
+        const { lat, lon } = data[0];
+        const coords = `${lat},${lon}`;
+        setForm(prev => ({ ...prev, coordenadas_gps: coords }));
+        setSnackbar({
+          open: true,
+          message: '📍 Coordenadas GPS localizadas e preenchidas automaticamente para o endereço selecionado!',
+          severity: 'success'
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao buscar coordenadas via Nominatim:', error);
+    }
+  };
+
+  const handleOpenGoogleMaps = () => {
+    if (form.coordenadas_gps && form.coordenadas_gps.trim() !== '') {
+      window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(form.coordenadas_gps.trim())}`, '_blank');
+      return;
+    }
+
+    if (form.endereco_id) {
+      const selectedAddress = clientAddresses.find(end => end.id === Number(form.endereco_id));
+      if (selectedAddress) {
+        const addressStr = `${selectedAddress.endereco}, ${selectedAddress.numero}, ${selectedAddress.bairro || ''}, ${selectedAddress.municipio} - ${selectedAddress.uf}, Brasil`;
+        window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressStr)}`, '_blank');
+      }
+    }
+  };
+
   const handleInputChange = (field: string, value: any) => {
     let processedValue = value;
 
@@ -1196,6 +1241,11 @@ const Contracts: React.FC = () => {
     // Quando a data de início do contrato for alterada, preencher automaticamente a data de instalação se estiver vazia
     if (field === 'd_contrato_ini' && value && !form.data_instalacao) {
       setForm(prev => ({ ...prev, data_instalacao: value }));
+    }
+
+    // Buscar coordenadas se o endereço mudar
+    if (field === 'endereco_id' && value) {
+      fetchCoordinatesForAddress(value);
     }
 
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
@@ -2290,6 +2340,25 @@ const Contracts: React.FC = () => {
                         size="small"
                         placeholder="latitude,longitude"
                         helperText="Ex: -23.550520,-46.633308"
+                        disabled={viewOnly}
+                        InputProps={{
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <Tooltip title={form.coordenadas_gps ? "Visualizar no Google Maps" : "Buscar endereço no Google Maps"}>
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    onClick={handleOpenGoogleMaps}
+                                    disabled={!form.endereco_id && (!form.coordenadas_gps || form.coordenadas_gps.trim() === '')}
+                                    color="primary"
+                                  >
+                                    📍
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            </InputAdornment>
+                          )
+                        }}
                       />
                       <TextField
                         label="Data de Instalação"
