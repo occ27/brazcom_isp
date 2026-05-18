@@ -2582,7 +2582,7 @@ const Contracts: React.FC = () => {
                         InputProps={{
                           endAdornment: (
                             <InputAdornment position="end">
-                              {!form.coordenadas_gps && form.endereco_id && (
+                              {form.endereco_id && (
                                 <Tooltip title="Buscar coordenadas automaticamente via API">
                                   <span>
                                     <IconButton
