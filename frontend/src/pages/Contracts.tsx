@@ -1256,10 +1256,10 @@ const Contracts: React.FC = () => {
       delete newErrors.responsavel_tecnico;
     }
 
-    // CTO obrigatória para fibra ativa
-    if (currentForm.tipo_conexao === 'FIBRA' && currentForm.status === 'ATIVO') {
+    // CTO obrigatória para fibra
+    if (currentForm.tipo_conexao === 'FIBRA') {
       if (!currentForm.cto_nome || currentForm.cto_nome.trim() === '') {
-        newErrors.cto_nome = 'Caixa de Atendimento (CTO) é obrigatória para contratos de Fibra ativos';
+        newErrors.cto_nome = 'Caixa de Atendimento (CTO) é obrigatória para conexões de Fibra';
       } else {
         delete newErrors.cto_nome;
       }
@@ -1415,10 +1415,10 @@ const Contracts: React.FC = () => {
       newErrors.responsavel_tecnico = 'Responsável técnico é obrigatório';
     }
 
-    // CTO obrigatória para fibra ativa
-    if (form.tipo_conexao === 'FIBRA' && form.status === 'ATIVO') {
+    // CTO obrigatória para fibra
+    if (form.tipo_conexao === 'FIBRA') {
       if (!form.cto_nome || form.cto_nome.trim() === '') {
-        newErrors.cto_nome = 'Caixa de Atendimento (CTO) é obrigatória para contratos de Fibra ativos';
+        newErrors.cto_nome = 'Caixa de Atendimento (CTO) é obrigatória para conexões de Fibra';
       }
     }
 
@@ -2397,7 +2397,7 @@ const Contracts: React.FC = () => {
                             fullWidth
                             size="small"
                             placeholder="Ex: CTO-04-A"
-                            helperText="Identificação da caixa (CTO) no poste"
+                            helperText={errors.cto_nome || "Identificação da caixa (CTO) no poste"}
                             disabled={viewOnly}
                             error={!!errors.cto_nome}
                           />
