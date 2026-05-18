@@ -103,6 +103,11 @@ const sendEmail = async (id: number) => {
   return resp.data;
 };
 
+const refundReceivable = async (receivableId: number) => {
+  const resp = await api.put(`/receivables/${receivableId}/refund`);
+  return resp.data;
+};
+
 const receivableService = {
   listReceivables,
   generateForCompany,
@@ -113,6 +118,7 @@ const receivableService = {
   printReceivable,
   getReceivable,
   sendEmail,
+  refundReceivable,
 };
 
 export default receivableService;

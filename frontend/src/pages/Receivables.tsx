@@ -296,6 +296,18 @@ const Receivables: React.FC = () => {
     setAnchorEl(null);
   };
 
+  const handleRefund = async (id: number) => {
+    if (!window.confirm('Confirma o estorno do pagamento desta cobrança? O status voltará a ser PENDENTE.')) return;
+    try {
+      await receivableService.refundReceivable(id);
+      setSnackbar({ open: true, message: 'Pagamento estornado com sucesso!', severity: 'success' });
+      loadReceivables();
+    } catch (e) {
+      setSnackbar({ open: true, message: stringifyError(e), severity: 'error' });
+    }
+    setAnchorEl(null);
+  };
+
   const handlePrint = async (id: number) => {
     setLoading(true);
     try {
@@ -543,7 +555,13 @@ const Receivables: React.FC = () => {
           </MenuItem>
         )}
         
-        {(selectedReceivable?.status !== 'PAID' || user?.is_superuser || user?.is_company_admin) && (
+        {selectedReceivable?.status === 'PAID' && (user?.is_superuser || user?.is_company_admin) && (
+          <MenuItem onClick={() => { handleRefund(selectedReceivable.id); setAnchorEl(null); }}>
+            <ArrowPathIcon className="w-4 h-4 mr-2 text-orange-500" /> Estornar Pagamento
+          </MenuItem>
+        )}
+        
+        {selectedReceivable?.status !== 'PAID' && (
           <MenuItem onClick={() => { handleDelete(selectedReceivable!.id); setAnchorEl(null); }}>
             <TrashIcon className="w-4 h-4 mr-2 text-red-500" /> Excluir Permanentemente
           </MenuItem>
