@@ -8,6 +8,15 @@ from typing import Optional
 
 try:
     import routeros_api
+    if routeros_api is not None:
+        import collections
+        import routeros_api.api_structure
+        # O Winbox 3 (legado) não suporta UTF-8 nativamente e decodifica bytes usando a tabela de caracteres local (Latin1/CP1252).
+        # Para que acentos brasileiros (como ç, á, ã) apareçam corretos no Winbox 3 do cliente, alteramos a codificação padrão
+        # de envio/recebimento de strings da API do MikroTik para 'latin1'.
+        routeros_api.api_structure.default_structure = collections.defaultdict(
+            lambda: routeros_api.api_structure.StringField(encoding='latin1')
+        )
 except Exception:  # pragma: no cover - optional dependency
     routeros_api = None
 
