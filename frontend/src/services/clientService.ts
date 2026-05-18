@@ -142,7 +142,8 @@ export const clientService = {
   },
 
   // Utilitários básicos de formatação (cpf/cnpj/telefone)
-  formatCpfCnpj(value: string): string {
+  formatCpfCnpj(value: string | undefined | null): string {
+    if (!value) return '';
     const cleaned = value.replace(/\D/g, '');
     if (cleaned.length === 11) {
       return `${cleaned.slice(0,3)}.${cleaned.slice(3,6)}.${cleaned.slice(6,9)}-${cleaned.slice(9)}`;

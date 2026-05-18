@@ -57,8 +57,9 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
   const [mobileOpen, setMobileOpen] = useState(false);
   const [drawerCollapsed, setDrawerCollapsed] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    'NFCom': true,
+    'NFCom': false,
     'Cadastros': true,
+    'Financeiro': true,
     'Administração': false,
     'Rede': false,
     'Relatórios': false

@@ -376,6 +376,7 @@ const Clients: React.FC = () => {
           state: {
             preselectClientId: createdClient.id,
             preselectClientName: createdClient.nome_razao_social,
+            preselectClientCpfCnpj: createdClient.cpf_cnpj,
             preselectClientAddresses: createdClient.enderecos || []
           }
         });

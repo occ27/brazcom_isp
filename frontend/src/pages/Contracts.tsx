@@ -1148,7 +1148,7 @@ const Contracts: React.FC = () => {
     );
   };
 
-  const handleOpenForm = async (c?: Contrato, view: boolean = false, preselectedClient?: { id: number; nome_razao_social: string; enderecos?: any[] }) => {
+  const handleOpenForm = async (c?: Contrato, view: boolean = false, preselectedClient?: { id: number; nome_razao_social: string; cpf_cnpj?: string; enderecos?: any[] }) => {
     setViewOnly(!!view);
     if (c) {
       let fullContract = c;
@@ -1344,10 +1344,11 @@ const Contracts: React.FC = () => {
 
   useEffect(() => {
     if (location.state && location.state.preselectClientId && activeCompany) {
-      const { preselectClientId, preselectClientName, preselectClientAddresses } = location.state;
+      const { preselectClientId, preselectClientName, preselectClientCpfCnpj, preselectClientAddresses } = location.state;
       handleOpenForm(undefined, false, {
         id: preselectClientId,
         nome_razao_social: preselectClientName,
+        cpf_cnpj: preselectClientCpfCnpj || '',
         enderecos: preselectClientAddresses || []
       });
       // Clear location state to avoid re-opening the form on page refresh/navigation back
