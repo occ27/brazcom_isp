@@ -36,6 +36,7 @@ export interface CompanyCreate {
   // Mensagem de suspensão personalizada (ISP)
   suspension_message?: string;
   suspension_url?: string;
+  dias_bloqueio_inadimplentes?: number;
   ato_autorizacao?: string;
   contrato_registro_num?: string;
   site?: string;
@@ -93,6 +94,7 @@ export interface CompanyUpdate {
   // Mensagem de suspensão personalizada (ISP)
   suspension_message?: string;
   suspension_url?: string;
+  dias_bloqueio_inadimplentes?: number;
   ato_autorizacao?: string;
   contrato_registro_num?: string;
   site?: string;

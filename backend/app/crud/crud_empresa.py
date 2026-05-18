@@ -47,6 +47,7 @@ def _decrypt_sensitive_fields(empresa: Empresa) -> SimpleNamespace:
         is_active=empresa.is_active,
         suspension_message=empresa.suspension_message,
         suspension_url=empresa.suspension_url,
+        dias_bloqueio_inadimplentes=empresa.dias_bloqueio_inadimplentes,
         ato_autorizacao=empresa.ato_autorizacao,
         contrato_registro_num=empresa.contrato_registro_num,
         site=empresa.site,

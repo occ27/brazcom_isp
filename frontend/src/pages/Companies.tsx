@@ -101,6 +101,7 @@ const Companies: React.FC = () => {
     // Mensagem de suspensão personalizada (ISP)
     suspension_message: '',
     suspension_url: '',
+    dias_bloqueio_inadimplentes: 15,
     
     // Informações para contratos ISP
     ato_autorizacao: '',
@@ -224,6 +225,7 @@ const Companies: React.FC = () => {
         ambiente_nfcom: company.ambiente_nfcom || 'producao',
         suspension_message: company.suspension_message || '',
         suspension_url: company.suspension_url || '',
+        dias_bloqueio_inadimplentes: company.dias_bloqueio_inadimplentes ?? 15,
         ato_autorizacao: company.ato_autorizacao || '',
         contrato_registro_num: company.contrato_registro_num || '',
         site: company.site || '',
@@ -280,6 +282,7 @@ const Companies: React.FC = () => {
         ambiente_nfcom: 'producao',
         suspension_message: '',
         suspension_url: '',
+        dias_bloqueio_inadimplentes: 15,
         ato_autorizacao: '',
         contrato_registro_num: '',
         site: '',
@@ -338,7 +341,8 @@ const Companies: React.FC = () => {
       smtp_port: undefined,
       smtp_user: '',
       smtp_password: '',
-      assinatura_digital_url: ''
+      assinatura_digital_url: '',
+      dias_bloqueio_inadimplentes: 15
     });
     setErrors({});
     setLogoFile(null);
@@ -1285,6 +1289,20 @@ const Companies: React.FC = () => {
                       <p className="text-xs text-gray-500 mt-1">
                         Conta bancária usada por padrão em novos contratos desta empresa.
                       </p>
+                    </div>
+
+                    <div>
+                      <TextField
+                        fullWidth
+                        label="Prazo de Bloqueio Automático (Dias)"
+                        type="number"
+                        variant="outlined"
+                        value={formData.dias_bloqueio_inadimplentes ?? 15}
+                        onChange={(e) => handleInputChange('dias_bloqueio_inadimplentes', e.target.value === '' ? undefined : parseInt(e.target.value))}
+                        size="small"
+                        InputProps={{ inputProps: { min: 0 } }}
+                        helperText="Prazo em dias após o vencimento da fatura para o sistema bloquear o cliente automaticamente."
+                      />
                     </div>
 
                     <div className="sm:col-span-2">

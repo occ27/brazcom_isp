@@ -80,6 +80,7 @@ export interface Company {
   // Mensagem de suspensão personalizada (ISP)
   suspension_message?: string;
   suspension_url?: string;
+  dias_bloqueio_inadimplentes?: number;
 
   // Informações para contratos ISP
   ato_autorizacao?: string;

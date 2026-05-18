@@ -34,6 +34,7 @@ class EmpresaBase(BaseModel):
     # Mensagem de suspensão personalizada (ISP)
     suspension_message: Optional[str] = Field(None, description="Mensagem personalizada para avisar sobre suspensão")
     suspension_url: Optional[str] = Field(None, max_length=500, description="URL personalizada para redirecionamento de suspensão")
+    dias_bloqueio_inadimplentes: Optional[int] = Field(15, description="Prazo em dias após o vencimento para bloqueio automático de inadimplentes")
 
     # Informações para contratos ISP
     ato_autorizacao: Optional[str] = Field(None, max_length=100)
@@ -180,6 +181,7 @@ class EmpresaResponse(BaseModel):
     logo_url: Optional[str] = Field(None, max_length=500)
     suspension_message: Optional[str] = Field(None)
     suspension_url: Optional[str] = Field(None)
+    dias_bloqueio_inadimplentes: Optional[int] = Field(15)
     
     # Informações ISP
     ato_autorizacao: Optional[str] = None
@@ -277,6 +279,7 @@ class EmpresaUpdate(BaseModel):
     logo_url: Optional[str] = Field(None, max_length=500)
     suspension_message: Optional[str] = Field(None)
     suspension_url: Optional[str] = Field(None, max_length=500)
+    dias_bloqueio_inadimplentes: Optional[int] = Field(None)
     
     # Informações ISP
     ato_autorizacao: Optional[str] = Field(None, max_length=100)
