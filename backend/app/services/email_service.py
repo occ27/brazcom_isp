@@ -192,7 +192,8 @@ class EmailService:
         Returns:
             bool: True se enviado com sucesso
         """
-        subject = f"NFCom - {empresa.razao_social}"
+        company_name = empresa.nome_fantasia or empresa.razao_social
+        subject = f"NFCom - {company_name}"
 
         # Corpo do email
         # Nota: por motivo de privacidade e consistência, o corpo do email não
@@ -201,12 +202,12 @@ class EmailService:
         body = f"""
 Prezado cliente,
 
-Segue em anexo o documento referente à sua operação com {empresa.razao_social}.
+Segue em anexo o documento referente à sua operação com {company_name}.
 
 Caso necessite de informações adicionais, responda este e-mail informando os detalhes desejados.
 
 Atenciosamente,
-{empresa.razao_social}
+{company_name}
 {empresa.email}
         """.strip()
 
