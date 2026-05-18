@@ -190,10 +190,27 @@ async def update_cliente(
     if enderecos is not None:
         # Ensure association exists
         assoc = crud_cliente.get_empresa_cliente(db, empresa_id=empresa_id, cliente_id=cliente_id)
-        if not assoc:
-            # create association if missing
-            assoc = crud_cliente.get_empresa_cliente(db, empresa_id=empresa_id, cliente_id=cliente_id)
-        # Process each endereco: create if no id, update if id present
+        if assoc:
+            # 1. Identifica e deleta os endereços que foram removidos no frontend
+            db_enderecos = db.query(crud_cliente.EmpresaClienteEndereco).filter(
+                crud_cliente.EmpresaClienteEndereco.empresa_cliente_id == assoc.id
+            ).all()
+            
+            payload_ids = {
+                addr.get('id') for addr in enderecos 
+                if isinstance(addr, dict) and addr.get('id')
+            }
+            
+            deleted_any = False
+            for db_addr in db_enderecos:
+                if db_addr.id not in payload_ids:
+                    db.delete(db_addr)
+                    deleted_any = True
+            
+            if deleted_any:
+                db.commit()
+
+        # 2. Processa cada endereço: atualiza se tiver ID, cria se for novo
         for addr in enderecos:
             try:
                 addr_id = addr.get('id')
