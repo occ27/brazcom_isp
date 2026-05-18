@@ -5,7 +5,7 @@ from datetime import datetime
 
 from app.core.database import get_db
 from app.api import deps
-from app.models.models import Usuario, StatusTicket
+from app.models.models import Usuario, StatusTicket, Empresa, UsuarioEmpresa
 from app.schemas.ticket import (
     Ticket, TicketCreate, TicketUpdate, TicketDetail,
     TicketComment, TicketCommentCreate, TicketCommentUpdate,
@@ -21,13 +21,11 @@ def create_ticket(
     ticket: TicketCreate,
     _: bool = Depends(deps.permission_checker("tickets_manage")),
     current_user: Usuario = Depends(deps.get_current_active_user),
+    active_empresa: Empresa = Depends(deps.get_active_empresa),
     db: Session = Depends(get_db)
 ):
     """Cria um novo ticket de suporte."""
-    if not current_user.active_empresa_id:
-        raise HTTPException(status_code=400, detail="Usuário deve ter empresa ativa")
-    
-    empresa_id = current_user.active_empresa_id
+    empresa_id = active_empresa.id
     return TicketService.create_ticket(db, ticket, empresa_id, current_user.id)
 
 
@@ -43,13 +41,11 @@ def get_tickets(
     search: Optional[str] = None,
     _: bool = Depends(deps.permission_checker("tickets_view")),
     current_user: Usuario = Depends(deps.get_current_active_user),
+    active_empresa: Empresa = Depends(deps.get_active_empresa),
     db: Session = Depends(get_db)
 ):
     """Lista tickets com filtros opcionais."""
-    if not current_user.active_empresa_id:
-        raise HTTPException(status_code=400, detail="Usuário deve ter empresa ativa")
-    
-    empresa_id = current_user.active_empresa_id
+    empresa_id = active_empresa.id
     
     # Calcular total para paginação
     total = TicketService.count_tickets(
@@ -70,13 +66,11 @@ def get_ticket(
     ticket_id: int,
     _: bool = Depends(deps.permission_checker("tickets_view")),
     current_user: Usuario = Depends(deps.get_current_active_user),
+    active_empresa: Empresa = Depends(deps.get_active_empresa),
     db: Session = Depends(get_db)
 ):
     """Busca um ticket específico por ID."""
-    if not current_user.active_empresa_id:
-        raise HTTPException(status_code=400, detail="Usuário deve ter empresa ativa")
-    
-    empresa_id = current_user.active_empresa_id
+    empresa_id = active_empresa.id
     ticket = TicketService.get_ticket_by_id(db, ticket_id, empresa_id)
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket não encontrado")
@@ -89,13 +83,11 @@ def update_ticket(
     ticket_update: TicketUpdate,
     _: bool = Depends(deps.permission_checker("tickets_manage")),
     current_user: Usuario = Depends(deps.get_current_active_user),
+    active_empresa: Empresa = Depends(deps.get_active_empresa),
     db: Session = Depends(get_db)
 ):
     """Atualiza um ticket existente."""
-    if not current_user.active_empresa_id:
-        raise HTTPException(status_code=400, detail="Usuário deve ter empresa ativa")
-    
-    empresa_id = current_user.active_empresa_id
+    empresa_id = active_empresa.id
     ticket = TicketService.update_ticket(db, ticket_id, empresa_id, ticket_update, current_user.id)
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket não encontrado")
@@ -107,51 +99,29 @@ def delete_ticket(
     ticket_id: int,
     _: bool = Depends(deps.permission_checker("tickets_manage")),
     current_user: Usuario = Depends(deps.get_current_active_user),
+    active_empresa: Empresa = Depends(deps.get_active_empresa),
     db: Session = Depends(get_db)
 ):
-    """Remove um ticket (soft delete)."""
-    if not current_user.active_empresa_id:
-        raise HTTPException(status_code=400, detail="Usuário deve ter empresa ativa")
+    """Remove um ticket (soft delete). Apenas para superusers ou administradores da empresa."""
+    empresa_id = active_empresa.id
     
-    empresa_id = current_user.active_empresa_id
+    # Verificar se o usuário é superuser ou admin da empresa
+    is_admin = False
+    if not current_user.is_superuser:
+        assoc_user = db.query(UsuarioEmpresa).filter(
+            UsuarioEmpresa.usuario_id == current_user.id,
+            UsuarioEmpresa.empresa_id == empresa_id,
+            UsuarioEmpresa.is_admin == True
+        ).first()
+        if assoc_user:
+            is_admin = True
+
+    if not current_user.is_superuser and not is_admin:
+        raise HTTPException(
+            status_code=403, 
+            detail="Apenas administradores da empresa ou superusuários podem excluir tickets"
+        )
     
-    # Verificar se o usuário é superuser (pode excluir qualquer ticket)
-    if current_user.is_superuser:
-        success = TicketService.delete_ticket(db, ticket_id, empresa_id)
-        if not success:
-            raise HTTPException(status_code=404, detail="Ticket não encontrado")
-        return {"message": "Ticket removido com sucesso"}
-    
-    # Para usuários não-superuser, verificar se é Secretary e se o ticket está ABERTO
-    from app.models.access_control import Role, user_role_association
-    
-    # Verificar se o usuário tem role Secretary
-    secretary_role = db.query(Role).filter(Role.name == "Secretary").first()
-    if secretary_role:
-        has_secretary_role = db.query(user_role_association).filter(
-            user_role_association.c.user_id == current_user.id,
-            user_role_association.c.role_id == secretary_role.id,
-            (user_role_association.c.empresa_id == None) | (user_role_association.c.empresa_id == empresa_id)
-        ).first() is not None
-        
-        if has_secretary_role:
-            # Secretary só pode excluir tickets ABERTO
-            ticket = TicketService.get_ticket_by_id(db, ticket_id, empresa_id)
-            if not ticket:
-                raise HTTPException(status_code=404, detail="Ticket não encontrado")
-            
-            if ticket.get('status') != 'ABERTO':
-                raise HTTPException(
-                    status_code=403, 
-                    detail="Secretaries só podem excluir tickets no status ABERTO"
-                )
-            
-            success = TicketService.delete_ticket(db, ticket_id, empresa_id)
-            if not success:
-                raise HTTPException(status_code=404, detail="Ticket não encontrado")
-            return {"message": "Ticket removido com sucesso"}
-    
-    # Para outros usuários com permissão tickets_manage, permitir exclusão normal
     success = TicketService.delete_ticket(db, ticket_id, empresa_id)
     if not success:
         raise HTTPException(status_code=404, detail="Ticket não encontrado")
@@ -164,13 +134,11 @@ def add_comment(
     comment: TicketCommentCreate,
     _: bool = Depends(deps.permission_checker("tickets_manage")),
     current_user: Usuario = Depends(deps.get_current_active_user),
+    active_empresa: Empresa = Depends(deps.get_active_empresa),
     db: Session = Depends(get_db)
 ):
     """Adiciona um comentário a um ticket."""
-    if not current_user.active_empresa_id:
-        raise HTTPException(status_code=400, detail="Usuário deve ter empresa ativa")
-    
-    empresa_id = current_user.active_empresa_id
+    empresa_id = active_empresa.id
     new_comment = TicketService.add_comment(db, ticket_id, empresa_id, comment, current_user.id)
     if not new_comment:
         raise HTTPException(status_code=404, detail="Ticket não encontrado")
@@ -182,13 +150,11 @@ def get_ticket_comments(
     ticket_id: int,
     _: bool = Depends(deps.permission_checker("tickets_view")),
     current_user: Usuario = Depends(deps.get_current_active_user),
+    active_empresa: Empresa = Depends(deps.get_active_empresa),
     db: Session = Depends(get_db)
 ):
     """Busca todos os comentários de um ticket."""
-    if not current_user.active_empresa_id:
-        raise HTTPException(status_code=400, detail="Usuário deve ter empresa ativa")
-    
-    empresa_id = current_user.active_empresa_id
+    empresa_id = active_empresa.id
     # Verifica se o ticket existe
     ticket = TicketService.get_ticket_by_id(db, ticket_id, empresa_id)
     if not ticket:
@@ -200,11 +166,9 @@ def get_ticket_comments(
 def get_ticket_stats(
     _: bool = Depends(deps.permission_checker("tickets_view")),
     current_user: Usuario = Depends(deps.get_current_active_user),
+    active_empresa: Empresa = Depends(deps.get_active_empresa),
     db: Session = Depends(get_db)
 ):
     """Retorna estatísticas dos tickets da empresa."""
-    if not current_user.active_empresa_id:
-        raise HTTPException(status_code=400, detail="Usuário deve ter empresa ativa")
-    
-    empresa_id = current_user.active_empresa_id
+    empresa_id = active_empresa.id
     return TicketService.get_ticket_stats(db, empresa_id)

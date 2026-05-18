@@ -1121,7 +1121,7 @@ const Tickets: React.FC = () => {
           pt: isMobile ? 1 : 3,
           justifyContent: 'space-between'
         }}>
-          {hasPermission('tickets_manage') && selectedTicket && (
+          {(user?.is_superuser || user?.is_company_admin) && selectedTicket && (
             <Button 
               onClick={() => handleDeleteTicket(selectedTicket)} 
               color="error" 

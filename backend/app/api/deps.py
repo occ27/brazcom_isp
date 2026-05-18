@@ -1,7 +1,7 @@
 from typing import Callable, Optional
 from app.deps import get_active_empresa, check_empresa_access
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -21,8 +21,21 @@ def permission_checker(permission_name: str) -> Callable:
     def _checker(
         db: Session = Depends(get_db),
         current_user: Usuario = Depends(get_current_active_user),
+        x_active_empresa: Optional[int] = Header(None, convert_underscores=False)
     ):
-        empresa_id = getattr(current_user, "active_empresa_id", None)
+        empresa_id = None
+        if x_active_empresa is not None:
+            # Se for chamado manualmente, x_active_empresa pode ser o objeto Header/FieldInfo do FastAPI.
+            # Precisamos garantir que seja um valor numérico válido antes de usar.
+            try:
+                empresa_id = int(str(x_active_empresa))
+            except (TypeError, ValueError):
+                pass
+        
+        if empresa_id is None and getattr(current_user, "active_empresa_id", None):
+            empresa_id = current_user.active_empresa_id
+
+        print(f"[DEBUG_PERMISSION] name={permission_name} | x_active_empresa={x_active_empresa} | db_active_empresa_id={getattr(current_user, 'active_empresa_id', None)} | resolved_empresa_id={empresa_id}")
 
         # Verificar Licença (Bloqueio do sistema se inválida para QUALQUER usuário, se houver empresa ativa)
         if empresa_id:

@@ -2,8 +2,9 @@ from sqlalchemy.orm import Session, aliased
 from sqlalchemy import func, and_, or_, case
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
+from fastapi import HTTPException
 
-from app.models.models import Ticket, TicketComment, StatusTicket, Usuario, Cliente
+from app.models.models import Ticket, TicketComment, StatusTicket, Usuario, Cliente, EmpresaCliente
 from app.schemas.ticket import TicketCreate, TicketUpdate, TicketCommentCreate, TicketCommentUpdate, TicketStats
 
 
@@ -12,6 +13,26 @@ class TicketService:
     @staticmethod
     def create_ticket(db: Session, ticket_data: TicketCreate, empresa_id: int, criado_por_id: int) -> Dict[str, Any]:
         """Cria um novo ticket de suporte."""
+        if ticket_data.cliente_id is not None:
+            # Verifica se o cliente existe e pertence a esta empresa (via EmpresaCliente ou legacy empresa_id)
+            client_exists = db.query(Cliente).filter(
+                Cliente.id == ticket_data.cliente_id,
+                Cliente.is_active == True
+            ).first()
+            if not client_exists:
+                raise HTTPException(status_code=404, detail="Cliente não encontrado")
+                
+            has_assoc = db.query(EmpresaCliente).filter(
+                EmpresaCliente.cliente_id == ticket_data.cliente_id,
+                EmpresaCliente.empresa_id == empresa_id
+            ).first() is not None or client_exists.empresa_id == empresa_id
+            
+            if not has_assoc:
+                raise HTTPException(
+                    status_code=400,
+                    detail="O cliente selecionado não pertence à empresa/provedor ativo"
+                )
+
         db_ticket = Ticket(
             **ticket_data.model_dump(),
             empresa_id=empresa_id,
@@ -286,6 +307,26 @@ class TicketService:
 
         if not ticket:
             return None
+
+        if ticket_data.cliente_id is not None:
+            # Verifica se o cliente existe e pertence a esta empresa (via EmpresaCliente ou legacy empresa_id)
+            client_exists = db.query(Cliente).filter(
+                Cliente.id == ticket_data.cliente_id,
+                Cliente.is_active == True
+            ).first()
+            if not client_exists:
+                raise HTTPException(status_code=404, detail="Cliente não encontrado")
+                
+            has_assoc = db.query(EmpresaCliente).filter(
+                EmpresaCliente.cliente_id == ticket_data.cliente_id,
+                EmpresaCliente.empresa_id == empresa_id
+            ).first() is not None or client_exists.empresa_id == empresa_id
+            
+            if not has_assoc:
+                raise HTTPException(
+                    status_code=400,
+                    detail="O cliente selecionado não pertence à empresa/provedor ativo"
+                )
 
         update_data = ticket_data.model_dump(exclude_unset=True)
 

@@ -9,7 +9,7 @@ import {
   Checkbox, Tabs, Tab, FormHelperText, InputAdornment
 } from '@mui/material';
 import L from 'leaflet';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Tooltip as LeafletTooltip } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
   PlusIcon, ArrowPathIcon, CloudIcon, QrCodeIcon,
@@ -859,6 +859,9 @@ const Contracts: React.FC = () => {
                 position={[lat, lon]}
                 icon={customIcon}
               >
+                <LeafletTooltip direction="top" offset={[0, -28]} opacity={0.9}>
+                  <strong>{c.cliente_razao_social || c.cliente_nome || 'Cliente'}</strong>
+                </LeafletTooltip>
                 <Popup maxWidth={300}>
                   <Box sx={{ p: 0.5 }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'indigo.900', mb: 0.5 }}>
