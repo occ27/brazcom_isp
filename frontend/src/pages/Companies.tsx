@@ -124,7 +124,7 @@ const Companies: React.FC = () => {
     whatsapp_api_server: '',
     whatsapp_api_password: '',
     whatsapp_api_ips: '',
-    whatsapp_api_instance: 'mega-net-telecom'
+    whatsapp_api_instance: ''
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [snackbar, setSnackbar] = useState({
@@ -251,7 +251,7 @@ const Companies: React.FC = () => {
         whatsapp_api_server: company.whatsapp_api_server || `${window.location.origin}/api/whatsapp/send`,
         whatsapp_api_password: company.whatsapp_api_password || 'tok_' + Math.random().toString(36).substring(2, 14),
         whatsapp_api_ips: company.whatsapp_api_ips || '',
-        whatsapp_api_instance: company.whatsapp_api_instance || 'mega-net-telecom'
+        whatsapp_api_instance: company.whatsapp_api_instance || ''
       });
     } else {
       setEditingCompany(null);
@@ -308,7 +308,7 @@ const Companies: React.FC = () => {
         whatsapp_api_server: `${window.location.origin}/api/whatsapp/send`,
         whatsapp_api_password: randomPassword,
         whatsapp_api_ips: '',
-        whatsapp_api_instance: 'mega-net-telecom'
+        whatsapp_api_instance: ''
       });
     }
     setErrors({});
@@ -351,8 +351,8 @@ const Companies: React.FC = () => {
       smtp_port: undefined,
       smtp_user: '',
       smtp_password: '',
-      assinatura_digital_url: '',
-      dias_bloqueio_inadimplentes: 15
+      dias_bloqueio_inadimplentes: 15,
+      whatsapp_api_instance: ''
     });
     setErrors({});
     setLogoFile(null);
@@ -1654,123 +1654,223 @@ const Companies: React.FC = () => {
                               </div>
                             ) : (
                               <div className="space-y-4">
-                                <div className="overflow-hidden border border-gray-200 rounded-xl bg-white shadow-sm">
-                                  <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50/70">
-                                      <tr>
-                                        <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Instância</th>
-                                        <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Telefone</th>
-                                        <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                                        <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Ações</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                      <tr className="hover:bg-gray-50/40 transition-colors">
-                                        <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                                          {formData.whatsapp_api_instance || 'mega-net-telecom'}
-                                        </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">
-                                          {formData.telefone || 'Não cadastrado'}
-                                        </td>
-                                        <td className="px-4 py-4 whitespace-nowrap">
-                                          {loadingWhatsAppState ? (
-                                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                                              <CircularProgress size={12} color="inherit" />
-                                              <span>Verificando...</span>
-                                            </div>
-                                          ) : whatsappConnected ? (
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
-                                              <span className="w-1.5 h-1.5 mr-1.5 rounded-full bg-emerald-500 animate-ping" />
-                                              Conectado
-                                            </span>
-                                          ) : (
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100">
-                                              Desconectado
-                                            </span>
-                                          )}
-                                        </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                          <div className="flex justify-end gap-2">
-                                            <button
-                                              type="button"
-                                              onClick={() => handleCheckWhatsAppConnection(editingCompany.id)}
-                                              disabled={loadingWhatsAppState}
-                                              className="px-3 py-1.5 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 rounded-lg text-xs font-bold transition-all disabled:opacity-50 shadow-sm"
-                                            >
-                                              🔄 Verificar
-                                            </button>
-                                            
-                                            {whatsappConnected ? (
-                                              <button
-                                                type="button"
-                                                onClick={() => handleDisconnectWhatsApp(editingCompany.id)}
-                                                className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-bold transition-all shadow-sm"
-                                              >
-                                                Desconectar
-                                              </button>
-                                            ) : (
-                                              <>
-                                                {!whatsappQrCode && !loadingQrCode && (
+                                {!formData.whatsapp_api_instance ? (
+                                  <div className="p-6 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/50 text-center space-y-4">
+                                    <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center mx-auto shadow-sm">
+                                      <span className="text-xl">📲</span>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <span className="font-bold text-sm text-text block">Nenhuma Instância Vinculada</span>
+                                      <p className="text-xs text-textLight max-w-sm mx-auto">
+                                        Vincule uma nova instância de WhatsApp para esta empresa para poder conectar o dispositivo e habilitar notificações.
+                                      </p>
+                                    </div>
+                                    <div className="flex max-w-md mx-auto gap-2 pt-2">
+                                      <TextField
+                                        size="small"
+                                        fullWidth
+                                        placeholder="Ex: minha-empresa-zap"
+                                        id="new-instance-input"
+                                        inputProps={{ style: { fontSize: '0.75rem' } }}
+                                        label="Nome da Nova Instância"
+                                        variant="outlined"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          const el = document.getElementById('new-instance-input') as HTMLInputElement;
+                                          const val = el?.value?.trim();
+                                          if (!val) {
+                                            setSnackbar({
+                                              open: true,
+                                              message: 'Digite um nome válido para a instância',
+                                              severity: 'error'
+                                            });
+                                            return;
+                                          }
+                                          handleInputChange('whatsapp_api_instance', val);
+                                          if (editingCompany) {
+                                            try {
+                                              await companyService.updateCompany(editingCompany.id, {
+                                                ...formData,
+                                                whatsapp_api_instance: val
+                                              } as any);
+                                              setSnackbar({
+                                                open: true,
+                                                message: 'Instância adicionada com sucesso!',
+                                                severity: 'success'
+                                              });
+                                            } catch (e) {
+                                              console.error(e);
+                                              setSnackbar({
+                                                open: true,
+                                                message: 'Erro ao salvar a nova instância no banco.',
+                                                severity: 'error'
+                                              });
+                                            }
+                                          }
+                                        }}
+                                        className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md whitespace-nowrap self-stretch flex items-center justify-center"
+                                      >
+                                        Adicionar Instância
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-4">
+                                    <div className="overflow-hidden border border-gray-200 rounded-xl bg-white shadow-sm">
+                                      <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50/70">
+                                          <tr>
+                                            <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Instância</th>
+                                            <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Telefone</th>
+                                            <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                                            <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Ações</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                          <tr className="hover:bg-gray-50/40 transition-colors">
+                                            <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                              {formData.whatsapp_api_instance}
+                                            </td>
+                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">
+                                              {formData.telefone || 'Não cadastrado'}
+                                            </td>
+                                            <td className="px-4 py-4 whitespace-nowrap">
+                                              {loadingWhatsAppState ? (
+                                                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                                                  <CircularProgress size={12} color="inherit" />
+                                                  <span>Verificando...</span>
+                                                </div>
+                                              ) : whatsappConnected ? (
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                                  <span className="w-1.5 h-1.5 mr-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                                  Conectado
+                                                </span>
+                                              ) : (
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100">
+                                                  Desconectado
+                                                </span>
+                                              )}
+                                            </td>
+                                            <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                              <div className="flex justify-end gap-2">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleCheckWhatsAppConnection(editingCompany.id)}
+                                                  disabled={loadingWhatsAppState}
+                                                  className="px-3 py-1.5 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 rounded-lg text-xs font-bold transition-all disabled:opacity-50 shadow-sm"
+                                                >
+                                                  🔄 Verificar
+                                                </button>
+                                                
+                                                {whatsappConnected ? (
                                                   <button
                                                     type="button"
-                                                    onClick={() => handleGetWhatsAppQrCode(editingCompany.id)}
-                                                    className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
+                                                    onClick={() => handleDisconnectWhatsApp(editingCompany.id)}
+                                                    className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-bold transition-all shadow-sm"
                                                   >
-                                                    📲 Conectar
+                                                    Desconectar
                                                   </button>
+                                                ) : (
+                                                  <>
+                                                    {!whatsappQrCode && !loadingQrCode && (
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => handleGetWhatsAppQrCode(editingCompany.id)}
+                                                        className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
+                                                      >
+                                                        📲 Conectar
+                                                      </button>
+                                                    )}
+                                                  </>
                                                 )}
-                                              </>
-                                            )}
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    </tbody>
-                                  </table>
-                                </div>
 
-                                {loadingQrCode && (
-                                  <div className="flex flex-col items-center justify-center p-6 space-y-2 border border-gray-100 rounded-xl bg-gray-50/50">
-                                    <CircularProgress size={24} color="success" />
-                                    <span className="text-xs text-textLight font-semibold">Gerando QR Code na Evolution API...</span>
-                                  </div>
-                                )}
-
-                                {whatsappQrCode && !loadingQrCode && (
-                                  <div className="p-4 border border-gray-200 rounded-xl bg-white space-y-4 text-center">
-                                    <h5 className="font-bold text-sm text-text">Escaneie o QR Code abaixo</h5>
-                                    <img
-                                      src={whatsappQrCode}
-                                      alt="WhatsApp QR Code"
-                                      className="w-48 h-48 mx-auto border border-gray-200 rounded-lg shadow-sm p-1 bg-white"
-                                    />
-                                    <div className="text-2xs sm:text-xs text-textLight text-left space-y-1 max-w-sm mx-auto bg-gray-50 p-3 rounded-lg">
-                                      <p className="font-semibold text-text">Passo a passo:</p>
-                                      <p>1. Abra o WhatsApp no seu smartphone.</p>
-                                      <p>2. Toque em <strong>Mais Opções / Configurações</strong> e selecione <strong>Aparelhos Conectados</strong>.</p>
-                                      <p>3. Clique em <strong>Conectar um Aparelho</strong> e aponte a câmera para esta tela.</p>
+                                                <button
+                                                  type="button"
+                                                  onClick={async () => {
+                                                    if (window.confirm("Tem certeza que deseja excluir esta instância? A sessão do WhatsApp será encerrada no Evolution API e desvinculada desta empresa.")) {
+                                                      try {
+                                                        // Desconecta da Evolution API primeiro
+                                                        await handleDisconnectWhatsApp(editingCompany.id);
+                                                      } catch (e) {
+                                                        console.warn("Evolution API logout failed/already offline:", e);
+                                                      }
+                                                      
+                                                      handleInputChange('whatsapp_api_instance', '');
+                                                      try {
+                                                        await companyService.updateCompany(editingCompany.id, {
+                                                          ...formData,
+                                                          whatsapp_api_instance: ''
+                                                        } as any);
+                                                        setWhatsappConnected(null);
+                                                        setWhatsappQrCode(null);
+                                                        setSnackbar({
+                                                          open: true,
+                                                          message: 'Instância excluída com sucesso!',
+                                                          severity: 'success'
+                                                        });
+                                                      } catch (e) {
+                                                        console.error('Erro ao atualizar empresa:', e);
+                                                      }
+                                                    }
+                                                  }}
+                                                  className="px-3 py-1.5 border border-red-200 hover:bg-red-50 text-red-600 rounded-lg text-xs font-bold transition-all shadow-sm"
+                                                >
+                                                  ❌ Excluir Instância
+                                                </button>
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        </tbody>
+                                      </table>
                                     </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleCheckWhatsAppConnection(editingCompany.id)}
-                                      className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all"
-                                    >
-                                      ✅ Já escaneei (Confirmar Conexão)
-                                    </button>
+
+                                    {loadingQrCode && (
+                                      <div className="flex flex-col items-center justify-center p-6 space-y-2 border border-gray-100 rounded-xl bg-gray-50/50">
+                                        <CircularProgress size={24} color="success" />
+                                        <span className="text-xs text-textLight font-semibold">Gerando QR Code na Evolution API...</span>
+                                      </div>
+                                    )}
+
+                                    {whatsappQrCode && !loadingQrCode && (
+                                      <div className="p-4 border border-gray-200 rounded-xl bg-white space-y-4 text-center">
+                                        <h5 className="font-bold text-sm text-text">Escaneie o QR Code abaixo</h5>
+                                        <img
+                                          src={whatsappQrCode}
+                                          alt="WhatsApp QR Code"
+                                          className="w-48 h-48 mx-auto border border-gray-200 rounded-lg shadow-sm p-1 bg-white"
+                                        />
+                                        <div className="text-2xs sm:text-xs text-textLight text-left space-y-1 max-w-sm mx-auto bg-gray-50 p-3 rounded-lg">
+                                          <p className="font-semibold text-text">Passo a passo:</p>
+                                          <p>1. Abra o WhatsApp no seu smartphone.</p>
+                                          <p>2. Toque em <strong>Mais Opções / Configurações</strong> e selecione <strong>Aparelhos Conectados</strong>.</p>
+                                          <p>3. Clique em <strong>Conectar um Aparelho</strong> e aponte a câmera para esta tela.</p>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleCheckWhatsAppConnection(editingCompany.id)}
+                                          className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all"
+                                        >
+                                          ✅ Já escaneei (Confirmar Conexão)
+                                        </button>
+                                      </div>
+                                    )}
+
+                                    {/* Campo de edição do ID do Dispositivo */}
+                                    <div className="pt-2">
+                                      <TextField
+                                        fullWidth
+                                        label="Editar Nome da Instância"
+                                        value={formData.whatsapp_api_instance || ''}
+                                        onChange={(e) => handleInputChange('whatsapp_api_instance', e.target.value)}
+                                        placeholder="mega-net-telecom"
+                                        size="small"
+                                        helperText="Nome identificador único da sua instância (ex. nome-da-empresa) para controle no gateway."
+                                      />
+                                    </div>
                                   </div>
                                 )}
-
-                                {/* Campo de edição do ID do Dispositivo */}
-                                <div className="pt-2">
-                                  <TextField
-                                    fullWidth
-                                    label="Nome identificador da instância"
-                                    value={formData.whatsapp_api_instance || ''}
-                                    onChange={(e) => handleInputChange('whatsapp_api_instance', e.target.value)}
-                                    placeholder="mega-net-telecom"
-                                    size="small"
-                                    helperText="Nome identificador único da sua instância (ex. nome-da-empresa) para controle no gateway."
-                                  />
-                                </div>
                               </div>
                             )}
                           </div>

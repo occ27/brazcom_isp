@@ -142,7 +142,7 @@ class Empresa(Base):
     whatsapp_api_server = Column(String(255))
     whatsapp_api_password = Column(String(500))
     whatsapp_api_ips = Column(Text, nullable=True)
-    whatsapp_api_instance = Column(String(100), default="mega-net-telecom")
+    whatsapp_api_instance = Column(String(100), nullable=True)
     
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False) # Usuário que cadastrou a empresa
     is_active = Column(Boolean, default=True)

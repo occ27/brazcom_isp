@@ -61,7 +61,7 @@ class EmpresaBase(BaseModel):
     whatsapp_api_server: Optional[str] = Field(None, max_length=255)
     whatsapp_api_password: Optional[str] = Field(None, max_length=500)
     whatsapp_api_ips: Optional[str] = Field(None, description="IPs confiáveis (comma separated)")
-    whatsapp_api_instance: Optional[str] = Field("mega-net-telecom", max_length=100)
+    whatsapp_api_instance: Optional[str] = Field(None, max_length=100)
 
     @validator('razao_social', 'nome_fantasia', 'endereco', 'numero', 'complemento', 'bairro', 'municipio', 'uf', 'cep', 'telefone', 'email', 'regime_tributario', 'pais', 'codigo_pais', pre=True)
     def clean_string_fields(cls, v):
