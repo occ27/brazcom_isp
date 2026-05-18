@@ -1958,7 +1958,7 @@ const Contracts: React.FC = () => {
             fontSize: { xs: '1.5rem', sm: '2.125rem' }
           }}
         >
-          Planos de Internet
+          Contratos de Internet
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           {hasPermission('contract_manage') && (
@@ -1968,7 +1968,7 @@ const Contracts: React.FC = () => {
               sx={{ py: 1.5, width: { xs: '100%', sm: 'auto' } }}
               onClick={() => handleOpenForm()}
             >
-              Novo Plano
+              Novo Contrato
             </Button>
           )}
           {hasPermission('contract_manage') && selectedContracts.length > 0 && (
@@ -2077,7 +2077,7 @@ const Contracts: React.FC = () => {
               {searchTerm ? 'Nenhum contrato encontrado' : 'Nenhum contrato cadastrado'}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {searchTerm ? 'Tente ajustar os termos da busca' : 'Comece cadastrando seu primeiro plano de internet.'}
+              {searchTerm ? 'Tente ajustar os termos da busca' : 'Comece cadastrando seu primeiro contrato de internet.'}
             </Typography>
             {!searchTerm && (
               <Button variant="outlined" startIcon={<PlusIcon className="w-5 h-5" />} onClick={() => handleOpenForm()}>
