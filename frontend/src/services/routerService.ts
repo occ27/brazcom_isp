@@ -11,6 +11,7 @@ export interface RouterCreate {
   metodo_autenticacao_padrao?: 'RADIUS' | 'PPPOE' | 'HOTSPOT' | 'IP_MAC' | null;
   radius_server_address?: string | null;
   radius_secret?: string | null;
+  api_encoding?: string | null;
 }
 
 export interface RouterUpdate {
@@ -24,6 +25,7 @@ export interface RouterUpdate {
   metodo_autenticacao_padrao?: 'RADIUS' | 'PPPOE' | 'HOTSPOT' | 'IP_MAC' | null;
   radius_server_address?: string | null;
   radius_secret?: string | null;
+  api_encoding?: string | null;
 }
 
 

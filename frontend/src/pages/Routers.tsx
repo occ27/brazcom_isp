@@ -70,6 +70,7 @@ const Routers: React.FC = () => {
     metodo_autenticacao_padrao: null,
     radius_server_address: '',
     radius_secret: '',
+    api_encoding: 'utf-8',
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [saving, setSaving] = useState(false);
@@ -138,6 +139,7 @@ const Routers: React.FC = () => {
         metodo_autenticacao_padrao: router.metodo_autenticacao_padrao ?? null,
         radius_server_address: router.radius_server_address ?? '',
         radius_secret: '',
+        api_encoding: router.api_encoding ?? 'utf-8',
       });
     } else {
       setEditingRouter(null);
@@ -151,6 +153,7 @@ const Routers: React.FC = () => {
         metodo_autenticacao_padrao: null,
         radius_server_address: '',
         radius_secret: '',
+        api_encoding: 'utf-8',
       });
     }
     setErrors({});
@@ -170,6 +173,7 @@ const Routers: React.FC = () => {
       metodo_autenticacao_padrao: null,
       radius_server_address: '',
       radius_secret: '',
+      api_encoding: 'utf-8',
     });
     setErrors({});
   };
@@ -347,6 +351,7 @@ const Routers: React.FC = () => {
                 <TableCell>Porta</TableCell>
                 <TableCell>Tipo</TableCell>
                 <TableCell>Autenticação</TableCell>
+                <TableCell>Codificação</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Ações</TableCell>
               </TableRow>
@@ -375,6 +380,13 @@ const Routers: React.FC = () => {
                         : 'default'
                       }
                       variant={router.metodo_autenticacao_padrao ? 'filled' : 'outlined'}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={router.api_encoding === 'latin1' ? 'LATIN1' : 'UTF-8'}
+                      size="small"
+                      color={router.api_encoding === 'latin1' ? 'secondary' : 'default'}
                     />
                   </TableCell>
                   <TableCell>
@@ -512,21 +524,34 @@ const Routers: React.FC = () => {
                 />
               </Grid>
 
-              {/* ── Seção de Autenticação ── */}
+              {/* ── Configurações Adicionais ── */}
               <Grid item xs={12}>
                 <Box sx={{ mt: 1, mb: 0.5, borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
                   <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    Método de Autenticação de Clientes
+                    Configurações de API e Autenticação
                   </Typography>
                 </Box>
               </Grid>
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
-                  <InputLabel>Método Padrão</InputLabel>
+                  <InputLabel>Codificação da API</InputLabel>
+                  <Select
+                    value={formData.api_encoding ?? 'utf-8'}
+                    onChange={(e) => handleInputChange('api_encoding', e.target.value)}
+                    label="Codificação da API"
+                  >
+                    <MenuItem value="utf-8">UTF-8 (WebFig, Winbox 4, Padrão)</MenuItem>
+                    <MenuItem value="latin1">LATIN1 / Windows-1252 (Winbox 3 Legado)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Método de Autenticação</InputLabel>
                   <Select
                     value={formData.metodo_autenticacao_padrao ?? ''}
                     onChange={(e) => handleInputChange('metodo_autenticacao_padrao', e.target.value || null)}
-                    label="Método Padrão"
+                    label="Método de Autenticação"
                   >
                     <MenuItem value=""><em>Não definido</em></MenuItem>
                     <MenuItem value="RADIUS">RADIUS (FreeRadius centralizado)</MenuItem>
