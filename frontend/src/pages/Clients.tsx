@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Box, Paper, Typography, Button, IconButton, TextField, CircularProgress, Chip, Snackbar, Alert, useMediaQuery, useTheme, MenuItem, FormControl, InputLabel, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination, Card, CardContent, Divider, Pagination, SelectChangeEvent, InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions, Menu, ListItemIcon, ListItemText } from '@mui/material';
 import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon, DocumentTextIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline';
 import api from '../services/authService';
@@ -14,6 +15,7 @@ import reportService from '../services/reportService';
 const Clients: React.FC = () => {
   const { user } = useAuth();
   const { activeCompany } = useCompany();
+  const navigate = useNavigate();
   const [clients, setClients] = useState<any[]>([]);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -359,14 +361,25 @@ const Clients: React.FC = () => {
          );
       }
 
+      let createdClient = null;
       if (editingClient) {
         await clientService.updateClient(activeCompany.id, editingClient.id, payload);
       } else {
-        await clientService.createClient(activeCompany.id, payload);
+        createdClient = await clientService.createClient(activeCompany.id, payload);
       }
       setSnackbar({ open: true, message: `Cliente ${editingClient ? 'atualizado' : 'criado'} com sucesso!`, severity: 'success' });
       handleClose();
       loadClients();
+
+      if (!editingClient && createdClient && createdClient.id) {
+        navigate('/contracts', {
+          state: {
+            preselectClientId: createdClient.id,
+            preselectClientName: createdClient.nome_razao_social,
+            preselectClientAddresses: createdClient.enderecos || []
+          }
+        });
+      }
     } catch (error: any) {
       const msg = stringifyError(error) || 'Erro ao salvar cliente';
       setSnackbar({ open: true, message: msg, severity: 'error' });

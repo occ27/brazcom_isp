@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { stringifyError } from '../utils/error';
 import {
   Box, Paper, Typography, Button, IconButton, TextField, CircularProgress, Snackbar, Alert,
@@ -44,6 +45,8 @@ import { maskCurrency, unmaskCurrency } from '../utils/currencyUtils';
 const Contracts: React.FC = () => {
   const { activeCompany } = useCompany();
   const { hasPermission } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   // Normalize date-like values to YYYY-MM-DD suitable for <input type="date">.
   // Preserve the date component without applying local timezone shifts.
   const toLocalDateInputString = (val: any): string => {
@@ -1145,7 +1148,7 @@ const Contracts: React.FC = () => {
     );
   };
 
-  const handleOpenForm = async (c?: Contrato, view: boolean = false) => {
+  const handleOpenForm = async (c?: Contrato, view: boolean = false, preselectedClient?: { id: number; nome_razao_social: string; enderecos?: any[] }) => {
     setViewOnly(!!view);
     if (c) {
       let fullContract = c;
@@ -1303,15 +1306,28 @@ const Contracts: React.FC = () => {
         }
       }
 
+      if (preselectedClient) {
+        initialForm.cliente_id = preselectedClient.id;
+      }
+
       setForm(initialForm);
       // Reset input values and prefetch the first 10 clients and services
-      setClientSearch('');
+      if (preselectedClient) {
+        setClientSearch(preselectedClient.nome_razao_social || '');
+        setClientAddresses(preselectedClient.enderecos || []);
+      } else {
+        setClientSearch('');
+        setClientAddresses([]);
+      }
       setServicoSearch('');
-      setClientAddresses([]);
 
       // Prefetch defaults (do not await)
       if (activeCompany) {
-        loadClients('');
+        if (preselectedClient) {
+          setClients([preselectedClient as any]);
+        } else {
+          loadClients('');
+        }
         loadServicos('');
         loadBankAccounts();
         loadRouters();
@@ -1320,11 +1336,24 @@ const Contracts: React.FC = () => {
 
     // Prefetch defaults (do not await)
     if (activeCompany) {
-      if (!clientSearch) loadClients('');
+      if (!clientSearch && !preselectedClient) loadClients('');
       if (!servicoSearch) loadServicos('');
     }
     setOpenForm(true);
   };
+
+  useEffect(() => {
+    if (location.state && location.state.preselectClientId && activeCompany) {
+      const { preselectClientId, preselectClientName, preselectClientAddresses } = location.state;
+      handleOpenForm(undefined, false, {
+        id: preselectClientId,
+        nome_razao_social: preselectClientName,
+        enderecos: preselectClientAddresses || []
+      });
+      // Clear location state to avoid re-opening the form on page refresh/navigation back
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, activeCompany, navigate, location.pathname]);
 
   const handleCloseForm = () => {
     setOpenForm(false);
