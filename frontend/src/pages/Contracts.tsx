@@ -1347,7 +1347,7 @@ const Contracts: React.FC = () => {
     }
   }, [form, openForm]);
 
-  const validateForm = (): boolean => {
+  const validateForm = (): Record<string, string> => {
     const newErrors: Record<string, string> = {};
 
     // Número do contrato (opcional, mas se informado deve ter pelo menos 1 caractere)
@@ -1518,16 +1518,15 @@ const Contracts: React.FC = () => {
       } else if (errorFields.some(field => instalacaoFields.includes(field))) {
         setTabValue(3);
       }
-
-      return false;
     }
 
-    return true;
+    return newErrors;
   };
 
   const submit = async () => {
-    if (!validateForm()) {
-      const errorMessages = Object.values(errors).filter(msg => msg);
+    const validationErrors = validateForm();
+    if (Object.keys(validationErrors).length > 0) {
+      const errorMessages = Object.values(validationErrors).filter(msg => msg);
       const errorMessage = errorMessages.length > 0
         ? `Por favor, corrija os seguintes erros: ${errorMessages.join('; ')}`
         : 'Por favor, corrija os erros do formulário antes de continuar.';

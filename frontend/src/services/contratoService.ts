@@ -34,13 +34,23 @@ export interface Contrato {
   velocidade_garantida?: string;
   subscription_id?: number;
 
-  // Novos campos para configuração de rede
   router_id?: number;
   interface_id?: number;
   ip_class_id?: number;
   mac_address?: string;
   assigned_ip?: string;
   metodo_autenticacao?: 'IP_MAC' | 'PPPOE' | 'HOTSPOT' | 'RADIUS';
+
+  // Informações de instalação de Fibra Óptica (FTTH)
+  onu_serial?: string;
+  onu_modelo?: string;
+  onu_sinal?: string;
+  olt_nome?: string;
+  olt_pon?: string;
+  cto_nome?: string;
+  cto_porta?: string;
+  metragem_drop?: number;
+  vlan_id?: number;
 
   // Campos específicos para assinatura digital
   assinatura_token?: string;
