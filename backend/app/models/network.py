@@ -34,6 +34,7 @@ class Router(Base):
     # Endereço do servidor RADIUS usado por este roteador (pode diferir do padrão)
     radius_server_address = Column(String(50), nullable=True)
     radius_secret = Column(String(255), nullable=True)  # Segredo usado neste roteador
+    api_encoding = Column(String(20), default="utf-8", nullable=True, comment="Codificação da API do MikroTik: utf-8 ou latin1")
 
     empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
     empresa = relationship("Empresa", back_populates="routers")

@@ -27,6 +27,7 @@ def create_router(db: Session, router: RouterCreate, empresa_id: int, radius_db:
         is_active=router.is_active,
         metodo_autenticacao_padrao=router.metodo_autenticacao_padrao,
         radius_secret=router.radius_secret,
+        api_encoding=router.api_encoding,
         empresa_id=empresa_id
     )
     db.add(db_router)

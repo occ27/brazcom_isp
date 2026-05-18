@@ -8,15 +8,6 @@ from typing import Optional
 
 try:
     import routeros_api
-    if routeros_api is not None:
-        import collections
-        import routeros_api.api_structure
-        # O Winbox 3 (legado) não suporta UTF-8 nativamente e decodifica bytes usando a tabela de caracteres local (Latin1/CP1252).
-        # Para que acentos brasileiros (como ç, á, ã) apareçam corretos no Winbox 3 do cliente, alteramos a codificação padrão
-        # de envio/recebimento de strings da API do MikroTik para 'latin1'.
-        routeros_api.api_structure.default_structure = collections.defaultdict(
-            lambda: routeros_api.api_structure.StringField(encoding='latin1')
-        )
 except Exception:  # pragma: no cover - optional dependency
     routeros_api = None
 
@@ -27,13 +18,39 @@ except Exception:  # pragma: no cover - optional dependency
 
 
 class MikrotikController:
-    def __init__(self, host: str, username: str, password: str, port: int = 8728, use_ssl: bool = False, plaintext_login: bool = True):
+    def __init__(
+        self,
+        host: str,
+        username: str,
+        password: str,
+        port: int = 8728,
+        use_ssl: bool = False,
+        plaintext_login: bool = True,
+        api_encoding: str = None
+    ):
         self.host = host
         self.username = username
         self.password = password
         self.port = port
         self.use_ssl = use_ssl
         self.plaintext_login = plaintext_login
+        
+        # Se api_encoding não for informado, tenta buscar a configuração do banco de dados pelo IP do Router
+        if not api_encoding:
+            try:
+                from app.core.database import SessionLocal
+                from app.models.network import Router
+                db_session = SessionLocal()
+                try:
+                    router_db = db_session.query(Router).filter(Router.ip == host).first()
+                    if router_db and router_db.api_encoding:
+                        api_encoding = router_db.api_encoding
+                finally:
+                    db_session.close()
+            except Exception:
+                pass
+                
+        self.api_encoding = api_encoding if api_encoding else "utf-8"
         self._pool = None
         self._api = None
         self._librouteros_api = None  # Fallback API
@@ -57,7 +74,14 @@ class MikrotikController:
         # Tentar inicializar routeros_api (primário)
         if routeros_api is not None:
             try:
-                logger.info(f"Tentando conectar via routeros_api: {self.host}:{self.port} (user: {self.username})")
+                # Ajusta a codificação padrão do routeros_api dinamicamente para este roteador
+                import collections
+                import routeros_api.api_structure
+                routeros_api.api_structure.default_structure = collections.defaultdict(
+                    lambda: routeros_api.api_structure.StringField(encoding=self.api_encoding)
+                )
+
+                logger.info(f"Tentando conectar via routeros_api: {self.host}:{self.port} (user: {self.username}, encoding: {self.api_encoding})")
                 self._pool = routeros_api.RouterOsApiPool(
                     self.host,
                     username=self.username,
@@ -74,12 +98,13 @@ class MikrotikController:
         # vamos apenas registrar e permitir que a outra biblioteca seja usada.
         if librouteros is not None:
             try:
-                logger.info(f"Tentando conectar via librouteros: {self.host}:{self.port} (user: {self.username})")
+                logger.info(f"Tentando conectar via librouteros: {self.host}:{self.port} (user: {self.username}, encoding: {self.api_encoding})")
                 self._librouteros_api = librouteros.connect(
                     host=self.host,
                     username=self.username,
                     password=self.password,
-                    port=self.port
+                    port=self.port,
+                    encoding=self.api_encoding
                 )
                 logger.info("✅ Conexão com librouteros estabelecida (fallback)")
             except Exception as e:

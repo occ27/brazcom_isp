@@ -19,6 +19,7 @@ class RouterBase(BaseModel):
     # Endereço e segredo do servidor RADIUS associado a este roteador
     radius_server_address: Optional[str] = None
     radius_secret: Optional[str] = None
+    api_encoding: Optional[str] = "utf-8"
 
 
 class RouterCreate(RouterBase):
@@ -36,6 +37,7 @@ class RouterUpdate(BaseModel):
     metodo_autenticacao_padrao: Optional[MetodoAutenticacaoRouterEnum] = None
     radius_server_address: Optional[str] = None
     radius_secret: Optional[str] = None
+    api_encoding: Optional[str] = None
 
 
 class RouterResponse(BaseModel):
@@ -50,6 +52,7 @@ class RouterResponse(BaseModel):
     metodo_autenticacao_padrao: Optional[str] = None
     radius_server_address: Optional[str] = None
     # Não expõe radius_secret na listagem por segurança
+    api_encoding: Optional[str] = "utf-8"
     created_at: datetime
     updated_at: Optional[datetime] = None
 
