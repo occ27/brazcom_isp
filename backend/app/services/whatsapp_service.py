@@ -33,7 +33,7 @@ class WhatsAppService:
     def _get_api_url(empresa: Empresa) -> str:
         """Retorna a URL da Evolution API resolvida da empresa ou do fallback local (.env)"""
         url = getattr(empresa, 'whatsapp_api_server', None)
-        if not url or ":3000" in url:
+        if not url or ":3000" in url or "/api/whatsapp/send" in url or "brazcom.com.br" in url:
             url = os.getenv("EVOLUTION_API_URL", "http://localhost:8080")
         return url
 

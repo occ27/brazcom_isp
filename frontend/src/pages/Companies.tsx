@@ -1904,6 +1904,11 @@ const Companies: React.FC = () => {
                               <p className="text-2xs sm:text-xs text-textLight">
                                 Por padrão, o Brazcom ISP Suite utiliza o servidor Brazcom API centralizado da plataforma (configurado no seu Docker/Mac). Configure os campos abaixo <strong>apenas</strong> se você deseja usar um servidor Brazcom API privado para esta empresa específica.
                               </p>
+
+                              {/* Elementos ocultos para capturar e anular o preenchimento automático agressivo dos navegadores */}
+                              <input type="text" name="prevent_autofill_user" style={{ display: 'none' }} autoComplete="off" />
+                              <input type="password" name="prevent_autofill_pass" style={{ display: 'none' }} autoComplete="off" />
+
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <TextField
                                   fullWidth
@@ -1913,6 +1918,7 @@ const Companies: React.FC = () => {
                                   placeholder="http://seu-servidor:8080"
                                   size="small"
                                   helperText="Deixe em branco para usar o gateway padrão."
+                                  inputProps={{ autoComplete: 'new-password' }}
                                 />
                                 <TextField
                                   fullWidth
