@@ -124,7 +124,9 @@ class ReceivableResponse(BaseModel):
 def generate_for_company(empresa_id: int, target_date: date = None, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     deps.permission_checker('receivables_manage')(db=db, current_user=current_user)
     if target_date is None:
-        target_date = date.today()
+        from datetime import timezone, timedelta
+        tz_br = timezone(timedelta(hours=-3))
+        target_date = datetime.now(tz_br).date()
     # permission checks could be added here (empresa ownership)
     created_receivables = generate_receivables_for_company(db, empresa_id, target_date)
     db.commit()  # Commit explicitamente as mudanças

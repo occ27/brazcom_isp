@@ -454,6 +454,7 @@ class ServicoContratado(Base):
 
     # Controles de emissão automática
     auto_emit = Column(Boolean, default=True)
+    auto_emit_nfcom = Column(Boolean, default=True)
     is_active = Column(Boolean, default=True)
     last_emission = Column(DateTime(timezone=True), nullable=True)
     next_emission = Column(DateTime(timezone=True), nullable=True)

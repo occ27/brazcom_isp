@@ -1953,14 +1953,17 @@ def bulk_emit_nfcom_from_contracts(db: Session, contract_ids: list, empresa_id: 
 
                     # Evita emissão duplicada: priorizamos verificação pelo número do contrato
                     # quando disponível; caso contrário, caímos para verificação por
-                    # cliente+serviço+dia. Isso evita gerar múltiplas NFComs quando o
-                    # mesmo cliente tiver vários contratos distintos.
+                    # cliente+serviço+mês. Isso evita gerar múltiplas NFComs quando o
+                    # mesmo cliente tiver vários contratos distintos no mesmo mês.
                     try:
                         import datetime as _dt
-                        # Consideramos o dia da emissão como hoje (data sem hora)
                         today = _dt.date.today()
-                        start_dt = _dt.datetime.combine(today, _dt.time.min)
-                        end_dt = _dt.datetime.combine(today + _dt.timedelta(days=1), _dt.time.min)
+                        # Modificado para evitar duplicados no mesmo mês e ano
+                        start_dt = _dt.datetime(today.year, today.month, 1, 0, 0, 0)
+                        if today.month == 12:
+                            end_dt = _dt.datetime(today.year + 1, 1, 1, 0, 0, 0)
+                        else:
+                            end_dt = _dt.datetime(today.year, today.month + 1, 1, 0, 0, 0)
 
                         numero_contrato = getattr(contrato, 'numero_contrato', None)
                         if numero_contrato:
@@ -1993,7 +1996,7 @@ def bulk_emit_nfcom_from_contracts(db: Session, contract_ids: list, empresa_id: 
                             "numero_nf": getattr(existing_nf, 'numero_nf', None),
                             "serie": getattr(existing_nf, 'serie', None),
                             "valor_total": getattr(existing_nf, 'valor_total', None),
-                            "reason": "already_emitted_same_client_service_day"
+                            "reason": "already_emitted_same_client_service_month"
                         })
                         # pula para o próximo contrato
                         continue
@@ -2111,109 +2114,149 @@ def bulk_emit_nfcom_from_contracts(db: Session, contract_ids: list, empresa_id: 
 
                     # Cria fatura se houver vencimento/valor
                     try:
-                        # Primeiro, preferir novo campo `dia_vencimento` (inteiro 1-31) se presente
                         import datetime as _dt
                         import calendar as _cal
 
-                        def _build_by_day(day_num: int, base_date: _dt.date) -> _dt.date:
-                            year = base_date.year
-                            month = base_date.month
-                            last_day = _cal.monthrange(year, month)[1]
-                            use_day = min(int(day_num), last_day)
-                            candidate = _dt.date(year, month, use_day)
-                            if candidate <= base_date:
-                                # avançar para próximo mês
-                                if month == 12:
-                                    year += 1
-                                    month = 1
-                                else:
-                                    month += 1
+                        # 1. Tenta buscar primeiro o Receivable real deste contrato gerado no mês atual
+                        # para obtermos o vencimento e o número da fatura reais e garantirmos sincronia total.
+                        real_receivable = None
+                        try:
+                            from app.models.models import Receivable
+                            today = _dt.date.today()
+                            start_month = _dt.datetime(today.year, today.month, 1, 0, 0, 0)
+                            real_receivable = db.query(Receivable).filter(
+                                Receivable.servico_contratado_id == contrato.id,
+                                Receivable.issue_date >= start_month
+                            ).order_by(Receivable.id.desc()).first()
+
+                            if not real_receivable:
+                                # Fallback: pegar o mais recente do contrato
+                                real_receivable = db.query(Receivable).filter(
+                                    Receivable.servico_contratado_id == contrato.id
+                                ).order_by(Receivable.id.desc()).first()
+                        except Exception:
+                            real_receivable = None
+
+                        dv = None
+                        if real_receivable and real_receivable.due_date:
+                            dv = real_receivable.due_date
+
+                        if dv is None:
+                            # Fallback: cálculo tradicional caso não haja Receivable cadastrado
+                            def _build_by_day(day_num: int, base_date: _dt.date) -> _dt.date:
+                                year = base_date.year
+                                month = base_date.month
                                 last_day = _cal.monthrange(year, month)[1]
                                 use_day = min(int(day_num), last_day)
                                 candidate = _dt.date(year, month, use_day)
-                            return candidate
+                                if candidate <= base_date:
+                                    # avançar para próximo mês
+                                    if month == 12:
+                                        year += 1
+                                        month = 1
+                                    else:
+                                        month += 1
+                                    last_day = _cal.monthrange(year, month)[1]
+                                    use_day = min(int(day_num), last_day)
+                                    candidate = _dt.date(year, month, use_day)
+                                return candidate
 
-                        today = _dt.date.today()
+                            today = _dt.date.today()
 
-                        day_from_venc = None
-                        # Prioriza dia_vencimento (novo campo)
-                        if getattr(contrato, 'dia_vencimento', None) is not None:
-                            try:
-                                day_from_venc = int(getattr(contrato, 'dia_vencimento'))
-                            except Exception:
-                                day_from_venc = None
-                        else:
-                            # Fallback para legacy `vencimento` date (extrai dia se possível)
-                            venc = getattr(contrato, 'vencimento', None)
-                            if venc is not None:
+                            day_from_venc = None
+                            # Prioriza dia_vencimento (novo campo)
+                            if getattr(contrato, 'dia_vencimento', None) is not None:
                                 try:
-                                    # Se for string ISO, extrai dia
-                                    if isinstance(venc, str):
-                                        # aceita 'YYYY-MM-DD' ou 'YYYY-MM-DDTHH:MM:SS...'
-                                        import re as _re
-                                        m = _re.match(r"^(\d{4})-(\d{2})-(\d{2})", venc)
-                                        if m:
-                                            day_from_venc = int(m.group(3))
-                                    elif isinstance(venc, (_dt.datetime, _dt.date)):
-                                        day_from_venc = int(venc.day)
-                                    elif isinstance(venc, (int, float)):
-                                        # epoch millis/seconds? tentar converter
-                                        try:
-                                            candidate_dt = _dt.datetime.fromtimestamp(float(venc))
-                                            day_from_venc = int(candidate_dt.day)
-                                        except Exception:
-                                            day_from_venc = None
+                                    day_from_venc = int(getattr(contrato, 'dia_vencimento'))
                                 except Exception:
                                     day_from_venc = None
-
-                        if day_from_venc:
-                            # Construir vencimento usando apenas o dia informado
-                            venc = _build_by_day(day_from_venc, today)
-                        else:
-                            # Se não houver `vencimento` explícito utilizável, derivamos a partir do `dia_emissao`
-                            dia = getattr(contrato, 'dia_emissao', None)
-                            if dia:
-                                venc = _build_by_day(int(dia), today)
-
-                        # Como fallback, usa datas de contrato (fim/ini) se ainda sem vencimento
-                        if venc is None:
-                            venc = getattr(contrato, 'd_contrato_fim', None) or getattr(contrato, 'd_contrato_ini', None)
-
-                        dv = None
-                        if venc:
-                            # Normaliza para datetime quando possível (suporta date, datetime e strings ISO)
-                            import datetime as _dt
-                            try:
-                                if isinstance(venc, _dt.datetime):
-                                    dv = venc
-                                elif isinstance(venc, _dt.date):
-                                    dv = _dt.datetime.combine(venc, _dt.datetime.min.time())
-                                elif isinstance(venc, str):
-                                    # tenta parse ISO primeiro, depois dateutil como fallback
+                            else:
+                                # Fallback para legacy `vencimento` date (extrai dia se possível)
+                                venc = getattr(contrato, 'vencimento', None)
+                                if venc is not None:
                                     try:
-                                        dv = _dt.datetime.fromisoformat(venc)
+                                        # Se for string ISO, extrai dia
+                                        if isinstance(venc, str):
+                                            # aceita 'YYYY-MM-DD' ou 'YYYY-MM-DDTHH:MM:SS...'
+                                            import re as _re
+                                            m = _re.match(r"^(\d{4})-(\d{2})-(\d{2})", venc)
+                                            if m:
+                                                day_from_venc = int(m.group(3))
+                                        elif isinstance(venc, (_dt.datetime, _dt.date)):
+                                            day_from_venc = int(venc.day)
+                                        elif isinstance(venc, (int, float)):
+                                            # epoch millis/seconds? tentar converter
+                                            try:
+                                                candidate_dt = _dt.datetime.fromtimestamp(float(venc))
+                                                day_from_venc = int(candidate_dt.day)
+                                            except Exception:
+                                                day_from_venc = None
                                     except Exception:
+                                        day_from_venc = None
+
+                            if day_from_venc:
+                                # Construir vencimento usando apenas o dia informado
+                                venc = _build_by_day(day_from_venc, today)
+                            else:
+                                # Se não houver `vencimento` explícito utilizável, derivamos a partir do `dia_emissao`
+                                dia = getattr(contrato, 'dia_emissao', None)
+                                if dia:
+                                    venc = _build_by_day(int(dia), today)
+
+                            # Como fallback, usa datas de contrato (fim/ini) se ainda sem vencimento
+                            if venc is None:
+                                venc = getattr(contrato, 'd_contrato_fim', None) or getattr(contrato, 'd_contrato_ini', None)
+
+                            if venc:
+                                # Normaliza para datetime quando possível (suporta date, datetime e strings ISO)
+                                try:
+                                    if isinstance(venc, _dt.datetime):
+                                        dv = venc
+                                    elif isinstance(venc, _dt.date):
+                                        dv = _dt.datetime.combine(venc, _dt.datetime.min.time())
+                                    elif isinstance(venc, str):
+                                        # tenta parse ISO primeiro, depois dateutil como fallback
                                         try:
-                                            from dateutil import parser as _p
-                                            dv = _p.parse(venc)
+                                            dv = _dt.datetime.fromisoformat(venc)
                                         except Exception:
-                                            dv = None
-                                else:
+                                            try:
+                                                from dateutil import parser as _p
+                                                dv = _p.parse(venc)
+                                            except Exception:
+                                                dv = None
+                                    else:
+                                        dv = None
+                                except Exception:
                                     dv = None
-                            except Exception:
-                                dv = None
 
                         if dv is not None:
+                            numero_fatura_real = None
+                            if real_receivable:
+                                numero_fatura_real = real_receivable.nosso_numero or str(real_receivable.id)
+
+                            numero_fatura = numero_fatura_real or str(getattr(contrato, 'numero_contrato', f'CT{cid}'))
+
                             nf_fat = models.NFComFatura(
                                 nfcom_id=db_nf.id,
-                                numero_fatura=str(getattr(contrato, 'numero_contrato', f'CT{cid}')),
+                                numero_fatura=numero_fatura,
                                 data_vencimento=dv,
                                 valor_fatura=valor_total or 0
                             )
                             db.add(nf_fat)
+                            db.flush()
+
+                            # Se o Receivable real foi encontrado, associar o ID da fatura da NFCom a ele
+                            if real_receivable:
+                                try:
+                                    real_receivable.nfcom_fatura_id = nf_fat.id
+                                    db.add(real_receivable)
+                                    db.flush()
+                                except Exception:
+                                    pass
+
                             # Debug opcional para rastrear criação automática de faturas
                             try:
-                                print(f"DEBUG: Fatura criada automaticamente para contrato {cid} com vencimento {dv}")
+                                print(f"DEBUG: Fatura criada automaticamente para contrato {cid} com número real {numero_fatura} e vencimento {dv}")
                             except Exception:
                                 pass
                     except Exception:
@@ -3285,11 +3328,36 @@ def transmit_nfcom(db: Session, nfcom_id: int, empresa_id: int) -> dict:
                     print(f"===================")
 
                     if cStat == "100":
-                        # Autorizada! Salva protocolo e XML no banco
+                        # Autorizada! Extrai apenas o protNFCom da resposta, não o retNFCom inteiro
+                        if result_node.tag.endswith('retNFCom'):
+                            prot_node = result_node.find('.//nfcom:protNFCom', ns_nfcom)
+                            if prot_node is not None:
+                                prot_xml = ET.tostring(prot_node, encoding='unicode', method='xml')
+                            else:
+                                prot_xml = ET.tostring(result_node, encoding='unicode', method='xml')
+                        else:
+                            prot_xml = ET.tostring(result_node, encoding='unicode', method='xml')
+                        
+                        # Remove a declaração XML do xml_assinado se existir
+                        xml_sem_declaracao = xml_assinado
+                        if xml_sem_declaracao.startswith('<?xml'):
+                            # Encontra o fim da declaração XML
+                            end_pos = xml_sem_declaracao.find('?>')
+                            if end_pos != -1:
+                                xml_sem_declaracao = xml_sem_declaracao[end_pos + 2:].lstrip()
+                        
+                        # Cria o XML nfcomProc envolvente
+                        proc_xml = f'''<?xml version="1.0" encoding="UTF-8"?>
+<nfcomProc versao="1.00" xmlns="http://www.portalfiscal.inf.br/nfcom">
+{xml_sem_declaracao}
+{prot_xml}
+</nfcomProc>'''
+                        
+                        # Salva protocolo e XML do processo autorizado no banco
                         db_nfcom.protocolo_autorizacao = nProt
-                        db_nfcom.xml_gerado = xml_assinado
+                        db_nfcom.xml_gerado = proc_xml
                         db.commit()
-                        print("✅ NFCom AUTORIZADA! Protocolo e XML salvos no banco.")
+                        print("✅ NFCom AUTORIZADA! Protocolo e XML do processo salvos no banco.")
 
                     return {"status_code": response.status_code, "cStat": cStat, "xMotivo": xMotivo, "nProt": nProt, "content": response.text, "xml_enviado": soap_body, "headers": dict(response.headers), "soap_file": soap_file_path, "soap_response_file": resp_file_path}
                 else:

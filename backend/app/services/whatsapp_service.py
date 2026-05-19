@@ -56,29 +56,34 @@ class WhatsAppService:
             api_key = os.getenv("EVOLUTION_API_TOKEN", "brazcom_secure_token_12345")
             
             if api_url:
-                if api_url.endswith("/"):
-                    api_url = api_url[:-1]
-                
-                endpoint = f"{api_url}/message/sendText/{instance_name}"
-                headers = {
-                    "Content-Type": "application/json",
-                    "apikey": api_key
-                }
-                payload = {
-                    "number": cleaned_phone,
-                    "text": message
-                }
-                
-                try:
-                    logger.info(f"Tentando envio real de WhatsApp via Brazcom API para {cleaned_phone}")
-                    response = requests.post(endpoint, json=payload, headers=headers, timeout=5)
-                    if response.status_code in [200, 201]:
-                        logger.info(f"Mensagem enviada com sucesso via Brazcom API para {cleaned_phone}!")
-                        return True
-                    else:
-                        logger.warning(f"Brazcom API retornou status {response.status_code}: {response.text}. Ativando fallback de simulação.")
-                except Exception as api_err:
-                    logger.warning(f"Falha de conexão com a Brazcom API ({api_err}). Ativando fallback de simulação local.")
+                # 1.1 Verificar se a instância está conectada antes de tentar o envio real para evitar timeouts longos
+                conn = WhatsAppService.get_connection_state(empresa)
+                if not conn.get("connected", False):
+                    logger.warning(f"Instância WhatsApp '{instance_name}' não está ativa/conectada (Status: {conn.get('state', 'desconhecido')}). Ativando fallback de simulação local.")
+                else:
+                    if api_url.endswith("/"):
+                        api_url = api_url[:-1]
+                    
+                    endpoint = f"{api_url}/message/sendText/{instance_name}"
+                    headers = {
+                        "Content-Type": "application/json",
+                        "apikey": api_key
+                    }
+                    payload = {
+                        "number": cleaned_phone,
+                        "text": message
+                    }
+                    
+                    try:
+                        logger.info(f"Tentando envio real de WhatsApp via Brazcom API para {cleaned_phone}")
+                        response = requests.post(endpoint, json=payload, headers=headers, timeout=5)
+                        if response.status_code in [200, 201]:
+                            logger.info(f"Mensagem enviada com sucesso via Brazcom API para {cleaned_phone}!")
+                            return True
+                        else:
+                            logger.warning(f"Brazcom API retornou status {response.status_code}: {response.text}. Ativando fallback de simulação.")
+                    except Exception as api_err:
+                        logger.warning(f"Falha de conexão com a Brazcom API ({api_err}). Ativando fallback de simulação local.")
             
             # 2. Fallback de Simulação em arquivo local de logs (Garante que nunca quebra o fluxo local)
             logger.info("=========================================")
@@ -178,7 +183,7 @@ class WhatsAppService:
             endpoint = f"{api_url}/instance/connectionState/{instance_name}"
             headers = {"apikey": api_key}
 
-            response = requests.get(endpoint, headers=headers, timeout=5)
+            response = requests.get(endpoint, headers=headers, timeout=3)
             if response.status_code == 200:
                 data = response.json()
                 # O state retornado pela Evolution API v2 costuma ser "open" quando conectado

@@ -1,7 +1,9 @@
 # Este é o arquivo que define os agendamentos do cron.
-# Executa o script de bloqueio automático de clientes inadimplentes todos os dias às 00:05 da manhã.
+# 1. Executa o script de bloqueio/geração diária às 00:05 (meia-noite) em modo silencioso
 5 0 * * * root /usr/local/bin/python /app/scripts/auto_block_clients.py >> /var/log/cron.log 2>&1
 
-# Um agendamento cron válido precisa de uma linha em branco no final.
+# 2. Executa o disparo de notificações pendentes às 09:00 da manhã
+0 9 * * * root /usr/local/bin/python /app/scripts/auto_block_clients.py --notifications-only >> /var/log/cron.log 2>&1
 
+# Um agendamento cron válido precisa de uma linha em branco no final.
 

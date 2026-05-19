@@ -13,6 +13,7 @@ def run_auto_blocking():
     import argparse
     parser = argparse.ArgumentParser(description="Script de bloqueio automático de clientes inadimplentes.")
     parser.add_argument("--company", type=int, help="ID da empresa para processar especificamente")
+    parser.add_argument("--notifications-only", action="store_true", help="Executa apenas o envio de notificações pendentes")
     args, unknown = parser.parse_known_args()
 
     print("=============================================================")
@@ -20,11 +21,16 @@ def run_auto_blocking():
     print("=============================================================")
     
     session = SessionLocal()
-    now = datetime.now(timezone.utc)
+    # Usar data e hora oficial do Brasil (America/Sao_Paulo - UTC-3) para evitar erros
+    tz_br = timezone(timedelta(hours=-3))
+    now = datetime.now(tz_br).replace(tzinfo=None)
     
     total_blocked = 0
     total_unblocked = 0
+    total_generated = 0
+    total_nfcom_emitted = 0
     db_changed = False
+    company_summaries = []
     
     try:
         # Get active companies (with optional company filter)
@@ -39,6 +45,146 @@ def run_auto_blocking():
             
         for company in companies:
             print(f"\n>>> Processing company: {company.razao_social or company.nome_fantasia} (ID: {company.id})")
+            
+            if args.notifications_only:
+                # MODO 2: Apenas notificações pendentes (Horário comercial)
+                print(f"  [AUTO-NOTIFICATIONS] Processing pending receivable notifications...")
+                company_notified = 0
+                try:
+                    from app.services.receivable_service import send_receivable_notification
+                    pending_receivables = session.query(Receivable).filter(
+                        Receivable.empresa_id == company.id,
+                        Receivable.status == 'PENDING',
+                        Receivable.sent_at == None
+                    ).all()
+
+                    if pending_receivables:
+                        print(f"  [AUTO-NOTIFICATIONS] Found {len(pending_receivables)} pending receivables to notify.")
+                        for r in pending_receivables:
+                            try:
+                                session.flush()
+                                if send_receivable_notification(session, r):
+                                    company_notified += 1
+                                    db_changed = True
+                            except Exception as notif_err:
+                                print(f"    [AUTO-NOTIFICATIONS] [WARNING] Failed to notify receivable #{r.id}: {notif_err}")
+                        if company_notified > 0:
+                            print(f"  [AUTO-NOTIFICATIONS] Sent {company_notified}/{len(pending_receivables)} notifications via configured channels.")
+                    else:
+                        print(f"  [AUTO-NOTIFICATIONS] No pending receivables to notify today.")
+                except Exception as e:
+                    print(f"  [AUTO-NOTIFICATIONS] [ERROR] Failed to process notifications: {e}")
+                
+                # Pula os demais passos do processamento diário no modo de notificação apenas
+                company_summaries.append({
+                    "name": company.nome_fantasia or company.razao_social,
+                    "id": company.id,
+                    "generated": 0,
+                    "nfcom_emitted": 0,
+                    "blocked": 0,
+                    "unblocked": 0
+                })
+                continue
+
+            # MODO 1: Processamento Diário Completo (Meia-noite) - Sem Notificações (Silencioso)
+            # 1. Gerar cobranças automáticas para o dia de hoje
+            print(f"  [AUTO-BILLING] Generating today's receivables...")
+            company_generated = 0
+            try:
+                from app.services.receivable_service import generate_receivables_for_company
+                today_date = now.date()
+                created_recv = generate_receivables_for_company(session, company.id, today_date)
+                if created_recv:
+                    company_generated = len(created_recv)
+                    print(f"  [AUTO-BILLING] Generated {company_generated} new receivables for today (notified later in morning run).")
+                    total_generated += company_generated
+                    db_changed = True
+                else:
+                    print(f"  [AUTO-BILLING] No new receivables to generate today.")
+            except Exception as e:
+                print(f"  [AUTO-BILLING] [ERROR] Failed to generate today's receivables: {e}")
+            
+            # 1.1 Gerar e transmitir NFComs automáticas para contratos marcados
+            print(f"  [AUTO-NFCOM] Processing automatic NFCom emissions...")
+            company_nfcom_emitted = 0
+            try:
+                from app.crud.crud_nfcom import bulk_emit_nfcom_from_contracts
+                
+                # Definir função local que ignora last_emission, evitando ser bloqueado 
+                # pelo passo anterior de AUTO-BILLING que atualizou last_emission na memória do SQLAlchemy
+                def should_generate_nfcom_for_contract(contrato, target_date):
+                    if not contrato.dia_emissao or not contrato.d_contrato_ini:
+                        return False
+                    if contrato.dia_emissao > target_date.day:
+                        return False
+                    months_diff = (target_date.year - contrato.d_contrato_ini.year) * 12 + (target_date.month - contrato.d_contrato_ini.month)
+                    if contrato.periodicidade == 'MENSAL':
+                        return True
+                    elif contrato.periodicidade == 'BIMESTRAL':
+                        return months_diff % 2 == 0
+                    elif contrato.periodicidade == 'TRIMESTRAL':
+                        return months_diff % 3 == 0
+                    elif contrato.periodicidade == 'SEMESTRAL':
+                        return months_diff % 6 == 0
+                    elif contrato.periodicidade == 'ANUAL':
+                        return months_diff % 12 == 0
+                    return True
+                
+                today_date = now.date()
+                eligible_contracts = session.query(ServicoContratado).filter(
+                    ServicoContratado.empresa_id == company.id,
+                    ServicoContratado.is_active == True,
+                    ServicoContratado.auto_emit_nfcom == True
+                ).all()
+                
+                nfcom_contract_ids = []
+                for c in eligible_contracts:
+                    # pular contratos que ainda não começaram
+                    if c.d_contrato_ini and c.d_contrato_ini > today_date:
+                        continue
+                    # pular contratos que já terminaram
+                    if c.d_contrato_fim and c.d_contrato_fim < today_date:
+                        continue
+                    # verificar se deve gerar baseado na periodicidade e dia_emissao
+                    if not should_generate_nfcom_for_contract(c, today_date):
+                        continue
+                    
+                    nfcom_contract_ids.append(c.id)
+                
+                if nfcom_contract_ids:
+                    print(f"  [AUTO-NFCOM] Found {len(nfcom_contract_ids)} contracts eligible for automatic NFCom today.")
+                    # Executar e transmitir as NFComs!
+                    result = bulk_emit_nfcom_from_contracts(
+                        db=session,
+                        contract_ids=nfcom_contract_ids,
+                        empresa_id=company.id,
+                        execute=True,
+                        transmit=True
+                    )
+                    successes = result.get("successes", [])
+                    failures = result.get("failures", [])
+                    skipped = result.get("skipped", [])
+                    
+                    if successes:
+                        print(f"  [AUTO-NFCOM] Successfully emitted and authorized {len(successes)} NFComs.")
+                        for s in successes:
+                            print(f"    -> Contract #{s['contract_id']} => NFCom #{s['numero_nf']} (Serie {s['serie']}) - Transmitted: {s['transmitted']}")
+                            if s['transmitted']:
+                                company_nfcom_emitted += 1
+                        total_nfcom_emitted += company_nfcom_emitted
+                        db_changed = True
+                    if failures:
+                        print(f"  [AUTO-NFCOM] [WARNING] Failed to emit {len(failures)} NFComs:")
+                        for f in failures:
+                            print(f"    -> Contract #{f['contract_id']} => Error: {f['error']}")
+                    if skipped:
+                        print(f"  [AUTO-NFCOM] Skipped {len(skipped)} contracts (already emitted today).")
+                else:
+                    print(f"  [AUTO-NFCOM] No contracts eligible for automatic NFCom today.")
+            except Exception as e:
+                import traceback
+                print(f"  [AUTO-NFCOM] [ERROR] Failed to process automatic NFComs: {e}")
+                traceback.print_exc()
             
             dias_limite = company.dias_bloqueio_inadimplentes
             if dias_limite is None or dias_limite < 0:
@@ -113,6 +259,14 @@ def run_auto_blocking():
                                 print(f"       [FAILED] Could not reactivate contract #{contract.id}.")
             
             print(f"  [AUTO-BLOCK] Summary for {company.nome_fantasia or company.razao_social}: {company_blocked} contracts suspended, {company_unblocked} contracts reactivated.")
+            company_summaries.append({
+                "name": company.nome_fantasia or company.razao_social,
+                "id": company.id,
+                "generated": company_generated,
+                "nfcom_emitted": company_nfcom_emitted,
+                "blocked": company_blocked,
+                "unblocked": company_unblocked
+            })
             
         if db_changed:
             print("\nCommitting changes to the database...")
@@ -129,14 +283,24 @@ def run_auto_blocking():
         print("\nClosing database session.")
         session.close()
         
-    print("\n" + "="*40)
-    print("   DAILY PROCESSING SUMMARY")
-    print("="*40)
-    print(f"Date: {now.date()}")
-    print(f"Active companies processed: {len(companies)}")
-    print(f"Contracts automatically suspended: {total_blocked}")
-    print(f"Contracts automatically reactivated: {total_unblocked}")
-    print("="*40)
+    print("\n" + "="*60)
+    print("                 DAILY PROCESSING SUMMARY")
+    print("="*60)
+    print(f" Date: {now.date()}")
+    print(f" Total Companies Processed: {len(companies)}")
+    print(f" Total Receivables Generated: {total_generated}")
+    print(f" Total NFComs Emitted: {total_nfcom_emitted}")
+    print(f" Total Contracts Suspended: {total_blocked}")
+    print(f" Total Contracts Reactivated: {total_unblocked}")
+    print("-"*60)
+    print(" Breakdowns by Company:")
+    for summary in company_summaries:
+        print(f" * {summary['name']} (ID: {summary['id']}):")
+        print(f"   - Receivables Generated: {summary['generated']}")
+        print(f"   - NFComs Emitted       : {summary['nfcom_emitted']}")
+        print(f"   - Contracts Suspended  : {summary['blocked']}")
+        print(f"   - Contracts Reactivated: {summary['unblocked']}")
+    print("="*60)
     print("Daily processing finished successfully.")
 
 if __name__ == "__main__":

@@ -48,9 +48,20 @@ def generate_receivable_from_contract(db: Session, contrato: ServicoContratado, 
 
     # Construir due_date: use `dia_vencimento` se presente, senão use mesmo dia do target_date
     if contrato.dia_vencimento:
+        due_year = target_date.year
+        due_month = target_date.month
+
+        # Se o dia de emissão for maior que o dia do vencimento, o vencimento deve ser no mês seguinte
+        if contrato.dia_emissao and contrato.dia_emissao > contrato.dia_vencimento:
+            if due_month == 12:
+                due_month = 1
+                due_year += 1
+            else:
+                due_month += 1
+
         # proteger valores inválidos (>28/29/30/31) criando a data mais próxima
-        day = min(contrato.dia_vencimento, days_in_month(target_date.year, target_date.month))
-        due_date = datetime(target_date.year, target_date.month, day)
+        day = min(contrato.dia_vencimento, days_in_month(due_year, due_month))
+        due_date = datetime(due_year, due_month, day)
     else:
         # usar o último dia do mês para evitar vencimentos inexistentes
         day = min(target_date.day, days_in_month(target_date.year, target_date.month))
@@ -153,8 +164,8 @@ def should_generate_for_contract(contrato: ServicoContratado, target_date: date)
         if contrato.last_emission.year == target_date.year and contrato.last_emission.month == target_date.month:
             return False
 
-    # Verificar dia de emissão
-    if target_date.day != contrato.dia_emissao:
+    # Verificar dia de emissão: permite gerar em dias iguais ou posteriores ao dia_emissao
+    if contrato.dia_emissao > target_date.day:
         return False
 
     # Verificar periodicidade baseada na data de início
@@ -181,7 +192,11 @@ def generate_receivables_for_company(db: Session, empresa_id: int, target_date: 
     - Considera periodicidade e dia_emissao para determinar se deve gerar
     - Retorna a lista de objetos Receivable persistidos (sem commit automático)
     """
-    contratos = db.query(ServicoContratado).filter(ServicoContratado.empresa_id == empresa_id, ServicoContratado.is_active == True).all()
+    contratos = db.query(ServicoContratado).filter(
+        ServicoContratado.empresa_id == empresa_id,
+        ServicoContratado.is_active == True,
+        ServicoContratado.auto_emit == True
+    ).all()
     created = []
     for c in contratos:
         # pular contratos que ainda não começaram (d_contrato_ini no futuro)
@@ -193,6 +208,35 @@ def generate_receivables_for_company(db: Session, empresa_id: int, target_date: 
         # verificar se deve gerar baseado na periodicidade
         if not should_generate_for_contract(c, target_date):
             continue
+
+        # Evitar duplicados no mesmo mês/ano de faturamento (com base no vencimento esperado)
+        expected_due_year = target_date.year
+        expected_due_month = target_date.month
+        if c.dia_vencimento:
+            if c.dia_emissao and c.dia_emissao > c.dia_vencimento:
+                if expected_due_month == 12:
+                    expected_due_month = 1
+                    expected_due_year += 1
+                else:
+                    expected_due_month += 1
+
+        import datetime as _dt
+        start_due = _dt.datetime(expected_due_year, expected_due_month, 1, 0, 0, 0)
+        if expected_due_month == 12:
+            end_due = _dt.datetime(expected_due_year + 1, 1, 1, 0, 0, 0)
+        else:
+            end_due = _dt.datetime(expected_due_year, expected_due_month + 1, 1, 0, 0, 0)
+
+        existing_recv = db.query(Receivable).filter(
+            Receivable.servico_contratado_id == c.id,
+            Receivable.due_date >= start_due,
+            Receivable.due_date < end_due
+        ).first()
+
+        if existing_recv:
+            # Já existe uma cobrança para este contrato neste mês de faturamento!
+            continue
+
         # gerar
         recv = generate_receivable_from_contract(db, c, target_date)
         create_and_persist_receivable(db, recv)
@@ -315,3 +359,102 @@ def build_boleto_context(db: Session, recv: Receivable) -> dict:
         "linha_digitavel": linha_digitavel,
         "barcode44": barcode
     }
+
+
+def send_receivable_notification(db: Session, recv: Receivable) -> bool:
+    """Dispara a notificação de cobrança por E-mail e/ou WhatsApp, com base nas configurações da empresa."""
+    from app.models.models import Empresa, Cliente
+    from app.crud import crud_empresa
+    from app.services.email_service import EmailService
+    from app.services.whatsapp_service import WhatsAppService
+    import tempfile
+    import os
+    from app.core.config import settings
+
+    empresa = db.query(Empresa).filter(Empresa.id == recv.empresa_id).first()
+    cliente = db.query(Cliente).filter(Cliente.id == recv.cliente_id).first()
+    if not empresa or not cliente:
+        return False
+
+    # Carregar empresa com credenciais descriptografadas
+    empresa_raw = crud_empresa.get_empresa_raw(db, empresa_id=recv.empresa_id)
+
+    pdf_path = None
+    try:
+        # Se NÃO for Mercado Pago e não tiver link, gerar o PDF do boleto
+        if not recv.payment_url:
+            try:
+                context = build_boleto_context(db, recv)
+                from app.services.boleto_generator import generate_boleto_pdf
+                pdf_bytes = generate_boleto_pdf(context)
+                
+                # Salvar em arquivo temporário para anexo
+                tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+                tmp.write(pdf_bytes)
+                tmp.close()
+                pdf_path = tmp.name
+            except Exception as pdf_err:
+                logging.error(f"Erro ao gerar PDF do boleto para notificação: {pdf_err}")
+
+        # Garantir que a URL de pagamento use a URL base atual do sistema
+        payment_url = recv.payment_url
+        if recv.payment_token:
+            base_url = settings.FRONTEND_URL.rstrip("/")
+            payment_url = f"{base_url}/checkout?token={recv.payment_token}"
+            if recv.payment_url != payment_url:
+                recv.payment_url = payment_url
+                db.add(recv)
+                db.flush()
+
+        receivable_data = {
+            "amount": recv.amount,
+            "due_date": recv.due_date,
+            "payment_url": payment_url
+        }
+
+        send_email = getattr(empresa, "send_method_email", True)
+        send_whatsapp = getattr(empresa, "send_method_whatsapp", False)
+
+        # Fallback caso nenhum esteja marcado
+        if not send_email and not send_whatsapp:
+            send_email = True
+
+        success = False
+        if send_email and cliente.email:
+            try:
+                success_email = EmailService.send_receivable_email(
+                    empresa=empresa_raw,
+                    cliente_email=cliente.email,
+                    receivable_data=receivable_data,
+                    pdf_path=pdf_path
+                )
+                if success_email:
+                    success = True
+            except Exception as email_err:
+                logging.error(f"Erro ao enviar e-mail de cobrança: {email_err}")
+
+        if send_whatsapp and cliente.telefone:
+            try:
+                success_whatsapp = WhatsAppService.send_receivable_message(
+                    empresa=empresa_raw,
+                    cliente_nome=cliente.nome_razao_social,
+                    cliente_phone=cliente.telefone,
+                    receivable_data=receivable_data
+                )
+                if success_whatsapp:
+                    success = True
+            except Exception as wa_err:
+                logging.error(f"Erro ao enviar WhatsApp de cobrança: {wa_err}")
+
+        if success:
+            recv.sent_at = datetime.utcnow()
+            db.add(recv)
+            db.flush()
+
+        return success
+    finally:
+        if pdf_path and os.path.exists(pdf_path):
+            try:
+                os.unlink(pdf_path)
+            except Exception:
+                pass

@@ -16,6 +16,7 @@ export interface Contrato {
   valor_unitario?: number;
   valor_total?: number;
   auto_emit?: boolean;
+  auto_emit_nfcom?: boolean;
   is_active?: boolean;
 
   // Novos campos específicos para ISPs

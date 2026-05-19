@@ -111,6 +111,7 @@ const Contracts: React.FC = () => {
     valor_unitario: undefined, // Campo obrigatório, deve ser preenchido pelo usuário
     dia_emissao: 1, // Valor padrão para dia de emissão
     auto_emit: true,
+    auto_emit_nfcom: true,
     is_active: true,
     status: 'AGUARDANDO_ASSINATURA',
     periodo_carencia: 0,
@@ -1250,6 +1251,7 @@ const Contracts: React.FC = () => {
         periodicidade: 'MENSAL',
         valor_unitario: 0,
         auto_emit: true,
+        auto_emit_nfcom: true,
         is_active: true,
         dia_emissao: 1,
         status: 'AGUARDANDO_ASSINATURA',
@@ -1766,7 +1768,7 @@ const Contracts: React.FC = () => {
       const dadosPlanoFields = [
         'numero_contrato', 'cliente_id', 'servico_id', 'periodicidade', 'dia_emissao',
         'd_contrato_ini', 'd_contrato_fim', 'dia_vencimento', 'quantidade', 'valor_unitario',
-        'auto_emit', 'is_active', 'status'
+        'auto_emit', 'auto_emit_nfcom', 'is_active', 'status'
       ];
 
       const redeFields = ['router_id', 'interface_id', 'ip_class_id', 'mac_address', 'assigned_ip', 'metodo_autenticacao', 'pppoe_username', 'pppoe_password'];
@@ -1868,6 +1870,7 @@ const Contracts: React.FC = () => {
         valor_unitario: form.valor_unitario,
         quantidade: form.quantidade,
         auto_emit: form.auto_emit,
+        auto_emit_nfcom: form.auto_emit_nfcom,
         tipo_conexao: form.tipo_conexao,
         metodo_autenticacao: form.metodo_autenticacao,
         router_id: form.router_id,
@@ -2505,13 +2508,24 @@ const Contracts: React.FC = () => {
                     <p className="text-xs sm:text-sm text-purple-600 hidden sm:block">
                       Configure as opções de emissão automática e status.
                     </p>
-                    <div className="mt-3 sm:mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <div className="mt-3 sm:mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                       <FormControl fullWidth size="small">
-                        <InputLabel>Emissão Automática</InputLabel>
+                        <InputLabel>Emissão Automática (Cobrança)</InputLabel>
                         <Select
                           value={form.auto_emit ? 'true' : 'false'}
-                          label="Emissão Automática"
+                          label="Emissão Automática (Cobrança)"
                           onChange={(e: SelectChangeEvent) => handleInputChange('auto_emit', e.target.value === 'true')}
+                        >
+                          <MenuItem value="true">Sim</MenuItem>
+                          <MenuItem value="false">Não</MenuItem>
+                        </Select>
+                      </FormControl>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Emissão Auto NFCom</InputLabel>
+                        <Select
+                          value={form.auto_emit_nfcom ? 'true' : 'false'}
+                          label="Emissão Auto NFCom"
+                          onChange={(e: SelectChangeEvent) => handleInputChange('auto_emit_nfcom', e.target.value === 'true')}
                         >
                           <MenuItem value="true">Sim</MenuItem>
                           <MenuItem value="false">Não</MenuItem>

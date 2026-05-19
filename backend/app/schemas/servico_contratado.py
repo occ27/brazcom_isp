@@ -45,6 +45,7 @@ class ServicoContratadoBase(BaseModel):
     velocidade_garantida: Optional[str] = Field(None, max_length=50)
 
     auto_emit: bool = True
+    auto_emit_nfcom: bool = True
     is_active: bool = True
     
     # Relacionamento com subscription ativa
@@ -161,6 +162,7 @@ class ServicoContratadoUpdate(BaseModel):
     sla_garantido: Optional[float] = Field(None, ge=0, le=100)
     velocidade_garantida: Optional[str] = Field(None, max_length=50)
     auto_emit: Optional[bool] = None
+    auto_emit_nfcom: Optional[bool] = None
     is_active: Optional[bool] = None
     subscription_id: Optional[int] = None
     router_id: Optional[int] = None
