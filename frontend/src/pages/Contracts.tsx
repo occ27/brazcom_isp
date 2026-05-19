@@ -1544,65 +1544,103 @@ const Contracts: React.FC = () => {
 
     // Campos condicionais para rede
     if (currentForm.router_id) {
-      if (!currentForm.interface_id) {
-        newErrors.interface_id = 'Interface é obrigatória';
-      } else {
+      if (currentForm.metodo_autenticacao === 'RADIUS') {
+        // Para RADIUS, interface_id e ip_class_id são opcionais e não serão validados
         delete newErrors.interface_id;
-      }
-
-      // Validação condicional baseada no método de autenticação
-      if (currentForm.metodo_autenticacao === 'IP_MAC') {
-        if (!currentForm.interface_id) {
-          newErrors.interface_id = 'Interface é obrigatória quando IP + MAC é selecionado';
-        } else {
-          delete newErrors.interface_id;
-        }
-
-        if (!currentForm.ip_class_id) {
-          newErrors.ip_class_id = 'Classe IP é obrigatória quando IP + MAC é selecionado';
-        } else {
-          delete newErrors.ip_class_id;
-        }
-
-        if (!currentForm.mac_address || currentForm.mac_address.trim() === '') {
-          newErrors.mac_address = 'Endereço MAC é obrigatório quando IP + MAC é selecionado';
-        } else {
-          delete newErrors.mac_address;
-        }
-
-        // Só validar IP se houver IPs disponíveis (campo habilitado)
-        if (currentForm.ip_class_id && availableIPs.length > 0) {
-          if (!currentForm.assigned_ip || currentForm.assigned_ip.trim() === '' || currentForm.assigned_ip === undefined || currentForm.assigned_ip === null) {
-            newErrors.assigned_ip = 'IP Atribuído é obrigatório quando IP + MAC é selecionado';
-          } else {
-            delete newErrors.assigned_ip;
-          }
-        } else {
-          // Se não há IPs disponíveis, limpar erro
-          delete newErrors.assigned_ip;
-        }
-      } else if (currentForm.metodo_autenticacao === 'PPPOE') {
-        if (!currentForm.interface_id) {
-          newErrors.interface_id = 'Interface é obrigatória quando PPPoE é selecionado';
-        } else {
-          delete newErrors.interface_id;
-        }
-
-        // Para PPPoE, classe IP, MAC e IP atribuído não são necessários
         delete newErrors.ip_class_id;
         delete newErrors.mac_address;
         delete newErrors.assigned_ip;
+
+        if (!currentForm.pppoe_username || currentForm.pppoe_username.trim() === '') {
+          newErrors.pppoe_username = 'Username PPPoE é obrigatório para autenticação RADIUS';
+        } else {
+          delete newErrors.pppoe_username;
+        }
+
+        if (!currentForm.pppoe_password || currentForm.pppoe_password.trim() === '') {
+          newErrors.pppoe_password = 'Password PPPoE é obrigatório para autenticação RADIUS';
+        } else {
+          delete newErrors.pppoe_password;
+        }
       } else {
-        // Para outros métodos, apenas interface pode ser necessária
+        // Limpar possíveis erros de username/password se mudar do método PPPOE/RADIUS
+        if (currentForm.metodo_autenticacao !== 'PPPOE') {
+          delete newErrors.pppoe_username;
+          delete newErrors.pppoe_password;
+        }
+
         if (!currentForm.interface_id) {
           newErrors.interface_id = 'Interface é obrigatória';
         } else {
           delete newErrors.interface_id;
         }
 
-        delete newErrors.ip_class_id;
-        delete newErrors.mac_address;
-        delete newErrors.assigned_ip;
+        // Validação condicional baseada no método de autenticação
+        if (currentForm.metodo_autenticacao === 'IP_MAC') {
+          if (!currentForm.interface_id) {
+            newErrors.interface_id = 'Interface é obrigatória quando IP + MAC é selecionado';
+          } else {
+            delete newErrors.interface_id;
+          }
+
+          if (!currentForm.ip_class_id) {
+            newErrors.ip_class_id = 'Classe IP é obrigatória quando IP + MAC é selecionado';
+          } else {
+            delete newErrors.ip_class_id;
+          }
+
+          if (!currentForm.mac_address || currentForm.mac_address.trim() === '') {
+            newErrors.mac_address = 'Endereço MAC é obrigatório quando IP + MAC é selecionado';
+          } else {
+            delete newErrors.mac_address;
+          }
+
+          // Só validar IP se houver IPs disponíveis (campo habilitado)
+          if (currentForm.ip_class_id && availableIPs.length > 0) {
+            if (!currentForm.assigned_ip || currentForm.assigned_ip.trim() === '' || currentForm.assigned_ip === undefined || currentForm.assigned_ip === null) {
+              newErrors.assigned_ip = 'IP Atribuído é obrigatório quando IP + MAC é selecionado';
+            } else {
+              delete newErrors.assigned_ip;
+            }
+          } else {
+            // Se não há IPs disponíveis, limpar erro
+            delete newErrors.assigned_ip;
+          }
+        } else if (currentForm.metodo_autenticacao === 'PPPOE') {
+          if (!currentForm.interface_id) {
+            newErrors.interface_id = 'Interface é obrigatória quando PPPoE é selecionado';
+          } else {
+            delete newErrors.interface_id;
+          }
+
+          if (!currentForm.pppoe_username || currentForm.pppoe_username.trim() === '') {
+            newErrors.pppoe_username = 'Username PPPoE é obrigatório quando PPPoE é selecionado';
+          } else {
+            delete newErrors.pppoe_username;
+          }
+
+          if (!currentForm.pppoe_password || currentForm.pppoe_password.trim() === '') {
+            newErrors.pppoe_password = 'Password PPPoE é obrigatório quando PPPoE é selecionado';
+          } else {
+            delete newErrors.pppoe_password;
+          }
+
+          // Para PPPoE, classe IP, MAC e IP atribuído não são necessários
+          delete newErrors.ip_class_id;
+          delete newErrors.mac_address;
+          delete newErrors.assigned_ip;
+        } else {
+          // Para outros métodos, apenas interface pode ser necessária
+          if (!currentForm.interface_id) {
+            newErrors.interface_id = 'Interface é obrigatória';
+          } else {
+            delete newErrors.interface_id;
+          }
+
+          delete newErrors.ip_class_id;
+          delete newErrors.mac_address;
+          delete newErrors.assigned_ip;
+        }
       }
     } else {
       // Limpar erros se router não estiver selecionado
@@ -1610,6 +1648,8 @@ const Contracts: React.FC = () => {
       delete newErrors.ip_class_id;
       delete newErrors.mac_address;
       delete newErrors.assigned_ip;
+      delete newErrors.pppoe_username;
+      delete newErrors.pppoe_password;
     }
 
     setErrors(newErrors);
@@ -1699,8 +1739,15 @@ const Contracts: React.FC = () => {
 
     // Validação condicional para rede
     if (form.router_id) {
+      // Para RADIUS, interface e classe IP são opcionais
+      if (form.metodo_autenticacao === 'RADIUS') {
+        delete newErrors.interface_id;
+        delete newErrors.ip_class_id;
+        delete newErrors.mac_address;
+        // assigned_ip (IP Fixo) é opcional para RADIUS, não validar
+      }
       // Para IP_MAC, interface e classe IP são obrigatórios
-      if (form.metodo_autenticacao === 'IP_MAC') {
+      else if (form.metodo_autenticacao === 'IP_MAC') {
         if (!form.interface_id) {
           newErrors.interface_id = 'Interface é obrigatória quando IP + MAC é selecionado';
         }
@@ -1738,15 +1785,18 @@ const Contracts: React.FC = () => {
       }
     }
 
-    // Validar campos PPPoE se o método for PPPOE
-    if (form.metodo_autenticacao === 'PPPOE') {
+    // Validar campos PPPoE se o método for PPPOE ou RADIUS
+    if (form.metodo_autenticacao === 'PPPOE' || form.metodo_autenticacao === 'RADIUS') {
       if (!form.pppoe_username || form.pppoe_username.trim() === '') {
-        newErrors.pppoe_username = 'Username PPPoE é obrigatório quando PPPoE é selecionado';
+        newErrors.pppoe_username = `Username PPPoE é obrigatório quando ${form.metodo_autenticacao} é selecionado`;
       }
 
       if (!form.pppoe_password || form.pppoe_password.trim() === '') {
-        newErrors.pppoe_password = 'Password PPPoE é obrigatório quando PPPoE é selecionado';
+        newErrors.pppoe_password = `Password PPPoE é obrigatório quando ${form.metodo_autenticacao} é selecionado`;
       }
+    } else {
+      delete newErrors.pppoe_username;
+      delete newErrors.pppoe_password;
     }
 
     // Validação de datas: d_contrato_fim deve ser maior ou igual a d_contrato_ini
@@ -2965,12 +3015,25 @@ const Contracts: React.FC = () => {
                           onChange={(e: SelectChangeEvent) => {
                             const routerId = e.target.value ? parseInt(e.target.value) : undefined;
                             handleInputChange('router_id', routerId);
-                            handleInputChange('interface_id', undefined); // Reset interface when router changes
-                            handleInputChange('ip_class_id', undefined); // Reset IP class when router changes
+                            handleInputChange('interface_id', undefined);
+                            handleInputChange('ip_class_id', undefined);
                             if (routerId) {
                               loadInterfaces(routerId);
+                              const selectedRouter = routers.find(r => r.id === routerId);
+                              if (selectedRouter) {
+                                const allowedMethods = selectedRouter.metodos_autenticacao && selectedRouter.metodos_autenticacao.length > 0
+                                  ? selectedRouter.metodos_autenticacao
+                                  : ['IP_MAC', 'PPPOE', 'HOTSPOT', 'RADIUS'];
+                                const defaultMethod = selectedRouter.metodo_autenticacao_padrao;
+                                if (defaultMethod && allowedMethods.includes(defaultMethod)) {
+                                  handleInputChange('metodo_autenticacao', defaultMethod);
+                                } else if (form.metodo_autenticacao && !allowedMethods.includes(form.metodo_autenticacao)) {
+                                  handleInputChange('metodo_autenticacao', '');
+                                }
+                              }
                             } else {
                               setInterfaces([]);
+                              handleInputChange('metodo_autenticacao', '');
                             }
                           }}
                           disabled={networkLoading}
@@ -2987,97 +3050,128 @@ const Contracts: React.FC = () => {
                         {networkLoading && <CircularProgress size={20} sx={{ mt: 1 }} />}
                       </FormControl>
 
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Método de Autenticação</InputLabel>
-                        <Select
-                          value={form.metodo_autenticacao || ''}
-                          label="Método de Autenticação"
-                          onChange={(e: SelectChangeEvent) => handleInputChange('metodo_autenticacao', e.target.value)}
-                        >
-                          <MenuItem value="">
-                            <em>Selecione um método</em>
-                          </MenuItem>
-                          <MenuItem value="IP_MAC">IP + MAC</MenuItem>
-                          <MenuItem value="PPPOE">PPPoE</MenuItem>
-                          <MenuItem value="HOTSPOT">Hotspot</MenuItem>
-                          <MenuItem value="RADIUS">RADIUS</MenuItem>
-                        </Select>
-                      </FormControl>
+                      {(() => {
+                        const selectedRouter = routers.find(r => r.id === form.router_id);
+                        const allowedMethods = selectedRouter?.metodos_autenticacao && selectedRouter.metodos_autenticacao.length > 0
+                          ? selectedRouter.metodos_autenticacao
+                          : ['IP_MAC', 'PPPOE', 'HOTSPOT', 'RADIUS'];
+                        return (
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Método de Autenticação</InputLabel>
+                            <Select
+                              value={form.metodo_autenticacao || ''}
+                              label="Método de Autenticação"
+                              onChange={(e: SelectChangeEvent) => handleInputChange('metodo_autenticacao', e.target.value)}
+                              disabled={!form.router_id}
+                            >
+                              <MenuItem value="">
+                                <em>Selecione um método</em>
+                              </MenuItem>
+                              {allowedMethods.includes('IP_MAC') && <MenuItem value="IP_MAC">IP + MAC</MenuItem>}
+                              {allowedMethods.includes('PPPOE') && <MenuItem value="PPPOE">PPPoE</MenuItem>}
+                              {allowedMethods.includes('HOTSPOT') && <MenuItem value="HOTSPOT">Hotspot</MenuItem>}
+                              {allowedMethods.includes('RADIUS') && <MenuItem value="RADIUS">RADIUS</MenuItem>}
+                            </Select>
+                          </FormControl>
+                        );
+                      })()}
 
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Interface</InputLabel>
-                        <Select
-                          value={form.interface_id?.toString() || ''}
-                          label="Interface"
-                          onChange={(e: SelectChangeEvent) => {
-                            handleInputChange('interface_id', e.target.value ? parseInt(e.target.value) : undefined);
-                            handleInputChange('ip_class_id', undefined); // Reset IP class when interface changes
-                          }}
-                          disabled={!form.router_id || networkLoading}
-                        >
-                          <MenuItem value="">
-                            <em>Selecione uma interface</em>
-                          </MenuItem>
-                          {interfaces.map((interface_) => (
-                            <MenuItem key={interface_.id} value={interface_.id}>
-                              <div>
-                                <div className="font-medium">{interface_.nome}</div>
-                                {interface_.comentario && (
-                                  <div className="text-xs text-gray-500 mt-1">{interface_.comentario}</div>
-                                )}
-                              </div>
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Classe IP</InputLabel>
-                        <Select
-                          value={form.ip_class_id?.toString() || ''}
-                          label="Classe IP"
-                          onChange={(e: SelectChangeEvent) => {
-                            const selectedClassId = e.target.value ? parseInt(e.target.value) : undefined;
-                            handleInputChange('ip_class_id', selectedClassId);
-                          }}
-                          disabled={!form.interface_id || networkLoading}
-                        >
-                          <MenuItem value="">
-                            <em>Selecione uma classe IP</em>
-                          </MenuItem>
-                          {getIPClassesForSelectedInterface.map((ipClass) => (
-                            <MenuItem key={ipClass.id} value={ipClass.id}>
-                              {ipClass.nome} ({ipClass.rede})
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-
-                      {(form.metodo_autenticacao === 'IP_MAC' || form.metodo_autenticacao === 'RADIUS') && (
+                      {form.metodo_autenticacao !== 'RADIUS' && (
                         <>
-                          {form.metodo_autenticacao === 'IP_MAC' && (
-                            <TextField
-                              label="Endereço MAC"
-                              value={form.mac_address || ''}
-                              onChange={e => handleInputChange('mac_address', e.target.value)}
-                              fullWidth
-                              size="small"
-                              placeholder="Ex: AA:BB:CC:DD:EE:FF"
-                              error={!!errors.mac_address}
-                              helperText={errors.mac_address || "MAC address do dispositivo do cliente"}
-                            />
-                          )}
+                          <FormControl fullWidth size="small" error={!!errors.interface_id}>
+                            <InputLabel>Interface</InputLabel>
+                            <Select
+                              value={form.interface_id?.toString() || ''}
+                              label="Interface"
+                              onChange={(e: SelectChangeEvent) => {
+                                handleInputChange('interface_id', e.target.value ? parseInt(e.target.value) : undefined);
+                                handleInputChange('ip_class_id', undefined); // Reset IP class when interface changes
+                              }}
+                              disabled={!form.router_id || networkLoading}
+                            >
+                              <MenuItem value="">
+                                <em>Selecione uma interface</em>
+                              </MenuItem>
+                              {interfaces.map((interface_) => (
+                                <MenuItem key={interface_.id} value={interface_.id}>
+                                  <div>
+                                    <div className="font-medium">{interface_.nome}</div>
+                                    {interface_.comentario && (
+                                      <div className="text-xs text-gray-500 mt-1">{interface_.comentario}</div>
+                                    )}
+                                  </div>
+                                </MenuItem>
+                              ))}
+                            </Select>
+                            {errors.interface_id && <FormHelperText>{errors.interface_id}</FormHelperText>}
+                          </FormControl>
+
+                          <FormControl fullWidth size="small" error={!!errors.ip_class_id}>
+                            <InputLabel>Classe IP</InputLabel>
+                            <Select
+                              value={form.ip_class_id?.toString() || ''}
+                              label="Classe IP"
+                              onChange={(e: SelectChangeEvent) => {
+                                const selectedClassId = e.target.value ? parseInt(e.target.value) : undefined;
+                                handleInputChange('ip_class_id', selectedClassId);
+                              }}
+                              disabled={!form.interface_id || networkLoading}
+                            >
+                              <MenuItem value="">
+                                <em>Selecione uma classe IP</em>
+                              </MenuItem>
+                              {getIPClassesForSelectedInterface.map((ipClass) => (
+                                <MenuItem key={ipClass.id} value={ipClass.id}>
+                                  {ipClass.nome} ({ipClass.rede})
+                                </MenuItem>
+                              ))}
+                            </Select>
+                            {errors.ip_class_id && <FormHelperText>{errors.ip_class_id}</FormHelperText>}
+                          </FormControl>
+                        </>
+                      )}
+
+                      {form.metodo_autenticacao === 'RADIUS' ? (
+                        <>
+                          <TextField
+                            label="IP Fixo (Opcional)"
+                            value={form.assigned_ip || ''}
+                            onChange={e => handleInputChange('assigned_ip', e.target.value)}
+                            fullWidth
+                            size="small"
+                            placeholder="Ex: 201.130.84.5"
+                            error={!!errors.assigned_ip}
+                            helperText={errors.assigned_ip || "Opcional: IP fixo entregue via RADIUS (deixe vazio para IP dinâmico)"}
+                          />
+
+                          <div className="flex items-center space-x-2 text-sm text-blue-600 sm:col-span-2">
+                            <span>🔄</span>
+                            <span>Opcional: Preencha um IP fixo para ser entregue via Radius, ou deixe em branco para dinâmico</span>
+                          </div>
+                        </>
+                      ) : form.metodo_autenticacao === 'IP_MAC' ? (
+                        <>
+                          <TextField
+                            label="Endereço MAC"
+                            value={form.mac_address || ''}
+                            onChange={e => handleInputChange('mac_address', e.target.value)}
+                            fullWidth
+                            size="small"
+                            placeholder="Ex: AA:BB:CC:DD:EE:FF"
+                            error={!!errors.mac_address}
+                            helperText={errors.mac_address || "MAC address do dispositivo do cliente"}
+                          />
 
                           <FormControl fullWidth size="small" error={!!errors.assigned_ip}>
-                            <InputLabel>{form.metodo_autenticacao === 'RADIUS' ? 'IP Fixo (Opcional)' : 'IP Atribuído'}</InputLabel>
+                            <InputLabel>IP Atribuído</InputLabel>
                             <Select
                               value={form.assigned_ip || ''}
-                              label={form.metodo_autenticacao === 'RADIUS' ? 'IP Fixo (Opcional)' : 'IP Atribuído'}
+                              label="IP Atribuído"
                               onChange={(e: SelectChangeEvent) => handleInputChange('assigned_ip', e.target.value)}
                               disabled={!form.ip_class_id || availableIPs.length === 0}
                             >
                               <MenuItem value="">
-                                <em>{form.metodo_autenticacao === 'RADIUS' ? 'IP Dinâmico (Radius)' : 'Selecione um IP disponível'}</em>
+                                <em>Selecione um IP disponível</em>
                               </MenuItem>
                               {availableIPs.map((ip) => (
                                 <MenuItem key={ip} value={ip}>
@@ -3090,10 +3184,10 @@ const Contracts: React.FC = () => {
 
                           <div className="flex items-center space-x-2 text-sm text-blue-600">
                             <span>🔄</span>
-                            <span>{form.metodo_autenticacao === 'RADIUS' ? 'Opcional: Selecione um IP para ser entregue via Radius' : 'Selecione um IP disponível da lista quando a Classe IP for escolhida'}</span>
+                            <span>Selecione um IP disponível da lista quando a Classe IP for escolhida</span>
                           </div>
                         </>
-                      )}
+                      ) : null}
 
                       {(form.metodo_autenticacao === 'PPPOE' || form.metodo_autenticacao === 'RADIUS') && (
                         <>

@@ -12,6 +12,7 @@ export interface RouterCreate {
   radius_server_address?: string | null;
   radius_secret?: string | null;
   api_encoding?: string | null;
+  metodos_autenticacao?: string[] | null;
 }
 
 export interface RouterUpdate {
@@ -26,6 +27,7 @@ export interface RouterUpdate {
   radius_server_address?: string | null;
   radius_secret?: string | null;
   api_encoding?: string | null;
+  metodos_autenticacao?: string[] | null;
 }
 
 

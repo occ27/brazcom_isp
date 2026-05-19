@@ -1,5 +1,5 @@
 import enum
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, Text, Float, Enum as SQLAlchemyEnum
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, Text, Float, JSON, Enum as SQLAlchemyEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -35,6 +35,12 @@ class Router(Base):
     radius_server_address = Column(String(50), nullable=True)
     radius_secret = Column(String(255), nullable=True)  # Segredo usado neste roteador
     api_encoding = Column(String(20), default="utf-8", nullable=True, comment="Codificação da API do MikroTik: utf-8 ou latin1")
+    metodos_autenticacao = Column(
+        JSON,
+        nullable=True,
+        default=None,
+        comment="Lista de métodos de autenticação habilitados para este router (ex: ['PPPOE', 'RADIUS'])"
+    )
 
     empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
     empresa = relationship("Empresa", back_populates="routers")

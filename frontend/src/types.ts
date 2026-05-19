@@ -165,6 +165,7 @@ export interface Router {
   metodo_autenticacao_padrao?: 'RADIUS' | 'PPPOE' | 'HOTSPOT' | 'IP_MAC' | null;
   radius_server_address?: string | null;
   api_encoding?: string;
+  metodos_autenticacao?: string[] | null;
   created_at: string;
   updated_at?: string;
   empresa?: Company;

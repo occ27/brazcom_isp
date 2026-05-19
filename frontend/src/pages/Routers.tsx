@@ -30,7 +30,10 @@ import {
   useTheme,
   Grid,
   CircularProgress as MuiCircularProgress,
-  Tooltip
+  Tooltip,
+  Checkbox,
+  FormControlLabel,
+  FormHelperText
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -74,6 +77,7 @@ const Routers: React.FC = () => {
     radius_server_address: '',
     radius_secret: '',
     api_encoding: 'utf-8',
+    metodos_autenticacao: ['IP_MAC', 'PPPOE', 'HOTSPOT', 'RADIUS'],
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [saving, setSaving] = useState(false);
@@ -169,6 +173,9 @@ const Routers: React.FC = () => {
         radius_server_address: router.radius_server_address ?? '',
         radius_secret: '',
         api_encoding: router.api_encoding ?? 'utf-8',
+        metodos_autenticacao: router.metodos_autenticacao && router.metodos_autenticacao.length > 0
+          ? router.metodos_autenticacao
+          : ['IP_MAC', 'PPPOE', 'HOTSPOT', 'RADIUS'],
       });
     } else {
       setEditingRouter(null);
@@ -183,6 +190,7 @@ const Routers: React.FC = () => {
         radius_server_address: '',
         radius_secret: '',
         api_encoding: 'utf-8',
+        metodos_autenticacao: ['IP_MAC', 'PPPOE', 'HOTSPOT', 'RADIUS'],
       });
     }
     setErrors({});
@@ -203,6 +211,7 @@ const Routers: React.FC = () => {
       radius_server_address: '',
       radius_secret: '',
       api_encoding: 'utf-8',
+      metodos_autenticacao: ['IP_MAC', 'PPPOE', 'HOTSPOT', 'RADIUS'],
     });
     setErrors({});
   };
@@ -224,6 +233,11 @@ const Routers: React.FC = () => {
     // Senha obrigatória apenas na criação, não na edição
     if (!editingRouter && !formData.senha.trim()) {
       newErrors.senha = 'Senha é obrigatória';
+    }
+    if (!formData.metodos_autenticacao || formData.metodos_autenticacao.length === 0) {
+      newErrors.metodos_autenticacao = 'Selecione pelo menos um método de autenticação';
+    } else if (formData.metodo_autenticacao_padrao && !formData.metodos_autenticacao.includes(formData.metodo_autenticacao_padrao)) {
+      newErrors.metodo_autenticacao_padrao = 'O método padrão deve estar entre os métodos selecionados';
     }
 
     setErrors(newErrors);
@@ -446,17 +460,58 @@ const Routers: React.FC = () => {
                     />
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      label={router.metodo_autenticacao_padrao ?? 'Não definido'}
-                      size="small"
-                      color={
-                        router.metodo_autenticacao_padrao === 'RADIUS' ? 'success'
-                        : router.metodo_autenticacao_padrao === 'PPPOE' ? 'info'
-                        : router.metodo_autenticacao_padrao === 'HOTSPOT' ? 'warning'
-                        : 'default'
+                    {(() => {
+                      const metodos = router.metodos_autenticacao && router.metodos_autenticacao.length > 0
+                        ? router.metodos_autenticacao
+                        : ['IP_MAC', 'PPPOE', 'HOTSPOT', 'RADIUS'];
+
+                      if (metodos.length === 1) {
+                        const m = metodos[0];
+                        return (
+                          <Chip
+                            label={m === 'IP_MAC' ? 'IP+MAC' : m}
+                            size="small"
+                            color={
+                              m === 'RADIUS' ? 'success'
+                              : m === 'PPPOE' ? 'info'
+                              : m === 'HOTSPOT' ? 'warning'
+                              : 'default'
+                            }
+                            variant="filled"
+                          />
+                        );
                       }
-                      variant={router.metodo_autenticacao_padrao ? 'filled' : 'outlined'}
-                    />
+
+                      return (
+                        <Box display="flex" flexDirection="column" gap={0.5}>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Typography variant="caption" color="text.secondary">Padrão:</Typography>
+                            <Chip
+                              label={router.metodo_autenticacao_padrao ?? 'Não definido'}
+                              size="small"
+                              color={
+                                router.metodo_autenticacao_padrao === 'RADIUS' ? 'success'
+                                : router.metodo_autenticacao_padrao === 'PPPOE' ? 'info'
+                                : router.metodo_autenticacao_padrao === 'HOTSPOT' ? 'warning'
+                                : 'default'
+                              }
+                              variant={router.metodo_autenticacao_padrao ? 'filled' : 'outlined'}
+                            />
+                          </Box>
+                          <Box display="flex" flexWrap="wrap" gap={0.5}>
+                            {metodos.map((m) => (
+                              <Chip
+                                key={m}
+                                label={m === 'IP_MAC' ? 'IP+MAC' : m}
+                                size="small"
+                                variant="outlined"
+                                style={{ fontSize: '10px', height: '18px' }}
+                              />
+                            ))}
+                          </Box>
+                        </Box>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell>
                     <Chip
@@ -640,20 +695,79 @@ const Routers: React.FC = () => {
                   </Select>
                 </FormControl>
               </Grid>
+              <Grid item xs={12}>
+                <FormControl component="fieldset" error={!!errors.metodos_autenticacao} fullWidth>
+                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                    Métodos de Autenticação Habilitados neste Router
+                  </Typography>
+                  <Box display="flex" flexWrap="wrap" gap={2}>
+                    {[
+                      { value: 'IP_MAC', label: 'IP + MAC' },
+                      { value: 'PPPOE', label: 'PPPoE Local' },
+                      { value: 'HOTSPOT', label: 'Hotspot Local' },
+                      { value: 'RADIUS', label: 'RADIUS (FreeRadius)' },
+                    ].map((item) => {
+                      const isChecked = formData.metodos_autenticacao?.includes(item.value) ?? false;
+                      return (
+                        <FormControlLabel
+                          key={item.value}
+                          control={
+                            <Checkbox
+                              checked={isChecked}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                let newMethods = [...(formData.metodos_autenticacao || [])];
+                                if (checked) {
+                                  if (!newMethods.includes(item.value)) newMethods.push(item.value);
+                                } else {
+                                  newMethods = newMethods.filter(m => m !== item.value);
+                                }
+                                handleInputChange('metodos_autenticacao', newMethods);
+                                
+                                // Se o método desmarcado era o padrão, limpar o padrão
+                                if (!checked && formData.metodo_autenticacao_padrao === item.value) {
+                                  handleInputChange('metodo_autenticacao_padrao', null);
+                                }
+                              }}
+                              color="primary"
+                            />
+                          }
+                          label={item.label}
+                        />
+                      );
+                    })}
+                  </Box>
+                  {errors.metodos_autenticacao && (
+                    <FormHelperText>{errors.metodos_autenticacao}</FormHelperText>
+                  )}
+                </FormControl>
+              </Grid>
+
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Método de Autenticação</InputLabel>
+                <FormControl fullWidth error={!!errors.metodo_autenticacao_padrao}>
+                  <InputLabel>Método de Autenticação Padrão</InputLabel>
                   <Select
                     value={formData.metodo_autenticacao_padrao ?? ''}
                     onChange={(e) => handleInputChange('metodo_autenticacao_padrao', e.target.value || null)}
-                    label="Método de Autenticação"
+                    label="Método de Autenticação Padrão"
                   >
                     <MenuItem value=""><em>Não definido</em></MenuItem>
-                    <MenuItem value="RADIUS">RADIUS (FreeRadius centralizado)</MenuItem>
-                    <MenuItem value="PPPOE">PPPoE Local (secrets na RB)</MenuItem>
-                    <MenuItem value="HOTSPOT">Hotspot Local</MenuItem>
-                    <MenuItem value="IP_MAC">IP/MAC (sem autenticação PPP)</MenuItem>
+                    {(formData.metodos_autenticacao || []).includes('RADIUS') && (
+                      <MenuItem value="RADIUS">RADIUS (FreeRadius centralizado)</MenuItem>
+                    )}
+                    {(formData.metodos_autenticacao || []).includes('PPPOE') && (
+                      <MenuItem value="PPPOE">PPPoE Local (secrets na RB)</MenuItem>
+                    )}
+                    {(formData.metodos_autenticacao || []).includes('HOTSPOT') && (
+                      <MenuItem value="HOTSPOT">Hotspot Local</MenuItem>
+                    )}
+                    {(formData.metodos_autenticacao || []).includes('IP_MAC') && (
+                      <MenuItem value="IP_MAC">IP/MAC (sem autenticação PPP)</MenuItem>
+                    )}
                   </Select>
+                  {errors.metodo_autenticacao_padrao && (
+                    <FormHelperText>{errors.metodo_autenticacao_padrao}</FormHelperText>
+                  )}
                 </FormControl>
               </Grid>
               {formData.metodo_autenticacao_padrao === 'RADIUS' && (

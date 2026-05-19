@@ -556,7 +556,7 @@ def ativar_servico(contrato_id: int, db: Session = Depends(get_db), current_user
         raise HTTPException(status_code=400, detail=f"Contrato não pode ser ativado. Status atual: {c.status}")
 
     # Verificar se o contrato tem todas as informações necessárias
-    if not c.router_id or not c.interface_id:
+    if not c.router_id or (c.metodo_autenticacao != 'RADIUS' and not c.interface_id):
         raise HTTPException(status_code=400, detail="Contrato deve ter router e interface configurados")
 
     # Buscar informações do router
@@ -566,9 +566,11 @@ def ativar_servico(contrato_id: int, db: Session = Depends(get_db), current_user
         raise HTTPException(status_code=404, detail="Router não encontrado")
 
     # Buscar informações da interface
-    from app.models.network import RouterInterface
-    interface_db = db.query(RouterInterface).filter(RouterInterface.id == c.interface_id).first()
-    if not interface_db:
+    interface_db = None
+    if c.interface_id:
+        from app.models.network import RouterInterface
+        interface_db = db.query(RouterInterface).filter(RouterInterface.id == c.interface_id).first()
+    if not interface_db and c.metodo_autenticacao != 'RADIUS':
         raise HTTPException(status_code=404, detail="Interface não encontrada")
 
     # Buscar informações do serviço para QoS
@@ -915,9 +917,11 @@ def sync_router_config(contrato_id: int, db: Session = Depends(get_db), current_
         raise HTTPException(status_code=404, detail="Router não encontrado")
 
     # Buscar informações da interface
-    from app.models.network import RouterInterface
-    interface_db = db.query(RouterInterface).filter(RouterInterface.id == c.interface_id).first()
-    interface_nome = interface_db.nome if interface_db else None
+    interface_nome = None
+    if c.interface_id:
+        from app.models.network import RouterInterface
+        interface_db = db.query(RouterInterface).filter(RouterInterface.id == c.interface_id).first()
+        interface_nome = interface_db.nome if interface_db else None
 
     # Buscar informações do cliente para logging
     cliente_nome = "Cliente"

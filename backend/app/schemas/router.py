@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, Literal
+from typing import Optional, Literal, List
 from datetime import datetime
 
 # Valores possíveis para o método de autenticação do roteador
@@ -20,6 +20,7 @@ class RouterBase(BaseModel):
     radius_server_address: Optional[str] = None
     radius_secret: Optional[str] = None
     api_encoding: Optional[str] = "utf-8"
+    metodos_autenticacao: Optional[List[MetodoAutenticacaoRouterEnum]] = None
 
 
 class RouterCreate(RouterBase):
@@ -38,6 +39,7 @@ class RouterUpdate(BaseModel):
     radius_server_address: Optional[str] = None
     radius_secret: Optional[str] = None
     api_encoding: Optional[str] = None
+    metodos_autenticacao: Optional[List[MetodoAutenticacaoRouterEnum]] = None
 
 
 class RouterResponse(BaseModel):
@@ -53,6 +55,7 @@ class RouterResponse(BaseModel):
     radius_server_address: Optional[str] = None
     # Não expõe radius_secret na listagem por segurança
     api_encoding: Optional[str] = "utf-8"
+    metodos_autenticacao: Optional[List[str]] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
