@@ -17,6 +17,27 @@
         .section { margin-bottom: 8px; }
         .signatures { margin-top: 20px; text-align: center; font-size: 11px; }
         .signature-box { border-top: 1px solid #000; display: inline-block; width: 220px; margin: 25px 10px 5px 10px; padding-top: 3px; }
+        .signatures-row { display: flex; justify-content: space-around; align-items: flex-end; margin-top: 50px; gap: 40px; }
+        @media (max-width: 600px) {
+            body { font-size: 11px; margin: 5px; }
+            h1 { font-size: 14px; }
+            h2 { font-size: 12px; }
+            h3 { font-size: 11px; }
+            table { font-size: 9px; }
+            th, td { padding: 2px; }
+            .signatures-row {
+                flex-direction: column !important;
+                align-items: center !important;
+                gap: 25px !important;
+                margin-top: 30px !important;
+            }
+            .signature-box {
+                width: 100% !important;
+                max-width: 240px;
+                margin: 0 auto !important;
+                min-height: 140px !important;
+            }
+        }
         @media print {
             .no-print { display: none; }
             body { margin: 0; padding: 3mm; }
@@ -139,7 +160,7 @@
     <div class="signatures">
         <p>${empresa.municipio} - ${empresa.uf}, ${data_hoje}</p>
         
-        <div style="display: flex; justify-content: space-around; align-items: flex-end; margin-top: 50px; gap: 40px;">
+        <div class="signatures-row">
             <!-- Assinatura da Contratada -->
             <div class="signature-box" style="flex: 1; border-top: none; margin: 0; min-height: 160px; display: flex; flex-direction: column; justify-content: flex-end;">
                 % if getattr(empresa, 'assinatura_digital_url', None):

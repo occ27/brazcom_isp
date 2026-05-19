@@ -66,6 +66,19 @@ const Receivables: React.FC = () => {
     message: string;
     cliente_nome: string;
   } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void | Promise<void>;
+    confirmColor?: 'primary' | 'secondary' | 'error' | 'success' | 'warning' | 'info';
+  }>({
+    open: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    confirmColor: 'primary'
+  });
   
   // Modals
   const [openCreate, setOpenCreate] = useState(false);
@@ -289,51 +302,71 @@ const Receivables: React.FC = () => {
     }
   };
 
-  const handleSettle = async (id: number) => {
-    // This function is kept for backward compatibility if needed, but we use handleOpenSettle now
-    if (!window.confirm('Confirmar o recebimento manual desta cobrança? O sistema marcará como PAGO.')) return;
-    try {
-      const response = await receivableService.settleReceivable(id);
-      loadReceivables();
+  const handleSettle = (id: number) => {
+    setConfirmDialog({
+      open: true,
+      title: 'Baixar Cobrança',
+      message: 'Confirmar o recebimento manual desta cobrança? O sistema marcará como PAGO.',
+      confirmColor: 'success',
+      onConfirm: async () => {
+        try {
+          const response = await receivableService.settleReceivable(id);
+          loadReceivables();
 
-      if (response.unblock_attempted) {
-        setUnblockResult({
-          attempted: true,
-          success: response.unblock_success || false,
-          message: response.unblock_message || '',
-          cliente_nome: selectedReceivable?.cliente_nome || 'Cliente'
-        });
-        setUnblockResultDialogOpen(true);
-      } else {
-        setSnackbar({ open: true, message: 'Cobrança baixada com sucesso.', severity: 'success' });
+          if (response.unblock_attempted) {
+            setUnblockResult({
+              attempted: true,
+              success: response.unblock_success || false,
+              message: response.unblock_message || '',
+              cliente_nome: selectedReceivable?.cliente_nome || 'Cliente'
+            });
+            setUnblockResultDialogOpen(true);
+          } else {
+            setSnackbar({ open: true, message: 'Cobrança baixada com sucesso.', severity: 'success' });
+          }
+        } catch (e) {
+          setSnackbar({ open: true, message: stringifyError(e), severity: 'error' });
+        }
       }
-    } catch (e) {
-      setSnackbar({ open: true, message: stringifyError(e), severity: 'error' });
-    }
+    });
     setAnchorEl(null);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('Deseja excluir permanentemente esta cobrança? Esta ação removerá o registro do banco de dados e não pode ser desfeita. (Será solicitada baixa no banco se estiver registrada)')) return;
-    try {
-      await receivableService.cancelReceivable(id);
-      setSnackbar({ open: true, message: 'Cobrança excluída com sucesso', severity: 'success' });
-      loadReceivables();
-    } catch (e) {
-      setSnackbar({ open: true, message: stringifyError(e), severity: 'error' });
-    }
+  const handleDelete = (id: number) => {
+    setConfirmDialog({
+      open: true,
+      title: 'Excluir Cobrança',
+      message: 'Deseja excluir permanentemente esta cobrança? Esta ação removerá o registro do banco de dados e não pode ser desfeita. (Será solicitada baixa no banco se estiver registrada)',
+      confirmColor: 'error',
+      onConfirm: async () => {
+        try {
+          await receivableService.cancelReceivable(id);
+          setSnackbar({ open: true, message: 'Cobrança excluída com sucesso', severity: 'success' });
+          loadReceivables();
+        } catch (e) {
+          setSnackbar({ open: true, message: stringifyError(e), severity: 'error' });
+        }
+      }
+    });
     setAnchorEl(null);
   };
 
-  const handleRefund = async (id: number) => {
-    if (!window.confirm('Confirma o estorno do pagamento desta cobrança? O status voltará a ser PENDENTE.')) return;
-    try {
-      await receivableService.refundReceivable(id);
-      setSnackbar({ open: true, message: 'Pagamento estornado com sucesso!', severity: 'success' });
-      loadReceivables();
-    } catch (e) {
-      setSnackbar({ open: true, message: stringifyError(e), severity: 'error' });
-    }
+  const handleRefund = (id: number) => {
+    setConfirmDialog({
+      open: true,
+      title: 'Estornar Pagamento',
+      message: 'Confirma o estorno do pagamento desta cobrança? O status voltará a ser PENDENTE.',
+      confirmColor: 'warning',
+      onConfirm: async () => {
+        try {
+          await receivableService.refundReceivable(id);
+          setSnackbar({ open: true, message: 'Pagamento estornado com sucesso!', severity: 'success' });
+          loadReceivables();
+        } catch (e) {
+          setSnackbar({ open: true, message: stringifyError(e), severity: 'error' });
+        }
+      }
+    });
     setAnchorEl(null);
   };
 
@@ -867,6 +900,28 @@ const Receivables: React.FC = () => {
         <DialogActions sx={{ p: 2 }}>
           <Button variant="contained" color={unblockResult?.success ? "success" : "warning"} onClick={() => setUnblockResultDialogOpen(false)} sx={{ borderRadius: 2, px: 3 }}>
             Entendido
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+
+      {/* Modal de Confirmação Genérico */}
+      <Dialog open={confirmDialog.open} onClose={() => setConfirmDialog(prev => ({ ...prev, open: false }))} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>{confirmDialog.title}</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2">{confirmDialog.message}</Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setConfirmDialog(prev => ({ ...prev, open: false }))}>Cancelar</Button>
+          <Button 
+            variant="contained" 
+            color={confirmDialog.confirmColor || 'primary'} 
+            onClick={() => {
+              confirmDialog.onConfirm();
+              setConfirmDialog(prev => ({ ...prev, open: false }));
+            }}
+          >
+            Confirmar
           </Button>
         </DialogActions>
       </Dialog>

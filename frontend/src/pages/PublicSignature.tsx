@@ -12,7 +12,9 @@ import {
   Alert, 
   Divider,
   Stack,
-  IconButton
+  IconButton,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 import { 
   Delete as DeleteIcon, 
@@ -26,6 +28,9 @@ const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://l
 const PublicSignature: React.FC = () => {
     const { token } = useParams<{ token: string }>();
     const { enqueueSnackbar } = useSnackbar();
+    
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -168,11 +173,12 @@ const PublicSignature: React.FC = () => {
 
                     {/* Contract Preview */}
                     <Paper variant="outlined" sx={{ 
-                        p: 3, 
+                        p: { xs: 1, sm: 3 }, 
                         maxHeight: '600px', 
                         overflowY: 'auto', 
                         bgcolor: '#fff',
                         mb: 4,
+                        '& .no-print': { display: 'none' },
                         '& .section': { marginBottom: '20px' },
                         '& h1, & h2, & h3': { color: '#1a202c' },
                         '& table': { width: '100%', borderCollapse: 'collapse', margin: '10px 0' },

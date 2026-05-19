@@ -345,6 +345,13 @@ def create_servico_contratado(db: Session, contrato_in: sc_schema.ServicoContrat
     db.commit()
     db.refresh(db_obj)
 
+    # Se numero_contrato não foi informado, gerar automaticamente com o ID do contrato criado
+    if not db_obj.numero_contrato or db_obj.numero_contrato.strip() == '':
+        db_obj.numero_contrato = str(db_obj.id)
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+
     for ativo_in in ativos_data:
         ativo_dict = ativo_in if isinstance(ativo_in, dict) else ativo_in.model_dump()
         db_ativo = models.AtivoContrato(**ativo_dict, contrato_id=db_obj.id)

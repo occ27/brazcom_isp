@@ -1853,12 +1853,7 @@ const Contracts: React.FC = () => {
         console.log('Contract data after filtering (create):', contractData);
         console.log('Contract data JSON:', JSON.stringify(contractData));
         const createdContrato = await contratoService.createContrato(activeCompany.id, contractData);
-        // Atualizar o numero_contrato com o ID real do contrato criado
-        if (createdContrato.id) {
-          await contratoService.updateContrato(activeCompany.id, createdContrato.id, {
-            numero_contrato: createdContrato.id.toString()
-          });
-        }
+
         setSnackbar({ open: true, message: 'Contrato criado com sucesso!', severity: 'success' });
       }
 
@@ -2138,7 +2133,7 @@ const Contracts: React.FC = () => {
             className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/50 to-black/70 backdrop-blur-md"
             onClick={handleCloseForm}
           />
-          <div className="relative bg-gradient-to-br from-white via-gray-50 to-blue-50 border border-borderLight rounded-2xl sm:rounded-3xl shadow-modern-hover w-full max-w-sm sm:max-w-md lg:max-w-4xl h-full sm:h-auto max-h-screen sm:max-h-[90vh] flex flex-col overflow-hidden">
+          <div className={`relative bg-gradient-to-br from-white via-gray-50 to-blue-50 border border-borderLight shadow-modern-hover w-full max-w-sm sm:max-w-md lg:max-w-4xl h-full sm:h-auto max-h-screen sm:max-h-[90vh] flex flex-col overflow-hidden ${isMobile ? 'rounded-none' : 'rounded-2xl sm:rounded-3xl'}`}>
             <div className="flex items-center justify-between p-3 sm:p-6 border-b border-borderLight bg-gradient-to-r from-white to-blue-50/30 flex-shrink-0">
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow">
@@ -2170,11 +2165,23 @@ const Contracts: React.FC = () => {
                   aria-label="contrato tabs"
                   variant="scrollable"
                   scrollButtons="auto"
+                  allowScrollButtonsMobile={isMobile}
+                  sx={isMobile ? {
+                    minHeight: 48,
+                    '& .MuiTabs-flexContainer': {
+                      gap: 0.5,
+                    },
+                    '& .MuiTab-root': {
+                      minWidth: 'auto',
+                      px: 1.5,
+                      fontSize: '0.8rem',
+                    }
+                  } : undefined}
                 >
-                  <Tab label="📋 Dados do Contrato" />
-                  <Tab label="🌐 Configuração de Rede" />
-                  <Tab label="💰 Cobrança e SLA" />
-                  <Tab label="🛠️ Instalação e Ativos" />
+                  <Tab label={isMobile ? "📋 Contrato" : "📋 Dados do Contrato"} />
+                  <Tab label={isMobile ? "🌐 Rede" : "🌐 Configuração de Rede"} />
+                  <Tab label={isMobile ? "💰 Cobrança" : "💰 Cobrança e SLA"} />
+                  <Tab label={isMobile ? "🛠️ Instalação" : "🛠️ Instalação e Ativos"} />
                 </Tabs>
               </Box>
 
@@ -2345,14 +2352,6 @@ const Contracts: React.FC = () => {
                             // Usar preço promocional se estiver ativo
                             if (value.promotional_active && value.promotional_price) {
                               handleInputChange('valor_unitario', value.promotional_price);
-                            }
-
-                            // Preencher número do contrato automaticamente (será atualizado com ID após criação)
-                            if (!form.numero_contrato) {
-                              // Gerar um número temporário baseado na data atual + código do serviço
-                              const today = new Date();
-                              const tempNumber = `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}-${value.id}`;
-                              handleInputChange('numero_contrato', tempNumber);
                             }
 
                             // Preencher data de início com hoje
@@ -2809,7 +2808,7 @@ const Contracts: React.FC = () => {
                   </div>
 
                   <div className="bg-gradient-to-r from-orange-50 to-amber-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-orange-100">
-                    <div className="flex justify-between items-center mb-4">
+                    <div className={isMobile ? "flex flex-col justify-between items-stretch gap-3 mb-4" : "flex justify-between items-center mb-4"}>
                       <h3 className="text-lg sm:text-xl font-bold text-orange-800 flex items-center">
                         <span className="mr-2 text-base sm:text-lg">📟</span>
                         <span className="text-sm sm:text-base">Equipamentos e Ativos</span>
@@ -2821,6 +2820,7 @@ const Contracts: React.FC = () => {
                         onClick={addAtivo}
                         startIcon={<span className="text-lg">+</span>}
                         className="rounded-full shadow-sm"
+                        sx={isMobile ? { width: '100%' } : undefined}
                       >
                         Adicionar Equipamento
                       </Button>
@@ -3308,54 +3308,129 @@ const Contracts: React.FC = () => {
       </Dialog>
 
       {/* Modal Visualização de Contrato */}
-      <Dialog open={openContractModal} onClose={() => { setOpenContractModal(false); setContractHtmlUrl(null); }} maxWidth="lg" fullWidth>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'primary.main', color: 'white' }}>
-          Visualização do Termo de Adesão
-          <IconButton onClick={() => { setOpenContractModal(false); setContractHtmlUrl(null); }} sx={{ color: 'white' }}><XMarkIcon className="w-6 h-6" /></IconButton>
+      <Dialog
+        open={openContractModal}
+        onClose={() => { setOpenContractModal(false); setContractHtmlUrl(null); }}
+        maxWidth="lg"
+        fullWidth
+        fullScreen={isMobile}
+      >
+        <DialogTitle sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          bgcolor: 'primary.main',
+          color: 'white',
+          px: isMobile ? 2 : undefined,
+          py: isMobile ? 1.5 : undefined
+        }}>
+          {isMobile ? (
+            <Typography variant="h6" sx={{ fontSize: '1.05rem', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              Termo de Adesão
+            </Typography>
+          ) : (
+            "Visualização do Termo de Adesão"
+          )}
+          <IconButton onClick={() => { setOpenContractModal(false); setContractHtmlUrl(null); }} sx={{ color: 'white', p: isMobile ? 0.5 : undefined }}><XMarkIcon className="w-6 h-6" /></IconButton>
         </DialogTitle>
-        <DialogContent sx={{ p: 0, height: '85vh', bgcolor: '#f5f5f5' }}>
+        <DialogContent sx={isMobile ? { p: 0, flex: 1, display: 'flex', flexDirection: 'column', height: '100%', bgcolor: '#f5f5f5', overflow: 'hidden' } : { p: 0, height: '85vh', bgcolor: '#f5f5f5' }}>
           {contractHtmlUrl ? (
-            <iframe src={contractHtmlUrl} width="100%" height="100%" style={{ border: 'none' }} title="Termo de Adesão" />
+            <iframe src={contractHtmlUrl} width="100%" height="100%" style={isMobile ? { border: 'none', flexGrow: 1, width: '100%', height: '100%' } : { border: 'none' }} title="Termo de Adesão" />
           ) : (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}><CircularProgress /></Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5', gap: 1 }}>
-          <Button onClick={() => { setOpenContractModal(false); setContractHtmlUrl(null); setViewingContractId(null); }}>Fechar</Button>
+        <DialogActions sx={isMobile ? {
+          p: 2,
+          bgcolor: '#f5f5f5',
+          gap: 1.5,
+          justifyContent: 'center',
+          flexDirection: 'row'
+        } : { p: 2, bgcolor: '#f5f5f5', gap: 1 }}>
+          {isMobile ? (
+            <>
+              <Button
+                onClick={() => { setOpenContractModal(false); setContractHtmlUrl(null); setViewingContractId(null); }}
+                variant="outlined"
+                color="inherit"
+                sx={{ minWidth: '48px', px: 0 }}
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </Button>
 
-          {viewingContractId && contratos.find(c => c.id === viewingContractId)?.assinado_em && (
-            <Button
-              variant="outlined"
-              color="secondary"
-              startIcon={<ArrowPathIcon className="w-5 h-5" />}
-              onClick={() => handleReiniciarAssinatura(viewingContractId)}
-              disabled={loading}
-            >
-              Reiniciar Assinatura
-            </Button>
+              {viewingContractId && contratos.find(c => c.id === viewingContractId)?.assinado_em && (
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={() => handleReiniciarAssinatura(viewingContractId)}
+                  disabled={loading}
+                  sx={{ minWidth: '48px', px: 0 }}
+                >
+                  <ArrowPathIcon className="w-5 h-5" />
+                </Button>
+              )}
+
+              <Button
+                variant="outlined"
+                color="info"
+                onClick={() => viewingContractId && handleSendContractNotification(viewingContractId)}
+                disabled={!viewingContractId || loading}
+                sx={{ minWidth: '48px', px: 0 }}
+              >
+                <EnvelopeIcon className="w-5 h-5" />
+              </Button>
+              <Button
+                variant="contained"
+                onClick={() => {
+                  const iframe = document.querySelector('iframe[title="Termo de Adesão"]') as HTMLIFrameElement;
+                  if (iframe && iframe.contentWindow) {
+                    iframe.contentWindow.print();
+                  }
+                }}
+                sx={{ minWidth: '48px', px: 0 }}
+              >
+                <PrinterIcon className="w-5 h-5" />
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button onClick={() => { setOpenContractModal(false); setContractHtmlUrl(null); setViewingContractId(null); }}>Fechar</Button>
+
+              {viewingContractId && contratos.find(c => c.id === viewingContractId)?.assinado_em && (
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  startIcon={<ArrowPathIcon className="w-5 h-5" />}
+                  onClick={() => handleReiniciarAssinatura(viewingContractId)}
+                  disabled={loading}
+                >
+                  Reiniciar Assinatura
+                </Button>
+              )}
+
+              <Button
+                variant="outlined"
+                color="info"
+                startIcon={<EnvelopeIcon className="w-5 h-5" />}
+                onClick={() => viewingContractId && handleSendContractNotification(viewingContractId)}
+                disabled={!viewingContractId || loading}
+              >
+                Enviar Notificação
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<PrinterIcon className="w-5 h-5" />}
+                onClick={() => {
+                  const iframe = document.querySelector('iframe[title="Termo de Adesão"]') as HTMLIFrameElement;
+                  if (iframe && iframe.contentWindow) {
+                    iframe.contentWindow.print();
+                  }
+                }}
+              >
+                Imprimir
+              </Button>
+            </>
           )}
-
-          <Button
-            variant="outlined"
-            color="info"
-            startIcon={<EnvelopeIcon className="w-5 h-5" />}
-            onClick={() => viewingContractId && handleSendContractNotification(viewingContractId)}
-            disabled={!viewingContractId || loading}
-          >
-            Enviar Notificação
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<PrinterIcon className="w-5 h-5" />}
-            onClick={() => {
-              const iframe = document.querySelector('iframe[title="Termo de Adesão"]') as HTMLIFrameElement;
-              if (iframe && iframe.contentWindow) {
-                iframe.contentWindow.print();
-              }
-            }}
-          >
-            Imprimir
-          </Button>
         </DialogActions>
       </Dialog>
 
