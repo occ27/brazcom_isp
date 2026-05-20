@@ -18,36 +18,75 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/servicos-contratados", tags=["ServicosContratados"])
 
-@router.get("/public/aviso/empresa/{empresa_id}")
+@router.get("/public/aviso/empresa/{empresa_id}", response_class=Response)
 def get_public_suspension_notice_by_empresa(empresa_id: int, request: Request, db: Session = Depends(get_db)):
-    """Busca informações públicas da empresa e tenta identificar o cliente pelo IP."""
+    """Exibe pagina HTML de aviso de suspensao para o cliente bloqueado."""
+    from fastapi.responses import HTMLResponse
     empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
     if not empresa:
-        raise HTTPException(status_code=404, detail="Empresa não encontrada")
-    
-    # Tenta obter o IP real do cliente (atrás de proxy)
+        raise HTTPException(status_code=404, detail="Empresa nao encontrada")
+
     client_ip = request.headers.get("X-Forwarded-For")
     if client_ip:
         client_ip = client_ip.split(",")[0].strip()
     else:
         client_ip = request.headers.get("X-Real-IP") or request.client.host
-        
-    logger.info(f"Requisição de aviso de suspensão para empresa {empresa_id} vinda do IP {client_ip}")
-    
-    # Tenta encontrar o contrato vinculado a este IP nesta empresa
+
+    logger.info(f"Aviso de suspensao para empresa {empresa_id} acessado pelo IP {client_ip}")
+
     contrato = db.query(ServicoContratado).filter(
         ServicoContratado.empresa_id == empresa_id,
         ServicoContratado.assigned_ip == client_ip
     ).first()
-    
-    return {
-        "cliente_nome": contrato.cliente.razao_social if contrato and contrato.cliente else None,
-        "empresa_nome": empresa.razao_social,
-        "empresa_fantasia": empresa.nome_fantasia,
-        "empresa_logo": empresa.logo_url,
-        "empresa_telefone": empresa.telefone,
-        "suspension_message": empresa.suspension_message
-    }
+
+    cliente_nome = contrato.cliente.razao_social if contrato and contrato.cliente else None
+    empresa_nome = empresa.nome_fantasia or empresa.razao_social
+    empresa_tel = empresa.telefone or ""
+    mensagem = empresa.suspension_message or "Seu acesso esta temporariamente suspenso. Entre em contato com o suporte para regularizar sua situacao."
+    logo_url = empresa.logo_url or ""
+
+    logo_html = f'<img src="{logo_url}" alt="Logo {empresa_nome}" style="max-height:80px;margin-bottom:24px;">' if logo_url else ""
+    cliente_html = f'<p style="color:#94a3b8;font-size:14px;">Cliente: <strong style="color:#e2e8f0">{cliente_nome}</strong></p>' if cliente_nome else ""
+    tel_html = f'<p style="margin-top:24px;color:#94a3b8;">Suporte: <a href="tel:{empresa_tel}" style="color:#38bdf8;text-decoration:none;font-weight:600">{empresa_tel}</a></p>' if empresa_tel else ""
+
+    html = f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acesso Suspenso - {empresa_nome}</title>
+<style>
+  *{{margin:0;padding:0;box-sizing:border-box}}
+  body{{min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:20px}}
+  .card{{background:#1e293b;border:1px solid #334155;border-radius:16px;
+    padding:48px 40px;max-width:480px;width:100%;text-align:center;
+    box-shadow:0 25px 50px rgba(0,0,0,.5)}}
+  .icon{{width:64px;height:64px;background:#ef44440f;border-radius:50%;display:flex;
+    align-items:center;justify-content:center;margin:0 auto 24px;font-size:28px}}
+  h1{{color:#f1f5f9;font-size:22px;font-weight:700;margin-bottom:12px}}
+  .empresa{{color:#38bdf8;font-size:13px;font-weight:600;letter-spacing:.05em;
+    text-transform:uppercase;margin-bottom:28px}}
+  .msg{{color:#cbd5e1;font-size:15px;line-height:1.7;background:#0f172a;
+    border-radius:10px;padding:20px;border-left:3px solid #ef4444}}
+</style>
+</head>
+<body>
+<div class="card">
+  {logo_html}
+  <div class="icon">&#128274;</div>
+  <p class="empresa">{empresa_nome}</p>
+  <h1>Acesso Suspenso</h1>
+  {cliente_html}
+  <div class="msg">{mensagem}</div>
+  {tel_html}
+</div>
+</body>
+</html>"""
+
+    return HTMLResponse(content=html, status_code=200)
+
 
 
 @router.get("/public/aviso/{contrato_id}")

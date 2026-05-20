@@ -174,8 +174,8 @@ async def captive_portal_middleware(request: Request, call_next):
     except Exception:
         pass
 
-    # Hosts legítimos que o servidor atende diretamente
-    valid_hosts = [backend_host, "localhost", "127.0.0.1"]
+    # Hosts legítimos que o servidor atende diretamente (não devem ser redirecionados)
+    valid_hosts = [backend_host, "localhost", "127.0.0.1", "10.20.0.1"]
 
     # Se o host solicitado é diferente dos hosts do nosso sistema
     is_external_request = host_header and host_header not in valid_hosts
@@ -212,12 +212,14 @@ async def captive_portal_middleware(request: Request, call_next):
                     empresa_id = primeira_empresa.id
                     import logging
                     logging.getLogger("uvicorn.error").warning(
-                        f"IP {client_ip} não reconhecido no captive portal. Usando fallback para empresa {empresa_id}."
+                        f"IP {client_ip} nao reconhecido no captive portal. Usando fallback para empresa {empresa_id}."
                     )
-            
-            # Se identificou a empresa, faz o redirect 302 para a página correta
+
+            # Redireciona para o endpoint de aviso no backend (porta 8015).
+            # O path /servicos-contratados/public/ esta na lista de allowed_prefixes do middleware
+            # portanto nao causara loop de redirecionamento.
             if empresa_id:
-                aviso_url = f"{settings.BACKEND_URL.rstrip('/')}/servicos-contratados/public/aviso/empresa/{empresa_id}"
+                aviso_url = f"http://10.20.0.1:8015/servicos-contratados/public/aviso/empresa/{empresa_id}"
                 return RedirectResponse(url=aviso_url, status_code=302)
         except Exception as e:
             import logging
