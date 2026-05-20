@@ -937,18 +937,12 @@ class MikrotikController:
             # O backend nao saberia qual ISP esta fazendo a chamada apenas pela URL.
             #
             # SOLUCAO: Adicionamos uma regra SNAT (masquerade) para o trafego dos
-            # clientes bloqueados que vai em direcao ao portal captivo. Com isso:
-            #   - Sem SNAT: backend ve src=192.168.1.5 (IP privado do cliente) <- inutil
-            #   - Com SNAT: backend ve src=<IP VPN do MikroTik>  <- unico por provedor!
-            #
-            # O backend faz lookup na tabela de routers pelo IP de origem da conexao
-            # e assim identifica a qual empresa/provedor aquele router pertence.
+            # clientes bloqueados que vai em direcao aos IPs liberados no Walled Garden.
             snat_masquerade = {
                 'chain': 'srcnat',
                 'protocol': 'tcp',
                 'src-address-list': 'pg_corte',
-                'dst-address': portal_host,
-                'dst-port': portal_port,
+                'dst-address-list': 'liberados_corte',
                 'action': 'masquerade',
                 'comment': 'ISP_SNAT_PORTAL_CAPTIVO'
             }
@@ -959,7 +953,7 @@ class MikrotikController:
                     nat.set(id=rid, **snat_masquerade)
             else:
                 nat.add(**snat_masquerade)
-            results.append("Regra SNAT masquerade configurada: backend identificara o MikroTik pelo IP VPN.")
+            results.append("Regra SNAT masquerade configurada para o Walled Garden (bypassa problemas de roteamento reverso).")
 
         except Exception as e:
             results.append(f"Erro ao configurar DST-NAT: {e}")

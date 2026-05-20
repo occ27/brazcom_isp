@@ -211,12 +211,7 @@ async def captive_portal_middleware(request: Request, call_next):
             
             # Se identificou a empresa, faz o redirect 302 para a página correta
             if empresa_id:
-                # Usa o IP da VPN / URL Local para garantir que o cliente não caia na barreira de DNS da Cloudflare
-                # Assumimos que o frontend web do painel está servindo na porta 3015 da VPN.
-                # Se houver uma forma dinâmica, usaríamos a suspension_url do BD, 
-                # mas o Uvicorn responde na 8015, e o Vite na 3015.
-                aviso_url = f"http://10.20.0.1:3015/servicos-contratados/public/aviso/empresa/{empresa_id}"
-                
+                aviso_url = f"{settings.BACKEND_URL.rstrip('/')}/servicos-contratados/public/aviso/empresa/{empresa_id}"
                 return RedirectResponse(url=aviso_url, status_code=302)
         except Exception as e:
             import logging
