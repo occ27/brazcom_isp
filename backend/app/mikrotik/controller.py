@@ -803,12 +803,16 @@ class MikrotikController:
             if fresh_rules:
                 current_top_id = fresh_rules[0].get('.id') or fresh_rules[0].get('id')
 
-            # Inserir em ordem REVERSA: como cada add(place_before=X) coloca a regra antes de X,
-            # inserindo do final para o início da lista, a primeira regra da lista acaba no topo real.
-            for rule in reversed(rules_to_apply):
-                if current_top_id:
+            # Inserir as regras na ordem correta:
+            # - Se há regras não-ISP como ponto de referência: inserir em ordem REVERSA com place_before
+            #   (cada inserção empurra as anteriores para baixo, a primeira fica no topo no final)
+            # - Se a tabela está vazia (só tinha regras ISP_): inserir em ordem NORMAL
+            #   (cada add() adiciona ao final, resultando na ordem correta)
+            if current_top_id:
+                for rule in reversed(rules_to_apply):
                     filter_rules.add(place_before=current_top_id, **rule)
-                else:
+            else:
+                for rule in rules_to_apply:
                     filter_rules.add(**rule)
 
             logger.info("Regras de Firewall Filter para suspensão configuradas com sucesso.")
