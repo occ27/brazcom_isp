@@ -718,6 +718,14 @@ class MikrotikController:
                     'action': 'accept',
                     'comment': 'ISP_ALLOW_DNS_INPUT_BLOQUEADOS'
                 },
+                # 1b. Permitir ICMP Input — cliente bloqueado consegue pingar o roteador (10.20.0.1)
+                {
+                    'chain': 'input',
+                    'src-address-list': 'pg_corte',
+                    'protocol': 'icmp',
+                    'action': 'accept',
+                    'comment': 'ISP_ALLOW_ICMP_INPUT_BLOQUEADOS'
+                },
                 # 2. Permitir DNS UDP/53 Forward — clientes bloqueados ainda precisam resolver nomes externos
                 {
                     'chain': 'forward',
@@ -778,6 +786,8 @@ class MikrotikController:
             # ── ESTRATÉGIA: Apagar TODAS as regras ISP_ existentes e recriar na ordem certa ──
             # Usar set() não move a regra de posição — a regra de DROP continuaria antes das de ALLOW.
             # Deletar e recriar garante a ordem correta sempre.
+            # IMPORTANTE: all_rules vem de /ip/firewall/filter, portanto só apaga regras de filtro,
+            # nunca regras de NAT (masquerade). Isso é seguro.
             for r in all_rules:
                 if r.get('comment', '').startswith('ISP_'):
                     rid = r.get('.id') or r.get('id')
