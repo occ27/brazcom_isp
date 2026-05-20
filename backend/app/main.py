@@ -196,6 +196,18 @@ async def captive_portal_middleware(request: Request, call_next):
                 contrato = db.query(ServicoContratado).filter(ServicoContratado.assigned_ip == client_ip).first()
                 if contrato:
                     empresa_id = contrato.empresa_id
+
+            # Caso 3: Fallback de segurança. Se o IP do roteador (ex: VPN) estiver desatualizado
+            # no cadastro do sistema, garantimos que o usuário seja bloqueado na empresa principal.
+            if not empresa_id:
+                from app.models.models import Empresa
+                primeira_empresa = db.query(Empresa).first()
+                if primeira_empresa:
+                    empresa_id = primeira_empresa.id
+                    import logging
+                    logging.getLogger("uvicorn.error").warning(
+                        f"IP {client_ip} não reconhecido no captive portal. Usando fallback para empresa {empresa_id}."
+                    )
             
             # Se identificou a empresa, faz o redirect 302 para a página correta
             if empresa_id:
