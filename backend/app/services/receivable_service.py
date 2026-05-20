@@ -67,6 +67,11 @@ def generate_receivable_from_contract(db: Session, contrato: ServicoContratado, 
         day = min(target_date.day, days_in_month(target_date.year, target_date.month))
         due_date = datetime(target_date.year, target_date.month, day)
 
+    # Se a data de vencimento calculada for anterior à data de emissão/alvo (ex: faturamento proporcional
+    # de primeiro mês iniciado após o dia de vencimento), damos um prazo padrão de 5 dias a partir do target_date.
+    if due_date.date() < target_date:
+        due_date = datetime(target_date.year, target_date.month, target_date.day) + timedelta(days=5)
+
     recv = Receivable(
         empresa_id=contrato.empresa_id,
         cliente_id=contrato.cliente_id,
@@ -210,28 +215,18 @@ def generate_receivables_for_company(db: Session, empresa_id: int, target_date: 
         if not should_generate_for_contract(c, target_date):
             continue
 
-        # Evitar duplicados no mesmo mês/ano de faturamento (com base no vencimento esperado)
-        expected_due_year = target_date.year
-        expected_due_month = target_date.month
-        if c.dia_vencimento:
-            if c.dia_emissao and c.dia_emissao > c.dia_vencimento:
-                if expected_due_month == 12:
-                    expected_due_month = 1
-                    expected_due_year += 1
-                else:
-                    expected_due_month += 1
-
+        # Evitar duplicados no mesmo mês/ano de faturamento (com base na data de emissão/geração)
         import datetime as _dt
-        start_due = _dt.datetime(expected_due_year, expected_due_month, 1, 0, 0, 0)
-        if expected_due_month == 12:
-            end_due = _dt.datetime(expected_due_year + 1, 1, 1, 0, 0, 0)
+        start_issue = _dt.datetime(target_date.year, target_date.month, 1, 0, 0, 0)
+        if target_date.month == 12:
+            end_issue = _dt.datetime(target_date.year + 1, 1, 1, 0, 0, 0)
         else:
-            end_due = _dt.datetime(expected_due_year, expected_due_month + 1, 1, 0, 0, 0)
+            end_issue = _dt.datetime(target_date.year, target_date.month + 1, 1, 0, 0, 0)
 
         existing_recv = db.query(Receivable).filter(
             Receivable.servico_contratado_id == c.id,
-            Receivable.due_date >= start_due,
-            Receivable.due_date < end_due
+            Receivable.issue_date >= start_issue,
+            Receivable.issue_date < end_issue
         ).first()
 
         if existing_recv:
