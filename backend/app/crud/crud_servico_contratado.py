@@ -332,6 +332,9 @@ def create_servico_contratado(db: Session, contrato_in: sc_schema.ServicoContrat
     if 'numero_contrato' in data: data['numero_contrato'] = _normalize_text(str(data['numero_contrato']), 50)
     if 'periodicidade' in data: data['periodicidade'] = _normalize_text(str(data['periodicidade']), 20)
     
+    if not data.get('data_inicio_cobranca') and data.get('d_contrato_ini'):
+        data['data_inicio_cobranca'] = data['d_contrato_ini']
+    
     try:
         if data.get('valor_total') in (None, ''):
             data['valor_total'] = round(float(data.get('quantidade') or 1) * float(data.get('valor_unitario') or 0), 2)

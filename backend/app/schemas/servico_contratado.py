@@ -11,6 +11,7 @@ class ServicoContratadoBase(BaseModel):
     numero_contrato: Optional[str] = Field(None, max_length=50)
     d_contrato_ini: Optional[date] = None
     d_contrato_fim: Optional[date] = None
+    data_inicio_cobranca: Optional[date] = None
     status: StatusContrato = StatusContrato.PENDENTE_INSTALACAO
     
     # Informações de instalação
@@ -127,6 +128,7 @@ class ServicoContratadoUpdate(BaseModel):
     numero_contrato: Optional[str] = Field(None, max_length=50)
     d_contrato_ini: Optional[date] = None
     d_contrato_fim: Optional[date] = None
+    data_inicio_cobranca: Optional[date] = None
     status: Optional[StatusContrato] = None
     endereco_id: Optional[int] = Field(None)
     endereco_instalacao: Optional[str] = Field(None, max_length=500)

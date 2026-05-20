@@ -41,7 +41,7 @@ def generate_receivable_from_contract(db: Session, contrato: ServicoContratado, 
     """
     base = (contrato.valor_unitario or 0.0) * (contrato.quantidade or 1.0)
     # por enquanto não somamos taxa_instalacao automaticamente (configurável)
-    start = contrato.d_contrato_ini
+    start = contrato.data_inicio_cobranca or contrato.d_contrato_ini
     amount = base
     if start:
         amount = prorated_amount_for_period(base, start, target_date)
@@ -150,7 +150,8 @@ def create_and_persist_receivable(db: Session, recv: Receivable) -> Receivable:
 
 def should_generate_for_contract(contrato: ServicoContratado, target_date: date) -> bool:
     """Verifica se deve gerar cobrança para o contrato na data alvo, baseado na periodicidade e dia_emissao."""
-    if not contrato.dia_emissao or not contrato.d_contrato_ini:
+    ref_date = contrato.data_inicio_cobranca or contrato.d_contrato_ini
+    if not contrato.dia_emissao or not ref_date:
         return False
 
     # Verificar se o contrato já foi emitido recentemente (evitar duplicatas)
@@ -169,7 +170,7 @@ def should_generate_for_contract(contrato: ServicoContratado, target_date: date)
         return False
 
     # Verificar periodicidade baseada na data de início
-    months_diff = (target_date.year - contrato.d_contrato_ini.year) * 12 + (target_date.month - contrato.d_contrato_ini.month)
+    months_diff = (target_date.year - ref_date.year) * 12 + (target_date.month - ref_date.month)
 
     if contrato.periodicidade == 'MENSAL':
         return True  # Já verificou dia
@@ -199,8 +200,8 @@ def generate_receivables_for_company(db: Session, empresa_id: int, target_date: 
     ).all()
     created = []
     for c in contratos:
-        # pular contratos que ainda não começaram (d_contrato_ini no futuro)
-        if c.d_contrato_ini and c.d_contrato_ini > target_date:
+        ref_date = c.data_inicio_cobranca or c.d_contrato_ini
+        if ref_date and ref_date > target_date:
             continue
         # pular contratos que já terminaram
         if c.d_contrato_fim and c.d_contrato_fim < target_date:

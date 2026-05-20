@@ -458,6 +458,7 @@ class ServicoContratado(Base):
     is_active = Column(Boolean, default=True)
     last_emission = Column(DateTime(timezone=True), nullable=True)
     next_emission = Column(DateTime(timezone=True), nullable=True)
+    data_inicio_cobranca = Column(Date, nullable=True)
 
     # Relacionamento com subscription ativa (provisionamento)
     subscription_id = Column(Integer, ForeignKey("subscriptions.id"), nullable=True)  # Link com ativação atual

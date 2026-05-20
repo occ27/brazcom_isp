@@ -122,6 +122,7 @@ const Contracts: React.FC = () => {
     // Campos de data opcionais
     d_contrato_ini: undefined,
     d_contrato_fim: undefined,
+    data_inicio_cobranca: undefined,
     data_instalacao: undefined,
     // Novos campos de rede
     router_id: undefined,
@@ -1187,6 +1188,7 @@ const Contracts: React.FC = () => {
       }
       normalized.d_contrato_ini = toLocalDateInputString(c.d_contrato_ini);
       normalized.d_contrato_fim = toLocalDateInputString(c.d_contrato_fim);
+      normalized.data_inicio_cobranca = toLocalDateInputString(c.data_inicio_cobranca);
       // Debugging: log raw + normalized to help diagnose TZ/format issues
       // eslint-disable-next-line no-console
       console.log('handleOpenForm - vencimento raw:', c.vencimento, 'normalized:', normalized.vencimento);
@@ -1265,6 +1267,7 @@ const Contracts: React.FC = () => {
         subscription_id: undefined,
         d_contrato_ini: today,
         d_contrato_fim: oneYearFromNowStr,
+        data_inicio_cobranca: today,
         data_instalacao: today,
         router_id: undefined,
         interface_id: undefined,
@@ -1464,9 +1467,19 @@ const Contracts: React.FC = () => {
       return newForm;
     });
 
-    // Quando a data de início do contrato for alterada, preencher automaticamente a data de instalação se estiver vazia
-    if (field === 'd_contrato_ini' && value && !form.data_instalacao) {
-      setForm(prev => ({ ...prev, data_instalacao: value }));
+    // Quando a data de início do contrato for alterada, preencher automaticamente a data de instalação se estiver vazia,
+    // e também a data de início da cobrança se estiver vazia ou se era igual à data de início anterior.
+    if (field === 'd_contrato_ini' && value) {
+      setForm(prev => {
+        const updates: any = {};
+        if (!prev.data_instalacao) {
+          updates.data_instalacao = value;
+        }
+        if (!prev.data_inicio_cobranca || prev.data_inicio_cobranca === prev.d_contrato_ini) {
+          updates.data_inicio_cobranca = value;
+        }
+        return { ...prev, ...updates };
+      });
     }
 
     // Buscar coordenadas se o endereço mudar
@@ -1710,6 +1723,11 @@ const Contracts: React.FC = () => {
       newErrors.d_contrato_fim = 'Data de fim do contrato é obrigatória';
     }
 
+    // Data de início da cobrança obrigatória
+    if (!form.data_inicio_cobranca) {
+      newErrors.data_inicio_cobranca = 'Data de início da cobrança é obrigatória';
+    }
+
     // Data de instalação obrigatória
     if (!form.data_instalacao) {
       newErrors.data_instalacao = 'Data de instalação é obrigatória';
@@ -1817,7 +1835,7 @@ const Contracts: React.FC = () => {
       // Campos por aba
       const dadosPlanoFields = [
         'numero_contrato', 'cliente_id', 'servico_id', 'periodicidade', 'dia_emissao',
-        'd_contrato_ini', 'd_contrato_fim', 'dia_vencimento', 'quantidade', 'valor_unitario',
+        'd_contrato_ini', 'd_contrato_fim', 'data_inicio_cobranca', 'dia_vencimento', 'quantidade', 'valor_unitario',
         'auto_emit', 'auto_emit_nfcom', 'is_active', 'status'
       ];
 
@@ -1866,7 +1884,7 @@ const Contracts: React.FC = () => {
         // Filtrar apenas campos com valores válidos para evitar erros do Pydantic
         const contractData = Object.fromEntries(
           Object.entries(form).filter(([key, value]) => {
-            const requiredFields = ['cliente_id', 'servico_id', 'valor_unitario', 'quantidade', 'dia_emissao', 'd_contrato_ini', 'd_contrato_fim', 'data_instalacao'];
+            const requiredFields = ['cliente_id', 'servico_id', 'valor_unitario', 'quantidade', 'dia_emissao', 'd_contrato_ini', 'd_contrato_fim', 'data_inicio_cobranca', 'data_instalacao'];
             if (requiredFields.includes(key)) {
               return true; // Sempre incluir campos obrigatórios
             }
@@ -1887,7 +1905,7 @@ const Contracts: React.FC = () => {
         // Filtrar apenas campos com valores válidos para evitar erros do Pydantic
         const contractData = Object.fromEntries(
           Object.entries(form).filter(([key, value]) => {
-            const requiredFields = ['cliente_id', 'servico_id', 'valor_unitario', 'quantidade', 'dia_emissao', 'd_contrato_ini', 'd_contrato_fim', 'data_instalacao'];
+            const requiredFields = ['cliente_id', 'servico_id', 'valor_unitario', 'quantidade', 'dia_emissao', 'd_contrato_ini', 'd_contrato_fim', 'data_inicio_cobranca', 'data_instalacao'];
             if (requiredFields.includes(key)) {
               return true; // Sempre incluir campos obrigatórios
             }
@@ -2492,6 +2510,17 @@ const Contracts: React.FC = () => {
                         size="small"
                         error={!!errors.d_contrato_ini}
                         helperText={errors.d_contrato_ini}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                      <TextField
+                        label="Data Início Cobrança"
+                        type="date"
+                        value={form.data_inicio_cobranca || ''}
+                        onChange={e => handleInputChange('data_inicio_cobranca', e.target.value)}
+                        fullWidth
+                        size="small"
+                        error={!!errors.data_inicio_cobranca}
+                        helperText={errors.data_inicio_cobranca}
                         InputLabelProps={{ shrink: true }}
                       />
                       <TextField

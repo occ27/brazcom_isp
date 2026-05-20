@@ -8,6 +8,7 @@ export interface Contrato {
   numero_contrato?: string;
   d_contrato_ini?: string;
   d_contrato_fim?: string;
+  data_inicio_cobranca?: string;
   vencimento?: string; // legacy ISO date for invoice due date (kept for compatibility)
   dia_vencimento?: number; // day of month for invoice due date (1-31)
   periodicidade?: string;
