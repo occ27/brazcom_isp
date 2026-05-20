@@ -1373,19 +1373,8 @@ class MikrotikController:
             except Exception as e:
                 logger.warning(f"Falha ao adicionar IP {assigned_ip} à pg_corte: {e}")
 
-            # Opcional: Reduzir a velocidade da Queue para 2M para que o redirecionamento carregue bem, mas não navegue
-            try:
-                # O nome da queue é o nome do cliente ou contrato-ID
-                # Vamos tentar encontrar pelo comentário/nome
-                self.set_queue_simple(
-                    name=comment if comment else f"contrato-{contrato_id}",
-                    target=f"{assigned_ip}/32",
-                    max_limit="2M/2M",
-                    comment=f"{comment} - BLOQUEADO" if comment else "BLOQUEADO"
-                )
-            except Exception as e:
-                logger.warning(f"Falha ao reduzir velocidade da queue no bloqueio: {e}")
-                
+            # Conexão bloqueada sem alteração de velocidade, mantendo as configurações de Simple Queue do cliente intactas.
+            pass
             return True
 
         elif metodo_autenticacao == 'HOTSPOT':
