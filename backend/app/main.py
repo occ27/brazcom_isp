@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 # pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -140,8 +140,74 @@ app.include_router(public_contracts.router)
 app.include_router(mercadopago.router)
 app.include_router(reports.router)
 app.include_router(licenses.router)
-app.include_router(license_plans.router)
 app.include_router(whatsapp.router)
+
+from fastapi.responses import RedirectResponse
+from urllib.parse import urlparse
+from app.core.database import SessionLocal
+from app.models.network import Router
+from app.models.models import ServicoContratado
+
+@app.middleware("http")
+async def captive_portal_middleware(request: Request, call_next):
+    path = request.url.path
+
+    # Permite passar endpoints públicos e recursos estáticos
+    if path.startswith("/servicos-contratados/public/aviso/"):
+        return await call_next(request)
+
+    allowed_prefixes = [
+        "/files", "/docs", "/redoc", "/openapi.json", 
+        "/api/health", "/webhooks"
+    ]
+    if any(path.startswith(prefix) for prefix in allowed_prefixes):
+        return await call_next(request)
+
+    # Identificar se a requisição tem Host diferente do nosso backend (redirecionada pelo MikroTik)
+    host_header = request.headers.get("host", "")
+    backend_host = ""
+    try:
+        backend_host = urlparse(settings.BACKEND_URL).netloc
+    except Exception:
+        pass
+
+    # Se o host solicitado é diferente do host do nosso sistema
+    is_external_request = host_header and backend_host and host_header != backend_host
+
+    if is_external_request:
+        # Detecta IP de origem (MikroTik VPN IP se houver SNAT, ou IP do Cliente se não houver SNAT)
+        client_ip = request.headers.get("x-forwarded-for")
+        if client_ip:
+            client_ip = client_ip.split(",")[0].strip()
+        else:
+            client_ip = request.headers.get("x-real-ip") or request.client.host
+
+        db = SessionLocal()
+        try:
+            empresa_id = None
+            
+            # Caso 1: O IP de origem é o IP VPN do MikroTik (quando há SNAT masquerade)
+            router_obj = db.query(Router).filter(Router.ip == client_ip).first()
+            if router_obj:
+                empresa_id = router_obj.empresa_id
+                
+            # Caso 2: O IP de origem é o IP direto do cliente (quando não há SNAT e a rota é direta)
+            if not empresa_id:
+                contrato = db.query(ServicoContratado).filter(ServicoContratado.assigned_ip == client_ip).first()
+                if contrato:
+                    empresa_id = contrato.empresa_id
+            
+            # Se identificou a empresa, faz o redirect 302 para a página correta
+            if empresa_id:
+                aviso_url = f"{settings.BACKEND_URL.rstrip('/')}/servicos-contratados/public/aviso/empresa/{empresa_id}"
+                return RedirectResponse(url=aviso_url, status_code=302)
+        except Exception as e:
+            import logging
+            logging.getLogger("uvicorn.error").error(f"Erro no middleware do portal captivo: {e}")
+        finally:
+            db.close()
+
+    return await call_next(request)
 
 @app.get("/")
 def read_root():

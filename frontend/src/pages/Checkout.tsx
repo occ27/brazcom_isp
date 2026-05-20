@@ -123,86 +123,121 @@ const Checkout: React.FC = () => {
   }, [token, receivableIds, user]);
 
   useEffect(() => {
-    if (mpPublicKey && !loading && receivables.length > 0) {
-      loadPaymentBrick();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mpPublicKey, loading, receivables]);
+    let active = true;
+    let controller: any = null;
 
-  const loadPaymentBrick = () => {
-    const loadScript = (callback: () => void) => {
-      if (window.MercadoPago) {
-        callback();
-        return;
-      }
-      const script = document.createElement('script');
-      script.src = "https://sdk.mercadopago.com/js/v2";
-      script.onload = callback;
-      document.body.appendChild(script);
-    };
+    const initBrick = async () => {
+      if (!mpPublicKey || loading || receivables.length === 0) return;
 
-    loadScript(() => {
+      const loadScript = () => {
+        return new Promise<void>((resolve) => {
+          if (window.MercadoPago) {
+            resolve();
+            return;
+          }
+          const script = document.createElement('script');
+          script.src = "https://sdk.mercadopago.com/js/v2";
+          script.onload = () => resolve();
+          document.body.appendChild(script);
+        });
+      };
+
+      await loadScript();
+      if (!active) return;
+
       const container = document.getElementById('paymentBrick_container');
       if (!container) return;
 
       // Clean container before creating new brick
       container.innerHTML = '';
 
-      const mp = new window.MercadoPago(mpPublicKey, { locale: 'pt-BR' });
-      const bricksBuilder = mp.bricks();
+      try {
+        const mp = new window.MercadoPago(mpPublicKey, { locale: 'pt-BR' });
+        const bricksBuilder = mp.bricks();
 
-      bricksBuilder.create('payment', 'paymentBrick_container', {
-        initialization: {
-          amount: totalAmount,
-          payer: {
-            email: clientEmail || user?.email || '',
-          }
-        },
-        customization: {
-          visual: {
-            style: { theme: 'default' }
+        const instance = await bricksBuilder.create('payment', 'paymentBrick_container', {
+          initialization: {
+            amount: totalAmount,
+            payer: {
+              email: clientEmail || user?.email || '',
+            }
           },
-          paymentMethods: {
-            creditCard: mpSettings.allow_credit_card ? 'all' : [],
-            ticket: mpSettings.allow_boleto ? 'all' : [],
-            bankTransfer: mpSettings.allow_pix ? ['pix'] : [],
-            maxInstallments: 1,
-          }
-        },
-        callbacks: {
-          onReady: () => {
-            setLoading(false);
+          customization: {
+            visual: {
+              style: { theme: 'default' }
+            },
+            paymentMethods: {
+              creditCard: mpSettings.allow_credit_card ? 'all' : [],
+              ticket: mpSettings.allow_boleto ? 'all' : [],
+              bankTransfer: mpSettings.allow_pix ? ['pix'] : [],
+              maxInstallments: 1,
+            }
           },
-          onSubmit: async (param: any) => {
-             const { formData } = param;
-             try {
-               const response = await mercadopagoService.processPayment({
-                 ...formData,
-                 receivable_ids: receivableIds,
-                 transaction_amount: totalAmount,
-                 payer: {
-                    ...formData.payer,
-                    email: formData.payer.email || clientEmail || user?.email,
-                    first_name: formData.payer.first_name || clientNome?.split(' ')[0],
-                    last_name: formData.payer.last_name || clientNome?.split(' ').slice(1).join(' '),
-                 }
-               });
-               
-               // Redirect to status page
-               navigate(`/payment-status`, { state: { payment: response } });
-             } catch (err: any) {
-               console.error('Erro ao processar pagamento:', err);
-               // O Brick cuida da exibição do erro internamente na maioria dos casos
-               throw err;
-             }
-          },
-          onError: (error: any) => {
-            console.error('Erro no Brick:', error);
+          callbacks: {
+            onReady: () => {
+              // Brick is ready
+            },
+            onSubmit: async (param: any) => {
+               const { formData } = param;
+               try {
+                 const response = await mercadopagoService.processPayment({
+                   ...formData,
+                   receivable_ids: receivableIds,
+                   transaction_amount: totalAmount,
+                   payer: {
+                      ...formData.payer,
+                      email: formData.payer.email || clientEmail || user?.email,
+                      first_name: formData.payer.first_name || clientNome?.split(' ')[0],
+                      last_name: formData.payer.last_name || clientNome?.split(' ').slice(1).join(' '),
+                   }
+                 });
+                 
+                 // Redirect to status page
+                 navigate(`/payment-status`, { state: { payment: response } });
+               } catch (err: any) {
+                 console.error('Erro ao processar pagamento:', err);
+                 // O Brick cuida da exibição do erro internamente na maioria dos casos
+                 throw err;
+               }
+            },
+            onError: (error: any) => {
+              console.error('Erro no Brick:', error);
+            }
           }
+        });
+
+        if (!active) {
+          if (instance && typeof instance.unmount === 'function') {
+            instance.unmount();
+          }
+        } else {
+          controller = instance;
         }
-      });
-    });
-  };
+      } catch (err) {
+        console.error('Erro ao inicializar o Brick:', err);
+      }
+    };
+
+    initBrick();
+
+    return () => {
+      active = false;
+      if (controller && typeof controller.unmount === 'function') {
+        controller.unmount();
+      }
+    };
+  }, [
+    mpPublicKey,
+    loading,
+    receivables,
+    totalAmount,
+    clientEmail,
+    clientNome,
+    mpSettings,
+    receivableIds,
+    user,
+    navigate
+  ]);
 
   if (loading && !mpPublicKey) {
      return (

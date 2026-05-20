@@ -130,9 +130,18 @@ def setup_router_suspension(
     if not empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
 
-    # URL de aviso (usa padrão se não houver personalizada)
-    # Importante: A RB precisa conseguir chegar nessa URL.
-    suspension_url = empresa.suspension_url or f"http://isp.brazcom.com.br/aviso/{empresa.id}"
+    # URL do portal captivo — é para cá que o MikroTik fará DST-NAT do tráfego HTTP
+    # dos clientes bloqueados. O empresa_id já está embutido na URL, então o sistema
+    # sabe qual página de aviso exibir sem precisar de Web Proxy.
+    #
+    # Formato: http://<IP_DO_SISTEMA>:<PORTA>/servicos-contratados/public/captive-portal/<empresa_id>
+    # O backend responde com HTTP 302 → /public/aviso/empresa/<empresa_id>
+    #
+    # Se a empresa tiver uma suspension_url personalizada (IP próprio do servidor),
+    # usamos ela como base; caso contrário, usamos o host padrão do sistema.
+    from app.core.config import settings
+    base_host = empresa.suspension_url.rstrip("/") if empresa.suspension_url else settings.BACKEND_URL.rstrip("/")
+    suspension_url = f"{base_host}/servicos-contratados/public/captive-portal/{empresa.id}"
 
     from app.mikrotik.controller import MikrotikController
     from app.core.security import decrypt_password

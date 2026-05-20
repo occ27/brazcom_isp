@@ -51,6 +51,80 @@ def get_public_suspension_notice_by_empresa(empresa_id: int, request: Request, d
 
 
 @router.get("/public/aviso/{contrato_id}")
+def get_public_suspension_notice_by_contrato(contrato_id: int, request: Request, db: Session = Depends(get_db)):
+    """Exibe informações pública de aviso de suspensão por contrato."""
+    from app.crud import crud_servico_contratado
+    contrato = crud_servico_contratado.get_servico_contratado(db, contrato_id=contrato_id)
+    if not contrato:
+        raise HTTPException(status_code=404, detail="Contrato não encontrado")
+
+    empresa = crud_empresa.get_empresa(db, empresa_id=contrato.empresa_id)
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+
+    client_ip = request.headers.get("X-Forwarded-For")
+    if client_ip:
+        client_ip = client_ip.split(",")[0].strip()
+    else:
+        client_ip = request.headers.get("X-Real-IP") or request.client.host
+
+    logger.info(f"Aviso de suspensão do contrato {contrato_id} acessado pelo IP {client_ip}")
+
+    return {
+        "cliente_nome": contrato.cliente.razao_social if contrato.cliente else None,
+        "empresa_nome": empresa.razao_social,
+        "empresa_fantasia": empresa.nome_fantasia,
+        "empresa_logo": empresa.logo_url,
+        "empresa_telefone": empresa.telefone,
+        "suspension_message": empresa.suspension_message
+    }
+
+
+@router.get("/public/captive-portal/{empresa_id}")
+def captive_portal_redirect(empresa_id: int, request: Request, db: Session = Depends(get_db)):
+    """
+    Portal captivo: redireciona o cliente bloqueado para a página de aviso correta.
+
+    Este endpoint é acessado quando o MikroTik faz DST-NAT do tráfego HTTP (porta 80)
+    do cliente bloqueado para o servidor do sistema. O browser envia uma requisição HTTP
+    para qualquer host (ex: google.com) e chega aqui.
+
+    O endpoint responde com HTTP 302 apontando para /aviso/empresa/{empresa_id},
+    que o browser segue e exibe a página de aviso correta do provedor.
+
+    Como o provedor é identificado:
+        - A suspension_url configurada no MikroTik já contém o empresa_id.
+          Ex: http://10.20.0.1:3015/servicos-contratados/public/captive-portal/1
+        - O DST-NAT envia TODOS os bloqueados daquele router para essa URL.
+        - O empresa_id=1 já está na URL, então o sistema sabe qual página exibir.
+    """
+    from fastapi.responses import RedirectResponse
+    from urllib.parse import urlparse
+
+    empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+
+    # Detectar o IP do cliente para log
+    client_ip = request.headers.get("X-Forwarded-For")
+    if client_ip:
+        client_ip = client_ip.split(",")[0].strip()
+    else:
+        client_ip = request.headers.get("X-Real-IP") or request.client.host
+
+    # Detectar host de destino original (para log)
+    original_host = request.headers.get("host", "desconhecido")
+    logger.info(
+        f"Portal captivo acionado: empresa_id={empresa_id}, "
+        f"client_ip={client_ip}, original_host={original_host}"
+    )
+
+    # Montar URL absoluta para o redirect usando o host da request (que já é o IP do sistema)
+    # Ex: http://10.20.0.1:3015/servicos-contratados/public/aviso/empresa/1
+    base_url = str(request.base_url).rstrip("/")
+    aviso_url = f"{base_url}/servicos-contratados/public/aviso/empresa/{empresa_id}"
+
+    return RedirectResponse(url=aviso_url, status_code=302)
 
 @router.get("/", response_model=List[sc_schema.ServicoContratadoResponse])
 def list_servicos_contratados(empresa_id: int = None, q: str = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user), response: Response = None):

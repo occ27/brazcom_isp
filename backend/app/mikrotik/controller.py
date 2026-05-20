@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Esqueleto de controlador Mikrotik usando RouterOS API.
 
 Instalar dependência recomendada (exemplo): `pip install librouteros` ou `routeros-api`.
@@ -653,204 +654,326 @@ class MikrotikController:
 
     def setup_suspension_nat_rule(self, notice_url: str):
         """
-        Garante que as regras básicas de redirecionamento existam.
-        Nota: Devido a incompatibilidades entre versões do RouterOS (v6 vs v7),
-        recomenda-se que as regras de NAT e Proxy sejam configuradas manualmente uma vez.
-        Esta função apenas tenta garantir o básico sem interromper o fluxo se falhar.
+        Mantida por compatibilidade. A configuração de NAT agora é feita dentro de
+        setup_full_suspension_system() usando DST-NAT direto (sem Web Proxy).
         """
-        # Mantemos a função vazia ou com lógica mínima para não quebrar o isp_service,
-        # mas a inteligência de quem está bloqueado fica na Address List.
         pass
 
     def setup_suspension_firewall_rules(self, suspension_url: str = None):
-        """Configura regras de firewall para permitir apenas DNS, o sistema e redirecionamento para bloqueados."""
+        """
+        Configura regras de Firewall Filter para clientes bloqueados (pg_corte).
+
+        Lógica (espelhando o padrão Altarede):
+          - Permite UDP/53 (DNS) → clientes podem resolver nomes
+          - Permite TCP para o IP do portal captivo → página de aviso carrega
+          - Bloqueia TCP que não seja para a porta do portal (ex: HTTPS/443)
+          - Bloqueia ICMP (ping)
+          - Bloqueia UDP (exceto DNS já liberado acima)
+        """
         self.connect()
         import logging
+        from urllib.parse import urlparse
         logger = logging.getLogger(__name__)
-        
-        try:
-            resource = self._api.get_resource('ip/firewall/filter')
-            all_rules = resource.get()
-            
-            # 1. Permitir DNS (UDP/53) para quem está no pg_corte
-            dns_rule = {
-                'chain': 'forward',
-                'src-address-list': 'pg_corte',
-                'protocol': 'udp',
-                'dst-port': '53',
-                'action': 'accept',
-                'comment': 'DNS_BLOQUEADOS'
-            }
-            
-            existing_dns = [r for r in all_rules if r.get('comment') == 'DNS_BLOQUEADOS']
-            if not existing_dns:
-                if all_rules:
-                    first_id = all_rules[0].get('.id') or all_rules[0].get('id')
-                    if first_id:
-                        resource.add(place_before=first_id, **dns_rule)
-                    else:
-                        resource.add(**dns_rule)
-                else:
-                    resource.add(**dns_rule)
-            else:
-                rid = existing_dns[0].get('.id') or existing_dns[0].get('id')
-                if rid: resource.set(id=rid, **dns_rule)
 
-            # 1.5 Permitir acesso ao domínio do sistema para quem está na pg_corte
-            domain_rule_added = False
+        try:
+            nat_resource = self._api.get_resource('ip/firewall/filter')
+            all_rules = nat_resource.get()
+
+            # Extrair IP/Host e porta do portal captivo para liberar acesso
+            portal_ip = None
+            portal_port = None
             if suspension_url:
                 try:
-                    from urllib.parse import urlparse
-                    domain = urlparse(suspension_url).netloc.split(':')[0]
-                    if domain:
-                        # Em vez de tentar colocar o domínio direto no Firewall Filter (que não aceita texto),
-                        # nós adicionamos ele a uma Address List, que o Mikrotik resolve automaticamente.
-                        
-                        # 1.5.1 Adicionar domínio à address-list
-                        self.add_to_address_list(address=domain, list_name='ips_sistema', comment='DOMINIO_SISTEMA')
-                        
-                        # 1.5.2 Criar regra de Firewall apontando para a address-list
-                        allow_sys_rule = {
-                            'chain': 'forward',
-                            'src-address-list': 'pg_corte',
-                            'dst-address-list': 'ips_sistema',
-                            'action': 'accept',
-                            'comment': 'ACESSO_SISTEMA_BLOQUEADOS'
-                        }
-                        
-                        existing_sys = [r for r in all_rules if r.get('comment') == 'ACESSO_SISTEMA_BLOQUEADOS']
-                        if not existing_sys:
-                            resource.add(**allow_sys_rule)
-                            domain_rule_added = True
+                    parsed = urlparse(suspension_url)
+                    portal_ip = parsed.hostname
+                    portal_port = str(parsed.port) if parsed.port else '80'
+                except Exception:
+                    pass
+
+            # Obter host público principal para garantir liberação do redirecionamento HTTP 302
+            backend_host = None
+            try:
+                from app.core.config import settings
+                backend_host = urlparse(settings.BACKEND_URL).hostname
+            except Exception:
+                pass
+
+            # Configurar Walled Garden via Address List na RB
+            if portal_ip:
+                self.add_to_address_list(portal_ip, 'liberados_corte', 'Portal do Provedor (Host)')
+            if backend_host and backend_host != portal_ip:
+                self.add_to_address_list(backend_host, 'liberados_corte', 'Portal do Provedor (Public)')
+            if '10.20.0.1' not in (portal_ip, backend_host):
+                self.add_to_address_list('10.20.0.1', 'liberados_corte', 'Portal do Provedor (VPN)')
+
+            # Definição de todas as regras de firewall em ordem de prioridade
+            # (serão inseridas na ordem inversa pois usamos place_before no topo)
+            rules_to_apply = [
+                # 1. Permitir DNS UDP/53 Input — caso o cliente use a própria RB como DNS
+                {
+                    'chain': 'input',
+                    'src-address-list': 'pg_corte',
+                    'protocol': 'udp',
+                    'dst-port': '53',
+                    'action': 'accept',
+                    'comment': 'ISP_ALLOW_DNS_INPUT_BLOQUEADOS'
+                },
+                # 2. Permitir DNS UDP/53 Forward — clientes bloqueados ainda precisam resolver nomes externos
+                {
+                    'chain': 'forward',
+                    'src-address-list': 'pg_corte',
+                    'protocol': 'udp',
+                    'dst-port': '53',
+                    'action': 'accept',
+                    'comment': 'ISP_ALLOW_DNS_BLOQUEADOS'
+                },
+                # 3. Permitir Ping (ICMP) especificamente para os destinos do portal (ex: VPN/Domínio)
+                {
+                    'chain': 'forward',
+                    'src-address-list': 'pg_corte',
+                    'dst-address-list': 'liberados_corte',
+                    'protocol': 'icmp',
+                    'action': 'accept',
+                    'comment': 'ISP_ALLOW_ICMP_PORTAL'
+                },
+                # 4. Bloquear ICMP (ping) para o resto da internet
+                {
+                    'chain': 'forward',
+                    'src-address-list': 'pg_corte',
+                    'protocol': 'icmp',
+                    'action': 'drop',
+                    'comment': 'ISP_DROP_ICMP_BLOQUEADOS'
+                },
+                # 5. Bloquear UDP (exceto DNS já liberado)
+                {
+                    'chain': 'forward',
+                    'src-address-list': 'pg_corte',
+                    'protocol': 'udp',
+                    'action': 'drop',
+                    'comment': 'ISP_DROP_UDP_BLOQUEADOS'
+                },
+                # 6. Bloquear TCP que não seja para o portal captivo
+                #    (HTTPS/443 e demais portas devem ser bloqueados — só HTTP/80 é redirecionado via NAT)
+                {
+                    'chain': 'forward',
+                    'src-address-list': 'pg_corte',
+                    'protocol': 'tcp',
+                    'dst-port': f'!{portal_port}' if portal_port else '!80',
+                    'action': 'drop',
+                    'comment': 'ISP_DROP_TCP_NOPORTAL_BLOQUEADOS'
+                },
+            ]
+
+            # Se soubermos o IP do portal, adicionar regra de accept explícita para garantir
+            # que o tráfego redirecionado e subsequente (incluindo HTTPS/443) chegue ao portal
+            if portal_ip:
+                rules_to_apply.insert(3, {
+                    'chain': 'forward',
+                    'src-address-list': 'pg_corte',
+                    'protocol': 'tcp',
+                    'dst-address-list': 'liberados_corte',
+                    'action': 'accept',
+                    'comment': 'ISP_ALLOW_PORTAL_BLOQUEADOS'
+                })
+
+            # Aplicar/atualizar cada regra garantindo que novas regras sejam inseridas no topo
+            for rule in rules_to_apply:
+                comment = rule['comment']
+                existing = [r for r in all_rules if r.get('comment') == comment]
+                if existing:
+                    rid = existing[0].get('.id') or existing[0].get('id')
+                    if rid:
+                        nat_resource.set(id=rid, **rule)
+                else:
+                    # Obter regras atuais para descobrir qual está no topo
+                    current_rules = nat_resource.get()
+                    if current_rules:
+                        first_id = current_rules[0].get('.id') or current_rules[0].get('id')
+                        if first_id:
+                            nat_resource.add(place_before=first_id, **rule)
                         else:
-                            sid = existing_sys[0].get('.id') or existing_sys[0].get('id')
-                            if sid: resource.set(id=sid, **allow_sys_rule)
-                except Exception as e:
-                    logger.warning(f"Não foi possível extrair/liberar o domínio do sistema: {e}")
+                            nat_resource.add(**rule)
+                    else:
+                        nat_resource.add(**rule)
 
-            # 2. Bloquear todo o resto para pg_corte (Garantir que fique no topo, mas após DNS/Sistema)
-            block_rule = {
-                'chain': 'forward',
-                'src-address-list': 'pg_corte',
-                'action': 'drop',
-                'comment': 'BLOQUEIO_GERAL_PG_CORTE'
-            }
-            
-            # Recarregar as regras para pegar as que acabamos de adicionar
-            current_rules = resource.get()
-            existing_block = [r for r in current_rules if r.get('comment') == 'BLOQUEIO_GERAL_PG_CORTE']
-            
-            if existing_block:
-                rid = existing_block[0].get('.id') or existing_block[0].get('id')
-                if rid: resource.remove(id=rid)
-            
-            # Tentar inserir logo abaixo da regra ACESSO_SISTEMA_BLOQUEADOS ou DNS_BLOQUEADOS
-            target_pos = None
-            rules_after_reorder = resource.get()
-            for r in rules_after_reorder:
-                if r.get('comment') in ['ACESSO_SISTEMA_BLOQUEADOS', 'DNS_BLOQUEADOS']:
-                    # Pegamos a última dessas regras para inserir logo após
-                    target_pos = r.get('.id') or r.get('id')
-            
-            if target_pos:
-                # O MikroTik 'place_before' insere ANTES, mas queremos DEPOIS. 
-                # Então, para simplificar e garantir o bloqueio, vamos inserir no TOPO (index 0).
-                # Se houver regras de Accept DNS/Sistema no topo, o drop deve vir logo após elas.
-                # Como inserimos DNS e Sistema antes, vamos inserir o Drop agora no topo também,
-                # e depois re-inserir DNS/Sistema acima dele se necessário.
-                
-                # Estratégia mais segura: Inserir no topo (index 0) e as outras regras de suspensão também.
-                first_rule_id = rules_after_reorder[0].get('.id') or rules_after_reorder[0].get('id') if rules_after_reorder else None
-                resource.add(place_before=first_rule_id, **block_rule)
-            else:
-                resource.add(**block_rule)
+            logger.info("Regras de Firewall Filter para suspensão configuradas com sucesso.")
 
-                
         except Exception as e:
-            logger.error(f"Erro ao configurar Firewall Filter: {e}")
+            logger.error(f"Erro ao configurar Firewall Filter de suspensão: {e}")
 
     def setup_full_suspension_system(self, suspension_url: str):
         """
-        Executa a configuração completa do sistema de suspensão na RB:
-        1. Habilita Web Proxy
-        2. Configura regra de redirecionamento no Proxy Access (v7 compatible)
-        3. Configura regra de NAT (DST-NAT)
-        4. Configura regras de Firewall Filter (Bloqueio)
+        Configura o sistema de suspensão/bloqueio na RB usando DST-NAT direto (sem Web Proxy).
+
+        Fluxo para clientes na address-list 'pg_corte':
+          1. TCP/80  -> DST-NAT para IP:porta do portal captivo do sistema
+          2. TCP/!80 -> return (o cliente recebe RST - HTTPS falha instantaneamente)
+          3. UDP/!53 -> drop (ICMP e UDP bloqueados, DNS liberado)
+          4. Firewall Filter complementar garante o drop no chain forward
+
+        O cliente que tenta abrir qualquer página HTTP é redirecionado IMEDIATAMENTE
+        para a página de aviso do provedor correto (identificada pelo ID na URL).
+        Não depende de Web Proxy, portanto funciona de forma transparente e instantânea.
+
+        Args:
+            suspension_url: URL completa da página de aviso do provedor.
+                            Exemplo: 'http://10.20.0.1:3015/aviso/empresa/1'
+                            O IP e a porta são extraídos desta URL para configurar o DST-NAT.
         """
         self.connect()
         import logging
+        from urllib.parse import urlparse
         logger = logging.getLogger(__name__)
-        
+
         results = []
 
+        # Extrair IP e porta do portal captivo a partir da suspension_url
         try:
-            # 1. Habilitar Web Proxy
+            parsed = urlparse(suspension_url)
+            portal_host = parsed.hostname
+            portal_port = str(parsed.port) if parsed.port else '80'
+            if not portal_host:
+                raise ValueError("Não foi possível extrair o host da suspension_url")
+        except Exception as e:
+            results.append(f"ERRO: suspension_url inválida ('{suspension_url}'): {e}")
+            logger.error(f"setup_full_suspension_system: suspension_url inválida: {e}")
+            return results
+
+        logger.info(f"Configurando suspensão: portal={portal_host}:{portal_port}, url={suspension_url}")
+
+        # ── Passo 1: Desabilitar Web Proxy (não é mais necessário) ────────────────
+        try:
             proxy = self._api.get_resource('ip/proxy')
-            proxy.set(enabled='yes', port='8080')
-            results.append("Web Proxy habilitado na porta 8080.")
+            proxy.set(enabled='no')
+            results.append("Web Proxy desabilitado (não utilizado nesta configuração).")
         except Exception as e:
-            results.append(f"Erro ao habilitar Web Proxy: {e}")
+            # Não crítico — alguns RouterOS não permitem desabilitar via API
+            results.append(f"Aviso: não foi possível desabilitar Web Proxy: {e}")
 
+        # ── Passo 2: Limpar regras antigas de proxy (migração) ────────────────────
         try:
-            # 2. Configurar Redirecionamento no Proxy Access
-            proxy = self._api.get_resource('ip/proxy/access')
-            
-            # Remove se ja existir
-            for rule in proxy.get():
-                if rule.get('comment') == 'REDIRECIONAMENTO_SUSPENSAO':
+            proxy_access = self._api.get_resource('ip/proxy/access')
+            for rule in proxy_access.get():
+                if rule.get('comment') in ('REDIRECIONAMENTO_SUSPENSAO',):
                     rid = rule.get('.id') or rule.get('id')
-                    if rid: proxy.remove(id=rid)
-            
-            # Tenta adicionar usando sintaxe moderna (action=deny, redirect-to=...)
-            try:
-                proxy.add(action='deny', **{'redirect-to': suspension_url}, comment='REDIRECIONAMENTO_SUSPENSAO')
-            except Exception:
-                # Fallback para sintaxe legada (RB433AH antigas etc: action=redirect, action-data=...)
-                proxy.add(action='redirect', **{'action-data': suspension_url}, comment='REDIRECIONAMENTO_SUSPENSAO')
-                
-            results.append(f"Regra de redirecionamento configurada para: {suspension_url}")
+                    if rid:
+                        proxy_access.remove(id=rid)
+            results.append("Regras antigas de Proxy Access removidas.")
         except Exception as e:
-            results.append(f"Erro ao configurar Redirecionamento Proxy: {e}")
+            results.append(f"Aviso: não foi possível limpar regras de Proxy Access: {e}")
 
+        # ── Passo 3: Configurar DST-NAT (TCP/80 → portal captivo) ─────────────────
+        #
+        # Espelha o padrão Altarede:
+        #   chain=dstnat action=dst-nat to-addresses=<portal_host> to-ports=<portal_port>
+        #   protocol=tcp src-address-list=pg_corte dst-port=80
+        #
+        # Uma segunda regra 'return' para TCP/!80 garante que o cliente receba
+        # uma resposta imediata (RST) para HTTPS e outras portas, sem ficar esperando.
         try:
-            # 3. Configurar NAT
             nat = self._api.get_resource('ip/firewall/nat')
             all_nat = nat.get()
-            
-            nat_rule = {
+
+            # Regra principal: redirecionar HTTP (porta 80) para o portal captivo
+            dstnat_http = {
                 'chain': 'dstnat',
                 'protocol': 'tcp',
-                'dst-port': '80',
                 'src-address-list': 'pg_corte',
-                'action': 'redirect',
-                'to-ports': '8080',
-                'comment': 'NAT_PROXY_SUSPENSAO'
+                'dst-port': '80',
+                'action': 'dst-nat',
+                'to-addresses': portal_host,
+                'to-ports': portal_port,
+                'comment': 'ISP_BLOQUEIO_REDIR_HTTP'
             }
-            
-            existing_nat = [r for r in all_nat if r.get('comment') == 'NAT_PROXY_SUSPENSAO']
-            if not existing_nat:
-                if all_nat:
-                    first_id = all_nat[0].get('.id') or all_nat[0].get('id')
-                    if first_id:
-                        nat.add(place_before=first_id, **nat_rule)
-                    else:
-                        nat.add(**nat_rule)
-                else:
-                    nat.add(**nat_rule)
-            else:
-                rid = existing_nat[0].get('.id') or existing_nat[0].get('id')
-                nat.set(id=rid, **nat_rule)
-            results.append("Regra de NAT (DST-NAT) configurada.")
-        except Exception as e:
-            results.append(f"Erro ao configurar NAT: {e}")
 
+            # Regra de retorno: outros protocolos TCP (ex: HTTPS) saem do chain dstnat
+            # sem ser redirecionados — o Firewall Filter irá dropá-los
+            dstnat_return = {
+                'chain': 'dstnat',
+                'protocol': 'tcp',
+                'src-address-list': 'pg_corte',
+                'dst-port': '!80',
+                'action': 'return',
+                'comment': 'ISP_BLOQUEIO_RETURN_TCP'
+            }
+
+            # Regra de retorno para UDP bloqueados (DNS passa, o resto vai pro filter)
+            dstnat_udp_return = {
+                'chain': 'dstnat',
+                'protocol': 'udp',
+                'src-address-list': 'pg_corte',
+                'action': 'return',
+                'comment': 'ISP_BLOQUEIO_RETURN_UDP'
+            }
+
+            for rule_data in [dstnat_http, dstnat_return, dstnat_udp_return]:
+                comment = rule_data['comment']
+                existing = [r for r in all_nat if r.get('comment') == comment]
+                if existing:
+                    rid = existing[0].get('.id') or existing[0].get('id')
+                    if rid:
+                        nat.set(id=rid, **rule_data)
+                else:
+                    # Inserir no topo da tabela NAT para ter precedencia
+                    if all_nat:
+                        first_id = all_nat[0].get('.id') or all_nat[0].get('id')
+                        if first_id:
+                            nat.add(place_before=first_id, **rule_data)
+                        else:
+                            nat.add(**rule_data)
+                    else:
+                        nat.add(**rule_data)
+                    # Recarregar para atualizar first_id nas proximas iteracoes
+                    all_nat = nat.get()
+
+            results.append(
+                f"Regras DST-NAT configuradas: HTTP->{portal_host}:{portal_port}, "
+                f"TCP/!80->return, UDP->return."
+            )
+
+            # -- SNAT Masquerade: "assina" os pacotes com o IP VPN do MikroTik ------
+            #
+            # PROBLEMA: Todos os ISPs usam o mesmo IP de destino (IP VPN do servidor).
+            # O backend nao saberia qual ISP esta fazendo a chamada apenas pela URL.
+            #
+            # SOLUCAO: Adicionamos uma regra SNAT (masquerade) para o trafego dos
+            # clientes bloqueados que vai em direcao ao portal captivo. Com isso:
+            #   - Sem SNAT: backend ve src=192.168.1.5 (IP privado do cliente) <- inutil
+            #   - Com SNAT: backend ve src=<IP VPN do MikroTik>  <- unico por provedor!
+            #
+            # O backend faz lookup na tabela de routers pelo IP de origem da conexao
+            # e assim identifica a qual empresa/provedor aquele router pertence.
+            snat_masquerade = {
+                'chain': 'srcnat',
+                'protocol': 'tcp',
+                'src-address-list': 'pg_corte',
+                'dst-address': portal_host,
+                'dst-port': portal_port,
+                'action': 'masquerade',
+                'comment': 'ISP_SNAT_PORTAL_CAPTIVO'
+            }
+            existing_snat = [r for r in all_nat if r.get('comment') == 'ISP_SNAT_PORTAL_CAPTIVO']
+            if existing_snat:
+                rid = existing_snat[0].get('.id') or existing_snat[0].get('id')
+                if rid:
+                    nat.set(id=rid, **snat_masquerade)
+            else:
+                nat.add(**snat_masquerade)
+            results.append("Regra SNAT masquerade configurada: backend identificara o MikroTik pelo IP VPN.")
+
+        except Exception as e:
+            results.append(f"Erro ao configurar DST-NAT: {e}")
+            logger.error(f"setup_full_suspension_system: erro no DST-NAT: {e}")
+
+        # -- Passo 4: Configurar Firewall Filter -----------------------------------
         try:
-            # 4. Configurar Firewall Filter
             self.setup_suspension_firewall_rules(suspension_url)
             results.append("Regras de Firewall Filter configuradas.")
         except Exception as e:
-            results.append(f"Erro ao configurar Firewall: {e}")
+            results.append(f"Erro ao configurar Firewall Filter: {e}")
+            logger.error(f"setup_full_suspension_system: erro no Firewall Filter: {e}")
 
+        logger.info(f"setup_full_suspension_system concluído: {results}")
         return results
 
     def remove_from_address_list(self, address: str, list_name: str):
@@ -1805,7 +1928,7 @@ class MikrotikController:
         2. Profile PPPoE padrão
         3. Servidor PPPoE
 
-        ⚠️ LIMITAÇÕES CRÍTICAS - RouterOS 6.49.19:
+        ATENCAO - LIMITACOES CRITICAS - RouterOS 6.49.19:
         - PPPoE SERVER DEDICADO NÃO É SUPORTADO nesta versão!
         - O comando cria interfaces PPPoE CLIENTE (pppoe-out), não servidor
         - Clientes NÃO poderão se autenticar via PPPoE neste router
