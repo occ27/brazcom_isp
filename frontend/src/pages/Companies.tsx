@@ -124,7 +124,8 @@ const Companies: React.FC = () => {
     whatsapp_api_server: '',
     whatsapp_api_password: '',
     whatsapp_api_ips: '',
-    whatsapp_api_instance: ''
+    whatsapp_api_instance: '',
+    auto_send_notifications: true
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [snackbar, setSnackbar] = useState({
@@ -251,7 +252,8 @@ const Companies: React.FC = () => {
         whatsapp_api_server: company.whatsapp_api_server || '',
         whatsapp_api_password: company.whatsapp_api_password || 'tok_' + Math.random().toString(36).substring(2, 14),
         whatsapp_api_ips: company.whatsapp_api_ips || '',
-        whatsapp_api_instance: company.whatsapp_api_instance || ''
+        whatsapp_api_instance: company.whatsapp_api_instance || '',
+        auto_send_notifications: company.auto_send_notifications !== false
       });
     } else {
       setEditingCompany(null);
@@ -308,7 +310,8 @@ const Companies: React.FC = () => {
         whatsapp_api_server: '',
         whatsapp_api_password: randomPassword,
         whatsapp_api_ips: '',
-        whatsapp_api_instance: ''
+        whatsapp_api_instance: '',
+        auto_send_notifications: true
       });
     }
     setErrors({});
@@ -1551,6 +1554,34 @@ const Companies: React.FC = () => {
                         </div>
                       </label>
                     </div>
+                  </div>
+
+                  {/* Configurações Gerais de Notificação */}
+                  <div className="bg-white p-5 rounded-2xl border border-borderLight shadow-sm">
+                    <Typography variant="subtitle2" sx={{ mb: 2, color: 'text.secondary', fontWeight: 600, fontSize: '0.875rem' }}>
+                      Configurações do Robô de Notificações:
+                    </Typography>
+                    
+                    <label className={`flex items-start p-4 rounded-xl border-2 transition-all cursor-pointer select-none group ${
+                      formData.auto_send_notifications
+                        ? 'border-indigo-500 bg-indigo-50/20'
+                        : 'border-gray-200 hover:border-gray-300 bg-white'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={formData.auto_send_notifications}
+                        onChange={(e) => handleInputChange('auto_send_notifications', e.target.checked)}
+                        className="w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 transition-all cursor-pointer mt-0.5"
+                      />
+                      <div className="ml-3">
+                        <span className="font-bold text-sm text-text flex items-center gap-1.5">
+                          🤖 Habilitar Envio Automático de Notificações
+                        </span>
+                        <span className="block text-xs text-textLight mt-1">
+                          Permite que o script automatizado do servidor envie notificações de faturas pendentes e boletos para os seus clientes de forma agendada.
+                        </span>
+                      </div>
+                    </label>
                   </div>
 
                   {/* CONFIGURAÇÃO DE EMAIL SMTP */}

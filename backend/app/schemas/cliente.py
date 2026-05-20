@@ -46,6 +46,7 @@ class ClienteBase(BaseModel):
     inscricao_estadual: Optional[str] = Field(None, max_length=20)
     email: Optional[str] = Field(None, max_length=255)
     telefone: Optional[str] = Field(None, max_length=20)
+    recebe_notificacoes: bool = True
     # Campos de autenticação
     password_hash: Optional[str] = Field(None, description="Hash da senha para autenticação no portal")
     reset_token: Optional[str] = Field(None, description="Token para reset de senha")
@@ -217,6 +218,7 @@ class ClienteUpdate(BaseModel):
     email: Optional[str] = Field(None, max_length=255)
     telefone: Optional[str] = Field(None, max_length=20)
     is_active: Optional[bool] = None
+    recebe_notificacoes: Optional[bool] = None
     # Campos de autenticação opcionais para update
     password: Optional[str] = Field(None, min_length=6, description="Nova senha para autenticação no portal")
     email_verified: Optional[bool] = Field(None, description="Se o email foi verificado")

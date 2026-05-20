@@ -62,6 +62,7 @@ class EmpresaBase(BaseModel):
     whatsapp_api_password: Optional[str] = Field(None, max_length=500)
     whatsapp_api_ips: Optional[str] = Field(None, description="IPs confiáveis (comma separated)")
     whatsapp_api_instance: Optional[str] = Field(None, max_length=100)
+    auto_send_notifications: bool = True
 
     @validator('razao_social', 'nome_fantasia', 'endereco', 'numero', 'complemento', 'bairro', 'municipio', 'uf', 'cep', 'telefone', 'email', 'regime_tributario', 'pais', 'codigo_pais', pre=True)
     def clean_string_fields(cls, v):
@@ -207,6 +208,7 @@ class EmpresaResponse(BaseModel):
     whatsapp_api_password: Optional[str] = None
     whatsapp_api_ips: Optional[str] = None
     whatsapp_api_instance: Optional[str] = None
+    auto_send_notifications: bool = True
     
     # Campos específicos de EmpresaResponse
     id: int
@@ -302,6 +304,7 @@ class EmpresaUpdate(BaseModel):
     whatsapp_api_password: Optional[str] = None
     whatsapp_api_ips: Optional[str] = None
     whatsapp_api_instance: Optional[str] = None
+    auto_send_notifications: Optional[bool] = None
     
     certificado_path: Optional[str] = Field(None, max_length=500)
     certificado_senha: Optional[str] = Field(None, max_length=500)

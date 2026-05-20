@@ -66,6 +66,7 @@ def _decrypt_sensitive_fields(empresa: Empresa) -> SimpleNamespace:
         whatsapp_api_password=getattr(empresa, 'whatsapp_api_password', None),
         whatsapp_api_ips=getattr(empresa, 'whatsapp_api_ips', None),
         whatsapp_api_instance=getattr(empresa, 'whatsapp_api_instance', 'mega-net-telecom'),
+        auto_send_notifications=getattr(empresa, 'auto_send_notifications', True),
         created_at=empresa.created_at,
         updated_at=empresa.updated_at,
         # Flags para indicar presença de configuração sensível (sem expor valores)

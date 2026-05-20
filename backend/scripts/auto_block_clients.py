@@ -6,8 +6,10 @@ from datetime import datetime, timezone, timedelta
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app.core.database import SessionLocal
-from app.models.models import Empresa, Cliente, Receivable, ServicoContratado, StatusContrato
+from app.models.models import Empresa, Cliente, Receivable, ServicoContratado, StatusContrato, EmpresaCliente
 from app.services.isp_service import process_block_if_needed, process_unblock_if_needed
+from sqlalchemy import or_
+from sqlalchemy import select as sa_select
 
 def run_auto_blocking():
     import argparse
@@ -49,6 +51,17 @@ def run_auto_blocking():
             if args.notifications_only:
                 # MODO 2: Apenas notificações pendentes (Horário comercial)
                 print(f"  [AUTO-NOTIFICATIONS] Processing pending receivable notifications...")
+                if not getattr(company, "auto_send_notifications", True):
+                    print(f"  [AUTO-NOTIFICATIONS] Auto notifications are disabled for company '{company.razao_social or company.nome_fantasia}'. Skipping.")
+                    company_summaries.append({
+                        "name": company.nome_fantasia or company.razao_social,
+                        "id": company.id,
+                        "generated": 0,
+                        "nfcom_emitted": 0,
+                        "blocked": 0,
+                        "unblocked": 0
+                    })
+                    continue
                 company_notified = 0
                 try:
                     from app.services.receivable_service import send_receivable_notification
@@ -195,10 +208,18 @@ def run_auto_blocking():
                 
             print(f"  [AUTO-BLOCK] Enabled with limit: {dias_limite} days.")
             
-            # Fetch all active clients of this company
+            # Buscar todos os clientes ativos da empresa (novo modelo via EmpresaCliente + legado via empresa_id)
+            subquery = (
+                sa_select(EmpresaCliente.cliente_id)
+                .where(EmpresaCliente.empresa_id == company.id)
+                .scalar_subquery()
+            )
             clients = session.query(Cliente).filter(
-                Cliente.empresa_id == company.id,
-                Cliente.is_active == True
+                Cliente.is_active == True,
+                or_(
+                    Cliente.id.in_(subquery),            # novo modelo (EmpresaCliente)
+                    Cliente.empresa_id == company.id     # legado (empresa_id direto)
+                )
             ).all()
             
             limit_date = now - timedelta(days=dias_limite)

@@ -137,6 +137,7 @@ class Empresa(Base):
     # WhatsApp Integration Config
     send_method_email = Column(Boolean, default=True)
     send_method_whatsapp = Column(Boolean, default=False)
+    auto_send_notifications = Column(Boolean, default=True)
     whatsapp_api_system = Column(String(50), default="MK Auth")
     whatsapp_api_user = Column(String(100))
     whatsapp_api_server = Column(String(255))
@@ -254,6 +255,7 @@ class Cliente(Base):
     email = Column(String(255))
     telefone = Column(String(20))
     is_active = Column(Boolean, default=True)
+    recebe_notificacoes = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

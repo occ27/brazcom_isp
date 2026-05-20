@@ -212,6 +212,7 @@ const Clients: React.FC = () => {
           inscricao_estadual: fullClient.inscricao_estadual || '',
           email: fullClient.email || '',
           telefone: fullClient.telefone || '',
+          recebe_notificacoes: fullClient.recebe_notificacoes !== false,
           enderecos: fullClient.enderecos && fullClient.enderecos.length > 0 ? fullClient.enderecos : [{
             is_principal: true,
             endereco: '', numero: '', complemento: '', bairro: '', municipio: '', uf: '', codigo_ibge: '', cep: ''
@@ -233,6 +234,7 @@ const Clients: React.FC = () => {
         inscricao_estadual: '',
         email: '',
         telefone: '',
+        recebe_notificacoes: true,
         enderecos: [{
           is_principal: true,
           endereco: '', numero: '', complemento: '', bairro: '', municipio: '', uf: '', codigo_ibge: '', cep: ''
@@ -760,6 +762,25 @@ const Clients: React.FC = () => {
                         error={!!errors.email}
                         helperText={errors.email}
                       />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer select-none ${
+                        formData.recebe_notificacoes
+                          ? 'border-indigo-400 bg-indigo-50/40'
+                          : 'border-gray-200 hover:border-gray-300 bg-white'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          id="recebe_notificacoes"
+                          checked={!!formData.recebe_notificacoes}
+                          onChange={(e) => handleInputChange('recebe_notificacoes', e.target.checked)}
+                          className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 cursor-pointer"
+                        />
+                        <div>
+                          <span className="font-semibold text-sm text-text">🔔 Cliente autoriza receber notificações</span>
+                          <span className="block text-xs text-textLight mt-0.5">Quando ativo, o sistema poderá enviar cobranças e avisos por e-mail e/ou WhatsApp para este cliente.</span>
+                        </div>
+                      </label>
                     </div>
                   </div>
                 </div>

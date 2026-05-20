@@ -372,6 +372,15 @@ def send_receivable_notification(db: Session, recv: Receivable) -> bool:
     if not empresa or not cliente:
         return False
 
+    # Verificar se o cliente autorizou o recebimento de notificações.
+    # Se não autorizou, marcamos como processado (sent_at) para evitar tentativas futuras e pulamos.
+    if not getattr(cliente, "recebe_notificacoes", True):
+        logging.info(f"Notificação suprimida: cliente '{cliente.nome_razao_social}' (ID: {cliente.id}) desabilitou 'recebe_notificacoes'.")
+        recv.sent_at = datetime.utcnow()
+        db.add(recv)
+        db.flush()
+        return True
+
     # Carregar empresa com credenciais descriptografadas
     empresa_raw = crud_empresa.get_empresa_raw(db, empresa_id=recv.empresa_id)
 
