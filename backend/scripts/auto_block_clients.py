@@ -113,11 +113,12 @@ def run_auto_blocking():
                 # Definir função local que ignora last_emission, evitando ser bloqueado 
                 # pelo passo anterior de AUTO-BILLING que atualizou last_emission na memória do SQLAlchemy
                 def should_generate_nfcom_for_contract(contrato, target_date):
-                    if not contrato.dia_emissao or not contrato.d_contrato_ini:
+                    ref_date = contrato.data_inicio_cobranca or contrato.d_contrato_ini
+                    if not contrato.dia_emissao or not ref_date:
                         return False
                     if contrato.dia_emissao > target_date.day:
                         return False
-                    months_diff = (target_date.year - contrato.d_contrato_ini.year) * 12 + (target_date.month - contrato.d_contrato_ini.month)
+                    months_diff = (target_date.year - ref_date.year) * 12 + (target_date.month - ref_date.month)
                     if contrato.periodicidade == 'MENSAL':
                         return True
                     elif contrato.periodicidade == 'BIMESTRAL':
@@ -140,7 +141,8 @@ def run_auto_blocking():
                 nfcom_contract_ids = []
                 for c in eligible_contracts:
                     # pular contratos que ainda não começaram
-                    if c.d_contrato_ini and c.d_contrato_ini > today_date:
+                    ref_date = c.data_inicio_cobranca or c.d_contrato_ini
+                    if ref_date and ref_date > today_date:
                         continue
                     # pular contratos que já terminaram
                     if c.d_contrato_fim and c.d_contrato_fim < today_date:
