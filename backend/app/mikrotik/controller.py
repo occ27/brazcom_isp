@@ -770,36 +770,43 @@ class MikrotikController:
                 rules_to_apply.insert(3, {
                     'chain': 'forward',
                     'src-address-list': 'pg_corte',
-                    'protocol': 'tcp',
                     'dst-address-list': 'liberados_corte',
                     'action': 'accept',
                     'comment': 'ISP_ALLOW_PORTAL_BLOQUEADOS'
                 })
 
-            # Aplicar/atualizar cada regra garantindo que novas regras sejam inseridas no topo
-            for rule in rules_to_apply:
-                comment = rule['comment']
-                existing = [r for r in all_rules if r.get('comment') == comment]
-                if existing:
-                    rid = existing[0].get('.id') or existing[0].get('id')
+            # ── ESTRATÉGIA: Apagar TODAS as regras ISP_ existentes e recriar na ordem certa ──
+            # Usar set() não move a regra de posição — a regra de DROP continuaria antes das de ALLOW.
+            # Deletar e recriar garante a ordem correta sempre.
+            for r in all_rules:
+                if r.get('comment', '').startswith('ISP_'):
+                    rid = r.get('.id') or r.get('id')
                     if rid:
-                        nat_resource.set(id=rid, **rule)
+                        try:
+                            filter_rules.remove(id=rid)
+                        except Exception:
+                            pass
+
+            # Descobrir a ID da primeira regra não-ISP (para inserir antes dela = no topo)
+            current_top_id = None
+            fresh_rules = filter_rules.get()
+            if fresh_rules:
+                current_top_id = fresh_rules[0].get('.id') or fresh_rules[0].get('id')
+
+            # Inserir em ordem REVERSA: como cada add(place_before=X) coloca a regra antes de X,
+            # inserindo do final para o início da lista, a primeira regra da lista acaba no topo real.
+            for rule in reversed(rules_to_apply):
+                if current_top_id:
+                    filter_rules.add(place_before=current_top_id, **rule)
                 else:
-                    # Obter regras atuais para descobrir qual está no topo
-                    current_rules = nat_resource.get()
-                    if current_rules:
-                        first_id = current_rules[0].get('.id') or current_rules[0].get('id')
-                        if first_id:
-                            nat_resource.add(place_before=first_id, **rule)
-                        else:
-                            nat_resource.add(**rule)
-                    else:
-                        nat_resource.add(**rule)
+                    filter_rules.add(**rule)
 
             logger.info("Regras de Firewall Filter para suspensão configuradas com sucesso.")
 
         except Exception as e:
             logger.error(f"Erro ao configurar Firewall Filter de suspensão: {e}")
+
+
 
     def setup_full_suspension_system(self, suspension_url: str):
         """

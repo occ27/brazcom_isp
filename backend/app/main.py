@@ -163,16 +163,22 @@ async def captive_portal_middleware(request: Request, call_next):
     if any(path.startswith(prefix) for prefix in allowed_prefixes):
         return await call_next(request)
 
+    if request.method == "OPTIONS":
+        return await call_next(request)
+
     # Identificar se a requisição tem Host diferente do nosso backend (redirecionada pelo MikroTik)
-    host_header = request.headers.get("host", "")
+    host_header = request.headers.get("host", "").split(":")[0]  # Remove a porta do Host
     backend_host = ""
     try:
-        backend_host = urlparse(settings.BACKEND_URL).netloc
+        backend_host = urlparse(settings.BACKEND_URL).hostname
     except Exception:
         pass
 
-    # Se o host solicitado é diferente do host do nosso sistema
-    is_external_request = host_header and backend_host and host_header != backend_host
+    # Hosts legítimos que o servidor atende diretamente
+    valid_hosts = [backend_host, "localhost", "127.0.0.1"]
+
+    # Se o host solicitado é diferente dos hosts do nosso sistema
+    is_external_request = host_header and host_header not in valid_hosts
 
     if is_external_request:
         # Detecta IP de origem (MikroTik VPN IP se houver SNAT, ou IP do Cliente se não houver SNAT)
