@@ -676,8 +676,8 @@ class MikrotikController:
         logger = logging.getLogger(__name__)
 
         try:
-            nat_resource = self._api.get_resource('ip/firewall/filter')
-            all_rules = nat_resource.get()
+            filter_rules = self._api.get_resource('ip/firewall/filter')
+            all_rules = filter_rules.get()
 
             # Extrair IP/Host e porta do portal captivo para liberar acesso
             portal_ip = None
