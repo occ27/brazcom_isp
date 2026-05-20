@@ -57,6 +57,8 @@ export interface CompanyCreate {
   whatsapp_api_password?: string;
   whatsapp_api_ips?: string;
   whatsapp_api_instance?: string;
+  // Notificações automáticas
+  auto_send_notifications?: boolean;
 }
 
 export interface CompanyUpdate {
@@ -115,6 +117,8 @@ export interface CompanyUpdate {
   whatsapp_api_password?: string;
   whatsapp_api_ips?: string;
   whatsapp_api_instance?: string;
+  // Notificações automáticas
+  auto_send_notifications?: boolean;
 }
 
 export const companyService = {

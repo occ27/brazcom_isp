@@ -21,6 +21,7 @@ export interface ClientCreate {
   inscricao_estadual?: string;
   email?: string;
   telefone?: string;
+  recebe_notificacoes?: boolean;
   enderecos?: ClienteEnderecoCreate[];
 }
 
@@ -43,6 +44,7 @@ export interface ClientResponse extends ClientCreate {
   empresa_id: number;
   idOutros?: string;
   is_active: boolean;
+  recebe_notificacoes?: boolean;
   created_at: string;
   updated_at?: string;
   enderecos?: ClienteEnderecoResponse[];
