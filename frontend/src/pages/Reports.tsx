@@ -464,10 +464,12 @@ const Reports: React.FC = () => {
                       label="Status"
                       onChange={(e) => setFinancialStatus(e.target.value)}
                     >
-                      <MenuItem value="">Todas</MenuItem>
-                      <MenuItem value="OPEN">Aberta</MenuItem>
-                      <MenuItem value="PAID">Paga</MenuItem>
-                      <MenuItem value="CANCELLED">Cancelada</MenuItem>
+                        <MenuItem value="">Todas</MenuItem>
+                        <MenuItem value="PENDING">Pendente</MenuItem>
+                        <MenuItem value="REGISTERED">Registrada</MenuItem>
+                        <MenuItem value="PAID">Paga</MenuItem>
+                        <MenuItem value="REGISTRATION_FAILED">Falha no Registro</MenuItem>
+                        <MenuItem value="CANCELLED">Cancelada</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
