@@ -7,6 +7,9 @@ WORKDIR /app
 # Instalar dependências do sistema necessárias para compilar pacotes nativos
 # (mysqlclient, lxml, cryptography, etc.). Mantemos camadas pequenas e removemos
 # caches ao final para reduzir o tamanho da imagem.
+# Configurar timezone para America/Sao_Paulo (horário brasileiro)
+ENV TZ=America/Sao_Paulo
+
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends \
 	build-essential \
@@ -23,6 +26,9 @@ RUN apt-get update \
 	libxmlsec1-openssl \
 	xmlsec1 \
 	cron \
+	tzdata \
+	&& ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+	&& echo $TZ > /etc/timezone \
 	&& rm -rf /var/lib/apt/lists/*
 
 # Copiar o arquivo de dependências

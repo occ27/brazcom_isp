@@ -63,6 +63,7 @@ services:
       - brazcom_network
     environment:
       - DATABASE_URL=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
+      - TZ=America/Sao_Paulo
     entrypoint: /scheduler-entrypoint.sh
 
   # Serviço do Frontend (React)
