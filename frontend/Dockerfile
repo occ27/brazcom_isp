@@ -7,6 +7,14 @@ WORKDIR /app
 # Copiar package.json e package-lock.json
 COPY package*.json ./
 
+# Configurar timezone para America/Sao_Paulo (horário brasileiro)
+ENV TZ=America/Sao_Paulo
+
+# Instalar tzdata (necessário no Alpine para suporte a timezone)
+RUN apk add --no-cache tzdata && \
+    cp /usr/share/zoneinfo/$TZ /etc/localtime && \
+    echo $TZ > /etc/timezone
+
 # Instalar as dependências
 RUN npm install --legacy-peer-deps
 

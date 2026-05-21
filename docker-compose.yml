@@ -9,6 +9,7 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      TZ: America/Sao_Paulo
     ports:
       # Porta de produção: 3315 (host) -> 3306 (container)
       - "3315:3306"
@@ -46,6 +47,7 @@ services:
       # Sobrescreve configurações para ambiente Docker
       - DATABASE_URL=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
       - CERTIFICATES_DIR=/etc/ssl/nfcom
+      - TZ=America/Sao_Paulo
 
   # Serviço do Scheduler (Cron para processamento diário)
   scheduler:
@@ -75,6 +77,7 @@ services:
       # Em produção com proxy reverso (Apache/Nginx), usa caminho relativo
       # O Apache em nfcom.holeshot.com.br faz proxy de /api para o backend
       - REACT_APP_API_BASE_URL=/api
+      - TZ=America/Sao_Paulo
     ports:
       # Porta de produção: 3015 (host) -> 3000 (container)
       - "3015:3000"
@@ -89,6 +92,7 @@ services:
     ports:
       - "8080:8080"
     environment:
+      - TZ=America/Sao_Paulo
       - SERVER_PORT=8080
       - DELAY_MESSAGE=1000
       - AUTHENTICATION_TYPE=apikey
