@@ -837,9 +837,9 @@ def ativar_servico(contrato_id: int, db: Session = Depends(get_db), current_user
         # Configurar QoS (limite de banda) se o serviço tiver limite definido
         # Nota: Para PPPOE, o controle de banda é feito no perfil PPPoE, não em queue separada
         if servico and hasattr(servico, 'max_limit') and servico.max_limit and c.metodo_autenticacao == 'IP_MAC':
-            queue_name = cliente_nome
+            queue_name = f"{c.id}-{cliente_nome}"
             target_ip = c.assigned_ip
-            comment = cliente_nome
+            comment = queue_name  # comment igual ao name para consistência
 
             logger.info(f"Configurando QoS: {queue_name}, target={target_ip}, limit={servico.max_limit}, Comment={comment}")
             try:
@@ -1060,7 +1060,7 @@ def sync_router_config(contrato_id: int, db: Session = Depends(get_db), current_
             port=router_db.porta or 8728
         )
 
-        comment = cliente_nome
+        comment = f"{c.id}-{cliente_nome}"
         
         # Buscar profile se necessário (para PPPoE/Hotspot)
         profile_name = None

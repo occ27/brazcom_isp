@@ -2272,8 +2272,9 @@ const Contracts: React.FC = () => {
                         onChange={e => handleInputChange('numero_contrato', e.target.value)}
                         fullWidth
                         size="small"
+                        placeholder={!editing ? "Deixe em branco para gerar automaticamente" : undefined}
                         error={!!errors.numero_contrato}
-                        helperText={errors.numero_contrato}
+                        helperText={errors.numero_contrato || (!editing && !form.numero_contrato ? "Será gerado automaticamente se deixado em branco" : undefined)}
                       />
                     </div>
                   </div>

@@ -329,7 +329,8 @@ def create_servico_contratado(db: Session, contrato_in: sc_schema.ServicoContrat
         raise HTTPException(status_code=400, detail="valor_unitario deve ser maior que zero.")
     
     # Normalização e Cálculo
-    if 'numero_contrato' in data: data['numero_contrato'] = _normalize_text(str(data['numero_contrato']), 50)
+    if 'numero_contrato' in data and data['numero_contrato']:
+        data['numero_contrato'] = _normalize_text(str(data['numero_contrato']), 50) or None
     if 'periodicidade' in data: data['periodicidade'] = _normalize_text(str(data['periodicidade']), 20)
     
     if not data.get('data_inicio_cobranca') and data.get('d_contrato_ini'):

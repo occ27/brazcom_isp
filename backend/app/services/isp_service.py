@@ -73,9 +73,12 @@ def process_unblock_if_needed(db: Session, contrato_id: int, raise_on_error: boo
                         interface_name = ifce.nome
                 
                 # Buscar nome do cliente para o comentário
+                # Usamos "contrato_id-nome" como chave única na RB para evitar
+                # colisão entre múltiplos contratos do mesmo cliente
                 cliente_nome = "Cliente"
                 if contrato.cliente:
                     cliente_nome = contrato.cliente.nome_razao_social
+                comment_key = f"{contrato.id}-{cliente_nome}"
  
                 # Desbloquear primário (remover da pg_corte e regras estritas)
                 # Se for RADIUS, o username no Mikrotik é o username do Radius
@@ -89,7 +92,7 @@ def process_unblock_if_needed(db: Session, contrato_id: int, raise_on_error: boo
                     assigned_ip=contrato.assigned_ip,
                     mac_address=contrato.mac_address,
                     interface=interface_name,
-                    comment=cliente_nome
+                    comment=comment_key
                 )
                 
                 # Se for RADIUS ou PPPOE, tenta derrubar a sessão ativa para forçar re-conexão com status novo
@@ -118,7 +121,7 @@ def process_unblock_if_needed(db: Session, contrato_id: int, raise_on_error: boo
                             assigned_ip=contrato.assigned_ip,
                             mac_address=contrato.mac_address,
                             interface=interface_name,
-                            comment=cliente_nome,
+                            comment=comment_key,
                             profile=profile_name,
                             max_limit=max_limit
                         )
@@ -200,7 +203,8 @@ def process_block_if_needed(db: Session, contrato_id: int):
                     mk.setup_suspension_firewall_rules()
                 
                 cliente_nome = contrato.cliente.nome_razao_social if contrato.cliente else "Cliente"
-                
+                comment_key = f"{contrato.id}-{cliente_nome}"
+
                 mk_username = f"contrato_{contrato.id}"
                 if contrato.metodo_autenticacao == MetodoAutenticacao.RADIUS and contrato.cliente and contrato.cliente.radius_user:
                     mk_username = contrato.cliente.radius_user.username
@@ -209,7 +213,7 @@ def process_block_if_needed(db: Session, contrato_id: int):
                     contrato_id=contrato.id,
                     metodo_autenticacao=contrato.metodo_autenticacao,
                     assigned_ip=contrato.assigned_ip,
-                    comment=cliente_nome
+                    comment=comment_key
                 )
 
                 if contrato.metodo_autenticacao in [MetodoAutenticacao.PPPOE, MetodoAutenticacao.RADIUS]:

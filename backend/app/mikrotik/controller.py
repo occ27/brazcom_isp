@@ -1408,16 +1408,23 @@ class MikrotikController:
                     if aid: arp_res.remove(id=aid)
             except Exception: pass
 
-        # Remover Simple Queue antiga (pelo nome antigo ou atual se existir)
+        # Remover Simple Queue antiga (pelo nome atual e pelos padrões antigos)
         try:
             q_res = self._api.get_resource('queue/simple')
-            # Tenta remover pelo nome do cliente (atual) e pelo nome antigo (contrato-ID)
-            for qname in [comment, f"contrato-{contrato_id}"]:
-                if not qname: continue
-                queues = q_res.get(name=qname)
-                for q in queues:
-                    qid = q.get('.id') or q.get('id')
-                    if qid: q_res.remove(id=qid)
+            # Tenta remover:
+            # 1. Chave atual: "contrato_id-nome" (ex: "42-João da Silva")
+            # 2. Padrão antigo: só o nome do cliente (ex: "João da Silva") — migração
+            # 3. Padrão legado: "contrato-{id}"
+            old_name_only = comment.split('-', 1)[1] if comment and '-' in comment else None
+            for qname in [comment, old_name_only, f"contrato-{contrato_id}"]:
+                if not qname:
+                    continue
+                all_queues = q_res.get()
+                for q in all_queues:
+                    if q.get('name') == qname:
+                        qid = q.get('.id') or q.get('id')
+                        if qid:
+                            q_res.remove(id=qid)
         except Exception: pass
 
         # 3. Remover ARP e DHCP Lease (se IP fornecido)
