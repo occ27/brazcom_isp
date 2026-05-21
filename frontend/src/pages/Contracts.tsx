@@ -152,6 +152,7 @@ const Contracts: React.FC = () => {
 
   // Tab state for form organization
   const [tabValue, setTabValue] = useState(0);
+  const [showPppoePassword, setShowPppoePassword] = useState(false);
 
   // Pagination state
   const [page, setPage] = useState(0);
@@ -3233,7 +3234,7 @@ const Contracts: React.FC = () => {
 
                           <TextField
                             label="Password PPPoE"
-                            type="password"
+                            type={showPppoePassword ? 'text' : 'password'}
                             value={form.pppoe_password || ''}
                             onChange={e => handleInputChange('pppoe_password', e.target.value)}
                             fullWidth
@@ -3241,6 +3242,21 @@ const Contracts: React.FC = () => {
                             placeholder="Digite a senha PPPoE"
                             error={!!errors.pppoe_password}
                             helperText={errors.pppoe_password || "Password para autenticação PPPoE"}
+                            InputProps={{
+                              endAdornment: (
+                                <InputAdornment position="end">
+                                  <IconButton
+                                    onClick={() => setShowPppoePassword(prev => !prev)}
+                                    edge="end"
+                                    size="small"
+                                    tabIndex={-1}
+                                    aria-label={showPppoePassword ? 'Ocultar senha' : 'Mostrar senha'}
+                                  >
+                                    <EyeIcon className="w-4 h-4" style={{ opacity: showPppoePassword ? 1 : 0.5 }} />
+                                  </IconButton>
+                                </InputAdornment>
+                              )
+                            }}
                           />
 
                           <div className="flex items-center space-x-2 text-sm text-green-600">

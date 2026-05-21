@@ -357,6 +357,145 @@ def build_boleto_context(db: Session, recv: Receivable) -> dict:
     }
 
 
+def send_last_day_tolerance_notification(db: Session, recv: Receivable) -> bool:
+    """Dispara uma notificação de URGÊNCIA no último dia do período de tolerância (véspera do bloqueio).
+
+    A mensagem é diferenciada da notificação normal de cobrança, alertando que o serviço
+    será suspenso no dia seguinte caso o pagamento não seja efetuado.
+    """
+    from app.models.models import Empresa, Cliente
+    from app.crud import crud_empresa
+    from app.services.email_service import EmailService
+    from app.services.whatsapp_service import WhatsAppService
+    import tempfile
+    import os
+    from app.core.config import settings
+
+    empresa = db.query(Empresa).filter(Empresa.id == recv.empresa_id).first()
+    cliente = db.query(Cliente).filter(Cliente.id == recv.cliente_id).first()
+    if not empresa or not cliente:
+        return False
+
+    if not getattr(cliente, "recebe_notificacoes", True):
+        logging.info(
+            f"Notificação de tolerância suprimida: cliente '{cliente.nome_razao_social}' "
+            f"(ID: {cliente.id}) desabilitou 'recebe_notificacoes'."
+        )
+        return False
+
+    empresa_raw = crud_empresa.get_empresa_raw(db, empresa_id=recv.empresa_id)
+    company_name = empresa.nome_fantasia or empresa.razao_social
+
+    # Formata data de vencimento
+    due_date_str = recv.due_date.strftime('%d/%m/%Y') if hasattr(recv.due_date, 'strftime') else str(recv.due_date)
+
+    # Garantir URL de pagamento atualizada
+    payment_url = recv.payment_url
+    if recv.payment_token:
+        base_url = settings.FRONTEND_URL.rstrip("/")
+        payment_url = f"{base_url}/checkout?token={recv.payment_token}"
+
+    send_email = getattr(empresa, "send_method_email", True)
+    send_whatsapp = getattr(empresa, "send_method_whatsapp", False)
+    if not send_email and not send_whatsapp:
+        send_email = True
+
+    success = False
+
+    # --- Envio por E-mail ---
+    if send_email and cliente.email:
+        try:
+            if payment_url:
+                body = f"""Olá,
+
+⚠️ AVISO IMPORTANTE: Sua fatura de {company_name} no valor de R$ {recv.amount:,.2f} com vencimento em {due_date_str} ainda está em aberto.
+
+ATENÇÃO: Seu serviço será SUSPENSO AMANHÃ caso o pagamento não seja identificado.
+
+Para regularizar agora, acesse o link:
+{payment_url}
+
+Se já efetuou o pagamento, por favor desconsidere este aviso.
+
+Atenciosamente,
+{company_name}""".strip()
+            else:
+                body = f"""Olá,
+
+⚠️ AVISO IMPORTANTE: Sua fatura de {company_name} no valor de R$ {recv.amount:,.2f} com vencimento em {due_date_str} ainda está em aberto.
+
+ATENÇÃO: Seu serviço será SUSPENSO AMANHÃ caso o pagamento não seja identificado.
+
+Por favor, realize o pagamento do boleto em anexo o quanto antes para evitar a suspensão do seu serviço.
+
+Se já efetuou o pagamento, por favor desconsidere este aviso.
+
+Atenciosamente,
+{company_name}""".strip()
+
+            subject = f"⚠️ URGENTE: Fatura em atraso – serviço será suspenso amanhã | {company_name}"
+
+            # Gerar PDF do boleto se necessário
+            pdf_path = None
+            if not payment_url:
+                try:
+                    context = build_boleto_context(db, recv)
+                    from app.services.boleto_generator import generate_boleto_pdf
+                    pdf_bytes = generate_boleto_pdf(context)
+                    tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+                    tmp.write(pdf_bytes)
+                    tmp.close()
+                    pdf_path = tmp.name
+                except Exception as pdf_err:
+                    logging.error(f"Erro ao gerar PDF para notificação de tolerância: {pdf_err}")
+
+            try:
+                ok = EmailService.send_email(
+                    empresa=empresa_raw,
+                    to_email=cliente.email,
+                    subject=subject,
+                    body=body,
+                    attachments=[pdf_path] if pdf_path and os.path.exists(pdf_path) else []
+                )
+                if ok:
+                    success = True
+            except Exception as email_err:
+                logging.error(f"Erro ao enviar e-mail de tolerância: {email_err}")
+            finally:
+                if pdf_path and os.path.exists(pdf_path):
+                    try:
+                        os.unlink(pdf_path)
+                    except Exception:
+                        pass
+        except Exception as e:
+            logging.error(f"Erro ao preparar e-mail de tolerância: {e}")
+
+    # --- Envio por WhatsApp ---
+    if send_whatsapp and cliente.telefone:
+        try:
+            msg = f"⚠️ *AVISO IMPORTANTE – {company_name}*\n\n"
+            msg += f"Olá, *{cliente.nome_razao_social}*!\n\n"
+            msg += (
+                f"Sua fatura no valor de *R$ {recv.amount:,.2f}* com vencimento em *{due_date_str}* "
+                f"ainda está em aberto.\n\n"
+            )
+            msg += "🚨 *Seu serviço será SUSPENSO AMANHÃ* caso o pagamento não seja identificado.\n\n"
+            if payment_url:
+                msg += f"Para pagar agora, acesse:\n{payment_url}\n\n"
+            else:
+                msg += "Por favor, realize o pagamento do boleto para evitar a suspensão do seu serviço.\n\n"
+            msg += "Se já efetuou o pagamento, por favor desconsidere este aviso.\n\n"
+            msg += f"*Atenciosamente, {company_name}*"
+
+            ok = WhatsAppService.send_message(empresa=empresa_raw, to_phone=cliente.telefone, message=msg)
+            if ok:
+                success = True
+        except Exception as wa_err:
+            logging.error(f"Erro ao enviar WhatsApp de tolerância: {wa_err}")
+
+    return success
+
+
 def send_receivable_notification(db: Session, recv: Receivable) -> bool:
     """Dispara a notificação de cobrança por E-mail e/ou WhatsApp, com base nas configurações da empresa."""
     from app.models.models import Empresa, Cliente

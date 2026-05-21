@@ -50,11 +50,20 @@ const Checkout: React.FC = () => {
         // If we have a token, fetch the receivable info publicly
         if (token && receivableIds.length === 0) {
            const data = await mercadopagoService.getReceivableByToken(token);
+
            if (data.status === 'PAID') {
-               setError('Esta fatura já foi paga. Obrigado!');
+               setError('Esta fatura já foi paga. Obrigado! ✅');
                setLoading(false);
                return;
            }
+
+           // Se o link anterior expirou/foi cancelado o backend gera um novo token automaticamente.
+           // Redirecionar transparentemente para o novo URL sem interromper o fluxo do cliente.
+           if (data.new_token_generated && data.payment_token && data.payment_token !== token) {
+               navigate(`/checkout?token=${data.payment_token}`, { replace: true });
+               return;
+           }
+
            ids = [data.id];
            setReceivableIds(ids);
            email = data.cliente_email;
@@ -69,6 +78,7 @@ const Checkout: React.FC = () => {
              if (data.mp_settings) setMpSettings(data.mp_settings);
            }
         }
+
 
         if (!ids || ids.length === 0) {
           setError('Nenhuma cobrança selecionada para pagamento');

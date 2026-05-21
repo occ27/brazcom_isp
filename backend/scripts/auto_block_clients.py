@@ -87,7 +87,44 @@ def run_auto_blocking():
                         print(f"  [AUTO-NOTIFICATIONS] No pending receivables to notify today.")
                 except Exception as e:
                     print(f"  [AUTO-NOTIFICATIONS] [ERROR] Failed to process notifications: {e}")
-                
+
+                # BLOCO 2B: Notificação de último dia de tolerância (véspera do bloqueio)
+                # Envia alerta de urgência para faturas que serão bloqueadas AMANHÃ,
+                # ou seja: due_date + dias_bloqueio_inadimplentes == hoje
+                dias_limite = getattr(company, "dias_bloqueio_inadimplentes", None)
+                if dias_limite is not None and dias_limite > 0:
+                    print(f"  [TOLERANCE-ALERT] Checking for receivables on last day of tolerance ({dias_limite} days)...")
+                    try:
+                        from app.services.receivable_service import send_last_day_tolerance_notification
+                        from datetime import date as _date
+                        today = now.date()
+                        # A fatura vence today - dias_limite  =>  ela está no último dia de tolerância hoje
+                        target_due_date = today - timedelta(days=dias_limite)
+                        from sqlalchemy import func
+                        last_day_receivables = session.query(Receivable).filter(
+                            Receivable.empresa_id == company.id,
+                            Receivable.status == 'PENDING',
+                            func.date(Receivable.due_date) == target_due_date,
+                        ).all()
+
+                        if last_day_receivables:
+                            print(f"  [TOLERANCE-ALERT] Found {len(last_day_receivables)} receivable(s) on the last day of tolerance (due {target_due_date}).")
+                            alert_count = 0
+                            for r in last_day_receivables:
+                                try:
+                                    if send_last_day_tolerance_notification(session, r):
+                                        alert_count += 1
+                                        db_changed = True
+                                except Exception as alert_err:
+                                    print(f"    [TOLERANCE-ALERT] [WARNING] Failed to send alert for receivable #{r.id}: {alert_err}")
+                            print(f"  [TOLERANCE-ALERT] Sent {alert_count}/{len(last_day_receivables)} last-day-tolerance alerts.")
+                        else:
+                            print(f"  [TOLERANCE-ALERT] No receivables on last day of tolerance today (target due date: {target_due_date}).")
+                    except Exception as e:
+                        print(f"  [TOLERANCE-ALERT] [ERROR] Failed to process last-day tolerance alerts: {e}")
+                else:
+                    print(f"  [TOLERANCE-ALERT] Skipped – auto-block not configured for this company (dias_bloqueio_inadimplentes={dias_limite}).")
+
                 # Pula os demais passos do processamento diário no modo de notificação apenas
                 company_summaries.append({
                     "name": company.nome_fantasia or company.razao_social,
@@ -98,6 +135,7 @@ def run_auto_blocking():
                     "unblocked": 0
                 })
                 continue
+
 
             # MODO 1: Processamento Diário Completo (Meia-noite) - Sem Notificações (Silencioso)
             # 1. Gerar cobranças automáticas para o dia de hoje

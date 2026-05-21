@@ -26,25 +26,99 @@ def get_public_key(empresa_id: int, db: Session = Depends(get_db)):
 
 @router.get("/receivable/{token}")
 def get_receivable_by_token(token: str, db: Session = Depends(get_db)):
-    """Busca informações de uma cobrança usando o token público."""
+    """Busca informações de uma cobrança usando o token público.
+
+    Se o pagamento MP anterior estiver expirado/cancelado/rejeitado, gera automaticamente
+    um novo token de pagamento para que o cliente possa pagar novamente.
+    """
+    import secrets as _secrets
+
     receivable = db.query(Receivable).filter(Receivable.payment_token == token).first()
     if not receivable:
         raise HTTPException(status_code=404, detail="Cobrança não encontrada ou link expirado")
-    
-    if receivable.status == 'PAID':
-         return {
-             "id": receivable.id,
-             "status": "PAID",
-             "message": "Esta fatura já foi paga."
-         }
 
-    # Buscar e-mail do cliente
+    if receivable.status == 'PAID':
+        return {
+            "id": receivable.id,
+            "status": "PAID",
+            "message": "Esta fatura já foi paga."
+        }
+
+    # Buscar dados relacionados
     from app.models.models import Cliente
     cliente = db.query(Cliente).filter(Cliente.id == receivable.cliente_id).first()
-    
-    # Buscar configurações da empresa
     empresa = db.query(Empresa).filter(Empresa.id == receivable.empresa_id).first()
-    
+
+    # --- Verificar se existe um mp_payment_id e se ele está expirado/inválido ---
+    mp_status_detail = None
+    new_token_generated = False
+
+    # Status finais não-pagos no Mercado Pago que impedem reuso do payment_id
+    EXPIRED_STATUSES = {"cancelled", "rejected", "refunded", "charged_back", "expired"}
+
+    if receivable.mp_payment_id and empresa and empresa.mp_access_token:
+        try:
+            sdk = mercadopago.SDK(empresa.mp_access_token)
+            payment_info = sdk.payment().get(receivable.mp_payment_id)
+
+            if payment_info.get("status") == 200:
+                payment = payment_info["response"]
+                current_mp_status = payment.get("status", "")
+                status_detail = payment.get("status_detail", "")
+
+                # Atualizar status no banco com o que o MP reporta
+                receivable.mp_payment_status = current_mp_status
+
+                if current_mp_status in EXPIRED_STATUSES:
+                    # Pagamento expirado/cancelado/rejeitado → renovar token para nova tentativa
+                    logger.info(
+                        f"[CHECKOUT] Receivable #{receivable.id}: MP payment {receivable.mp_payment_id} "
+                        f"está '{current_mp_status}' ({status_detail}). Gerando novo token de pagamento."
+                    )
+                    new_payment_token = _secrets.token_urlsafe(32)
+                    base_url = settings.FRONTEND_URL.rstrip("/")
+
+                    receivable.mp_payment_id = None
+                    receivable.mp_payment_status = None
+                    receivable.mp_payment_method = None
+                    receivable.payment_token = new_payment_token
+                    receivable.payment_url = f"{base_url}/checkout?token={new_payment_token}"
+
+                    db.commit()
+                    db.refresh(receivable)
+                    new_token_generated = True
+
+                    mp_status_detail = {
+                        "previous_status": current_mp_status,
+                        "previous_status_detail": status_detail,
+                        "message": "O pagamento anterior foi cancelado/expirado. Um novo link foi gerado automaticamente.",
+                        "new_token": new_payment_token,
+                    }
+                elif current_mp_status == "approved":
+                    # Pode ter sido aprovado via webhook; marcar como pago
+                    receivable.status = "PAID"
+                    receivable.paid_at = datetime.utcnow()
+                    db.commit()
+                    return {
+                        "id": receivable.id,
+                        "status": "PAID",
+                        "message": "Esta fatura já foi paga."
+                    }
+                else:
+                    # pending / in_process / authorized — ainda válido
+                    mp_status_detail = {
+                        "current_status": current_mp_status,
+                        "current_status_detail": status_detail,
+                    }
+                    db.commit()
+            else:
+                logger.warning(
+                    f"[CHECKOUT] Não foi possível consultar MP payment {receivable.mp_payment_id}: "
+                    f"HTTP {payment_info.get('status')}"
+                )
+        except Exception as mp_err:
+            logger.warning(f"[CHECKOUT] Falha ao consultar status do pagamento MP: {mp_err}")
+
     return {
         "id": receivable.id,
         "empresa_id": receivable.empresa_id,
@@ -53,6 +127,9 @@ def get_receivable_by_token(token: str, db: Session = Depends(get_db)):
         "cliente_email": cliente.email if cliente else "",
         "cliente_nome": cliente.nome_razao_social if cliente else "",
         "status": receivable.status,
+        "payment_token": receivable.payment_token,
+        "new_token_generated": new_token_generated,
+        "mp_status_detail": mp_status_detail,
         "mp_settings": {
             "allow_boleto": empresa.mp_allow_boleto if empresa else True,
             "allow_pix": empresa.mp_allow_pix if empresa else True,
