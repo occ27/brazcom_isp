@@ -99,7 +99,12 @@ def run_auto_blocking():
                         from datetime import date as _date
                         today = now.date()
                         # A fatura vence today - dias_limite  =>  ela está no último dia de tolerância hoje
-                        target_due_date = today - timedelta(days=dias_limite)
+                        # O bloqueio ocorre quando due_date <= hoje - dias_limite.
+                        # Para avisar o cliente 1 dia ANTES do bloqueio, buscamos títulos
+                        # cujo vencimento é: hoje - (dias_limite - 1)
+                        # Exemplo: tolerância=1, hoje=05-21 → target=05-21 (bloqueia amanhã 05-22)
+                        # Exemplo: tolerância=15, hoje=05-21 → target=05-07 (bloqueia amanhã 05-22)
+                        target_due_date = today - timedelta(days=dias_limite - 1)
                         from sqlalchemy import func
                         last_day_receivables = session.query(Receivable).filter(
                             Receivable.empresa_id == company.id,
