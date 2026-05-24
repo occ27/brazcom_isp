@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 from app.core.database import get_db
 from app.crud import crud_usuario
@@ -221,36 +221,54 @@ def read_usuarios_by_empresa(
     empresa_id: int,
     skip: int = 0,
     limit: int = 100,
+    role: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_active_user)
 ):
-    """Lista usuários associados a uma empresa. Apenas admins da empresa ou superusuários."""
+    """Lista usuários associados a uma empresa."""
     # Verificar se a empresa existe
     empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
     if not empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
 
-    # Verificar permissões: superuser ou admin da empresa
+    # Verificar permissões: superuser ou pertence à empresa
     if not current_user.is_superuser:
         from app.models.models import UsuarioEmpresa
         usuario_empresa = db.query(UsuarioEmpresa).filter(
             UsuarioEmpresa.usuario_id == current_user.id,
-            UsuarioEmpresa.empresa_id == empresa_id,
-            UsuarioEmpresa.is_admin == True
+            UsuarioEmpresa.empresa_id == empresa_id
         ).first()
         if not usuario_empresa:
             raise HTTPException(
                 status_code=403,
-                detail="Apenas administradores da empresa ou superusuários podem visualizar usuários"
+                detail="Apenas membros da empresa ou superusuários podem visualizar usuários"
             )
 
     # Obter usuários associados à empresa e seu status is_admin
     from app.models.models import UsuarioEmpresa
+    from sqlalchemy import func, or_
+    
     query = db.query(Usuario, UsuarioEmpresa.is_admin).join(
         UsuarioEmpresa, Usuario.id == UsuarioEmpresa.usuario_id
     ).filter(
         UsuarioEmpresa.empresa_id == empresa_id
     )
+
+    if role:
+        from app.models.access_control import Role, user_role_association
+        query = query.join(
+            user_role_association,
+            Usuario.id == user_role_association.c.user_id
+        ).join(
+            Role,
+            user_role_association.c.role_id == Role.id
+        ).filter(
+            func.lower(Role.name) == role.lower(),
+            or_(
+                user_role_association.c.empresa_id == empresa_id,
+                user_role_association.c.empresa_id == None
+            )
+        )
 
     # Se o usuário não for superuser, ele não deve ver outros superusers na lista
     if not current_user.is_superuser:

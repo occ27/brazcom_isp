@@ -753,6 +753,7 @@ class Ticket(Base):
     id = Column(Integer, primary_key=True, index=True)
     empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
     cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=True)  # Opcional para tickets internos
+    contrato_id = Column(Integer, ForeignKey("servicos_contratados.id"), nullable=True)
     criado_por_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     atribuido_para_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
@@ -766,6 +767,15 @@ class Ticket(Base):
     resolucao = Column(Text, nullable=True)
     resolvido_em = Column(DateTime(timezone=True), nullable=True)
     resolvido_por_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    
+    # Campos de encerramento obrigatórios
+    foto_onu_serial = Column(String(500), nullable=True)
+    foto_equipamentos = Column(String(500), nullable=True)
+    foto_velocidade = Column(String(500), nullable=True)
+    foto_cto = Column(String(500), nullable=True)
+    splitter_cto = Column(String(100), nullable=True)
+    material_utilizado = Column(Text, nullable=True)
+    problema_encontrado = Column(Text, nullable=True)
 
     # Campos de tempo
     prazo_resolucao = Column(DateTime(timezone=True), nullable=True)
@@ -779,6 +789,7 @@ class Ticket(Base):
     # Relacionamentos
     empresa = relationship("Empresa", backref="tickets")
     cliente = relationship("Cliente", backref="tickets")
+    contrato = relationship("ServicoContratado", backref="tickets")
     criado_por = relationship("Usuario", foreign_keys=[criado_por_id], backref="tickets_criados")
     atribuido_para = relationship("Usuario", foreign_keys=[atribuido_para_id], backref="tickets_atribuidos")
     resolvido_por = relationship("Usuario", foreign_keys=[resolvido_por_id], backref="tickets_resolvidos")

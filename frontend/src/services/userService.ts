@@ -49,8 +49,10 @@ export interface UsuarioEmpresa {
 }
 
 class UserService {
-  async getUsersByEmpresa(empresaId: number): Promise<Usuario[]> {
-    const response = await api.get(`/usuarios/empresa/${empresaId}`);
+  async getUsersByEmpresa(empresaId: number, role?: string): Promise<Usuario[]> {
+    const response = await api.get(`/usuarios/empresa/${empresaId}`, {
+      params: role ? { role } : undefined
+    });
     return response.data;
   }
 

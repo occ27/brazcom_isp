@@ -80,6 +80,9 @@ export interface Contrato {
   cliente_razao_social?: string;
   cliente_cpf_cnpj?: string;
   cliente_telefone?: string;
+  cliente_endereco?: string;
+  cliente_numero?: string;
+  cliente_bairro?: string;
   cliente_municipio?: string;
   cliente_uf?: string;
   servico_descricao?: string;
@@ -164,6 +167,11 @@ const contratoService = {
   },
   async getContratoById(id: number): Promise<Contrato> {
     const res = await api.get(`/servicos-contratados/${id}`);
+    return res.data;
+  },
+  async getContratosByCliente(clienteId: number, empresaId?: number): Promise<Contrato[]> {
+    const params = empresaId ? { empresa_id: empresaId } : {};
+    const res = await api.get(`/servicos-contratados/cliente/${clienteId}`, { params });
     return res.data;
   },
   async getContratoTermoUrl(empresaId: number, contratoId: number): Promise<string> {

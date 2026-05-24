@@ -33,7 +33,7 @@ def create_ticket(
 def get_tickets(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    status: Optional[StatusTicket] = None,
+    status: Optional[str] = None,
     prioridade: Optional[str] = None,
     categoria: Optional[str] = None,
     cliente_id: Optional[int] = None,
@@ -50,12 +50,14 @@ def get_tickets(
     # Calcular total para paginação
     total = TicketService.count_tickets(
         db, empresa_id, status, prioridade,
-        categoria, cliente_id, atribuido_para_id, search
+        categoria, cliente_id, atribuido_para_id, search,
+        current_user_id=current_user.id
     )
         
     tickets = TicketService.get_tickets(
         db, empresa_id, skip, limit, status, prioridade,
-        categoria, cliente_id, atribuido_para_id, search
+        categoria, cliente_id, atribuido_para_id, search,
+        current_user_id=current_user.id
     )
 
     return {"data": tickets, "total": total}
@@ -88,9 +90,38 @@ def update_ticket(
 ):
     """Atualiza um ticket existente."""
     empresa_id = active_empresa.id
-    ticket = TicketService.update_ticket(db, ticket_id, empresa_id, ticket_update, current_user.id)
-    if not ticket:
+    
+    # Buscar o ticket no banco para validar o status atual
+    existing_ticket = db.query(Usuario).filter(Usuario.id == current_user.id).first() # Just checking db access
+    from app.models.models import Ticket as TicketModel
+    db_ticket = db.query(TicketModel).filter(
+        TicketModel.id == ticket_id,
+        TicketModel.empresa_id == empresa_id,
+        TicketModel.is_active == True
+    ).first()
+    
+    if not db_ticket:
         raise HTTPException(status_code=404, detail="Ticket não encontrado")
+        
+    if db_ticket.status in [StatusTicket.RESOLVIDO, StatusTicket.FECHADO, StatusTicket.CANCELADO]:
+        # Verificar se o usuário é admin/superuser
+        is_admin = False
+        if not current_user.is_superuser:
+            assoc_user = db.query(UsuarioEmpresa).filter(
+                UsuarioEmpresa.usuario_id == current_user.id,
+                UsuarioEmpresa.empresa_id == empresa_id,
+                UsuarioEmpresa.is_admin == True
+            ).first()
+            if assoc_user:
+                is_admin = True
+                
+        if not current_user.is_superuser and not is_admin:
+            raise HTTPException(
+                status_code=403, 
+                detail="Tickets finalizados (resolvidos, fechados ou cancelados) só podem ser alterados por administradores"
+            )
+
+    ticket = TicketService.update_ticket(db, ticket_id, empresa_id, ticket_update, current_user.id)
     return ticket
 
 

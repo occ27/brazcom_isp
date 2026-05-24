@@ -64,6 +64,18 @@ const ticketService = {
   getStats: async (): Promise<TicketStats> => {
     const resp = await api.get('/tickets/stats/summary');
     return resp.data;
+  },
+
+  // Fazer upload de foto do chamado
+  uploadPhoto: async (ticketId: number, file: File): Promise<{ file_path: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const resp = await api.post(`/uploads/tickets/${ticketId}/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return resp.data;
   }
 };
 

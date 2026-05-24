@@ -317,3 +317,47 @@ async def download_empresa_certificado(
         )
     finally:
         db.close()
+
+@router.post("/tickets/{ticket_id}/upload")
+async def upload_ticket_photo(
+    ticket_id: int,
+    file: UploadFile = File(..., description="Foto para encerramento do chamado"),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """
+    Faz upload de foto para encerramento do chamado.
+    
+    - **ticket_id**: ID do chamado
+    - **file**: Arquivo de imagem
+    """
+    # Valida tipo de arquivo (imagens apenas)
+    if not _validate_file_type(file.filename, ALLOWED_LOGO_EXTENSIONS):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tipo de arquivo não permitido. Use apenas imagens: {', '.join(ALLOWED_LOGO_EXTENSIONS)}"
+        )
+
+    try:
+        db = next(get_db())
+        try:
+            from app.models.models import Ticket
+            ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+            if not ticket:
+                raise HTTPException(status_code=404, detail="Ticket não encontrado")
+            empresa_id = ticket.empresa_id
+        finally:
+            db.close()
+
+        file_path = _save_uploaded_file(file, f"tickets/{ticket_id}", empresa_id, use_empresa_subfolder=True)
+        return JSONResponse(
+            content={
+                "message": "Foto enviada com sucesso",
+                "file_path": file_path,
+                "file_name": file.filename
+            },
+            status_code=200
+        )
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao salvar arquivo: {str(e)}")

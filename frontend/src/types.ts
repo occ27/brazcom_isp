@@ -315,7 +315,7 @@ export interface Ticket {
   empresa_id: number;
   cliente_id?: number;
   criado_por_id: number;
-  atribuido_para_id?: number;
+  atribuido_para_id?: number | null;
   titulo: string;
   descricao: string;
   status: StatusTicket;
@@ -329,12 +329,25 @@ export interface Ticket {
   is_active: boolean;
   created_at: string;
   updated_at?: string;
+  
+  // Campos de encerramento
+  foto_onu_serial?: string;
+  foto_equipamentos?: string;
+  foto_velocidade?: string;
+  foto_cto?: string;
+  splitter_cto?: string;
+  material_utilizado?: string;
+  problema_encontrado?: string;
+
   // Dados relacionados
   cliente_nome?: string;
   criado_por_nome: string;
   atribuido_para_nome?: string;
   resolvido_por_nome?: string;
   comentarios_count: number;
+  contrato_id?: number;
+  contrato_numero?: string;
+  contrato_endereco?: string;
 }
 
 export interface TicketComment {
@@ -365,7 +378,7 @@ export interface TicketCreate {
   prioridade: PrioridadeTicket;
   categoria: CategoriaTicket;
   cliente_id?: number;
-  atribuido_para_id?: number;
+  atribuido_para_id?: number | null;
   prazo_resolucao?: string;
 }
 
@@ -375,10 +388,19 @@ export interface TicketUpdate {
   status?: StatusTicket;
   prioridade?: PrioridadeTicket;
   categoria?: CategoriaTicket;
-  atribuido_para_id?: number;
+  atribuido_para_id?: number | null;
   resolucao?: string;
   prazo_resolucao?: string;
   tempo_gasto_minutos?: number;
+  
+  // Campos de encerramento
+  foto_onu_serial?: string;
+  foto_equipamentos?: string;
+  foto_velocidade?: string;
+  foto_cto?: string;
+  splitter_cto?: string;
+  material_utilizado?: string;
+  problema_encontrado?: string;
 }
 
 export interface TicketCommentCreate {

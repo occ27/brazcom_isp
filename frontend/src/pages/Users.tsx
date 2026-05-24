@@ -47,6 +47,7 @@ const Users: React.FC = () => {
   const [users, setUsers] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
   const [openDialog, setOpenDialog] = useState(false);
   const [editingUser, setEditingUser] = useState<Usuario | null>(null);
   const [formData, setFormData] = useState<UsuarioCreate & { is_admin: boolean }>({
@@ -106,6 +107,77 @@ const Users: React.FC = () => {
     }
   }, [activeCompany, canManageUsers]);
 
+  const handleBackendError = (err: any, fallbackMessage: string) => {
+    const detail = err.response?.data?.detail;
+    if (!detail) {
+      setError(err.message || fallbackMessage);
+      return;
+    }
+
+    if (typeof detail === 'string') {
+      setError(detail);
+      return;
+    }
+
+    if (Array.isArray(detail)) {
+      const errors: { [key: string]: string } = {};
+      const messages: string[] = [];
+
+      detail.forEach((item: any) => {
+        if (item.loc && Array.isArray(item.loc)) {
+          const fieldName = item.loc[item.loc.length - 1];
+          if (fieldName && typeof fieldName === 'string') {
+            let msg = item.msg;
+            if (msg.includes('at least 6 characters') || msg.includes('min_length')) {
+              msg = 'A senha deve ter pelo menos 6 caracteres';
+            } else if (msg.includes('value is not a valid email')) {
+              msg = 'Formato de e-mail inválido';
+            }
+            errors[fieldName] = msg;
+            messages.push(`${fieldName}: ${msg}`);
+          } else {
+            messages.push(item.msg || 'Erro de validação');
+          }
+        } else {
+          messages.push(item.msg || 'Erro de validação');
+        }
+      });
+
+      setFormErrors(errors);
+      setError(messages.join(', '));
+      return;
+    }
+
+    setError(JSON.stringify(detail));
+  };
+
+  const validateForm = (): boolean => {
+    const errors: { [key: string]: string } = {};
+
+    if (!formData.nome.trim()) {
+      errors.nome = 'Nome é obrigatório';
+    }
+
+    if (!formData.email.trim()) {
+      errors.email = 'E-mail é obrigatório';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      errors.email = 'Formato de e-mail inválido';
+    }
+
+    if (!editingUser) {
+      if (!formData.password) {
+        errors.password = 'Senha é obrigatória';
+      } else if (formData.password.length < 6) {
+        errors.password = 'A senha deve ter pelo menos 6 caracteres';
+      }
+    } else if (formData.password && formData.password.length < 6) {
+      errors.password = 'A senha deve ter pelo menos 6 caracteres';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const loadUsers = async () => {
     if (!activeCompany) return;
 
@@ -124,13 +196,15 @@ const Users: React.FC = () => {
       }));
       setUsers(usersWithRoles);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Erro ao carregar usuários');
+      handleBackendError(err, 'Erro ao carregar usuários');
     } finally {
       setLoading(false);
     }
   };
 
   const handleOpenDialog = (user?: Usuario) => {
+    setError(null);
+    setFormErrors({});
     if (user) {
       setEditingUser(user);
       setFormData({
@@ -189,10 +263,16 @@ const Users: React.FC = () => {
       is_superuser: false,
       is_admin: false
     });
+    setError(null);
+    setFormErrors({});
   };
 
   const handleSubmit = async () => {
     if (!activeCompany) return;
+    setError(null);
+    setFormErrors({});
+
+    if (!validateForm()) return;
 
     try {
       if (editingUser) {
@@ -231,7 +311,7 @@ const Users: React.FC = () => {
       await loadUsers();
       handleCloseDialog();
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Erro ao salvar usuário');
+      handleBackendError(err, 'Erro ao salvar usuário');
     }
   };
 
@@ -242,15 +322,21 @@ const Users: React.FC = () => {
       await userService.deleteUser(userId);
       await loadUsers();
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Erro ao excluir usuário');
+      handleBackendError(err, 'Erro ao excluir usuário');
     }
   };
 
   const handleAssociateSubmit = async () => {
     if (!activeCompany || !associateData.email) return;
 
+    if (!/\S+@\S+\.\S+/.test(associateData.email)) {
+      setError('Formato de e-mail inválido');
+      return;
+    }
+
     try {
       setLoading(true);
+      setError(null);
       await userService.associateUserToEmpresa(
         activeCompany.id,
         undefined,
@@ -261,7 +347,7 @@ const Users: React.FC = () => {
       setOpenAssociateDialog(false);
       setAssociateData({ email: '', is_admin: false });
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Erro ao associar usuário. Verifique se o e-mail está correto e se o usuário já possui conta.');
+      handleBackendError(err, 'Erro ao associar usuário. Verifique se o e-mail está correto e se o usuário já possui conta.');
     } finally {
       setLoading(false);
     }
@@ -303,7 +389,10 @@ const Users: React.FC = () => {
           <Button
             variant="outlined"
             startIcon={<UserIcon className="w-5 h-5" />}
-            onClick={() => setOpenAssociateDialog(true)}
+            onClick={() => {
+              setError(null);
+              setOpenAssociateDialog(true);
+            }}
             sx={{ py: 1.5 }}
           >
             Vincular Existente
@@ -319,7 +408,7 @@ const Users: React.FC = () => {
         </Stack>
       </Box>
 
-      {error && (
+      {error && !openDialog && !openAssociateDialog && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
@@ -455,10 +544,22 @@ const Users: React.FC = () => {
         </DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {error && (
+              <Alert severity="error" sx={{ mb: 1 }}>
+                {error}
+              </Alert>
+            )}
             <TextField
               label="Nome Completo"
               value={formData.nome}
-              onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, nome: e.target.value });
+                if (formErrors.nome) {
+                  setFormErrors({ ...formErrors, nome: '' });
+                }
+              }}
+              error={!!formErrors.nome}
+              helperText={formErrors.nome}
               fullWidth
               required
             />
@@ -466,7 +567,14 @@ const Users: React.FC = () => {
               label="Email"
               type="email"
               value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, email: e.target.value });
+                if (formErrors.email) {
+                  setFormErrors({ ...formErrors, email: '' });
+                }
+              }}
+              error={!!formErrors.email}
+              helperText={formErrors.email}
               fullWidth
               required
             />
@@ -474,10 +582,16 @@ const Users: React.FC = () => {
               label="Senha"
               type="password"
               value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, password: e.target.value });
+                if (formErrors.password) {
+                  setFormErrors({ ...formErrors, password: '' });
+                }
+              }}
+              error={!!formErrors.password}
               fullWidth
               required={!editingUser}
-              helperText={editingUser ? "Deixe em branco para manter a senha atual" : ""}
+              helperText={formErrors.password || (editingUser ? "Deixe em branco para manter a senha atual" : "A senha deve ter pelo menos 6 caracteres")}
             />
 
             {/* Cliente (Portal do Cliente) removed from user form */}
@@ -546,10 +660,19 @@ const Users: React.FC = () => {
       </Dialog>
 
       {/* Dialog para associar usuário existente */}
-      <Dialog open={openAssociateDialog} onClose={() => setOpenAssociateDialog(false)} maxWidth="xs" fullWidth>
+      <Dialog open={openAssociateDialog} onClose={() => {
+        setOpenAssociateDialog(false);
+        setError(null);
+        setAssociateData({ email: '', is_admin: false });
+      }} maxWidth="xs" fullWidth>
         <DialogTitle>Vincular Usuário Existente</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {error && (
+              <Alert severity="error">
+                {error}
+              </Alert>
+            )}
             <Typography variant="body2" color="text.secondary">
               Informe o e-mail de um usuário que já possui cadastro no sistema para vinculá-lo a esta empresa.
             </Typography>
@@ -557,7 +680,10 @@ const Users: React.FC = () => {
               label="E-mail do Usuário"
               type="email"
               value={associateData.email}
-              onChange={(e) => setAssociateData({ ...associateData, email: e.target.value })}
+              onChange={(e) => {
+                setAssociateData({ ...associateData, email: e.target.value });
+                if (error) setError(null);
+              }}
               fullWidth
               autoFocus
             />
@@ -573,7 +699,11 @@ const Users: React.FC = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenAssociateDialog(false)}>Cancelar</Button>
+          <Button onClick={() => {
+            setOpenAssociateDialog(false);
+            setError(null);
+            setAssociateData({ email: '', is_admin: false });
+          }}>Cancelar</Button>
           <Button
             onClick={handleAssociateSubmit}
             variant="contained"

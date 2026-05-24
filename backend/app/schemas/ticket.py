@@ -10,12 +10,22 @@ class TicketBase(BaseModel):
     prioridade: PrioridadeTicket = PrioridadeTicket.NORMAL
     categoria: CategoriaTicket = CategoriaTicket.SUPORTE
     cliente_id: Optional[int] = None
+    contrato_id: Optional[int] = None
     atribuido_para_id: Optional[int] = None
     prazo_resolucao: Optional[datetime] = None
+    
+    # Novos campos para fechamento/encerramento
+    foto_onu_serial: Optional[str] = None
+    foto_equipamentos: Optional[str] = None
+    foto_velocidade: Optional[str] = None
+    foto_cto: Optional[str] = None
+    splitter_cto: Optional[str] = None
+    material_utilizado: Optional[str] = None
+    problema_encontrado: Optional[str] = None
 
 
 class TicketCreate(TicketBase):
-    cliente_id: int = Field(..., description="ID do cliente obrigatório")
+    cliente_id: Optional[int] = Field(None, description="ID do cliente opcional (pode ser inferido do contrato)")
 
 
 class TicketUpdate(BaseModel):
@@ -24,10 +34,21 @@ class TicketUpdate(BaseModel):
     status: Optional[StatusTicket] = None
     prioridade: Optional[PrioridadeTicket] = None
     categoria: Optional[CategoriaTicket] = None
+    cliente_id: Optional[int] = None
+    contrato_id: Optional[int] = None
     atribuido_para_id: Optional[int] = None
     resolucao: Optional[str] = None
     prazo_resolucao: Optional[datetime] = None
     tempo_gasto_minutos: Optional[int] = Field(None, ge=0)
+    
+    # Novos campos para fechamento/encerramento
+    foto_onu_serial: Optional[str] = None
+    foto_equipamentos: Optional[str] = None
+    foto_velocidade: Optional[str] = None
+    foto_cto: Optional[str] = None
+    splitter_cto: Optional[str] = None
+    material_utilizado: Optional[str] = None
+    problema_encontrado: Optional[str] = None
 
 
 class TicketCommentBase(BaseModel):
@@ -73,6 +94,8 @@ class Ticket(TicketBase):
     atribuido_para_nome: Optional[str] = None
     resolvido_por_nome: Optional[str] = None
     comentarios_count: int = 0
+    contrato_numero: Optional[str] = None
+    contrato_endereco: Optional[str] = None
 
     class Config:
         from_attributes = True

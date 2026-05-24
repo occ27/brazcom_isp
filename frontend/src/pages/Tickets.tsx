@@ -15,11 +15,14 @@ import {
 } from '@heroicons/react/24/outline';
 import { useCompany } from '../contexts/CompanyContext';
 import ticketService from '../services/ticketService';
-import clientService, { ClientAutocomplete as ClientAutocompleteType } from '../services/clientService';
+import contratoService, { Contrato } from '../services/contratoService';
 import { stringifyError } from '../utils/error';
 import { Ticket, TicketComment, StatusTicket, PrioridadeTicket, CategoriaTicket } from '../types';
-import ClientAutocomplete from '../components/ClientAutocomplete';
+import ContractAutocomplete from '../components/ContractAutocomplete';
 import { useAuth } from '../contexts/AuthContext';
+import userService, { Usuario as UserInterface } from '../services/userService';
+import FileUploader from '../components/FileUploader';
+import { API_BASE_URL } from '../services/api';
 
 const Tickets: React.FC = () => {
   const { activeCompany } = useCompany();
@@ -35,7 +38,7 @@ const Tickets: React.FC = () => {
 
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusTicket | ''>(isTecnico ? 'ABERTO' : '');
+  const [statusFilter, setStatusFilter] = useState<string>(isTecnico ? 'ATIVOS' : '');
   const [prioridadeFilter, setPrioridadeFilter] = useState<PrioridadeTicket | ''>('');
   const [categoriaFilter, setCategoriaFilter] = useState<CategoriaTicket | ''>('');
 
@@ -54,8 +57,10 @@ const Tickets: React.FC = () => {
   const [formErrors, setFormErrors] = useState({
     titulo: false,
     descricao: false,
-    cliente: false
+    contrato: false
   });
+
+  const [tecnicos, setTecnicos] = useState<UserInterface[]>([]);
 
   // Form states
   const [newTicket, setNewTicket] = useState({
@@ -63,7 +68,7 @@ const Tickets: React.FC = () => {
     descricao: '',
     prioridade: 'NORMAL' as PrioridadeTicket,
     categoria: 'SUPORTE' as CategoriaTicket,
-    cliente: null as ClientAutocompleteType | null,
+    contrato: null as Contrato | null,
     atribuido_para_id: ''
   });
 
@@ -76,6 +81,19 @@ const Tickets: React.FC = () => {
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<StatusTicket | ''>('');
 
+  // Ticket closure states
+  const [closureDialogOpen, setClosureDialogOpen] = useState(false);
+  const [closureForm, setClosureForm] = useState({
+    foto_onu_serial: '',
+    foto_equipamentos: '',
+    foto_velocidade: '',
+    foto_cto: '',
+    splitter_cto: '',
+    material_utilizado: '',
+    problema_encontrado: '',
+    resolucao: ''
+  });
+
   const loadTickets = useCallback(async () => {
     if (!activeCompany) return;
 
@@ -84,7 +102,7 @@ const Tickets: React.FC = () => {
       const data = await ticketService.listTickets(
         page * rowsPerPage,
         rowsPerPage,
-        statusFilter || undefined,
+        statusFilter === 'ATIVOS' ? 'ABERTO,EM_ANDAMENTO,AGUARDANDO_CLIENTE' : (statusFilter || undefined),
         prioridadeFilter || undefined,
         categoriaFilter || undefined,
         undefined, // cliente_id
@@ -102,9 +120,25 @@ const Tickets: React.FC = () => {
 
   useEffect(() => {
     if (isTecnico) {
-      setStatusFilter('ABERTO');
+      setStatusFilter('ATIVOS');
     }
   }, [isTecnico]);
+
+  const loadTecnicos = useCallback(async () => {
+    if (!activeCompany) return;
+    try {
+      const data = await userService.getUsersByEmpresa(activeCompany.id, 'technical');
+      setTecnicos(data);
+    } catch (err) {
+      console.error('Erro ao buscar técnicos:', err);
+    }
+  }, [activeCompany]);
+
+  useEffect(() => {
+    if (activeCompany) {
+      loadTecnicos();
+    }
+  }, [activeCompany, loadTecnicos]);
 
   useEffect(() => {
     loadTickets();
@@ -112,10 +146,10 @@ const Tickets: React.FC = () => {
 
   const handleCreateTicket = async () => {
     // Reset previous errors
-    setFormErrors({ titulo: false, descricao: false, cliente: false });
+    setFormErrors({ titulo: false, descricao: false, contrato: false });
 
     // Validação
-    const errors = { titulo: false, descricao: false, cliente: false };
+    const errors = { titulo: false, descricao: false, contrato: false };
     let hasError = false;
 
     if (!newTicket.titulo.trim()) {
@@ -126,8 +160,8 @@ const Tickets: React.FC = () => {
       errors.descricao = true;
       hasError = true;
     }
-    if (!newTicket.cliente) {
-      errors.cliente = true;
+    if (!newTicket.contrato) {
+      errors.contrato = true;
       hasError = true;
     }
 
@@ -139,8 +173,12 @@ const Tickets: React.FC = () => {
 
     try {
       const ticketData = {
-        ...newTicket,
-        cliente_id: newTicket.cliente!.id,
+        titulo: newTicket.titulo,
+        descricao: newTicket.descricao,
+        prioridade: newTicket.prioridade,
+        categoria: newTicket.categoria,
+        cliente_id: newTicket.contrato!.cliente_id,
+        contrato_id: newTicket.contrato!.id,
         atribuido_para_id: newTicket.atribuido_para_id ? parseInt(newTicket.atribuido_para_id) : undefined
       };
       await ticketService.createTicket(ticketData);
@@ -151,10 +189,10 @@ const Tickets: React.FC = () => {
         descricao: '',
         prioridade: 'NORMAL',
         categoria: 'SUPORTE',
-        cliente: null,
+        contrato: null,
         atribuido_para_id: ''
       });
-      setFormErrors({ titulo: false, descricao: false, cliente: false });
+      setFormErrors({ titulo: false, descricao: false, contrato: false });
       loadTickets();
     } catch (err) {
       setError(stringifyError(err));
@@ -209,8 +247,91 @@ const Tickets: React.FC = () => {
     setSelectedStatus(newStatus);
   };
 
+  const handlePhotoUpload = async (field: 'foto_onu_serial' | 'foto_equipamentos' | 'foto_velocidade' | 'foto_cto', file: File | null) => {
+    if (!selectedTicket) return;
+    if (!file) {
+      setClosureForm(prev => ({ ...prev, [field]: '' }));
+      return;
+    }
+
+    try {
+      const response = await ticketService.uploadPhoto(selectedTicket.id, file);
+      setClosureForm(prev => ({ ...prev, [field]: response.file_path }));
+    } catch (err: any) {
+      setError('Erro ao enviar imagem: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
+  const handleSaveClosure = async () => {
+    if (!selectedTicket || !selectedStatus) return;
+
+    const {
+      foto_onu_serial,
+      foto_equipamentos,
+      foto_velocidade,
+      foto_cto,
+      splitter_cto,
+      material_utilizado,
+      problema_encontrado,
+      resolucao
+    } = closureForm;
+
+    if (
+      !foto_onu_serial.trim() ||
+      !foto_equipamentos.trim() ||
+      !foto_velocidade.trim() ||
+      !foto_cto.trim() ||
+      !splitter_cto.trim() ||
+      !material_utilizado.trim() ||
+      !problema_encontrado.trim() ||
+      !resolucao.trim()
+    ) {
+      setError('Todos os campos de encerramento são obrigatórios para fechar o chamado.');
+      return;
+    }
+
+    setStatusUpdating(true);
+    try {
+      const updated = await ticketService.updateTicket(selectedTicket.id, {
+        status: selectedStatus,
+        foto_onu_serial,
+        foto_equipamentos,
+        foto_velocidade,
+        foto_cto,
+        splitter_cto,
+        material_utilizado,
+        problema_encontrado,
+        resolucao
+      });
+      setSuccess('Chamado finalizado com sucesso!');
+      setSelectedTicket(updated);
+      setClosureDialogOpen(false);
+      loadTickets();
+      setSelectedStatus('');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Erro ao fechar o chamado');
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
+
   const handleUpdateStatus = async () => {
     if (!selectedTicket || !selectedStatus || selectedStatus === selectedTicket.status) {
+      return;
+    }
+
+    if (selectedStatus === 'RESOLVIDO' || selectedStatus === 'FECHADO') {
+      setClosureForm({
+        foto_onu_serial: selectedTicket.foto_onu_serial || '',
+        foto_equipamentos: selectedTicket.foto_equipamentos || '',
+        foto_velocidade: selectedTicket.foto_velocidade || '',
+        foto_cto: selectedTicket.foto_cto || '',
+        splitter_cto: selectedTicket.splitter_cto || '',
+        material_utilizado: selectedTicket.material_utilizado || '',
+        problema_encontrado: selectedTicket.problema_encontrado || '',
+        resolucao: selectedTicket.resolucao || ''
+      });
+      setClosureDialogOpen(true);
       return;
     }
 
@@ -373,9 +494,10 @@ const Tickets: React.FC = () => {
                 <Select
                   value={statusFilter}
                   label="Status"
-                  onChange={(e) => setStatusFilter(e.target.value as StatusTicket)}
+                  onChange={(e) => setStatusFilter(e.target.value)}
                 >
                   <MenuItem value="">Todos</MenuItem>
+                  <MenuItem value="ATIVOS">Ativos (Aberto, Em Andamento, Aguardando)</MenuItem>
                   <MenuItem value="ABERTO">Aberto</MenuItem>
                   <MenuItem value="EM_ANDAMENTO">Em Andamento</MenuItem>
                   <MenuItem value="AGUARDANDO_CLIENTE">Aguardando Cliente</MenuItem>
@@ -527,6 +649,15 @@ const Tickets: React.FC = () => {
                     sx={{ fontSize: '0.875rem' }}
                   >
                     <strong>Cliente:</strong> {ticket.cliente_nome || 'N/A'}
+                    {ticket.contrato_numero && ` (Contrato: #${ticket.contrato_numero})`}
+                    {ticket.contrato_endereco && (
+                      <span style={{ display: 'block', fontSize: '0.75rem', marginTop: '2px', color: '#666' }}>
+                        <strong>Endereço:</strong> {ticket.contrato_endereco}
+                      </span>
+                    )}
+                    <span style={{ display: 'block', fontSize: '0.75rem', marginTop: '4px', color: '#666' }}>
+                      <strong>Atribuído a:</strong> {ticket.atribuido_para_nome || 'Não atribuído'}
+                    </span>
                   </Typography>
 
                   <Box 
@@ -574,6 +705,7 @@ const Tickets: React.FC = () => {
                     <TableCell>Status</TableCell>
                     <TableCell>Prioridade</TableCell>
                     <TableCell>Categoria</TableCell>
+                    <TableCell>Atribuído a</TableCell>
                     <TableCell>Criado em</TableCell>
                     <TableCell>Ações</TableCell>
                   </TableRow>
@@ -587,7 +719,29 @@ const Tickets: React.FC = () => {
                           {ticket.titulo}
                         </Typography>
                       </TableCell>
-                      <TableCell>{ticket.cliente_nome || 'N/A'}</TableCell>
+                      <TableCell>
+                        <Box>
+                          <Typography variant="body2" fontWeight="medium">
+                            {ticket.cliente_nome || 'N/A'}
+                          </Typography>
+                          {ticket.contrato_numero && (
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              Contrato: #{ticket.contrato_numero}
+                            </Typography>
+                          )}
+                          {ticket.contrato_endereco && (
+                            <Typography 
+                              variant="caption" 
+                              color="text.secondary" 
+                              display="block" 
+                              sx={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                              title={ticket.contrato_endereco}
+                            >
+                              {ticket.contrato_endereco}
+                            </Typography>
+                          )}
+                        </Box>
+                      </TableCell>
                       <TableCell>
                         <Chip
                           icon={getStatusIcon(ticket.status)}
@@ -604,6 +758,7 @@ const Tickets: React.FC = () => {
                         />
                       </TableCell>
                       <TableCell>{ticket.categoria}</TableCell>
+                      <TableCell>{ticket.atribuido_para_nome || 'Não atribuído'}</TableCell>
                       <TableCell>
                         {new Date(ticket.created_at).toLocaleDateString('pt-BR')}
                       </TableCell>
@@ -756,16 +911,38 @@ const Tickets: React.FC = () => {
                 height: isMobile ? 56 : 'auto'
               }
             }}>
-              <ClientAutocomplete
-                value={newTicket.cliente}
-                onChange={(cliente) => setNewTicket({ ...newTicket, cliente })}
-                label="Cliente"
-                placeholder="Digite nome, CPF/CNPJ, email ou telefone..."
+              <ContractAutocomplete
+                value={newTicket.contrato}
+                onChange={(contrato) => setNewTicket({ ...newTicket, contrato })}
+                label="Contrato do Cliente"
+                placeholder="Busque por cliente, CPF/CNPJ, contrato..."
                 required={true}
-                error={formErrors.cliente}
-                helperText={formErrors.cliente ? "A seleção de um cliente é obrigatória" : ""}
+                error={formErrors.contrato}
+                helperText={formErrors.contrato ? "A seleção de um contrato é obrigatória" : ""}
               />
             </Box>
+            <FormControl 
+              fullWidth
+              sx={{
+                '& .MuiInputBase-root': {
+                  height: isMobile ? 56 : 'auto'
+                }
+              }}
+            >
+              <InputLabel>Atribuir Técnico</InputLabel>
+              <Select
+                value={newTicket.atribuido_para_id}
+                label="Atribuir Técnico"
+                onChange={(e) => setNewTicket({ ...newTicket, atribuido_para_id: e.target.value })}
+              >
+                <MenuItem value=""><em>Nenhum (Sem atribuição)</em></MenuItem>
+                {tecnicos.map((tech) => (
+                  <MenuItem key={tech.id} value={tech.id.toString()}>
+                    {tech.nome || tech.full_name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
         </DialogContent>
         <DialogActions sx={{ 
@@ -795,14 +972,14 @@ const Tickets: React.FC = () => {
       <Dialog 
         open={detailDialogOpen} 
         onClose={() => setDetailDialogOpen(false)} 
-        maxWidth="lg" 
+        maxWidth={false} 
         fullWidth
         fullScreen={isMobile}
         sx={{
           '& .MuiDialog-paper': {
-            margin: isMobile ? 0 : 32,
-            width: isMobile ? '100%' : '100%',
-            maxWidth: isMobile ? 'none' : 'lg',
+            margin: isMobile ? 0 : 2, // Margem reduzida (16px) em desktops para aproveitar mais espaço lateral
+            width: isMobile ? '100%' : 'calc(100% - 32px)',
+            maxWidth: '1400px',
             height: isMobile ? '100%' : 'auto'
           }
         }}
@@ -870,6 +1047,62 @@ const Tickets: React.FC = () => {
                 <strong>Descrição:</strong> {selectedTicket.descricao}
               </Typography>
 
+              {/* Informações de Encerramento (se resolvido ou fechado) */}
+              {['RESOLVIDO', 'FECHADO'].includes(selectedTicket.status) && (
+                <Box sx={{ mt: 2, mb: 3, p: 2, border: '1px solid #e0e0e0', borderRadius: 2, bgcolor: '#f9f9f9' }}>
+                  <Typography variant="subtitle1" mb={2} color="primary.main" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    Detalhes do Encerramento do Chamado
+                  </Typography>
+                  
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mb: 3 }}>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Splitter Utilizado</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>{selectedTicket.splitter_cto || 'N/A'}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Problema Encontrado</Typography>
+                      <Typography variant="body2" style={{ whiteSpace: 'pre-line' }}>{selectedTicket.problema_encontrado || 'N/A'}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Material Utilizado</Typography>
+                      <Typography variant="body2" style={{ whiteSpace: 'pre-line' }}>{selectedTicket.material_utilizado || 'N/A'}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Solução / Resolução</Typography>
+                      <Typography variant="body2" style={{ whiteSpace: 'pre-line' }}>{selectedTicket.resolucao || 'N/A'}</Typography>
+                    </Box>
+                  </Box>
+
+                  <Typography variant="subtitle2" color="text.secondary" mb={1}>Fotos do Encerramento</Typography>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: '1fr 1fr 1fr 1fr' }, gap: 2 }}>
+                    {[
+                      { label: 'Serial ONU/Roteador', path: selectedTicket.foto_onu_serial },
+                      { label: 'Equipamentos Instalados', path: selectedTicket.foto_equipamentos },
+                      { label: 'Teste de Velocidade', path: selectedTicket.foto_velocidade },
+                      { label: 'CTO Utilizada', path: selectedTicket.foto_cto },
+                    ].map((photo, i) => (
+                      <Box key={i} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 1, textAlign: 'center', bgcolor: '#fff' }}>
+                        <Typography variant="caption" color="text.secondary" display="block" noWrap mb={1} sx={{ fontSize: '0.7rem' }}>
+                          {photo.label}
+                        </Typography>
+                        {photo.path ? (
+                          <a href={`${API_BASE_URL}${photo.path}`} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={`${API_BASE_URL}${photo.path}`}
+                              alt={photo.label}
+                              style={{ width: '100%', height: 100, objectFit: 'contain', cursor: 'pointer' }}
+                            />
+                          </a>
+                        ) : (
+                          <Typography variant="caption" color="error" display="block">Sem foto</Typography>
+                        )}
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
               <Box 
                 display="flex" 
                 gap={isMobile ? 1 : 4} 
@@ -884,11 +1117,25 @@ const Tickets: React.FC = () => {
                   variant="body2"
                   sx={{ 
                     fontSize: isMobile ? '0.75rem' : '0.875rem',
-                    flex: isMobile ? '1 1 100%' : 'none'
+                    flex: '1 1 100%'
                   }}
                 >
                   <strong>Cliente:</strong> {selectedTicket.cliente_nome || 'N/A'}
+                  {selectedTicket.contrato_numero && ` (Contrato: #${selectedTicket.contrato_numero})`}
                 </Typography>
+                {selectedTicket.contrato_endereco && (
+                  <Typography 
+                    variant="body2"
+                    sx={{ 
+                      fontSize: isMobile ? '0.75rem' : '0.875rem',
+                      flex: '1 1 100%',
+                      mt: -0.5,
+                      color: 'text.secondary'
+                    }}
+                  >
+                    <strong>Endereço de Instalação:</strong> {selectedTicket.contrato_endereco}
+                  </Typography>
+                )}
                 <Typography 
                   variant="body2"
                   sx={{ 
@@ -907,69 +1154,119 @@ const Tickets: React.FC = () => {
                 >
                   <strong>Criado em:</strong> {new Date(selectedTicket.created_at).toLocaleString('pt-BR')}
                 </Typography>
+                <Typography 
+                  variant="body2"
+                  sx={{ 
+                    fontSize: isMobile ? '0.75rem' : '0.875rem',
+                    flex: isMobile ? '1 1 45%' : 'none'
+                  }}
+                >
+                  <strong>Atribuído a:</strong> {selectedTicket.atribuido_para_nome || 'Nenhum'}
+                </Typography>
               </Box>
 
-              {/* Seção de alteração de status */}
-              {hasPermission('tickets_manage') && (
+              {/* Seção de alteração de status e atribuição */}
+              {hasPermission('tickets_manage') && (selectedTicket && (!['RESOLVIDO', 'FECHADO', 'CANCELADO'].includes(selectedTicket.status) || user?.is_superuser || user?.is_company_admin)) && (
                 <Box sx={{ 
                   mb: isMobile ? 2 : 3, 
                   p: isMobile ? 1.5 : 2, 
                   border: '1px solid #e0e0e0', 
                   borderRadius: 1 
                 }}>
-                  <Typography 
-                    variant="h6" 
-                    mb={isMobile ? 1.5 : 2}
-                    sx={{ fontSize: isMobile ? '1.1rem' : '1.25rem' }}
-                  >
-                    Alterar Status
-                  </Typography>
-                  <Box 
-                    display="flex" 
-                    gap={isMobile ? 1.5 : 2} 
-                    alignItems="center"
-                    sx={{ 
-                      flexDirection: isMobile ? 'column' : 'row',
-                      alignItems: isMobile ? 'stretch' : 'center'
-                    }}
-                  >
-                    <FormControl 
-                      size="small" 
-                      sx={{ 
-                        minWidth: isMobile ? '100%' : 200,
-                        width: isMobile ? '100%' : 'auto',
-                        '& .MuiInputBase-root': {
-                          height: isMobile ? 48 : 'auto'
-                        }
-                      }}
-                    >
-                      <InputLabel>Status</InputLabel>
-                      <Select
-                        value={selectedStatus}
-                        label="Status"
-                        onChange={(e) => handleStatusChange(e.target.value as StatusTicket)}
+                  <Box display="flex" gap={2} sx={{ flexDirection: isMobile ? 'column' : 'row' }}>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography 
+                        variant="subtitle2" 
+                        mb={1}
+                        color="text.secondary"
                       >
-                        <MenuItem value="ABERTO">Aberto</MenuItem>
-                        <MenuItem value="EM_ANDAMENTO">Em Andamento</MenuItem>
-                        <MenuItem value="AGUARDANDO_CLIENTE">Aguardando Cliente</MenuItem>
-                        <MenuItem value="RESOLVIDO">Resolvido</MenuItem>
-                        <MenuItem value="FECHADO">Fechado</MenuItem>
-                        <MenuItem value="CANCELADO">Cancelado</MenuItem>
-                      </Select>
-                    </FormControl>
-                    <Button 
-                      variant="outlined" 
-                      size="small"
-                      onClick={handleUpdateStatus}
-                      disabled={statusUpdating}
-                      sx={{ 
-                        width: isMobile ? '100%' : 'auto',
-                        height: isMobile ? 48 : 'auto',
-                        mt: isMobile ? 1 : 0
-                      }}
-                    >
-                      {statusUpdating ? <CircularProgress size={16} /> : 'Atualizar'}
-                    </Button>
+                        Alterar Status
+                      </Typography>
+                      <Box 
+                        display="flex" 
+                        gap={1} 
+                        alignItems="center"
+                      >
+                        <FormControl 
+                          size="small" 
+                          fullWidth
+                          sx={{
+                            '& .MuiInputBase-root': {
+                              height: isMobile ? 48 : 'auto'
+                            }
+                          }}
+                        >
+                          <InputLabel>Status</InputLabel>
+                          <Select
+                            value={selectedStatus}
+                            label="Status"
+                            onChange={(e) => handleStatusChange(e.target.value as StatusTicket)}
+                          >
+                            <MenuItem value="ABERTO">Aberto</MenuItem>
+                            <MenuItem value="EM_ANDAMENTO">Em Andamento</MenuItem>
+                            <MenuItem value="AGUARDANDO_CLIENTE">Aguardando Cliente</MenuItem>
+                            <MenuItem value="RESOLVIDO">Resolvido</MenuItem>
+                            <MenuItem value="FECHADO">Fechado</MenuItem>
+                            <MenuItem value="CANCELADO">Cancelado</MenuItem>
+                          </Select>
+                        </FormControl>
+                        <Button 
+                          variant="outlined" 
+                          size="small"
+                          onClick={handleUpdateStatus}
+                          disabled={statusUpdating}
+                          sx={{ height: isMobile ? 48 : 40 }}
+                        >
+                          {statusUpdating ? <CircularProgress size={16} /> : 'Atualizar'}
+                        </Button>
+                      </Box>
+                    </Box>
+
+                    <Box sx={{ flex: 1 }}>
+                      <Typography 
+                        variant="subtitle2" 
+                        mb={1}
+                        color="text.secondary"
+                      >
+                        Atribuir Técnico
+                      </Typography>
+                      <FormControl 
+                        size="small" 
+                        fullWidth
+                        sx={{
+                          '& .MuiInputBase-root': {
+                            height: isMobile ? 48 : 'auto'
+                          }
+                        }}
+                      >
+                        <InputLabel>Técnico</InputLabel>
+                        <Select
+                          value={selectedTicket.atribuido_para_id || ''}
+                          label="Técnico"
+                          onChange={async (e) => {
+                            const val = e.target.value;
+                            const techId = val ? parseInt(val as string) : null;
+                            try {
+                              const updated = await ticketService.updateTicket(selectedTicket.id, {
+                                atribuido_para_id: techId
+                              });
+                              setSelectedTicket(updated);
+                              setSuccess('Técnico atribuído com sucesso!');
+                              loadTickets();
+                            } catch (err) {
+                              setError('Erro ao atribuir técnico');
+                            }
+                          }}
+                        >
+                          <MenuItem value=""><em>Nenhum (Sem atribuição)</em></MenuItem>
+                          {tecnicos.map((tech) => (
+                            <MenuItem key={tech.id} value={tech.id}>
+                              {tech.nome || tech.full_name}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Box>
                   </Box>
                 </Box>
               )}
@@ -1135,6 +1432,174 @@ const Tickets: React.FC = () => {
             sx={{ minWidth: 'auto', px: 2 }}
           >
             <XMarkIcon className="w-4 h-4" />
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog 
+        open={closureDialogOpen} 
+        onClose={() => setClosureDialogOpen(false)} 
+        maxWidth={false} 
+        fullWidth
+        fullScreen={isMobile}
+        sx={{
+          '& .MuiDialog-paper': {
+            margin: isMobile ? 0 : 2, // Margem reduzida (16px) em desktops para aproveitar mais espaço lateral
+            width: isMobile ? '100%' : 'calc(100% - 32px)',
+            maxWidth: '1400px',
+            height: isMobile ? '100%' : 'auto'
+          }
+        }}
+      >
+        <DialogTitle sx={{ pb: 1, fontSize: '1.25rem', fontWeight: 600 }}>
+          Encerramento do Chamado #{selectedTicket?.id}
+        </DialogTitle>
+        <DialogContent sx={{ p: isMobile ? 2 : 3, overflowY: 'auto' }}>
+          <Typography variant="body2" color="text.secondary" mb={3}>
+            Para resolver ou fechar este chamado, é obrigatório anexar as fotos solicitadas e preencher todos os detalhes técnicos abaixo.
+          </Typography>
+
+          {selectedTicket && (
+            <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: '#f8fafc', borderColor: '#e2e8f0' }}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600, mb: 1 }}>
+                Informações do Cliente & Contrato
+              </Typography>
+              <Box display="flex" flexDirection="column" gap={0.5}>
+                <Typography variant="body2">
+                  <strong>Cliente:</strong> {selectedTicket.cliente_nome || 'N/A'}
+                </Typography>
+                {selectedTicket.contrato_numero && (
+                  <Typography variant="body2">
+                    <strong>Contrato:</strong> #{selectedTicket.contrato_numero}
+                  </Typography>
+                )}
+                {selectedTicket.contrato_endereco && (
+                  <Typography variant="body2">
+                    <strong>Endereço de Instalação:</strong> {selectedTicket.contrato_endereco}
+                  </Typography>
+                )}
+              </Box>
+            </Paper>
+          )}
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {/* Seção de Fotos */}
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, borderBottom: '1px solid #eee', pb: 1 }}>
+              Fotos Obrigatórias
+            </Typography>
+            
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <FileUploader
+                  label="1. Foto do Serial Number ONU/Roteador *"
+                  accept="image/*"
+                  maxSize={10}
+                  currentFile={closureForm.foto_onu_serial}
+                  onFileSelect={(file) => handlePhotoUpload('foto_onu_serial', file)}
+                  placeholder="Selecione a foto do serial number"
+                />
+              </Paper>
+              
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <FileUploader
+                  label="2. Foto dos Equipamentos Instalados *"
+                  accept="image/*"
+                  maxSize={10}
+                  currentFile={closureForm.foto_equipamentos}
+                  onFileSelect={(file) => handlePhotoUpload('foto_equipamentos', file)}
+                  placeholder="Selecione a foto dos equipamentos"
+                />
+              </Paper>
+
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <FileUploader
+                  label="3. Foto do Teste de Velocidade *"
+                  accept="image/*"
+                  maxSize={10}
+                  currentFile={closureForm.foto_velocidade}
+                  onFileSelect={(file) => handlePhotoUpload('foto_velocidade', file)}
+                  placeholder="Selecione a foto do teste de velocidade"
+                />
+              </Paper>
+
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <FileUploader
+                  label="4. Foto da CTO Utilizada *"
+                  accept="image/*"
+                  maxSize={10}
+                  currentFile={closureForm.foto_cto}
+                  onFileSelect={(file) => handlePhotoUpload('foto_cto', file)}
+                  placeholder="Selecione a foto da CTO"
+                />
+              </Paper>
+            </Box>
+
+            {/* Seção de Informações Técnicas */}
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, borderBottom: '1px solid #eee', pb: 1, mt: 1 }}>
+              Informações Técnicas & Detalhes
+            </Typography>
+
+            <FormControl fullWidth size="small">
+              <InputLabel>Splitter Utilizado na CTO *</InputLabel>
+              <Select
+                value={closureForm.splitter_cto}
+                label="Splitter Utilizado na CTO *"
+                onChange={(e) => setClosureForm(prev => ({ ...prev, splitter_cto: e.target.value }))}
+              >
+                <MenuItem value="1/2">Splitter 1/2</MenuItem>
+                <MenuItem value="1/4">Splitter 1/4</MenuItem>
+                <MenuItem value="1/8">Splitter 1/8</MenuItem>
+                <MenuItem value="1/16">Splitter 1/16</MenuItem>
+                <MenuItem value="Outro">Outro</MenuItem>
+              </Select>
+            </FormControl>
+
+            <TextField
+              label="Material Utilizado *"
+              fullWidth
+              multiline
+              rows={2}
+              placeholder="Ex: 20 metros de cabo drop, 2 conectores Fast, 1 ONU"
+              value={closureForm.material_utilizado}
+              onChange={(e) => setClosureForm(prev => ({ ...prev, material_utilizado: e.target.value }))}
+            />
+
+            <TextField
+              label="Problema Encontrado *"
+              fullWidth
+              multiline
+              rows={2}
+              placeholder="Descreva o problema identificado pelo técnico no local..."
+              value={closureForm.problema_encontrado}
+              onChange={(e) => setClosureForm(prev => ({ ...prev, problema_encontrado: e.target.value }))}
+            />
+
+            <TextField
+              label="Como foi Solucionado (Resolução) *"
+              fullWidth
+              multiline
+              rows={2}
+              placeholder="Descreva os procedimentos realizados para resolver o chamado..."
+              value={closureForm.resolucao}
+              onChange={(e) => setClosureForm(prev => ({ ...prev, resolucao: e.target.value }))}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: isMobile ? 2 : 3, justifyContent: 'space-between' }}>
+          <Button 
+            onClick={() => setClosureDialogOpen(false)}
+            variant="outlined"
+            disabled={statusUpdating}
+          >
+            Cancelar
+          </Button>
+          <Button 
+            onClick={handleSaveClosure} 
+            variant="contained"
+            disabled={statusUpdating}
+            startIcon={statusUpdating ? <CircularProgress size={16} /> : <CheckCircleIcon className="w-4 h-4" />}
+          >
+            {statusUpdating ? 'Salvando...' : 'Finalizar Chamado'}
           </Button>
         </DialogActions>
       </Dialog>
