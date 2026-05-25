@@ -1058,7 +1058,11 @@ const Tickets: React.FC = () => {
                   <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mb: 3 }}>
                     <Box>
                       <Typography variant="caption" color="text.secondary">Splitter Utilizado</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>{selectedTicket.splitter_cto || 'N/A'}</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {selectedTicket.splitter_cto 
+                          ? (/^\d+$/.test(selectedTicket.splitter_cto) ? `Porta ${selectedTicket.splitter_cto}` : selectedTicket.splitter_cto) 
+                          : 'N/A'}
+                      </Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary">Problema Encontrado</Typography>
@@ -1539,18 +1543,28 @@ const Tickets: React.FC = () => {
               Informações Técnicas & Detalhes
             </Typography>
 
-            <FormControl fullWidth size="small">
+            <FormControl size="small" sx={{ width: { xs: '100%', sm: 280 } }}>
               <InputLabel>Splitter Utilizado na CTO *</InputLabel>
               <Select
                 value={closureForm.splitter_cto}
                 label="Splitter Utilizado na CTO *"
                 onChange={(e) => setClosureForm(prev => ({ ...prev, splitter_cto: e.target.value }))}
+                MenuProps={{
+                  PaperProps: {
+                    style: {
+                      maxHeight: 250,
+                    },
+                  },
+                }}
               >
-                <MenuItem value="1/2">Splitter 1/2</MenuItem>
-                <MenuItem value="1/4">Splitter 1/4</MenuItem>
-                <MenuItem value="1/8">Splitter 1/8</MenuItem>
-                <MenuItem value="1/16">Splitter 1/16</MenuItem>
-                <MenuItem value="Outro">Outro</MenuItem>
+                {Array.from({ length: 16 }, (_, i) => {
+                  const val = String(i + 1).padStart(2, '0');
+                  return (
+                    <MenuItem key={val} value={val}>
+                      Porta {val}
+                    </MenuItem>
+                  );
+                })}
               </Select>
             </FormControl>
 
