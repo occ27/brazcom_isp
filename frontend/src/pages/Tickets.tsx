@@ -307,7 +307,7 @@ const Tickets: React.FC = () => {
       setSelectedTicket(updated);
       setClosureDialogOpen(false);
       loadTickets();
-      setSelectedStatus('');
+      setSelectedStatus(updated.status);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Erro ao fechar o chamado');
     } finally {
@@ -339,15 +339,12 @@ const Tickets: React.FC = () => {
     try {
       await ticketService.updateTicket(selectedTicket.id, { status: selectedStatus });
       setSuccess('Status do ticket atualizado com sucesso!');
-      
+
       // Atualizar o ticket selecionado com o novo status
       setSelectedTicket({ ...selectedTicket, status: selectedStatus });
-      
+
       // Recarregar a lista de tickets
       loadTickets();
-      
-      // Reset do status selecionado
-      setSelectedStatus('');
     } catch (err) {
       setError(stringifyError(err));
     } finally {
@@ -400,24 +397,24 @@ const Tickets: React.FC = () => {
   }
 
   return (
-    <Box sx={{ 
+    <Box sx={{
       p: isMobile ? 1 : 3,
       minHeight: '100vh',
       width: '100%'
     }}>
-      <Box 
-        display="flex" 
-        justifyContent="space-between" 
-        alignItems="center" 
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
         mb={isMobile ? 2 : 3}
-        sx={{ 
+        sx={{
           flexDirection: isMobile ? 'column' : 'row',
           alignItems: isMobile ? 'flex-start' : 'center',
           gap: isMobile ? 2 : 0
         }}
       >
-        <Typography 
-          variant={isMobile ? "h5" : "h4"} 
+        <Typography
+          variant={isMobile ? "h5" : "h4"}
           component="h1"
           sx={{ width: isMobile ? '100%' : 'auto' }}
         >
@@ -428,7 +425,7 @@ const Tickets: React.FC = () => {
             variant="contained"
             startIcon={<PlusIcon className="w-5 h-5" />}
             onClick={() => setCreateDialogOpen(true)}
-            sx={{ 
+            sx={{
               width: isMobile ? '100%' : 'auto',
               height: isMobile ? 48 : 'auto'
             }}
@@ -440,17 +437,17 @@ const Tickets: React.FC = () => {
 
       {/* Filtros */}
       {!isTecnico && (
-        <Paper sx={{ 
-          p: isMobile ? 1.5 : 2, 
+        <Paper sx={{
+          p: isMobile ? 1.5 : 2,
           mb: isMobile ? 1.5 : 2,
           mx: isMobile ? -1 : 0
         }}>
-          <Box 
-            display="flex" 
-            gap={isMobile ? 1.5 : 2} 
-            flexWrap="wrap" 
+          <Box
+            display="flex"
+            gap={isMobile ? 1.5 : 2}
+            flexWrap="wrap"
             alignItems="center"
-            sx={{ 
+            sx={{
               flexDirection: isMobile ? 'column' : 'row',
               alignItems: isMobile ? 'stretch' : 'center'
             }}
@@ -464,7 +461,7 @@ const Tickets: React.FC = () => {
               InputProps={{
                 startAdornment: <MagnifyingGlassIcon className="w-4 h-4 mr-2" />,
               }}
-              sx={{ 
+              sx={{
                 minWidth: isMobile ? '100%' : 200,
                 width: isMobile ? '100%' : 'auto',
                 '& .MuiInputBase-root': {
@@ -473,17 +470,17 @@ const Tickets: React.FC = () => {
               }}
             />
 
-            <Box 
-              display="flex" 
-              gap={isMobile ? 1.5 : 2} 
-              sx={{ 
+            <Box
+              display="flex"
+              gap={isMobile ? 1.5 : 2}
+              sx={{
                 flexDirection: isMobile ? 'column' : 'row',
                 width: isMobile ? '100%' : 'auto'
               }}
             >
-              <FormControl 
-                size="small" 
-                sx={{ 
+              <FormControl
+                size="small"
+                sx={{
                   minWidth: isMobile ? '100%' : 120,
                   '& .MuiInputBase-root': {
                     height: isMobile ? 48 : 'auto'
@@ -507,9 +504,9 @@ const Tickets: React.FC = () => {
                 </Select>
               </FormControl>
 
-              <FormControl 
-                size="small" 
-                sx={{ 
+              <FormControl
+                size="small"
+                sx={{
                   minWidth: isMobile ? '100%' : 120,
                   '& .MuiInputBase-root': {
                     height: isMobile ? 48 : 'auto'
@@ -530,9 +527,9 @@ const Tickets: React.FC = () => {
                 </Select>
               </FormControl>
 
-              <FormControl 
-                size="small" 
-                sx={{ 
+              <FormControl
+                size="small"
+                sx={{
                   minWidth: isMobile ? '100%' : 120,
                   '& .MuiInputBase-root': {
                     height: isMobile ? 48 : 'auto'
@@ -565,7 +562,7 @@ const Tickets: React.FC = () => {
                 setCategoriaFilter('');
               }}
               startIcon={<XMarkIcon className="w-4 h-4" />}
-              sx={{ 
+              sx={{
                 width: isMobile ? '100%' : 'auto',
                 mt: isMobile ? 1 : 0,
                 height: isMobile ? 48 : 'auto'
@@ -578,7 +575,7 @@ const Tickets: React.FC = () => {
       )}
 
       {/* Tabela de Tickets */}
-      <Paper sx={{ 
+      <Paper sx={{
         mx: isMobile ? -1 : 0,
         borderRadius: isMobile ? 0 : 1
       }}>
@@ -590,7 +587,7 @@ const Tickets: React.FC = () => {
           // Layout mobile com cards
           <Box sx={{ p: isMobile ? 1.5 : 2 }}>
             {tickets.map((ticket) => (
-              <Card key={ticket.id} sx={{ 
+              <Card key={ticket.id} sx={{
                 mb: 1.5,
                 borderRadius: 2,
                 boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
@@ -601,16 +598,16 @@ const Tickets: React.FC = () => {
                 flexDirection: 'column',
                 minHeight: 180
               }}>
-                <CardContent sx={{ 
+                <CardContent sx={{
                   p: 2,
                   display: 'flex',
                   flexDirection: 'column',
                   height: '100%'
                 }}>
                   <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
-                    <Typography 
-                      variant="h6" 
-                      sx={{ 
+                    <Typography
+                      variant="h6"
+                      sx={{
                         fontSize: '1.1rem',
                         fontWeight: 600,
                         lineHeight: 1.3,
@@ -620,7 +617,7 @@ const Tickets: React.FC = () => {
                       #{ticket.id} - {ticket.titulo}
                     </Typography>
                   </Box>
-                  
+
                   <Box display="flex" gap={1} mb={1.5} flexWrap="wrap">
                     <Chip
                       icon={getStatusIcon(ticket.status)}
@@ -635,16 +632,16 @@ const Tickets: React.FC = () => {
                       size="small"
                       sx={{ fontSize: '0.75rem' }}
                     />
-                    <Chip 
-                      label={ticket.categoria} 
-                      size="small" 
+                    <Chip
+                      label={ticket.categoria}
+                      size="small"
                       sx={{ fontSize: '0.75rem' }}
                     />
                   </Box>
 
-                  <Typography 
-                    variant="body2" 
-                    color="text.secondary" 
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
                     mb={1}
                     sx={{ fontSize: '0.875rem' }}
                   >
@@ -660,23 +657,23 @@ const Tickets: React.FC = () => {
                     </span>
                   </Typography>
 
-                  <Box 
-                    display="flex" 
-                    justifyContent="space-between" 
+                  <Box
+                    display="flex"
+                    justifyContent="space-between"
                     alignItems="center"
                     sx={{ mt: 'auto' }}
                   >
-                    <Typography 
-                      variant="body2" 
+                    <Typography
+                      variant="body2"
                       color="text.secondary"
                       sx={{ fontSize: '0.75rem' }}
                     >
                       <strong>Criado em:</strong> {new Date(ticket.created_at).toLocaleDateString('pt-BR')}
                     </Typography>
-                    <IconButton 
-                      onClick={() => handleViewTicket(ticket)} 
+                    <IconButton
+                      onClick={() => handleViewTicket(ticket)}
                       size="small"
-                      sx={{ 
+                      sx={{
                         p: 0.5,
                         color: 'primary.main',
                         '&:hover': {
@@ -730,10 +727,10 @@ const Tickets: React.FC = () => {
                             </Typography>
                           )}
                           {ticket.contrato_endereco && (
-                            <Typography 
-                              variant="caption" 
-                              color="text.secondary" 
-                              display="block" 
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              display="block"
                               sx={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                               title={ticket.contrato_endereco}
                             >
@@ -801,10 +798,10 @@ const Tickets: React.FC = () => {
       </Paper>
 
       {/* Dialog para criar ticket */}
-      <Dialog 
-        open={createDialogOpen} 
-        onClose={() => setCreateDialogOpen(false)} 
-        maxWidth="md" 
+      <Dialog
+        open={createDialogOpen}
+        onClose={() => setCreateDialogOpen(false)}
+        maxWidth="md"
         fullWidth
         fullScreen={isMobile}
         sx={{
@@ -816,22 +813,22 @@ const Tickets: React.FC = () => {
           }
         }}
       >
-        <DialogTitle sx={{ 
+        <DialogTitle sx={{
           pb: isMobile ? 1 : 2,
           fontSize: isMobile ? '1.25rem' : '1.5rem'
         }}>
           Criar Novo Ticket
         </DialogTitle>
-        <DialogContent sx={{ 
+        <DialogContent sx={{
           p: isMobile ? 2 : 3,
           flex: 1,
           overflow: 'auto'
         }}>
-          <Box sx={{ 
-            pt: isMobile ? 1 : 2, 
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: isMobile ? 2 : 2 
+          <Box sx={{
+            pt: isMobile ? 1 : 2,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: isMobile ? 2 : 2
           }}>
             <TextField
               label="Título"
@@ -858,12 +855,12 @@ const Tickets: React.FC = () => {
               error={formErrors.descricao}
               helperText={formErrors.descricao ? "A descrição é obrigatória" : ""}
             />
-            <Box 
-              display="flex" 
+            <Box
+              display="flex"
               gap={isMobile ? 2 : 2}
               sx={{ flexDirection: isMobile ? 'column' : 'row' }}
             >
-              <FormControl 
+              <FormControl
                 fullWidth
                 sx={{
                   '& .MuiInputBase-root': {
@@ -883,7 +880,7 @@ const Tickets: React.FC = () => {
                   <MenuItem value="URGENTE">Urgente</MenuItem>
                 </Select>
               </FormControl>
-              <FormControl 
+              <FormControl
                 fullWidth
                 sx={{
                   '& .MuiInputBase-root': {
@@ -921,7 +918,7 @@ const Tickets: React.FC = () => {
                 helperText={formErrors.contrato ? "A seleção de um contrato é obrigatória" : ""}
               />
             </Box>
-            <FormControl 
+            <FormControl
               fullWidth
               sx={{
                 '& .MuiInputBase-root': {
@@ -945,21 +942,21 @@ const Tickets: React.FC = () => {
             </FormControl>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ 
-          flexDirection: 'row', 
+        <DialogActions sx={{
+          flexDirection: 'row',
           gap: 1,
           p: isMobile ? 2 : 3,
           pt: isMobile ? 1 : 3,
           justifyContent: 'space-between'
         }}>
-          <Button 
+          <Button
             onClick={() => setCreateDialogOpen(false)}
             sx={{ minWidth: 'auto', px: 2 }}
           >
             <XMarkIcon className="w-4 h-4" />
           </Button>
-          <Button 
-            onClick={handleCreateTicket} 
+          <Button
+            onClick={handleCreateTicket}
             variant="contained"
             sx={{ minWidth: 'auto', px: 2 }}
           >
@@ -969,10 +966,10 @@ const Tickets: React.FC = () => {
       </Dialog>
 
       {/* Dialog para ver detalhes do ticket */}
-      <Dialog 
-        open={detailDialogOpen} 
-        onClose={() => setDetailDialogOpen(false)} 
-        maxWidth={false} 
+      <Dialog
+        open={detailDialogOpen}
+        onClose={() => setDetailDialogOpen(false)}
+        maxWidth={false}
         fullWidth
         fullScreen={isMobile}
         sx={{
@@ -984,24 +981,24 @@ const Tickets: React.FC = () => {
           }
         }}
       >
-        <DialogTitle sx={{ 
+        <DialogTitle sx={{
           pb: isMobile ? 1 : 2,
           fontSize: isMobile ? '1.25rem' : '1.5rem'
         }}>
           Ticket #{selectedTicket?.id} - {selectedTicket?.titulo}
         </DialogTitle>
-        <DialogContent sx={{ 
+        <DialogContent sx={{
           p: isMobile ? 2 : 3,
           flex: 1,
           overflow: 'auto'
         }}>
           {selectedTicket && (
             <Box sx={{ pt: isMobile ? 1 : 2 }}>
-              <Box 
-                display="flex" 
-                gap={1} 
+              <Box
+                display="flex"
+                gap={1}
                 mb={isMobile ? 2 : 2}
-                sx={{ 
+                sx={{
                   flexDirection: 'row',
                   alignItems: 'center',
                   flexWrap: 'wrap'
@@ -1012,7 +1009,7 @@ const Tickets: React.FC = () => {
                   label={selectedTicket.status.replace('_', ' ')}
                   color={getStatusColor(selectedTicket.status)}
                   size="small"
-                  sx={{ 
+                  sx={{
                     fontSize: isMobile ? '0.7rem' : '0.75rem',
                     height: isMobile ? 24 : 28,
                     '& .MuiChip-icon': {
@@ -1024,23 +1021,23 @@ const Tickets: React.FC = () => {
                   label={selectedTicket.prioridade}
                   color={getPrioridadeColor(selectedTicket.prioridade)}
                   size="small"
-                  sx={{ 
+                  sx={{
                     fontSize: isMobile ? '0.7rem' : '0.75rem',
                     height: isMobile ? 24 : 28
                   }}
                 />
-                <Chip 
-                  label={selectedTicket.categoria} 
-                  size="small" 
-                  sx={{ 
+                <Chip
+                  label={selectedTicket.categoria}
+                  size="small"
+                  sx={{
                     fontSize: isMobile ? '0.7rem' : '0.75rem',
                     height: isMobile ? 24 : 28
                   }}
                 />
               </Box>
 
-              <Typography 
-                variant="body1" 
+              <Typography
+                variant="body1"
                 mb={isMobile ? 2 : 2}
                 sx={{ fontSize: isMobile ? '1rem' : '1rem' }}
               >
@@ -1054,15 +1051,11 @@ const Tickets: React.FC = () => {
                     <CheckCircleIcon className="w-5 h-5 text-green-600" />
                     Detalhes do Encerramento do Chamado
                   </Typography>
-                  
+
                   <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mb: 3 }}>
                     <Box>
                       <Typography variant="caption" color="text.secondary">Splitter Utilizado</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {selectedTicket.splitter_cto 
-                          ? (/^\d+$/.test(selectedTicket.splitter_cto) ? `Porta ${selectedTicket.splitter_cto}` : selectedTicket.splitter_cto) 
-                          : 'N/A'}
-                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>Porta {selectedTicket.splitter_cto || 'N/A'}</Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary">Problema Encontrado</Typography>
@@ -1107,19 +1100,19 @@ const Tickets: React.FC = () => {
                 </Box>
               )}
 
-              <Box 
-                display="flex" 
-                gap={isMobile ? 1 : 4} 
+              <Box
+                display="flex"
+                gap={isMobile ? 1 : 4}
                 mb={isMobile ? 2 : 2}
-                sx={{ 
+                sx={{
                   flexDirection: 'row',
                   alignItems: 'center',
                   flexWrap: 'wrap'
                 }}
               >
-                <Typography 
+                <Typography
                   variant="body2"
-                  sx={{ 
+                  sx={{
                     fontSize: isMobile ? '0.75rem' : '0.875rem',
                     flex: '1 1 100%'
                   }}
@@ -1128,9 +1121,9 @@ const Tickets: React.FC = () => {
                   {selectedTicket.contrato_numero && ` (Contrato: #${selectedTicket.contrato_numero})`}
                 </Typography>
                 {selectedTicket.contrato_endereco && (
-                  <Typography 
+                  <Typography
                     variant="body2"
-                    sx={{ 
+                    sx={{
                       fontSize: isMobile ? '0.75rem' : '0.875rem',
                       flex: '1 1 100%',
                       mt: -0.5,
@@ -1140,27 +1133,27 @@ const Tickets: React.FC = () => {
                     <strong>Endereço de Instalação:</strong> {selectedTicket.contrato_endereco}
                   </Typography>
                 )}
-                <Typography 
+                <Typography
                   variant="body2"
-                  sx={{ 
+                  sx={{
                     fontSize: isMobile ? '0.75rem' : '0.875rem',
                     flex: isMobile ? '1 1 45%' : 'none'
                   }}
                 >
                   <strong>Criado por:</strong> {selectedTicket.criado_por_nome}
                 </Typography>
-                <Typography 
+                <Typography
                   variant="body2"
-                  sx={{ 
+                  sx={{
                     fontSize: isMobile ? '0.75rem' : '0.875rem',
                     flex: isMobile ? '1 1 45%' : 'none'
                   }}
                 >
                   <strong>Criado em:</strong> {new Date(selectedTicket.created_at).toLocaleString('pt-BR')}
                 </Typography>
-                <Typography 
+                <Typography
                   variant="body2"
-                  sx={{ 
+                  sx={{
                     fontSize: isMobile ? '0.75rem' : '0.875rem',
                     flex: isMobile ? '1 1 45%' : 'none'
                   }}
@@ -1171,28 +1164,28 @@ const Tickets: React.FC = () => {
 
               {/* Seção de alteração de status e atribuição */}
               {hasPermission('tickets_manage') && (selectedTicket && (!['RESOLVIDO', 'FECHADO', 'CANCELADO'].includes(selectedTicket.status) || user?.is_superuser || user?.is_company_admin)) && (
-                <Box sx={{ 
-                  mb: isMobile ? 2 : 3, 
-                  p: isMobile ? 1.5 : 2, 
-                  border: '1px solid #e0e0e0', 
-                  borderRadius: 1 
+                <Box sx={{
+                  mb: isMobile ? 2 : 3,
+                  p: isMobile ? 1.5 : 2,
+                  border: '1px solid #e0e0e0',
+                  borderRadius: 1
                 }}>
                   <Box display="flex" gap={2} sx={{ flexDirection: isMobile ? 'column' : 'row' }}>
                     <Box sx={{ flex: 1 }}>
-                      <Typography 
-                        variant="subtitle2" 
+                      <Typography
+                        variant="subtitle2"
                         mb={1}
                         color="text.secondary"
                       >
                         Alterar Status
                       </Typography>
-                      <Box 
-                        display="flex" 
-                        gap={1} 
+                      <Box
+                        display="flex"
+                        gap={1}
                         alignItems="center"
                       >
-                        <FormControl 
-                          size="small" 
+                        <FormControl
+                          size="small"
                           fullWidth
                           sx={{
                             '& .MuiInputBase-root': {
@@ -1214,8 +1207,8 @@ const Tickets: React.FC = () => {
                             <MenuItem value="CANCELADO">Cancelado</MenuItem>
                           </Select>
                         </FormControl>
-                        <Button 
-                          variant="outlined" 
+                        <Button
+                          variant="outlined"
                           size="small"
                           onClick={handleUpdateStatus}
                           disabled={statusUpdating}
@@ -1227,15 +1220,15 @@ const Tickets: React.FC = () => {
                     </Box>
 
                     <Box sx={{ flex: 1 }}>
-                      <Typography 
-                        variant="subtitle2" 
+                      <Typography
+                        variant="subtitle2"
                         mb={1}
                         color="text.secondary"
                       >
                         Atribuir Técnico
                       </Typography>
-                      <FormControl 
-                        size="small" 
+                      <FormControl
+                        size="small"
                         fullWidth
                         sx={{
                           '& .MuiInputBase-root': {
@@ -1277,15 +1270,15 @@ const Tickets: React.FC = () => {
 
               <Divider sx={{ my: isMobile ? 1.5 : 2 }} />
 
-              <Typography 
-                variant="h6" 
+              <Typography
+                variant="h6"
                 mb={isMobile ? 1.5 : 2}
                 sx={{ fontSize: isMobile ? '1.1rem' : '1.25rem' }}
               >
                 Comentários
               </Typography>
 
-              <List sx={{ 
+              <List sx={{
                 width: '100%',
                 bgcolor: 'background.paper',
                 borderRadius: 1,
@@ -1347,8 +1340,8 @@ const Tickets: React.FC = () => {
 
               <Divider sx={{ my: isMobile ? 1.5 : 2 }} />
 
-              <Typography 
-                variant="h6" 
+              <Typography
+                variant="h6"
                 mb={isMobile ? 1.5 : 2}
                 sx={{ fontSize: isMobile ? '1.1rem' : '1.25rem' }}
               >
@@ -1368,11 +1361,11 @@ const Tickets: React.FC = () => {
                     }
                   }}
                 />
-                <Box 
-                  display="flex" 
-                  alignItems="center" 
+                <Box
+                  display="flex"
+                  alignItems="center"
                   gap={isMobile ? 1.5 : 2}
-                  sx={{ 
+                  sx={{
                     flexDirection: isMobile ? 'column' : 'row',
                     alignItems: isMobile ? 'flex-start' : 'center'
                   }}
@@ -1382,7 +1375,7 @@ const Tickets: React.FC = () => {
                       <Checkbox
                         checked={newComment.is_internal}
                         onChange={(e) => setNewComment({ ...newComment, is_internal: e.target.checked })}
-                        sx={{ 
+                        sx={{
                           '& .MuiSvgIcon-root': {
                             fontSize: isMobile ? 20 : 24
                           }
@@ -1401,7 +1394,7 @@ const Tickets: React.FC = () => {
                     onClick={handleAddComment}
                     disabled={!newComment.comentario.trim()}
                     startIcon={<ChatBubbleLeftIcon className="w-4 h-4" />}
-                    sx={{ 
+                    sx={{
                       width: isMobile ? '100%' : 'auto',
                       height: isMobile ? 48 : 'auto',
                       mt: isMobile ? 1 : 0,
@@ -1415,23 +1408,23 @@ const Tickets: React.FC = () => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ 
-          flexDirection: 'row', 
+        <DialogActions sx={{
+          flexDirection: 'row',
           gap: 1,
           p: isMobile ? 2 : 3,
           pt: isMobile ? 1 : 3,
           justifyContent: 'space-between'
         }}>
           {(user?.is_superuser || user?.is_company_admin) && selectedTicket && (
-            <Button 
-              onClick={() => handleDeleteTicket(selectedTicket)} 
-              color="error" 
+            <Button
+              onClick={() => handleDeleteTicket(selectedTicket)}
+              color="error"
               startIcon={<TrashIcon className="w-4 h-4" />}
               sx={{ minWidth: 'auto', px: 2 }}
             >
             </Button>
           )}
-          <Button 
+          <Button
             onClick={() => setDetailDialogOpen(false)}
             sx={{ minWidth: 'auto', px: 2 }}
           >
@@ -1440,10 +1433,10 @@ const Tickets: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      <Dialog 
-        open={closureDialogOpen} 
-        onClose={() => setClosureDialogOpen(false)} 
-        maxWidth={false} 
+      <Dialog
+        open={closureDialogOpen}
+        onClose={() => setClosureDialogOpen(false)}
+        maxWidth={false}
         fullWidth
         fullScreen={isMobile}
         sx={{
@@ -1491,7 +1484,7 @@ const Tickets: React.FC = () => {
             <Typography variant="subtitle2" sx={{ fontWeight: 600, borderBottom: '1px solid #eee', pb: 1 }}>
               Fotos Obrigatórias
             </Typography>
-            
+
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
               <Paper variant="outlined" sx={{ p: 2 }}>
                 <FileUploader
@@ -1503,7 +1496,7 @@ const Tickets: React.FC = () => {
                   placeholder="Selecione a foto do serial number"
                 />
               </Paper>
-              
+
               <Paper variant="outlined" sx={{ p: 2 }}>
                 <FileUploader
                   label="2. Foto dos Equipamentos Instalados *"
@@ -1600,15 +1593,15 @@ const Tickets: React.FC = () => {
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: isMobile ? 2 : 3, justifyContent: 'space-between' }}>
-          <Button 
+          <Button
             onClick={() => setClosureDialogOpen(false)}
             variant="outlined"
             disabled={statusUpdating}
           >
             Cancelar
           </Button>
-          <Button 
-            onClick={handleSaveClosure} 
+          <Button
+            onClick={handleSaveClosure}
             variant="contained"
             disabled={statusUpdating}
             startIcon={statusUpdating ? <CircularProgress size={16} /> : <CheckCircleIcon className="w-4 h-4" />}

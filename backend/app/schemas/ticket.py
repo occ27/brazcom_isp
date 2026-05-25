@@ -22,6 +22,7 @@ class TicketBase(BaseModel):
     splitter_cto: Optional[str] = None
     material_utilizado: Optional[str] = None
     problema_encontrado: Optional[str] = None
+    resolucao: Optional[str] = None
 
 
 class TicketCreate(TicketBase):
