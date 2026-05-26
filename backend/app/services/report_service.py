@@ -281,7 +281,7 @@ class ReportService:
             
             data.append(['', Paragraph('Subtotal do Grupo', cell_style), '', '', Paragraph(f"R$ {plan_total:.2f}", cell_style), Paragraph(f"R$ {plan_paid_total:.2f}", cell_style), '', ''])
                 
-            table = Table(data, colWidths=[1.2*cm, 6.8*cm, 2.5*cm, 2.8*cm, 2.8*cm, 2.8*cm, 2.8*cm, 3*cm])
+            table = Table(data, colWidths=[1.6*cm, 9.0*cm, 2.9*cm, 2.8*cm, 2.8*cm, 2.8*cm, 2.8*cm, 3*cm])
             table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
