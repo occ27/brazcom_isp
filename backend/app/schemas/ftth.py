@@ -124,6 +124,7 @@ class ONUStatus(BaseModel):
     cto_nome: Optional[str] = None
     cto_porta: Optional[str] = None
     assigned_ip: Optional[str] = None
+    coordenadas_gps: Optional[str] = None
     vlan_id: Optional[int] = None
     tipo_conexao: Optional[str] = None
 

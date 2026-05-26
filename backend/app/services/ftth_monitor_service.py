@@ -657,6 +657,7 @@ class FTTHMonitorService:
                 "cto_nome": contrato.cto_nome,
                 "cto_porta": contrato.cto_porta,
                 "assigned_ip": contrato.assigned_ip,
+                "coordenadas_gps": contrato.coordenadas_gps,
                 "vlan_id": contrato.vlan_id,
                 "tipo_conexao": contrato.tipo_conexao.value if contrato.tipo_conexao else None,
                 "status": onu_status,

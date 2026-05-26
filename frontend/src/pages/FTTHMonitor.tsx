@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import L from 'leaflet';
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useCompany } from '../contexts/CompanyContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -44,6 +44,7 @@ interface ONUStatus {
   cto_nome?: string;
   cto_porta?: string;
   assigned_ip?: string;
+  coordenadas_gps?: string;
   vlan_id?: number;
   tipo_conexao?: string;
   status: 'ONLINE' | 'OFFLINE' | 'DEGRADADO' | 'DESCONHECIDO';
@@ -132,6 +133,19 @@ function formatLatency(ms?: number) {
 function formatPower(dbm?: number) {
   if (dbm == null) return '—';
   return `${dbm.toFixed(1)} dBm`;
+}
+
+function parseCoords(coordsStr?: string): [number, number] | null {
+  if (!coordsStr) return null;
+  const parts = coordsStr.split(',');
+  if (parts.length === 2) {
+    const lat = parseFloat(parts[0].trim());
+    const lng = parseFloat(parts[1].trim());
+    if (!isNaN(lat) && !isNaN(lng)) {
+      return [lat, lng];
+    }
+  }
+  return null;
 }
 
 // ============================================================
@@ -450,18 +464,7 @@ const CTOModal: React.FC<{
   const [geocoding, setGeocoding] = useState<boolean>(false);
   const [geocodeError, setGeocodeError] = useState<string | null>(null);
 
-  const parseCoords = (coordsStr?: string): [number, number] | null => {
-    if (!coordsStr) return null;
-    const parts = coordsStr.split(',');
-    if (parts.length === 2) {
-      const lat = parseFloat(parts[0].trim());
-      const lng = parseFloat(parts[1].trim());
-      if (!isNaN(lat) && !isNaN(lng)) {
-        return [lat, lng];
-      }
-    }
-    return null;
-  };
+
 
   const geocodeAddress = async (addressStr: string) => {
     if (!addressStr || addressStr.trim() === '') return;
@@ -739,7 +742,7 @@ const FTTHMonitor: React.FC = () => {
   const empresaId = activeCompany?.id;
   const token = authService.getStoredToken();
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'onts' | 'infra' | 'historico'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'onts' | 'infra' | 'historico' | 'mapa'>('dashboard');
   const [infraTab, setInfraTab] = useState<'olts' | 'ctos'>('olts');
 
   // Dashboard
@@ -821,7 +824,14 @@ const FTTHMonitor: React.FC = () => {
 
   // Carregamento inicial
   useEffect(() => { loadDashboard(); loadAlertas(); }, [loadDashboard, loadAlertas]);
-  useEffect(() => { if (activeTab === 'onts') { loadONUs(); } }, [activeTab, loadONUs]);
+  useEffect(() => {
+    if (activeTab === 'onts') {
+      loadONUs();
+    } else if (activeTab === 'mapa') {
+      loadONUs();
+      loadCTOs();
+    }
+  }, [activeTab, loadONUs, loadCTOs]);
   useEffect(() => { if (activeTab === 'infra') { loadOLTs(); loadCTOs(); } }, [activeTab, loadOLTs, loadCTOs]);
 
   // Auto-refresh a cada 2 minutos
@@ -829,7 +839,7 @@ const FTTHMonitor: React.FC = () => {
     const id = setInterval(() => {
       loadDashboard();
       loadAlertas();
-      if (activeTab === 'onts') loadONUs();
+      if (activeTab === 'onts' || activeTab === 'mapa') loadONUs();
     }, 120_000);
     return () => clearInterval(id);
   }, [activeTab, loadDashboard, loadAlertas, loadONUs]);
@@ -1243,12 +1253,165 @@ const FTTHMonitor: React.FC = () => {
     </div>
   );
 
+  const createOnuIcon = (status: string) => {
+    const colors = {
+      ONLINE: '#10b981',
+      OFFLINE: '#ef4444',
+      DEGRADADO: '#f59e0b',
+      DESCONHECIDO: '#6b7280',
+    };
+    const color = colors[status as keyof typeof colors] || colors.DESCONHECIDO;
+    return L.divIcon({
+      html: `<div style="display: flex; justify-content: center; align-items: center; width: 24px; height: 24px; background-color: ${color}; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+              <div style="width: 7px; height: 7px; background-color: white; border-radius: 50%; transform: rotate(45deg);"></div>
+            </div>`,
+      className: 'custom-onu-pin',
+      iconSize: [24, 24],
+      iconAnchor: [12, 24]
+    });
+  };
+
+  const renderMapa = () => {
+    let center: [number, number] = [-23.5505, -46.6333];
+    let foundCenter = false;
+
+    for (const onu of onus) {
+      const pc = parseCoords(onu.coordenadas_gps);
+      if (pc) {
+        center = pc;
+        foundCenter = true;
+        break;
+      }
+    }
+
+    if (!foundCenter) {
+      for (const cto of ctos) {
+        const pc = parseCoords(cto.coordenadas_gps);
+        if (pc) {
+          center = pc;
+          foundCenter = true;
+          break;
+        }
+      }
+    }
+
+    return (
+      <div style={{ background: '#fff', borderRadius: 20, padding: 24, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: '#111827' }}>📍 Mapa de Status das ONUs</h3>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>
+              Localização geográfica dos clientes e CTOs com status de conectividade em tempo real.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 700 }}>
+            <span style={{ color: '#10b981' }}>🟢 Online</span>
+            <span style={{ color: '#ef4444' }}>🔴 Offline</span>
+            <span style={{ color: '#f59e0b' }}>🟡 Degradado</span>
+            <span style={{ color: '#6b7280' }}>⚪ Desconhecido</span>
+            <span style={{ color: '#8b5cf6' }}>📦 CTO</span>
+          </div>
+        </div>
+
+        <div style={{ height: '650px', borderRadius: 14, overflow: 'hidden', border: '1px solid #e5e7eb', position: 'relative', zIndex: 1 }}>
+          <MapContainer center={center} zoom={13} style={{ height: '100%', width: '100%' }}>
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            <ChangeMapCenter center={center} zoom={13} />
+
+            {/* Renderizar ONUs */}
+            {onus.map(onu => {
+              const pc = parseCoords(onu.coordenadas_gps);
+              if (!pc) return null;
+              
+              const cfg = STATUS_CONFIG[onu.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.DESCONHECIDO;
+              
+              return (
+                <Marker key={`onu-${onu.contrato_id}`} position={pc} icon={createOnuIcon(onu.status)}>
+                  <Popup>
+                    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', minWidth: 200 }}>
+                      <div style={{ fontWeight: 800, fontSize: 14, color: '#111827', marginBottom: 4 }}>{onu.cliente_nome}</div>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
+                        <span style={{
+                          padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700,
+                          background: cfg.bg, color: cfg.color
+                        }}>{cfg.label}</span>
+                        {onu.latencia_ms != null && (
+                          <span style={{ fontSize: 11, color: '#4f46e5', fontWeight: 600 }}>ping: {onu.latencia_ms.toFixed(1)} ms</span>
+                        )}
+                      </div>
+                      
+                      <div style={{ fontSize: 12, color: '#4b5563', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <div><strong>Contrato:</strong> {onu.numero_contrato || '—'}</div>
+                        <div><strong>IP:</strong> <span style={{ fontFamily: 'monospace' }}>{onu.assigned_ip || '—'}</span></div>
+                        <div><strong>OLT:</strong> {onu.olt_nome || '—'} (Porta {onu.olt_pon || '—'})</div>
+                        <div><strong>CTO:</strong> {onu.cto_nome || '—'} (Porta {onu.cto_porta || '—'})</div>
+                        <div><strong>Última verif:</strong> {formatDate(onu.ultima_verificacao)}</div>
+                      </div>
+
+                      <button 
+                        onClick={() => setSelectedONU(onu)}
+                        style={{
+                          width: '100%', marginTop: 10, padding: '6px', background: '#4f46e5',
+                          color: '#fff', border: 'none', borderRadius: 6, fontWeight: 700,
+                          fontSize: 11, cursor: 'pointer'
+                        }}
+                      >
+                        Ver Detalhes / Gráfico
+                      </button>
+                    </div>
+                  </Popup>
+                </Marker>
+              );
+            })}
+
+            {/* Renderizar CTOs */}
+            {ctos.map(cto => {
+              const pc = parseCoords(cto.coordenadas_gps);
+              if (!pc) return null;
+
+              const ctoMarkerIcon = L.divIcon({
+                html: `<div style="display: flex; justify-content: center; align-items: center; width: 28px; height: 28px; background-color: #8b5cf6; border-radius: 4px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); font-size: 14px; color: white; font-weight: bold; transform: scale(1.15);">
+                        📦
+                      </div>`,
+                className: 'custom-cto-pin',
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
+              });
+
+              return (
+                <Marker key={`cto-${cto.id}`} position={pc} icon={ctoMarkerIcon}>
+                  <Popup>
+                    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', minWidth: 180 }}>
+                      <div style={{ fontWeight: 800, fontSize: 13, color: '#7c3aed', marginBottom: 2 }}>📦 {cto.nome}</div>
+                      <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 6 }}>Caixa de Atendimento</div>
+                      
+                      <div style={{ fontSize: 12, color: '#4b5563', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <div><strong>OLT:</strong> {cto.olt_nome || '—'} (Porta {cto.porta_pon || '—'})</div>
+                        <div><strong>Splitter:</strong> {cto.splitter_ratio || '—'}</div>
+                        <div><strong>Portas ocupadas:</strong> {cto.capacidade || 16} portas</div>
+                        {cto.endereco && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>📍 {cto.endereco}</div>}
+                      </div>
+                    </div>
+                  </Popup>
+                </Marker>
+              );
+            })}
+          </MapContainer>
+        </div>
+      </div>
+    );
+  };
+
   // ============================================================
   // RENDER PRINCIPAL
   // ============================================================
   const tabs = [
     { key: 'dashboard', label: '📊 Dashboard' },
     { key: 'onts', label: '📡 ONUs / Clientes' },
+    { key: 'mapa', label: '📍 Mapa de Status' },
     { key: 'infra', label: '🏗️ Infraestrutura' },
     { key: 'historico', label: '📈 Histórico' },
   ];
@@ -1296,6 +1459,7 @@ const FTTHMonitor: React.FC = () => {
       {/* Tab Content */}
       {activeTab === 'dashboard' && renderDashboard()}
       {activeTab === 'onts' && renderONTs()}
+      {activeTab === 'mapa' && renderMapa()}
       {activeTab === 'infra' && renderInfra()}
       {activeTab === 'historico' && renderHistorico()}
 
