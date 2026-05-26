@@ -503,6 +503,11 @@ class ServicoContratado(Base):
     metragem_drop = Column(Integer, nullable=True)      # Metragem do cabo drop utilizado
     vlan_id = Column(Integer, nullable=True)            # VLAN de serviço do cliente
 
+    # FKs para os registros de OLT e CTO cadastrados no módulo de Monitoramento FTTH
+    # (nullable — compatível com contratos legados que usam apenas os campos texto acima)
+    olt_id = Column(Integer, ForeignKey("olts.id", ondelete="SET NULL"), nullable=True, index=True)
+    cto_id = Column(Integer, ForeignKey("ctos.id", ondelete="SET NULL"), nullable=True, index=True)
+
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -514,6 +519,8 @@ class ServicoContratado(Base):
     router = relationship("Router")
     interface = relationship("RouterInterface")
     ip_class = relationship("IPClass")
+    olt = relationship("OLT", foreign_keys=[olt_id])
+    cto = relationship("CTO", foreign_keys=[cto_id])
     
     # Conta bancária vinculada ao contrato (opcional) — define a conta que será usada para cobranças deste contrato
     bank_account_id = Column(Integer, ForeignKey("bank_accounts.id"), nullable=True)

@@ -24,7 +24,8 @@ import {
   BanknotesIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
-  ShieldExclamationIcon
+  ShieldExclamationIcon,
+  SignalIcon
 } from '@heroicons/react/24/outline';
 import { licenseService } from '../services/licenseService';
 import { PageType } from '../types';
@@ -220,6 +221,7 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
         { label: 'PPPoE', icon: GlobeAltIcon, path: 'pppoe' as PageType, group: 'rede' },
         { label: 'DHCP', icon: ServerStackIcon, path: 'dhcp' as PageType, group: 'rede' },
         ...(user?.is_superuser ? [{ label: 'RADIUS NAS', icon: LockClosedIcon, path: 'radius-nas' as PageType, group: 'rede' }] : []),
+        { label: 'Monitoramento FTTH', icon: SignalIcon, path: 'ftth-monitor' as PageType, group: 'rede' },
       ]
     }
   ];
@@ -247,6 +249,7 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
   permissionMap['bank-accounts'] = 'bank_accounts_view';
   permissionMap['receivables'] = 'receivables_view';
   permissionMap['tickets'] = 'tickets_view';
+  permissionMap['ftth-monitor'] = 'network_manage';
   // RADIUS NAS: apenas super_admin (is_superuser) — verificado na própria página
 
   const canViewItem = (path: PageType) => {

@@ -20,6 +20,7 @@ export type PageType =
   | 'radius-nas'
   | 'licenses'
   | 'admin-licenses'
+  | 'ftth-monitor'
   | 'settings';
 
 

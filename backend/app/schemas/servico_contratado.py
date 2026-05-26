@@ -74,6 +74,9 @@ class ServicoContratadoBase(BaseModel):
     cto_porta: Optional[str] = Field(None, max_length=20, description="Porta da CTO conectada")
     metragem_drop: Optional[int] = Field(None, description="Metragem do cabo drop utilizado")
     vlan_id: Optional[int] = Field(None, description="VLAN de serviço do cliente")
+    # FKs para OLT e CTO cadastrados no módulo de Monitoramento FTTH
+    olt_id: Optional[int] = Field(None, description="ID da OLT cadastrada (auto-preenche olt_nome)")
+    cto_id: Optional[int] = Field(None, description="ID da CTO cadastrada (auto-preenche cto_nome)")
 
     # Documentação Jurídica
     contrato_anatel_url: Optional[str] = Field(None, max_length=500)
@@ -170,6 +173,8 @@ class ServicoContratadoUpdate(BaseModel):
     cto_porta: Optional[str] = Field(None, max_length=20)
     metragem_drop: Optional[int] = Field(None)
     vlan_id: Optional[int] = Field(None)
+    olt_id: Optional[int] = Field(None, description="ID da OLT cadastrada")
+    cto_id: Optional[int] = Field(None, description="ID da CTO cadastrada")
     contrato_anatel_url: Optional[str] = Field(None, max_length=500)
     payment_method: Optional[str] = Field(None, max_length=30)
     
@@ -262,6 +267,13 @@ class ServicoContratadoResponse(ServicoContratadoBase):
     bank_account_bank: Optional[str] = None
     bank_account_agencia: Optional[str] = None
     bank_account_conta: Optional[str] = None
+    # OLT e CTO resolvidos (dados do registro FK)
+    olt_id: Optional[int] = None
+    cto_id: Optional[int] = None
+    olt_ip: Optional[str] = None          # IP da OLT registrada
+    olt_fabricante: Optional[str] = None  # Fabricante da OLT
+    cto_endereco: Optional[str] = None    # Endereço da CTO registrada
+    cto_splitter: Optional[str] = None    # Splitter da CTO
 
     ativos: List[AtivoContratoResponse] = []
 

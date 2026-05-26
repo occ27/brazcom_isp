@@ -145,6 +145,8 @@ const Contracts: React.FC = () => {
     cto_porta: '',
     metragem_drop: undefined,
     vlan_id: undefined,
+    olt_id: undefined,
+    cto_id: undefined,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
@@ -207,6 +209,14 @@ const Contracts: React.FC = () => {
   const [interfaces, setInterfaces] = useState<RouterInterface[]>([]);
   const [availableIPs, setAvailableIPs] = useState<string[]>([]);
   const [networkLoading, setNetworkLoading] = useState(false);
+  const [olts, setOlts] = useState<any[]>([]);
+  const [ctos, setCtos] = useState<any[]>([]);
+  const [oltSearch, setOltSearch] = useState('');
+  const [ctoSearch, setCtoSearch] = useState('');
+  const [oltsLoading, setOltsLoading] = useState(false);
+  const [ctosLoading, setCtosLoading] = useState(false);
+  const oltSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ctoSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clientSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const servicoSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -545,6 +555,78 @@ const Contracts: React.FC = () => {
       setInterfaces([]);
     }
   }, [activeCompany]);
+
+  const loadOLTs = useCallback(async (search = '', forceOltId?: number) => {
+    try {
+      setOltsLoading(true);
+      const resp = await api.get('/ftth/olts', {
+        params: { search, limit: 100 }
+      });
+      let loadedOlts = resp.data || [];
+      if (forceOltId && !loadedOlts.some((o: any) => o.id === forceOltId)) {
+        try {
+          const singleResp = await api.get(`/ftth/olts/${forceOltId}`);
+          if (singleResp.data) {
+            loadedOlts = [singleResp.data, ...loadedOlts];
+          }
+        } catch (err) {
+          console.error("Erro ao carregar OLT por ID:", err);
+        }
+      }
+      setOlts(loadedOlts);
+    } catch (error) {
+      console.error("Erro ao carregar OLTs:", error);
+    } finally {
+      setOltsLoading(false);
+    }
+  }, []);
+
+  const loadCTOs = useCallback(async (search = '', oltId?: number, proximityCoords?: string, forceCtoId?: number) => {
+    try {
+      setCtosLoading(true);
+      const params: any = { search, limit: 100 };
+      if (oltId) {
+        params.olt_id = oltId;
+      }
+      if (proximityCoords) {
+        params.proximidade_gps = proximityCoords;
+      }
+      const resp = await api.get('/ftth/ctos', { params });
+      let loadedCtos = resp.data || [];
+      if (forceCtoId && !loadedCtos.some((c: any) => c.id === forceCtoId)) {
+        try {
+          const singleResp = await api.get(`/ftth/ctos/${forceCtoId}`);
+          if (singleResp.data) {
+            loadedCtos = [singleResp.data, ...loadedCtos];
+          }
+        } catch (err) {
+          console.error("Erro ao carregar CTO por ID:", err);
+        }
+      }
+      setCtos(loadedCtos);
+    } catch (error) {
+      console.error("Erro ao carregar CTOs:", error);
+    } finally {
+      setCtosLoading(false);
+    }
+  }, []);
+
+  // Load OLTs when form opens
+  useEffect(() => {
+    if (openForm && activeCompany) {
+      loadOLTs('', form.olt_id);
+    }
+  }, [openForm, activeCompany, form.olt_id]);
+
+  // Load CTOs reactively when form opens, OLT changes, or coordinates change
+  useEffect(() => {
+    if (openForm && activeCompany) {
+      const timer = setTimeout(() => {
+        loadCTOs('', form.olt_id, form.coordenadas_gps, form.cto_id);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [openForm, form.olt_id, form.coordenadas_gps, activeCompany, form.cto_id]);
 
   // Load available IPs when IP class changes
   const loadAvailableIPs = useCallback(async (ipClass: IPClass | undefined) => {
@@ -1287,6 +1369,8 @@ const Contracts: React.FC = () => {
         cto_porta: '',
         metragem_drop: undefined,
         vlan_id: undefined,
+        olt_id: undefined,
+        cto_id: undefined,
         ativos: []
       };
 
@@ -2806,15 +2890,59 @@ const Contracts: React.FC = () => {
                             helperText="Potência óptica medida no cliente"
                             disabled={viewOnly}
                           />
-                          <TextField
-                            label="Nome da OLT"
-                            value={form.olt_nome || ''}
-                            onChange={e => handleInputChange('olt_nome', e.target.value)}
-                            fullWidth
-                            size="small"
-                            placeholder="Ex: OLT-CENTRAL-01"
-                            helperText="Identificação da OLT de origem"
+                          <Autocomplete
+                            freeSolo
+                            options={olts}
+                            getOptionLabel={(option) => typeof option === 'string' ? option : option.nome}
+                            isOptionEqualToValue={(option, value) => {
+                              if (typeof option === 'string' || typeof value === 'string') return option === value;
+                              return option.id === value.id;
+                            }}
+                            value={olts.find(o => o.id === form.olt_id) || form.olt_nome || null}
+                            onChange={(_event, newValue) => {
+                              if (typeof newValue === 'string') {
+                                setForm(prev => ({ ...prev, olt_nome: newValue, olt_id: undefined }));
+                              } else if (newValue && newValue.id) {
+                                setForm(prev => ({ ...prev, olt_nome: newValue.nome, olt_id: newValue.id, cto_id: undefined, cto_nome: '' }));
+                              } else {
+                                setForm(prev => ({ ...prev, olt_nome: '', olt_id: undefined }));
+                              }
+                            }}
+                            inputValue={oltSearch}
+                            onInputChange={(_, value, reason) => {
+                              setOltSearch(value);
+                              if (reason === 'input') {
+                                if (oltSearchTimer.current) clearTimeout(oltSearchTimer.current);
+                                oltSearchTimer.current = setTimeout(() => {
+                                  loadOLTs(value);
+                                }, 400);
+                              }
+                            }}
+                            loading={oltsLoading}
                             disabled={viewOnly}
+                            slotProps={{
+                              paper: {
+                                sx: { width: { xs: '280px', sm: '450px', md: '550px' } }
+                              }
+                            }}
+                            renderInput={(params) => (
+                              <TextField
+                                {...params}
+                                label="Nome da OLT"
+                                size="small"
+                                placeholder="Selecione ou digite"
+                                helperText="Identificação da OLT de origem"
+                                InputProps={{
+                                  ...params.InputProps,
+                                  endAdornment: (
+                                    <React.Fragment>
+                                      {oltsLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                                      {params.InputProps.endAdornment}
+                                    </React.Fragment>
+                                  ),
+                                }}
+                              />
+                            )}
                           />
                           <TextField
                             label="Porta PON da OLT"
@@ -2837,17 +2965,113 @@ const Contracts: React.FC = () => {
                             helperText="VLAN do serviço de internet"
                             disabled={viewOnly}
                           />
-                          <TextField
-                            label="Caixa de Atendimento (CTO) *"
-                            value={form.cto_nome || ''}
-                            onChange={e => handleInputChange('cto_nome', e.target.value)}
-                            fullWidth
-                            size="small"
-                            placeholder="Ex: CTO-04-A"
-                            helperText={errors.cto_nome || "Identificação da caixa (CTO) no poste"}
-                            disabled={viewOnly}
-                            error={!!errors.cto_nome}
-                          />
+                          <Box className="col-span-1 sm:col-span-3">
+                            <Autocomplete
+                              freeSolo
+                              options={ctos}
+                              getOptionLabel={(option) => typeof option === 'string' ? option : option.nome}
+                              isOptionEqualToValue={(option, value) => {
+                                if (typeof option === 'string' || typeof value === 'string') return option === value;
+                                return option.id === value.id;
+                              }}
+                              renderOption={(props, option) => {
+                                if (typeof option === 'string') {
+                                  return <li {...props}>{option}</li>;
+                                }
+                                return (
+                                  <Box component="li" {...props} sx={{ display: 'flex !important', flexDirection: 'column !important', alignItems: 'flex-start !important', py: 0.75, px: 1.5, width: '100%' }}>
+                                    {/* Linha 1: Nome e Distância */}
+                                    <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 1.5, mb: 0.25 }}>
+                                      <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#1f2937' }}>
+                                        {option.nome}
+                                      </Typography>
+                                      {option.distancia_metros !== undefined && option.distancia_metros !== null && (
+                                        <Chip 
+                                          size="small" 
+                                          color={option.distancia_metros < 200 ? "success" : "default"}
+                                          label={option.distancia_metros < 1000 
+                                            ? `📍 ${Math.round(option.distancia_metros)}m` 
+                                            : `📍 ${(option.distancia_metros / 1000).toFixed(1)}km`
+                                          } 
+                                          sx={{ height: 18, fontSize: '0.7rem', flexShrink: 0 }}
+                                        />
+                                      )}
+                                    </Box>
+                                    {/* Linha 2: OLT, PON e Splitter */}
+                                    <Typography variant="caption" color="text.secondary" sx={{ mb: 0.25 }}>
+                                      {option.olt_nome ? `OLT: ${option.olt_nome}` : ''}
+                                      {option.porta_pon ? ` | Porta PON: ${option.porta_pon}` : ''}
+                                      {option.splitter_ratio ? ` | Splitter: ${option.splitter_ratio}` : ''}
+                                    </Typography>
+                                    {/* Linha 3: Endereço */}
+                                    {option.endereco && (
+                                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                                        🏠 {option.endereco}
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                );
+                              }}
+                              value={ctos.find(c => c.id === form.cto_id) || form.cto_nome || null}
+                              onChange={(_event, newValue) => {
+                                if (typeof newValue === 'string') {
+                                  setForm(prev => ({ ...prev, cto_nome: newValue, cto_id: undefined }));
+                                } else if (newValue && newValue.id) {
+                                  setForm(prev => {
+                                    const updatedForm: any = {
+                                      ...prev,
+                                      cto_nome: newValue.nome,
+                                      cto_id: newValue.id,
+                                      olt_pon: newValue.olt_pon || prev.olt_pon,
+                                    };
+                                    if (newValue.olt_id) {
+                                      updatedForm.olt_id = newValue.olt_id;
+                                      updatedForm.olt_nome = newValue.olt_nome || prev.olt_nome;
+                                    }
+                                    return updatedForm;
+                                  });
+                                } else {
+                                  setForm(prev => ({ ...prev, cto_nome: '', cto_id: undefined }));
+                                }
+                              }}
+                              inputValue={ctoSearch}
+                              onInputChange={(_, value, reason) => {
+                                setCtoSearch(value);
+                                if (reason === 'input') {
+                                  if (ctoSearchTimer.current) clearTimeout(ctoSearchTimer.current);
+                                  ctoSearchTimer.current = setTimeout(() => {
+                                    loadCTOs(value, form.olt_id, form.coordenadas_gps);
+                                  }, 400);
+                                }
+                              }}
+                              loading={ctosLoading}
+                              disabled={viewOnly}
+                              slotProps={{
+                                paper: {
+                                  sx: { width: { xs: '280px', sm: '500px', md: '600px' } }
+                                }
+                              }}
+                              renderInput={(params) => (
+                                <TextField
+                                  {...params}
+                                  label="Caixa de Atendimento (CTO) *"
+                                  size="small"
+                                  placeholder="Selecione ou digite"
+                                  helperText={errors.cto_nome || "Identificação da caixa (CTO) no poste"}
+                                  error={!!errors.cto_nome}
+                                  InputProps={{
+                                    ...params.InputProps,
+                                    endAdornment: (
+                                      <React.Fragment>
+                                        {ctosLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                                        {params.InputProps.endAdornment}
+                                      </React.Fragment>
+                                    ),
+                                  }}
+                                />
+                              )}
+                            />
+                          </Box>
                           <TextField
                             label="Porta na CTO"
                             value={form.cto_porta || ''}

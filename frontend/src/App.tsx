@@ -45,6 +45,7 @@ import AuthenticatedLayout from './components/AuthenticatedLayout';
 import PublicSignature from './pages/PublicSignature';
 import Checkout from './pages/Checkout';
 import PaymentStatus from './pages/PaymentStatus';
+import FTTHMonitor from './pages/FTTHMonitor';
 import { PageType } from './types';
 
 // Componente para redirecionar usuários baseado no tipo
@@ -185,6 +186,7 @@ const AuthenticatedApp: React.FC<{ children: React.ReactNode }> = ({ children })
     if (path === '/radius-nas') return 'radius-nas';
     if (path === '/licenses') return 'licenses';
     if (path === '/admin-licenses') return 'admin-licenses';
+    if (path === '/ftth-monitor') return 'ftth-monitor';
     if (path === '/profile') return 'profile';
     return 'dashboard';
   };
@@ -210,6 +212,7 @@ const AuthenticatedApp: React.FC<{ children: React.ReactNode }> = ({ children })
     else if (page === 'radius-nas') navigate('/radius-nas');
     else if (page === 'licenses') navigate('/licenses');
     else if (page === 'admin-licenses') navigate('/admin-licenses');
+    else if (page === 'ftth-monitor') navigate('/ftth-monitor');
     else if (page === 'profile') navigate('/profile');
   };
 
@@ -477,6 +480,16 @@ const AppContent: React.FC = () => {
           <ProtectedRoute>
             <AuthenticatedApp>
               <AdminLicenses />
+            </AuthenticatedApp>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/ftth-monitor"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedApp>
+              <FTTHMonitor />
             </AuthenticatedApp>
           </ProtectedRoute>
         }

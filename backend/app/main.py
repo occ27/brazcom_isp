@@ -29,6 +29,7 @@ from app.routes import reports
 from app.routes import licenses
 from app.routes import license_plans
 from app.routes import whatsapp
+from app.routes import ftth
 
 # A criação das tabelas será feita no evento de startup, após o DB ficar disponível
 
@@ -141,6 +142,7 @@ app.include_router(mercadopago.router)
 app.include_router(reports.router)
 app.include_router(licenses.router)
 app.include_router(whatsapp.router)
+app.include_router(ftth.router)
 
 from fastapi.responses import RedirectResponse
 from urllib.parse import urlparse

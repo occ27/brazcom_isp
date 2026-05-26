@@ -48,8 +48,10 @@ export interface Contrato {
   onu_modelo?: string;
   onu_sinal?: string;
   olt_nome?: string;
+  olt_id?: number;
   olt_pon?: string;
   cto_nome?: string;
+  cto_id?: number;
   cto_porta?: string;
   metragem_drop?: number;
   vlan_id?: number;

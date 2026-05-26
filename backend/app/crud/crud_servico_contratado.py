@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 from datetime import datetime, date
 from typing import Optional
 from app.models import models
+from app.models.ftth import OLT, CTO
 from app.schemas import servico_contratado as sc_schema
 from app.crud import crud_servico
 import unicodedata
@@ -11,6 +12,43 @@ import re
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_ftth_fks(db: Session, data: dict) -> dict:
+    """
+    Se olt_id ou cto_id foram informados, resolve os registros cadastrados
+    e auto-preenche olt_nome, olt_pon, cto_nome e cto_porta a partir deles.
+    Isso garante que o monitoramento FTTH encontre o contrato pelo registro FK.
+    """
+    if data.get('olt_id'):
+        olt = db.query(OLT).filter(OLT.id == data['olt_id']).first()
+        if not olt:
+            raise HTTPException(status_code=404, detail=f"OLT id={data['olt_id']} n\u00e3o encontrada.")
+        # Auto-preenche o campo texto para compat. legada (relatórios, display)
+        data['olt_nome'] = olt.nome
+    elif data.get('olt_id') is None and 'olt_id' in data:
+        # olt_id explicitamente enviado como None → limpar FK mas manter texto se preenchido
+        pass
+
+    if data.get('cto_id'):
+        cto = db.query(CTO).filter(CTO.id == data['cto_id']).first()
+        if not cto:
+            raise HTTPException(status_code=404, detail=f"CTO id={data['cto_id']} n\u00e3o encontrada.")
+        # Auto-preenche campos texto a partir do registro CTO
+        data['cto_nome'] = cto.nome
+        # Se a CTO tiver porta PON definida e olt_pon não foi preenchido manualmente
+        if cto.porta_pon and not data.get('olt_pon'):
+            data['olt_pon'] = cto.porta_pon
+        # Se a CTO estiver vinculada a uma OLT e olt_id ainda não foi definido
+        if cto.olt_id and not data.get('olt_id'):
+            data['olt_id'] = cto.olt_id
+            olt = db.query(OLT).filter(OLT.id == cto.olt_id).first()
+            if olt:
+                data['olt_nome'] = olt.nome
+    elif data.get('cto_id') is None and 'cto_id' in data:
+        pass
+
+    return data
 
 
 def _sync_radius(contrato: models.ServicoContratado, radius_db, action: str = "sync") -> None:
@@ -328,6 +366,9 @@ def create_servico_contratado(db: Session, contrato_in: sc_schema.ServicoContrat
     if data.get('valor_unitario') is None or data['valor_unitario'] <= 0:
         raise HTTPException(status_code=400, detail="valor_unitario deve ser maior que zero.")
     
+    # Resolver FKs de OLT e CTO (auto-preenche campos texto)
+    data = _resolve_ftth_fks(db, data)
+    
     # Normalização e Cálculo
     if 'numero_contrato' in data and data['numero_contrato']:
         data['numero_contrato'] = _normalize_text(str(data['numero_contrato']), 50) or None
@@ -371,6 +412,10 @@ def create_servico_contratado(db: Session, contrato_in: sc_schema.ServicoContrat
 
 def update_servico_contratado(db: Session, db_obj: models.ServicoContratado, obj_in: sc_schema.ServicoContratadoUpdate, radius_db=None):
     update_data = obj_in.model_dump(exclude_unset=True)
+    
+    # Resolver FKs de OLT e CTO se foram enviados no update
+    if 'olt_id' in update_data or 'cto_id' in update_data:
+        update_data = _resolve_ftth_fks(db, update_data)
     
     for field, val in update_data.items():
         if field != 'ativos' and hasattr(db_obj, field):
