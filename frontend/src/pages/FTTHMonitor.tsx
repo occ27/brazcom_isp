@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import L from 'leaflet';
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, CircleMarker, Tooltip, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useCompany } from '../contexts/CompanyContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -767,6 +767,7 @@ const FTTHMonitor: React.FC = () => {
   const [pollingAll, setPollingAll] = useState(false);
   const [mapOnus, setMapOnus] = useState<ONUStatus[]>([]);
   const [mapOnusLoading, setMapOnusLoading] = useState(false);
+  const [mapFilter, setMapFilter] = useState<'all' | 'onus' | 'ctos'>('all');
 
   // OLTs
   const [olts, setOlts] = useState<OLT[]>([]);
@@ -1418,16 +1419,38 @@ const FTTHMonitor: React.FC = () => {
               Localização geográfica dos clientes e CTOs com status de conectividade em tempo real.
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 700 }}>
-            <span style={{ color: '#10b981' }}>🟢 Online</span>
-            <span style={{ color: '#ef4444' }}>🔴 Offline</span>
-            <span style={{ color: '#f59e0b' }}>🟡 Degradado</span>
-            <span style={{ color: '#6b7280' }}>⚪ Desconhecido</span>
-            <span style={{ color: '#8b5cf6' }}>📦 CTO</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <select
+              value={mapFilter}
+              onChange={(e) => setMapFilter(e.target.value as any)}
+              style={{
+                padding: '8px 16px',
+                borderRadius: 10,
+                border: '1px solid #e5e7eb',
+                background: '#f9fafb',
+                color: '#374151',
+                fontWeight: 600,
+                fontSize: 13,
+                outline: 'none',
+                cursor: 'pointer',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+              }}
+            >
+              <option value="all">🔍 Mostrar Ambos</option>
+              <option value="onus">📡 Apenas ONUs</option>
+              <option value="ctos">📦 Apenas CTOs</option>
+            </select>
+            <div style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 700 }}>
+              <span style={{ color: '#10b981' }}>🟢 Online</span>
+              <span style={{ color: '#ef4444' }}>🔴 Offline</span>
+              <span style={{ color: '#f59e0b' }}>🟡 Degradado</span>
+              <span style={{ color: '#6b7280' }}>⚪ Desconhecido</span>
+              <span style={{ color: '#8b5cf6' }}>📦 CTO</span>
+            </div>
           </div>
         </div>
 
-        <div style={{ height: '650px', borderRadius: 14, overflow: 'hidden', border: '1px solid #e5e7eb', position: 'relative', zIndex: 1 }}>
+        <div style={{ height: 'calc(100vh - 360px)', minHeight: '500px', borderRadius: 14, overflow: 'hidden', border: '1px solid #e5e7eb', position: 'relative', zIndex: 1 }}>
           {mapOnusLoading && (
             <div style={{
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
@@ -1446,7 +1469,7 @@ const FTTHMonitor: React.FC = () => {
             <ChangeMapCenter center={center} zoom={13} />
 
             {/* Renderizar ONUs */}
-            {mapOnus.map(onu => {
+            {(mapFilter === 'all' || mapFilter === 'onus') && mapOnus.map(onu => {
               const pc = parseCoords(onu.coordenadas_gps);
               if (!pc) return null;
               
@@ -1464,6 +1487,9 @@ const FTTHMonitor: React.FC = () => {
                     weight: 2,
                   }}
                 >
+                  <Tooltip direction="top" offset={[0, -5]} opacity={0.9}>
+                    <span>{onu.cliente_nome} {onu.cto_nome ? `(${onu.cto_nome})` : ''}</span>
+                  </Tooltip>
                   <Popup>
                     <div style={{ fontFamily: 'Inter, system-ui, sans-serif', minWidth: 200 }}>
                       <div style={{ fontWeight: 800, fontSize: 14, color: '#111827', marginBottom: 4 }}>{onu.cliente_nome}</div>
@@ -1502,7 +1528,7 @@ const FTTHMonitor: React.FC = () => {
             })}
 
             {/* Renderizar CTOs */}
-            {ctos.map(cto => {
+            {(mapFilter === 'all' || mapFilter === 'ctos') && ctos.map(cto => {
               const pc = parseCoords(cto.coordenadas_gps);
               if (!pc) return null;
 
@@ -1517,6 +1543,9 @@ const FTTHMonitor: React.FC = () => {
 
               return (
                 <Marker key={`cto-${cto.id}`} position={pc} icon={ctoMarkerIcon}>
+                  <Tooltip direction="top" offset={[0, -10]} opacity={0.9}>
+                    <span>📦 {cto.nome}</span>
+                  </Tooltip>
                   <Popup>
                     <div style={{ fontFamily: 'Inter, system-ui, sans-serif', minWidth: 180 }}>
                       <div style={{ fontWeight: 800, fontSize: 13, color: '#7c3aed', marginBottom: 2 }}>📦 {cto.nome}</div>
