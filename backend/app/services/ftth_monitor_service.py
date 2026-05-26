@@ -200,7 +200,13 @@ class FTTHMonitorService:
         host = router.ip
         port = router.porta or 8728
         user = router.usuario
-        password = router.senha
+        
+        from app.core.security import decrypt_password
+        try:
+            password = decrypt_password(router.senha) if router.senha else ""
+        except Exception as e:
+            logger.warning(f"Falha ao descriptografar senha do roteador, usando texto plano: {e}")
+            password = router.senha
 
         if not host or not user or not password:
             return {
@@ -1081,10 +1087,17 @@ class FTTHMonitorService:
             return statuses
 
         # ── ETAPA 2: Conecta à API (UMA vez para todo o grupo) ────────────
+        from app.core.security import decrypt_password
+        try:
+            password = decrypt_password(router.senha) if router.senha else ""
+        except Exception as e:
+            logger.warning(f"Falha ao descriptografar senha do roteador no lote, usando texto plano: {e}")
+            password = router.senha
+
         ctrl = MikrotikController(
             host=host,
             username=router.usuario,
-            password=router.senha,
+            password=password,
             port=port,
         )
         try:
