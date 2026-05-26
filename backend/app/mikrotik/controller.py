@@ -855,12 +855,18 @@ class MikrotikController:
             portal_port = str(parsed.port) if parsed.port else '80'
             if not portal_host:
                 raise ValueError("Não foi possível extrair o host da suspension_url")
+            import socket
+            try:
+                portal_ip = socket.gethostbyname(portal_host)
+            except Exception as se:
+                logger.warning(f"Não foi possível resolver o host {portal_host} para IP: {se}. Usando o host original.")
+                portal_ip = portal_host
         except Exception as e:
             results.append(f"ERRO: suspension_url inválida ('{suspension_url}'): {e}")
             logger.error(f"setup_full_suspension_system: suspension_url inválida: {e}")
             return results
 
-        logger.info(f"Configurando suspensão: portal={portal_host}:{portal_port}, url={suspension_url}")
+        logger.info(f"Configurando suspensão: portal={portal_ip}:{portal_port}, url={suspension_url}")
 
         # ── Passo 1: Desabilitar Web Proxy (não é mais necessário) ────────────────
         try:
@@ -902,7 +908,7 @@ class MikrotikController:
                 'src-address-list': 'pg_corte',
                 'dst-port': '80',
                 'action': 'dst-nat',
-                'to-addresses': portal_host,
+                'to-addresses': portal_ip,
                 'to-ports': portal_port,
                 'comment': 'ISP_BLOQUEIO_REDIR_HTTP'
             }

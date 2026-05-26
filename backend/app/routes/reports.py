@@ -237,6 +237,7 @@ def get_financial_report_pdf(
         
     receivables_db = query.all()
     
+    seen_receivable_ids = set()
     receivables_data = []
     status_map_fin = {
         "PAID": "Pago",
@@ -247,6 +248,10 @@ def get_financial_report_pdf(
     }
 
     for r, end_principal in receivables_db:
+        if r.id in seen_receivable_ids:
+            continue
+        seen_receivable_ids.add(r.id)
+
         servico_nome = "N/A"
         if r.servico_contratado and r.servico_contratado.servico:
             servico_nome = r.servico_contratado.servico.descricao

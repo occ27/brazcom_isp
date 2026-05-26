@@ -536,8 +536,8 @@ def send_receivable_email_route(receivable_id: int, db: Session = Depends(get_db
     empresa = db.query(Empresa).filter(Empresa.id == recv.empresa_id).first()
     cliente = db.query(Cliente).filter(Cliente.id == recv.cliente_id).first()
     
-    if not cliente or not cliente.email:
-        raise HTTPException(status_code=400, detail="Cliente não possui email cadastrado")
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
         
     # Carregar empresa raw para pegar senha SMTP descriptografada se necessário pelo serviço
     from app.crud import crud_empresa

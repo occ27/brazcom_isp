@@ -242,15 +242,21 @@ def enviar_contrato_email(contrato_id: int, db: Session = Depends(get_db), curre
     if not send_email and not send_whatsapp:
         send_email = True
 
+    has_valid_email = bool(cliente and cliente.email)
+    has_valid_phone = bool(cliente and cliente.telefone)
+
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+
     if send_email:
-        if not cliente or not cliente.email:
+        if not has_valid_email and (not send_whatsapp or not has_valid_phone):
             raise HTTPException(status_code=400, detail="Cliente não possui email cadastrado")
         # 3. Validar SMTP da empresa
-        if not empresa.smtp_server or not empresa.smtp_user:
+        if has_valid_email and (not empresa.smtp_server or not empresa.smtp_user):
             raise HTTPException(status_code=400, detail="Empresa não possui configurações de SMTP configuradas")
             
     if send_whatsapp:
-        if not cliente or not cliente.telefone:
+        if not has_valid_phone and (not send_email or not has_valid_email):
             raise HTTPException(status_code=400, detail="Cliente não possui telefone cadastrado")
         
     # 4. Gerar ou recuperar token de assinatura
@@ -298,7 +304,7 @@ def enviar_contrato_email(contrato_id: int, db: Session = Depends(get_db), curre
     channels_sent = []
     
     # 9. Enviar email se ativo
-    if send_email:
+    if send_email and has_valid_email:
         subject = f"ASSINATURA PENDENTE - Termo de Adesão - Contrato Nº {db_contrato.id} - {empresa.razao_social}"
         success_email = EmailService.send_email(
             empresa=empresa,
@@ -311,7 +317,7 @@ def enviar_contrato_email(contrato_id: int, db: Session = Depends(get_db), curre
             channels_sent.append("E-mail")
 
     # 10. Enviar WhatsApp se ativo
-    if send_whatsapp:
+    if send_whatsapp and has_valid_phone:
         from app.services.whatsapp_service import WhatsAppService
         success_whatsapp = WhatsAppService.send_contract_message(
             empresa=empresa,
