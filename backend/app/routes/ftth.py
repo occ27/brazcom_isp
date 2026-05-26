@@ -38,7 +38,7 @@ def get_dashboard(
 @router.get("/onts")
 def list_onts(
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(100, ge=1, le=10000),
     status: Optional[str] = Query(None, description="Filtrar por status: ONLINE, OFFLINE, DEGRADADO, DESCONHECIDO"),
     olt_nome: Optional[str] = None,
     cto_nome: Optional[str] = None,

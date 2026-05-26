@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import L from 'leaflet';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, CircleMarker, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useCompany } from '../contexts/CompanyContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -765,6 +765,8 @@ const FTTHMonitor: React.FC = () => {
   const [oltFilter, setOltFilter] = useState('');
   const [selectedONU, setSelectedONU] = useState<ONUStatus | null>(null);
   const [pollingAll, setPollingAll] = useState(false);
+  const [mapOnus, setMapOnus] = useState<ONUStatus[]>([]);
+  const [mapOnusLoading, setMapOnusLoading] = useState(false);
 
   // OLTs
   const [olts, setOlts] = useState<OLT[]>([]);
@@ -813,6 +815,19 @@ const FTTHMonitor: React.FC = () => {
     setOnusPage(1);
   }, [search, statusFilter, oltFilter]);
 
+  const loadMapONUs = useCallback(async () => {
+    if (!empresaId || !token) return;
+    setMapOnusLoading(true);
+    try {
+      const params = {
+        limit: 10000,
+        skip: 0
+      };
+      const r = await axios.get(`${API_BASE}/ftth/onts`, { headers, params });
+      setMapOnus(r.data.data);
+    } catch { } finally { setMapOnusLoading(false); }
+  }, [empresaId, token]);
+
   const loadOLTs = useCallback(async () => {
     if (!empresaId || !token) return;
     try {
@@ -843,10 +858,10 @@ const FTTHMonitor: React.FC = () => {
     if (activeTab === 'onts') {
       loadONUs();
     } else if (activeTab === 'mapa') {
-      loadONUs();
+      loadMapONUs();
       loadCTOs();
     }
-  }, [activeTab, loadONUs, loadCTOs]);
+  }, [activeTab, loadONUs, loadMapONUs, loadCTOs]);
   useEffect(() => { if (activeTab === 'infra') { loadOLTs(); loadCTOs(); } }, [activeTab, loadOLTs, loadCTOs]);
 
   // Auto-refresh a cada 2 minutos
@@ -854,10 +869,14 @@ const FTTHMonitor: React.FC = () => {
     const id = setInterval(() => {
       loadDashboard();
       loadAlertas();
-      if (activeTab === 'onts' || activeTab === 'mapa') loadONUs();
+      if (activeTab === 'onts') {
+        loadONUs();
+      } else if (activeTab === 'mapa') {
+        loadMapONUs();
+      }
     }, 120_000);
     return () => clearInterval(id);
-  }, [activeTab, loadDashboard, loadAlertas, loadONUs]);
+  }, [activeTab, loadDashboard, loadAlertas, loadONUs, loadMapONUs]);
 
   // ---- Ações OLT ----
   const handleSaveOLT = async (data: any) => {
@@ -1370,7 +1389,7 @@ const FTTHMonitor: React.FC = () => {
     let center: [number, number] = [-23.5505, -46.6333];
     let foundCenter = false;
 
-    for (const onu of onus) {
+    for (const onu of mapOnus) {
       const pc = parseCoords(onu.coordenadas_gps);
       if (pc) {
         center = pc;
@@ -1409,7 +1428,17 @@ const FTTHMonitor: React.FC = () => {
         </div>
 
         <div style={{ height: '650px', borderRadius: 14, overflow: 'hidden', border: '1px solid #e5e7eb', position: 'relative', zIndex: 1 }}>
-          <MapContainer center={center} zoom={13} style={{ height: '100%', width: '100%' }}>
+          {mapOnusLoading && (
+            <div style={{
+              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(255, 255, 255, 0.7)', zIndex: 10,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 'bold', color: '#4f46e5', fontSize: 16
+            }}>
+              🔄 Carregando localizações das ONUs...
+            </div>
+          )}
+          <MapContainer center={center} zoom={13} preferCanvas={true} style={{ height: '100%', width: '100%' }}>
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -1417,14 +1446,24 @@ const FTTHMonitor: React.FC = () => {
             <ChangeMapCenter center={center} zoom={13} />
 
             {/* Renderizar ONUs */}
-            {onus.map(onu => {
+            {mapOnus.map(onu => {
               const pc = parseCoords(onu.coordenadas_gps);
               if (!pc) return null;
               
               const cfg = STATUS_CONFIG[onu.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.DESCONHECIDO;
               
               return (
-                <Marker key={`onu-${onu.contrato_id}`} position={pc} icon={createOnuIcon(onu.status)}>
+                <CircleMarker
+                  key={`onu-${onu.contrato_id}`}
+                  center={pc}
+                  radius={8}
+                  pathOptions={{
+                    fillColor: cfg.color,
+                    fillOpacity: 0.95,
+                    color: '#ffffff',
+                    weight: 2,
+                  }}
+                >
                   <Popup>
                     <div style={{ fontFamily: 'Inter, system-ui, sans-serif', minWidth: 200 }}>
                       <div style={{ fontWeight: 800, fontSize: 14, color: '#111827', marginBottom: 4 }}>{onu.cliente_nome}</div>
@@ -1458,7 +1497,7 @@ const FTTHMonitor: React.FC = () => {
                       </button>
                     </div>
                   </Popup>
-                </Marker>
+                </CircleMarker>
               );
             })}
 
