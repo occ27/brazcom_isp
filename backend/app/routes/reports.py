@@ -193,14 +193,24 @@ def get_financial_report_pdf(
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
         
     # Query de faturamento com join do endereço do cliente para filtros de cidade/bairro
+    # Query de faturamento com join do endereço do cliente para filtros de cidade/bairro
     from app.models.models import Cliente, EmpresaCliente, EmpresaClienteEndereco
+    from sqlalchemy.orm import aliased
+    from sqlalchemy import func
     
-    query = db.query(Receivable, EmpresaClienteEndereco).join(
+    ClientAddress = aliased(EmpresaClienteEndereco, name="client_address")
+    ContractAddress = aliased(EmpresaClienteEndereco, name="contract_address")
+    
+    query = db.query(Receivable, ClientAddress, ContractAddress).join(
         Cliente, Receivable.cliente_id == Cliente.id
     ).join(
         EmpresaCliente, (Cliente.id == EmpresaCliente.cliente_id) & (EmpresaCliente.empresa_id == empresa_id)
     ).join(
-        EmpresaClienteEndereco, (EmpresaCliente.id == EmpresaClienteEndereco.empresa_cliente_id) & (EmpresaClienteEndereco.is_principal == True), isouter=True
+        ClientAddress, (EmpresaCliente.id == ClientAddress.empresa_cliente_id) & (ClientAddress.is_principal == True), isouter=True
+    ).join(
+        ServicoContratado, Receivable.servico_contratado_id == ServicoContratado.id, isouter=True
+    ).join(
+        ContractAddress, ServicoContratado.endereco_id == ContractAddress.id, isouter=True
     ).filter(
         Receivable.empresa_id == empresa_id
     )
@@ -217,8 +227,11 @@ def get_financial_report_pdf(
     if servico_id:
         query = query.filter(Receivable.servico_contratado.has(ServicoContratado.servico_id == servico_id))
         
+    effective_municipio = func.coalesce(ContractAddress.municipio, ClientAddress.municipio)
+    effective_bairro = func.coalesce(ContractAddress.bairro, ClientAddress.bairro)
+
     if municipio:
-        query = query.filter(EmpresaClienteEndereco.municipio == municipio)
+        query = query.filter(effective_municipio == municipio)
         
     if bairro:
         from sqlalchemy import or_
@@ -227,10 +240,10 @@ def get_financial_report_pdf(
         other_bairros = [b for b in bairro if b != "SEM BAIRRO"]
         
         if other_bairros:
-            conditions.append(EmpresaClienteEndereco.bairro.in_(other_bairros))
+            conditions.append(effective_bairro.in_(other_bairros))
         if has_sem_bairro:
-            conditions.append(EmpresaClienteEndereco.bairro == None)
-            conditions.append(EmpresaClienteEndereco.bairro == '')
+            conditions.append(effective_bairro == None)
+            conditions.append(effective_bairro == '')
             
         if conditions:
             query = query.filter(or_(*conditions))
@@ -247,10 +260,13 @@ def get_financial_report_pdf(
         "REJECTED": "Rejeitado"
     }
 
-    for r, end_principal in receivables_db:
+    for r, client_addr, contract_addr in receivables_db:
         if r.id in seen_receivable_ids:
             continue
         seen_receivable_ids.add(r.id)
+
+        # Escolhe o endereço do contrato se houver, caso contrário o principal do cliente
+        end_principal = contract_addr if contract_addr else client_addr
 
         servico_nome = "N/A"
         if r.servico_contratado and r.servico_contratado.servico:
