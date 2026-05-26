@@ -120,7 +120,7 @@ def manual_ping(
     active_empresa: Empresa = Depends(deps.get_active_empresa),
     db: Session = Depends(get_db)
 ):
-    """Executa um ping manual na ONU do contrato informado e salva um snapshot."""
+    """Executa um ping manual na ONU usando o fluxo completo de monitoramento (Mikrotik API, RADIUS, etc)."""
     from app.models.models import ServicoContratado
     contrato = db.query(ServicoContratado).filter(
         ServicoContratado.id == contrato_id,
@@ -130,34 +130,14 @@ def manual_ping(
     if not contrato:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
 
-    if not contrato.assigned_ip:
-        raise HTTPException(status_code=400, detail="Contrato sem IP atribuído — não é possível fazer ping")
-
-    ping_result = FTTHMonitorService.ping_host(contrato.assigned_ip)
-    status = "ONLINE" if ping_result["is_reachable"] else "OFFLINE"
-
-    # Salva snapshot
-    from app.models.ftth import FTTHMonitorSnapshot
-    snapshot = FTTHMonitorSnapshot(
-        contrato_id=contrato.id,
-        empresa_id=active_empresa.id,
-        status=status,
-        is_reachable=ping_result["is_reachable"],
-        latencia_ms=ping_result["latencia_ms"],
-        detalhe_erro=ping_result["detalhe_erro"],
-        ip_verificado=contrato.assigned_ip,
-        metodo_coleta="PING_MANUAL",
-        timestamp=datetime.utcnow()
-    )
-    db.add(snapshot)
-    db.commit()
+    snapshot = FTTHMonitorService.check_onu(db, contrato)
 
     return PingResult(
         contrato_id=contrato_id,
-        ip_testado=contrato.assigned_ip,
-        is_reachable=ping_result["is_reachable"],
-        latencia_ms=ping_result["latencia_ms"],
-        status=status,
+        ip_testado=snapshot.ip_verificado or "Dinâmico / Não cadastrado",
+        is_reachable=snapshot.is_reachable if snapshot.is_reachable is not None else False,
+        latencia_ms=snapshot.latencia_ms,
+        status=snapshot.status,
         timestamp=snapshot.timestamp
     )
 

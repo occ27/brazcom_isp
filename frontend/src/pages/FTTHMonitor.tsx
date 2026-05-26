@@ -44,6 +44,7 @@ interface ONUStatus {
   cto_nome?: string;
   cto_porta?: string;
   assigned_ip?: string;
+  pppoe_username?: string;
   coordenadas_gps?: string;
   vlan_id?: number;
   tipo_conexao?: string;
@@ -316,15 +317,19 @@ const ONUDetailModal: React.FC<{
 
         {/* Ping Manual */}
         <div style={{ marginBottom: 24 }}>
-          <button onClick={handlePing} disabled={pinging || !onu.assigned_ip} style={{
+          <button onClick={handlePing} disabled={pinging || (!onu.assigned_ip && !onu.pppoe_username)} style={{
             background: '#4f46e5', color: '#fff', border: 'none', borderRadius: 10,
-            padding: '10px 20px', cursor: pinging || !onu.assigned_ip ? 'not-allowed' : 'pointer',
-            fontWeight: 700, fontSize: 14, opacity: pinging || !onu.assigned_ip ? 0.6 : 1,
+            padding: '10px 20px', cursor: pinging || (!onu.assigned_ip && !onu.pppoe_username) ? 'not-allowed' : 'pointer',
+            fontWeight: 700, fontSize: 14, opacity: pinging || (!onu.assigned_ip && !onu.pppoe_username) ? 0.6 : 1,
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
-            {pinging ? '⏳ Pingando...' : '📡 Testar Ping'}
+            {pinging ? '⏳ Testando...' : '📡 Testar Conectividade (Ping)'}
           </button>
-          {!onu.assigned_ip && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 6 }}>Sem IP cadastrado no contrato</div>}
+          {(!onu.assigned_ip && !onu.pppoe_username) && (
+            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 6 }}>
+              Sem IP cadastrado ou usuário PPPoE no contrato
+            </div>
+          )}
           {pingResult && (
             <div style={{
               marginTop: 12, padding: '12px 16px', borderRadius: 10,
@@ -333,8 +338,8 @@ const ONUDetailModal: React.FC<{
               fontSize: 13, color: '#111827',
             }}>
               {pingResult.error ? `❌ ${pingResult.error}` : pingResult.is_reachable
-                ? `✅ Responde em ${formatLatency(pingResult.latencia_ms)}`
-                : '❌ Host não responde'}
+                ? `✅ Responde em ${formatLatency(pingResult.latencia_ms)} (IP: ${pingResult.ip_testado || '—'})`
+                : `❌ Host não responde (IP: ${pingResult.ip_testado || '—'})`}
             </div>
           )}
         </div>
@@ -753,6 +758,8 @@ const FTTHMonitor: React.FC = () => {
   const [onus, setOnus] = useState<ONUStatus[]>([]);
   const [onusTotal, setOnusTotal] = useState(0);
   const [onusLoading, setOnusLoading] = useState(false);
+  const [onusPage, setOnusPage] = useState(1);
+  const [onusLimit, setOnusLimit] = useState(10);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [oltFilter, setOltFilter] = useState('');
@@ -788,7 +795,10 @@ const FTTHMonitor: React.FC = () => {
     if (!empresaId || !token) return;
     setOnusLoading(true);
     try {
-      const params: any = { limit: 200 };
+      const params: any = {
+        limit: onusLimit,
+        skip: (onusPage - 1) * onusLimit
+      };
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
       if (oltFilter) params.olt_nome = oltFilter;
@@ -796,7 +806,12 @@ const FTTHMonitor: React.FC = () => {
       setOnus(r.data.data);
       setOnusTotal(r.data.total);
     } catch { } finally { setOnusLoading(false); }
-  }, [empresaId, token, search, statusFilter, oltFilter]);
+  }, [empresaId, token, onusPage, onusLimit, search, statusFilter, oltFilter]);
+
+  // Reseta para a primeira página quando os filtros mudam
+  useEffect(() => {
+    setOnusPage(1);
+  }, [search, statusFilter, oltFilter]);
 
   const loadOLTs = useCallback(async () => {
     if (!empresaId || !token) return;
@@ -1005,6 +1020,85 @@ const FTTHMonitor: React.FC = () => {
     </div>
   );
 
+  const totalPages = Math.ceil(onusTotal / onusLimit);
+  
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+    return (
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderTop: '1px solid #e5e7eb', background: '#fff', flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 13, color: '#6b7280', fontWeight: 600 }}>
+            Exibindo {Math.min((onusPage - 1) * onusLimit + 1, onusTotal)} a {Math.min(onusPage * onusLimit, onusTotal)} de {onusTotal} ONUs
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>Itens por página:</label>
+            <select 
+              value={onusLimit} 
+              onChange={e => { setOnusLimit(Number(e.target.value)); setOnusPage(1); }}
+              style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none' }}
+            >
+              {[10, 25, 50, 100].map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <button 
+            disabled={onusPage === 1}
+            onClick={() => setOnusPage(p => Math.max(p - 1, 1))}
+            style={{
+              padding: '6px 12px', borderRadius: 8, border: '1px solid #d1d5db',
+              background: onusPage === 1 ? '#f3f4f6' : '#fff',
+              color: onusPage === 1 ? '#9ca3af' : '#374151',
+              cursor: onusPage === 1 ? 'not-allowed' : 'pointer',
+              fontWeight: 700, fontSize: 13, transition: 'all 0.2s'
+            }}
+          >
+            Anterior
+          </button>
+          
+          {Array.from({ length: totalPages }).map((_, i) => {
+            const p = i + 1;
+            if (totalPages > 6 && Math.abs(onusPage - p) > 2 && p !== 1 && p !== totalPages) {
+              if (p === 2 || p === totalPages - 1) {
+                return <span key={`ellipsis-${p}`} style={{ padding: '6px', color: '#9ca3af' }}>...</span>;
+              }
+              return null;
+            }
+            return (
+              <button
+                key={`page-${p}`}
+                onClick={() => setOnusPage(p)}
+                style={{
+                  minWidth: 32, padding: '6px 8px', borderRadius: 8,
+                  background: onusPage === p ? '#4f46e5' : '#fff',
+                  color: onusPage === p ? '#fff' : '#374151',
+                  border: onusPage === p ? 'none' : '1px solid #d1d5db',
+                  cursor: 'pointer', fontWeight: 700, fontSize: 13, transition: 'all 0.2s'
+                }}
+              >
+                {p}
+              </button>
+            );
+          })}
+
+          <button 
+            disabled={onusPage === totalPages}
+            onClick={() => setOnusPage(p => Math.min(p + 1, totalPages))}
+            style={{
+              padding: '6px 12px', borderRadius: 8, border: '1px solid #d1d5db',
+              background: onusPage === totalPages ? '#f3f4f6' : '#fff',
+              color: onusPage === totalPages ? '#9ca3af' : '#374151',
+              cursor: onusPage === totalPages ? 'not-allowed' : 'pointer',
+              fontWeight: 700, fontSize: 13, transition: 'all 0.2s'
+            }}
+          >
+            Próxima
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const renderONTs = () => (
     <div>
       {/* Filtros */}
@@ -1044,7 +1138,7 @@ const FTTHMonitor: React.FC = () => {
         <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
           <div style={{ padding: '14px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ fontWeight: 700, color: '#374151', fontSize: 15 }}>
-              ONUs FTTH — {onus.length} exibidas
+              ONUs FTTH — {onusTotal} total ({onus.length} nesta página)
             </div>
           </div>
           <div style={{ overflowX: 'auto' }}>
@@ -1094,6 +1188,7 @@ const FTTHMonitor: React.FC = () => {
               </tbody>
             </table>
           </div>
+          {renderPagination()}
         </div>
       )}
     </div>
