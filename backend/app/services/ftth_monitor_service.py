@@ -3,6 +3,7 @@ Serviço de Monitoramento FTTH
 
 Responsável por:
 - Verificar conectividade de ONUs via ICMP (ping)
+- Verificar conectividade via API Mikrotik (Solução B) com fallback para ICMP
 - Coletar parâmetros ópticos via SNMP (quando disponível)
 - Gerar snapshots de monitoramento para histórico e alertas
 """
@@ -12,6 +13,8 @@ import time
 import logging
 import os
 import subprocess
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timedelta
 
@@ -20,6 +23,7 @@ from sqlalchemy import func
 
 from app.models.models import ServicoContratado, Cliente, StatusContrato
 from app.models.ftth import OLT, CTO, FTTHMonitorSnapshot
+from app.models.network import Router
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +34,19 @@ RX_POWER_CRITICAL_THRESHOLD = -28.0  # Abaixo disso = crítico/offline
 # Latência máxima para considerar link ok (ms)
 LATENCY_WARNING_THRESHOLD = 100.0
 LATENCY_CRITICAL_THRESHOLD = 500.0
+
+# ── Configuração de Paralelismo ────────────────────────────────────────────────
+# Número máximo de threads paralelas por empresa:
+#   - Cada OLT/Mikrotik ocupa 1 thread. Contratores sem OLT usam threads extras.
+#   - Aumentar se houver muitos provedores / OLTs. Reduzir se o servidor for limitado.
+MAX_OLT_WORKERS = int(os.environ.get("FTTH_MAX_OLT_WORKERS", "20"))
+
+# Threads extras para contratos FTTH sem OLT configurada (ping ICMP puro)
+MAX_ICMP_WORKERS = int(os.environ.get("FTTH_MAX_ICMP_WORKERS", "15"))
+
+# Timeout total por thread de OLT antes de ser cancelada (segundos)
+OLT_THREAD_TIMEOUT = int(os.environ.get("FTTH_OLT_THREAD_TIMEOUT", "90"))
+# ────────────────────────────────────────────────────────────────────────
 
 
 class FTTHMonitorService:
@@ -126,8 +143,216 @@ class FTTHMonitorService:
         return None
 
     # =====================================================================
-    # SNMP (básico — não requer dependência extra no MVP)
+    # MIKROTIK API MONITORING (Solução B)
     # =====================================================================
+
+    @staticmethod
+    def check_mikrotik_reachable(
+        host: str,
+        port: int = 8728,
+        timeout: float = 3.0
+    ) -> bool:
+        """
+        Verifica se o Mikrotik está respondendo na porta da API (TCP).
+
+        Antes de tentar uma conexão API completa (que pode ser lenta),
+        abre um socket TCP simples para confirmar que o host está acessível.
+        Isso evita travar o polling caso o provedor esteja offline ou a VPN
+        não esteja estabelecida.
+
+        Returns:
+            True se a porta TCP responder dentro do timeout, False caso contrário.
+        """
+        try:
+            with socket.create_connection((host, port), timeout=timeout):
+                return True
+        except (socket.timeout, ConnectionRefusedError, OSError) as e:
+            logger.debug(f"Mikrotik {host}:{port} inacessível: {e}")
+            return False
+
+    @staticmethod
+    def ping_via_mikrotik_api(
+        router: Router,
+        ip: str,
+        count: int = 3,
+        timeout_api: float = 5.0
+    ) -> Dict[str, Any]:
+        """
+        Solicita ao Mikrotik (via API RouterOS) que execute um ping para o IP informado.
+
+        Fluxo:
+          1. Verifica se o Mikrotik responde na porta da API (TCP check).
+          2. Se inacessível, retorna erro sem tentar a conexão API completa.
+          3. Conecta via MikrotikController e executa /ping.
+          4. Parseia a resposta e retorna latência e status.
+
+        Args:
+            router: Instância do modelo Router com credenciais do Mikrotik.
+            ip: IP do cliente/ONU a pingar (dentro da rede local do provedor).
+            count: Número de pacotes ICMP a enviar.
+            timeout_api: Timeout em segundos para a conexão API.
+
+        Returns:
+            dict com: is_reachable (bool), latencia_ms (float|None), detalhe_erro (str|None)
+        """
+        from app.mikrotik.controller import MikrotikController
+
+        host = router.ip
+        port = router.porta or 8728
+        user = router.usuario
+        password = router.senha
+
+        if not host or not user or not password:
+            return {
+                "is_reachable": False,
+                "latencia_ms": None,
+                "detalhe_erro": "Credenciais Mikrotik API não configuradas no Roteador"
+            }
+
+        # ── ETAPA 1: Verificar se o Mikrotik está acessível ─────────────────
+        logger.debug(f"Verificando acessibilidade do Mikrotik {host}:{port} antes do ping via API...")
+        if not FTTHMonitorService.check_mikrotik_reachable(host, port, timeout=timeout_api):
+            return {
+                "is_reachable": False,
+                "latencia_ms": None,
+                "detalhe_erro": f"Mikrotik {host}:{port} inacessível (VPN offline ou host inativo)"
+            }
+
+        # ── ETAPA 2: Executar o ping via API RouterOS ────────────────────────
+        ctrl = MikrotikController(
+            host=host,
+            username=user,
+            password=password,
+            port=port,
+        )
+        try:
+            ctrl.connect()
+
+            # Tenta via routeros_api (primário)
+            if ctrl._api is not None:
+                try:
+                    resource = ctrl._api.get_resource('ping')
+                    results = resource.call(
+                        **{'address': ip, 'count': str(count), 'interval': '0.2'}
+                    )
+                    return FTTHMonitorService._parse_mikrotik_ping_result(results, ip)
+                except Exception as e:
+                    logger.debug(f"routeros_api ping falhou: {e} — tentando librouteros...")
+
+            # Fallback: librouteros
+            if ctrl._librouteros_api is not None:
+                try:
+                    results = list(ctrl._librouteros_api(
+                        '/ping',
+                        **{'address': ip, 'count': str(count)}
+                    ))
+                    return FTTHMonitorService._parse_mikrotik_ping_result(results, ip)
+                except Exception as e:
+                    logger.debug(f"librouteros ping falhou: {e}")
+                    raise
+
+            return {
+                "is_reachable": False,
+                "latencia_ms": None,
+                "detalhe_erro": "Nenhuma biblioteca RouterOS disponível para executar ping"
+            }
+
+        except Exception as e:
+            logger.warning(f"Erro ao executar ping via API Mikrotik ({host}) para {ip}: {e}")
+            return {
+                "is_reachable": False,
+                "latencia_ms": None,
+                "detalhe_erro": f"Erro API Mikrotik: {e}"
+            }
+        finally:
+            try:
+                ctrl.close()
+            except Exception:
+                pass
+
+    @staticmethod
+    def _parse_mikrotik_ping_result(
+        results: List[Dict],
+        ip: str
+    ) -> Dict[str, Any]:
+        """
+        Interpreta a lista de respostas retornadas pelo /ping do RouterOS.
+
+        O RouterOS retorna um dict por pacote enviado. Campos relevantes:
+          - 'status'       : 'timeout' quando sem resposta
+          - 'time'         : latência em string, ex: '1ms', '345us'
+          - 'received'     : '1' se houve resposta
+          - 'packet-loss'  : percentual de perda (string)
+        """
+        if not results:
+            return {
+                "is_reachable": False,
+                "latencia_ms": None,
+                "detalhe_erro": f"Nenhuma resposta do ping para {ip} via Mikrotik"
+            }
+
+        # Filtra pacotes recebidos com sucesso
+        received = [r for r in results if str(r.get('status', '')).lower() != 'timeout'
+                    and str(r.get('received', '0')) == '1']
+
+        if not received:
+            # Tentativa alternativa: verificar se algum tem 'time'
+            received = [r for r in results if r.get('time')]
+
+        if not received:
+            return {
+                "is_reachable": False,
+                "latencia_ms": None,
+                "detalhe_erro": f"Host {ip} não respondeu ao ping via Mikrotik"
+            }
+
+        # Calcula latência média dos pacotes recebidos
+        latencias = []
+        for r in received:
+            raw = str(r.get('time', '') or r.get('avg-rtt', '') or '')
+            ms = FTTHMonitorService._parse_mikrotik_time_to_ms(raw)
+            if ms is not None:
+                latencias.append(ms)
+
+        latencia_media = round(sum(latencias) / len(latencias), 2) if latencias else None
+
+        return {
+            "is_reachable": True,
+            "latencia_ms": latencia_media,
+            "detalhe_erro": None
+        }
+
+    @staticmethod
+    def _parse_mikrotik_time_to_ms(time_str: str) -> Optional[float]:
+        """
+        Converte string de tempo do RouterOS para milissegundos.
+
+        Exemplos de formatos:
+          '1ms'   → 1.0
+          '345us' → 0.345
+          '1.5ms' → 1.5
+          '1s'    → 1000.0
+        """
+        import re
+        if not time_str:
+            return None
+        time_str = time_str.strip().lower()
+        try:
+            m = re.match(r'([\d.]+)\s*(ms|us|µs|s)', time_str)
+            if m:
+                value = float(m.group(1))
+                unit = m.group(2)
+                if unit == 'ms':
+                    return value
+                elif unit in ('us', 'µs'):
+                    return value / 1000.0
+                elif unit == 's':
+                    return value * 1000.0
+            # Tenta apenas número (assumi ms)
+            return float(time_str)
+        except (ValueError, AttributeError):
+            return None
+
 
     @staticmethod
     def get_snmp_onu_status(
@@ -183,12 +408,18 @@ class FTTHMonitorService:
     def check_onu(db: Session, contrato: ServicoContratado) -> FTTHMonitorSnapshot:
         """
         Verifica o status de uma ONU e salva um snapshot no banco.
-        
-        Fluxo:
-        1. Tenta fazer ping no IP atribuído ao contrato
-        2. Se tiver OLT com SNMP configurado, tenta coletar parâmetros ópticos
-        3. Salva snapshot com o resultado
-        4. Retorna o snapshot criado
+
+        Fluxo (Solução B com fallback):
+        1. Busca o Router associado ao contrato.
+        2. Se o Router tiver credenciais Mikrotik API configuradas (ip, usuario, senha):
+           a. Verifica se o Mikrotik está respondendo na porta da API (TCP check).
+           b. Se acessível, solicita ao Mikrotik que execute o ping internamente.
+           c. O resultado (latência, status) é retornado via API RouterOS.
+           → Registra metodo_coleta = 'MIKROTIK_API'
+        3. Se o Router não tiver credenciais OU o Mikrotik estiver inacessível:
+           → Fallback para ping ICMP direto (Solução A).
+           → Registra metodo_coleta = 'PING'
+        4. Salva snapshot com o resultado e retorna.
         """
         ip = contrato.assigned_ip
         status = "DESCONHECIDO"
@@ -200,9 +431,53 @@ class FTTHMonitorService:
         detalhe_erro = None
         metodo_coleta = "PING"
 
-        # 1. Ping
+        # ── Se não há IP estático, busca sessão ativa do PPPoE no RADIUS ────────
+        if not ip and contrato.pppoe_username:
+            try:
+                from app.models.radius import RadiusSession
+                session = db.query(RadiusSession).filter(
+                    RadiusSession.username == contrato.pppoe_username,
+                    RadiusSession.empresa_id == contrato.empresa_id,
+                    RadiusSession.end_time.is_(None)
+                ).order_by(RadiusSession.start_time.desc()).first()
+                
+                if session:
+                    ip = session.ip_address
+                else:
+                    detalhe_erro = "Sem sessão PPPoE ativa no RADIUS (desconectado)"
+            except Exception as e:
+                logger.error(f"Erro ao buscar IP dinâmico no RADIUS: {e}")
+                detalhe_erro = f"Erro no RADIUS: {e}"
+
         if ip:
-            ping_result = FTTHMonitorService.ping_host(ip)
+            # ── Tentativa Solução B: ping via API do Mikrotik ───────────────
+            router = None
+            if contrato.router_id:
+                try:
+                    router = db.query(Router).filter(
+                        Router.id == contrato.router_id,
+                        Router.empresa_id == contrato.empresa_id,
+                        Router.is_active == True
+                    ).first()
+                except Exception as e:
+                    logger.debug(f"Erro ao buscar Router para contrato {contrato.id}: {e}")
+
+            if router and router.ip and router.usuario and router.senha:
+                logger.info(
+                    f"[MIKROTIK_API] Contrato {contrato.id} | Router={router.nome} | "
+                    f"VPN={router.ip} | Pingando {ip}..."
+                )
+                ping_result = FTTHMonitorService.ping_via_mikrotik_api(router, ip)
+                metodo_coleta = "MIKROTIK_API"
+            else:
+                # ── Fallback Solução A: ping ICMP direto ─────────────────
+                logger.info(
+                    f"[PING] Contrato {contrato.id} | Router sem credenciais Mikrotik "
+                    f"ou não localizado — usando ping ICMP direto para {ip}..."
+                )
+                ping_result = FTTHMonitorService.ping_host(ip)
+                metodo_coleta = "PING"
+
             is_reachable = ping_result["is_reachable"]
             latencia_ms = ping_result["latencia_ms"]
             detalhe_erro = ping_result["detalhe_erro"]
@@ -215,9 +490,12 @@ class FTTHMonitorService:
             else:
                 status = "OFFLINE"
         else:
-            detalhe_erro = "IP não cadastrado no contrato"
+            if not detalhe_erro:
+                detalhe_erro = "IP não cadastrado e sem usuário PPPoE configurado"
+            status = "OFFLINE"
+            is_reachable = False
 
-        # 2. Snapshot
+        # ── Salva snapshot ──────────────────────────────────────────
         snapshot = FTTHMonitorSnapshot(
             contrato_id=contrato.id,
             empresa_id=contrato.empresa_id,
@@ -580,15 +858,41 @@ class FTTHMonitorService:
         return True
 
     # =====================================================================
-    # COLETA EM MASSA (para o poller)
+    # COLETA EM MASSA PARALELA (para o poller)
     # =====================================================================
 
     @staticmethod
     def poll_all_onus(db: Session, empresa_id: int) -> Dict[str, int]:
         """
-        Executa verificação de todas as ONUs FTTH ativas de uma empresa.
-        Retorna um resumo com totais por status.
+        Executa verificação PARALELA de todas as ONUs FTTH ativas de uma empresa.
+
+        Estratégia de paralelismo em dois níveis:
+
+        NÍVEL 1 — Paralelismo entre OLTs/Mikrotiks:
+          - Agrupa contratos por nome de OLT.
+          - Para cada OLT com Mikrotik API configurada, dispara 1 thread que:
+              • Verifica conectividade do Mikrotik (TCP check rápido).
+              • Se acessível, abre UMA única conexão API e pinga todas as ONUs
+                daquela OLT em sequência (muito mais eficiente que N conexões).
+              • Se inacessível, marca todas as ONUs daquela OLT como OFFLINE
+                instantaneamente sem esperar timeout por ONU.
+          - Todas as OLTs rodam em paralelo (ThreadPoolExecutor).
+
+        NÍVEL 2 — Paralelismo para ICMP puro:
+          - Contratos sem OLT configurada ou OLTs sem credenciais Mikrotik
+            são verificados com ping ICMP em threads independentes.
+
+        Cada thread tem sua própria Session SQLAlchemy (thread-safe).
+        O contador de resultados é protegido por threading.Lock().
+
+        Configurável via variáveis de ambiente:
+          FTTH_MAX_OLT_WORKERS   (padrão: 20) — threads por empresa para OLTs
+          FTTH_MAX_ICMP_WORKERS  (padrão: 15) — threads para ICMP sem OLT
+          FTTH_OLT_THREAD_TIMEOUT (padrão: 90s) — timeout por thread de OLT
         """
+        from app.core.database import SessionLocal
+
+        # ── Busca contratos FTTH ativos ────────────────────────────────────
         contratos = db.query(ServicoContratado).filter(
             ServicoContratado.empresa_id == empresa_id,
             ServicoContratado.is_active == True,
@@ -598,18 +902,344 @@ class FTTHMonitorService:
             (ServicoContratado.tipo_conexao == "FIBRA")
         ).all()
 
-        resumo = {"ONLINE": 0, "OFFLINE": 0, "DEGRADADO": 0, "DESCONHECIDO": 0, "total": len(contratos)}
+        total = len(contratos)
+        resumo = {"ONLINE": 0, "OFFLINE": 0, "DEGRADADO": 0, "DESCONHECIDO": 0, "total": total}
 
-        for contrato in contratos:
-            try:
-                snapshot = FTTHMonitorService.check_onu(db, contrato)
-                s = snapshot.status
-                if s in resumo:
-                    resumo[s] += 1
+        if total == 0:
+            return resumo
+
+        # ── Pré-carrega todos os Roteadores da empresa ───────────────────────────
+        routers_por_id: Dict[int, Router] = {
+            router.id: router
+            for router in db.query(Router).filter(
+                Router.empresa_id == empresa_id,
+                Router.is_active == True
+            ).all()
+        }
+
+        # ── Separa contratos em grupos por Roteador e sem-Roteador ──────────────────
+        # key: router_id → value: lista de contrato_ids
+        por_router: Dict[int, List[int]] = {}
+        sem_router: List[int] = []
+
+        for c in contratos:
+            if c.router_id and c.router_id in routers_por_id:
+                router = routers_por_id[c.router_id]
+                if router.ip and router.usuario and router.senha:
+                    por_router.setdefault(c.router_id, []).append(c.id)
+                    continue
+            sem_router.append(c.id)
+
+        # ── Lock para atualizar o resumo de forma thread-safe ─────────────
+        lock = threading.Lock()
+
+        def _update_resumo(status: str):
+            with lock:
+                if status in resumo:
+                    resumo[status] += 1
                 else:
                     resumo["DESCONHECIDO"] += 1
-            except Exception as e:
-                logger.error(f"Erro ao verificar ONU do contrato {contrato.id}: {e}")
-                resumo["DESCONHECIDO"] += 1
 
+        # ── Worker: processa TODOS os contratos de um Roteador ────────────────
+        def _worker_router(router_id: int, contrato_ids: List[int]):
+            """
+            Thread que gerencia um Router/Mikrotik completo.
+            Abre UMA conexão API e verifica todas as ONUs do grupo.
+            """
+            thread_db = SessionLocal()
+            try:
+                router = routers_por_id[router_id]
+                statuses = FTTHMonitorService._poll_router_group_via_api(
+                    thread_db, router, contrato_ids
+                )
+                for st in statuses:
+                    _update_resumo(st)
+            except Exception as e:
+                logger.error(f"[THREAD ROUTER={router_id}] Erro inesperado: {e}")
+                for _ in contrato_ids:
+                    _update_resumo("DESCONHECIDO")
+            finally:
+                thread_db.close()
+
+        # ── Worker: processa um único contrato via ICMP ───────────────────
+        def _worker_icmp(contrato_id: int):
+            """
+            Thread independente para ping ICMP (fallback ou sem Router).
+            """
+            thread_db = SessionLocal()
+            try:
+                contrato = thread_db.query(ServicoContratado).filter_by(
+                    id=contrato_id
+                ).first()
+                if not contrato:
+                    _update_resumo("DESCONHECIDO")
+                    return
+                snapshot = FTTHMonitorService.check_onu(thread_db, contrato)
+                _update_resumo(snapshot.status)
+            except Exception as e:
+                logger.error(f"[THREAD ICMP contrato_id={contrato_id}] Erro: {e}")
+                _update_resumo("DESCONHECIDO")
+            finally:
+                thread_db.close()
+
+        # ── Dispara threads em paralelo ────────────────────────────────────
+        n_router_workers = min(MAX_OLT_WORKERS, len(por_router) + 1)
+        n_icmp_workers = min(MAX_ICMP_WORKERS, len(sem_router) + 1)
+        total_workers = n_router_workers + n_icmp_workers
+
+        logger.info(
+            f"[POLL empresa={empresa_id}] {total} ONUs | "
+            f"{len(por_router)} Roteadores (API) | {len(sem_router)} sem Router (ICMP) | "
+            f"workers Router={n_router_workers} ICMP={n_icmp_workers}"
+        )
+
+        futures = []
+        with ThreadPoolExecutor(max_workers=total_workers, thread_name_prefix="ftth_poll") as executor:
+
+            # Submete 1 task por Roteador/Mikrotik
+            for r_id, c_ids in por_router.items():
+                futures.append(executor.submit(_worker_router, r_id, c_ids))
+
+            # Submete tasks individuais para ICMP
+            for c_id in sem_router:
+                futures.append(executor.submit(_worker_icmp, c_id))
+
+            # Aguarda conclusão com timeout global por thread
+            for future in as_completed(futures, timeout=OLT_THREAD_TIMEOUT):
+                try:
+                    future.result()  # propaga exceptions internas já tratadas
+                except Exception as e:
+                    logger.error(f"[POLL] Thread encerrada com erro: {e}")
+
+        logger.info(
+            f"[POLL empresa={empresa_id}] Concluído → "
+            f"Online={resumo['ONLINE']} Offline={resumo['OFFLINE']} "
+            f"Degradado={resumo['DEGRADADO']} Desconhecido={resumo['DESCONHECIDO']}"
+        )
         return resumo
+
+    @staticmethod
+    def _poll_router_group_via_api(
+        db: Session,
+        router: Router,
+        contrato_ids: List[int]
+    ) -> List[str]:
+        """
+        Processa um grupo de contratos de um único Roteador usando UMA conexão
+        à API do Mikrotik (reutilizada para todas as ONUs do grupo).
+
+        Fluxo:
+          1. TCP check: verifica se o Mikrotik responde na porta da API.
+             - Se não responder: marca TODAS as ONUs como OFFLINE imediatamente.
+          2. Conecta à API do Mikrotik (UMA vez).
+          3. Para cada contrato: executa /ping via conexão existente, salva snapshot.
+          4. Fecha a conexão ao final.
+
+        Args:
+            db: Session SQLAlchemy exclusiva desta thread.
+            router: Instância do modelo Router com credenciais do Mikrotik.
+            contrato_ids: Lista de IDs de contratos a verificar.
+
+        Returns:
+            Lista de strings com o status de cada contrato (mesma ordem).
+        """
+        from app.mikrotik.controller import MikrotikController
+
+        host = router.ip
+        port = router.porta or 8728
+        statuses: List[str] = []
+
+        logger.info(
+            f"[Router={router.nome}] Iniciando verificação de {len(contrato_ids)} ONUs "
+            f"via API {host}:{port}..."
+        )
+
+        # ── ETAPA 1: TCP check ─────────────────────────────────────────────
+        if not FTTHMonitorService.check_mikrotik_reachable(host, port, timeout=3.0):
+            logger.warning(
+                f"[Router={router.nome}] Mikrotik {host}:{port} inacessível — "
+                f"marcando {len(contrato_ids)} ONUs como OFFLINE"
+            )
+            for c_id in contrato_ids:
+                contrato = db.query(ServicoContratado).filter_by(id=c_id).first()
+                if not contrato:
+                    statuses.append("DESCONHECIDO")
+                    continue
+                snap = FTTHMonitorSnapshot(
+                    contrato_id=c_id,
+                    empresa_id=contrato.empresa_id,
+                    status="OFFLINE",
+                    is_reachable=False,
+                    metodo_coleta="MIKROTIK_API",
+                    detalhe_erro=f"Mikrotik {host}:{port} inacessível (VPN offline ou host inativo)",
+                    ip_verificado=contrato.assigned_ip,
+                    timestamp=datetime.utcnow(),
+                )
+                db.add(snap)
+                statuses.append("OFFLINE")
+            db.commit()
+            return statuses
+
+        # ── ETAPA 2: Conecta à API (UMA vez para todo o grupo) ────────────
+        ctrl = MikrotikController(
+            host=host,
+            username=router.usuario,
+            password=router.senha,
+            port=port,
+        )
+        try:
+            ctrl.connect()
+            logger.info(f"[Router={router.nome}] Conexão API estabelecida — pingando {len(contrato_ids)} ONUs...")
+
+            for c_id in contrato_ids:
+                contrato = db.query(ServicoContratado).filter_by(id=c_id).first()
+                if not contrato:
+                    statuses.append("DESCONHECIDO")
+                    continue
+
+                ip = contrato.assigned_ip
+                detalhe_erro = None
+
+                # ── Se não há IP estático, busca sessão ativa do PPPoE no RADIUS ────────
+                if not ip and contrato.pppoe_username:
+                    try:
+                        from app.models.radius import RadiusSession
+                        session = db.query(RadiusSession).filter(
+                            RadiusSession.username == contrato.pppoe_username,
+                            RadiusSession.empresa_id == contrato.empresa_id,
+                            RadiusSession.end_time.is_(None)
+                        ).order_by(RadiusSession.start_time.desc()).first()
+                        
+                        if session:
+                            ip = session.ip_address
+                        else:
+                            detalhe_erro = "Sem sessão PPPoE ativa no RADIUS (desconectado)"
+                    except Exception as e:
+                        logger.error(f"Erro ao buscar IP dinâmico no RADIUS: {e}")
+                        detalhe_erro = f"Erro no RADIUS: {e}"
+
+                if not ip:
+                    is_radius_offline = (detalhe_erro == "Sem sessão PPPoE ativa no RADIUS (desconectado)")
+                    snap = FTTHMonitorSnapshot(
+                        contrato_id=c_id,
+                        empresa_id=contrato.empresa_id,
+                        status="OFFLINE" if is_radius_offline else "DESCONHECIDO",
+                        is_reachable=False if is_radius_offline else None,
+                        metodo_coleta="MIKROTIK_API",
+                        detalhe_erro=detalhe_erro or "IP não cadastrado no contrato",
+                        ip_verificado=None,
+                        timestamp=datetime.utcnow(),
+                    )
+                    db.add(snap)
+                    statuses.append("OFFLINE" if is_radius_offline else "DESCONHECIDO")
+                    continue
+
+                # ── Executa ping via conexão já aberta ─────────────────────
+                try:
+                    ping_result = FTTHMonitorService._execute_ping_on_ctrl(ctrl, ip)
+                except Exception as e:
+                    logger.warning(f"[Router={router.nome}] Ping para {ip} falhou: {e}")
+                    ping_result = {
+                        "is_reachable": False,
+                        "latencia_ms": None,
+                        "detalhe_erro": f"Erro ping via API: {e}"
+                    }
+
+                is_reachable = ping_result["is_reachable"]
+                latencia_ms = ping_result["latencia_ms"]
+                detalhe_erro = ping_result["detalhe_erro"]
+
+                if is_reachable:
+                    status = "DEGRADADO" if (latencia_ms and latencia_ms > LATENCY_CRITICAL_THRESHOLD) else "ONLINE"
+                else:
+                    status = "OFFLINE"
+
+                snap = FTTHMonitorSnapshot(
+                    contrato_id=c_id,
+                    empresa_id=contrato.empresa_id,
+                    status=status,
+                    is_reachable=is_reachable,
+                    latencia_ms=latencia_ms,
+                    metodo_coleta="MIKROTIK_API",
+                    detalhe_erro=detalhe_erro,
+                    ip_verificado=ip,
+                    timestamp=datetime.utcnow(),
+                )
+                db.add(snap)
+                statuses.append(status)
+
+            db.commit()
+            logger.info(f"[Router={router.nome}] Concluído — {len(statuses)} ONUs verificadas.")
+            return statuses
+
+        except Exception as e:
+            logger.error(f"[Router={router.nome}] Erro na verificação via API: {e}")
+            # Tenta salvar OFFLINE para os contratos não processados
+            processed = len(statuses)
+            remaining = contrato_ids[processed:]
+            for c_id in remaining:
+                contrato = db.query(ServicoContratado).filter_by(id=c_id).first()
+                if contrato:
+                    snap = FTTHMonitorSnapshot(
+                        contrato_id=c_id,
+                        empresa_id=contrato.empresa_id,
+                        status="OFFLINE",
+                        is_reachable=False,
+                        metodo_coleta="MIKROTIK_API",
+                        detalhe_erro=f"Erro conexão API: {e}",
+                        ip_verificado=contrato.assigned_ip,
+                        timestamp=datetime.utcnow(),
+                    )
+                    db.add(snap)
+                statuses.append("OFFLINE")
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+            return statuses
+        finally:
+            try:
+                ctrl.close()
+            except Exception:
+                pass
+
+    @staticmethod
+    def _execute_ping_on_ctrl(ctrl, ip: str, count: int = 3) -> Dict[str, Any]:
+        """
+        Executa /ping em uma conexão Mikrotik já estabelecida.
+
+        Diferente de ping_via_mikrotik_api(), este método recebe o
+        MikrotikController já conectado para reutilização da conexão
+        no contexto do _poll_olt_group_via_api().
+
+        Returns:
+            dict com: is_reachable (bool), latencia_ms (float|None), detalhe_erro (str|None)
+        """
+        # Tenta via routeros_api (primário)
+        if ctrl._api is not None:
+            try:
+                resource = ctrl._api.get_resource('ping')
+                results = resource.call(
+                    **{'address': ip, 'count': str(count), 'interval': '0.2'}
+                )
+                return FTTHMonitorService._parse_mikrotik_ping_result(results, ip)
+            except Exception as e:
+                logger.debug(f"_execute_ping_on_ctrl via routeros_api falhou para {ip}: {e}")
+
+        # Fallback: librouteros
+        if ctrl._librouteros_api is not None:
+            try:
+                results = list(ctrl._librouteros_api(
+                    '/ping',
+                    **{'address': ip, 'count': str(count)}
+                ))
+                return FTTHMonitorService._parse_mikrotik_ping_result(results, ip)
+            except Exception as e:
+                logger.debug(f"_execute_ping_on_ctrl via librouteros falhou para {ip}: {e}")
+                raise
+
+        return {
+            "is_reachable": False,
+            "latencia_ms": None,
+            "detalhe_erro": "Nenhuma biblioteca RouterOS disponível"
+        }

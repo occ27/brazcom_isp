@@ -394,11 +394,13 @@ const OLTModal: React.FC<{
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={onClose}>
-      <div style={{ background: '#fff', borderRadius: 20, padding: 32, maxWidth: 520, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+      <div style={{ background: '#fff', borderRadius: 20, padding: 32, maxWidth: 580, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>{olt ? 'Editar OLT' : 'Nova OLT'}</h2>
           <button onClick={onClose} style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, width: 36, height: 36, cursor: 'pointer', fontSize: 18, color: '#6b7280' }}>✕</button>
         </div>
+
+        {/* Campos base */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {field('Nome *', 'nome', 'text', 'Ex: OLT-Centro')}
           {field('Endereço IP *', 'ip', 'text', 'Ex: 192.168.1.1')}
@@ -408,9 +410,12 @@ const OLTModal: React.FC<{
           {field('Modelo', 'modelo', 'text', 'C300, MA5800...')}
           {field('Localização', 'localizacao', 'text', 'Ex: Sala de equipamentos - Matriz')}
         </div>
+
         <div style={{ display: 'flex', gap: 12, marginTop: 24, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ padding: '10px 20px', borderRadius: 10, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
-          <button onClick={() => onSave(form)} disabled={saving || !form.nome || !form.ip} style={{
+          <button onClick={() => {
+            onSave(form);
+          }} disabled={saving || !form.nome || !form.ip} style={{
             padding: '10px 20px', borderRadius: 10, border: 'none',
             background: '#4f46e5', color: '#fff', cursor: saving ? 'not-allowed' : 'pointer',
             fontWeight: 700, opacity: saving ? 0.7 : 1,
@@ -1142,7 +1147,8 @@ const FTTHMonitor: React.FC = () => {
                     <span style={{ fontWeight: 600, color: '#374151' }}>{k}:</span> {v}
                   </div>
                 ))}
-                <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                   <button onClick={() => setOltModal({ open: true, olt })} style={{
                     flex: 1, background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 8,
                     padding: '8px', cursor: 'pointer', fontWeight: 600, fontSize: 13,
