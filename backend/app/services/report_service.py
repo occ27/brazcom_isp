@@ -215,6 +215,8 @@ class ReportService:
                 filter_parts.append(f"Bairros: {', '.join(b_list)}")
             else:
                 filter_parts.append(f"Bairro: {b_list}")
+        if filters.get('q'):
+            filter_parts.append(f"Busca: {filters.get('q')}")
         if filter_parts:
             filter_text += f" | {' | '.join(filter_parts)}"
             

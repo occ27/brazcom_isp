@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Typography, Box, Grid, TextField, Button, 
   FormControl, InputLabel, Select, MenuItem, Divider,
   CircularProgress, Card, CardContent, Dialog, DialogContent,
-  Checkbox, ListItemText
+  Checkbox, ListItemText, Autocomplete
 } from '@mui/material';
+import api from '../services/authService';
 import { 
   DocumentTextIcon, 
   CurrencyDollarIcon,
@@ -37,6 +38,10 @@ const Reports: React.FC = () => {
   const [contractStatus, setContractStatus] = useState('');
   const [financialStatus, setFinancialStatus] = useState('');
   const [financialDateType, setFinancialDateType] = useState('due_date');
+  const [searchClients, setSearchClients] = useState<any[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [clientSearchTerm, setClientSearchTerm] = useState('');
+  const [selectedClient, setSelectedClient] = useState<any | null>(null);
 
   // Filtros de Rede (Contratos)
   const [contractsFiltersData, setContractsFiltersData] = useState<ContractsFiltersData>({
@@ -125,6 +130,30 @@ const Reports: React.FC = () => {
     }
   };
 
+  const fetchClients = useCallback(async (search: string) => {
+    if (!activeCompany) return;
+    setSearchLoading(true);
+    try {
+      const res = await api.get(`/clientes/autocomplete/${activeCompany.id}?q=${search}&limit=20`);
+      setSearchClients(res.data || []);
+    } catch (e) {
+      console.error('Erro ao buscar clientes', e);
+    } finally {
+      setSearchLoading(false);
+    }
+  }, [activeCompany]);
+
+  useEffect(() => {
+    if (clientSearchTerm.length >= 3) {
+      const timer = setTimeout(() => {
+        fetchClients(clientSearchTerm);
+      }, 500);
+      return () => clearTimeout(timer);
+    } else if (clientSearchTerm.length === 0) {
+      setSearchClients([]);
+    }
+  }, [clientSearchTerm, fetchClients]);
+
   const cleanFilters = (filters: any) => {
     const cleaned = { ...filters };
     Object.keys(cleaned).forEach(key => {
@@ -169,6 +198,7 @@ const Reports: React.FC = () => {
         ...globalFilters,
         status: financialStatus,
         date_type: financialDateType,
+        q: selectedClient ? selectedClient.nome_razao_social : undefined,
         municipio: selectedCity || undefined,
         bairro: selectedNeighborhoods.length > 0 ? selectedNeighborhoods : undefined
       });
@@ -472,6 +502,45 @@ const Reports: React.FC = () => {
                         <MenuItem value="CANCELLED">Cancelada</MenuItem>
                     </Select>
                   </FormControl>
+                </Grid>
+                <Grid item xs={12}>
+                  <Autocomplete
+                    options={searchClients}
+                    loading={searchLoading}
+                    value={selectedClient}
+                    getOptionLabel={(o) => o.nome_razao_social || ''}
+                    onInputChange={(_, value) => setClientSearchTerm(value)}
+                    filterOptions={(x) => x}
+                    onChange={(_, v) => setSelectedClient(v)}
+                    isOptionEqualToValue={(option, val) => option.id === val.id}
+                    renderOption={(props, option) => (
+                      <li {...props} key={option.id}>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{option.nome_razao_social}</Typography>
+                          <Typography variant="caption" color="text.secondary">{option.cpf_cnpj}</Typography>
+                        </Box>
+                      </li>
+                    )}
+                    renderInput={(p) => (
+                      <TextField
+                        {...p}
+                        label="Localizar Cliente"
+                        fullWidth
+                        size="small"
+                        variant="outlined"
+                        placeholder="Digite nome ou documento..."
+                        InputProps={{
+                          ...p.InputProps,
+                          endAdornment: (
+                            <>
+                              {searchLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                              {p.InputProps.endAdornment}
+                            </>
+                          ),
+                        }}
+                      />
+                    )}
+                  />
                 </Grid>
               </Grid>
 

@@ -48,6 +48,7 @@ export const reportService = {
       date_type?: string;
       municipio?: string;
       bairro?: string[];
+      q?: string;
     }
   ) => {
     const searchParams = new URLSearchParams();
@@ -60,6 +61,7 @@ export const reportService = {
     if (params.bairro) {
       params.bairro.forEach(b => searchParams.append('bairro', b));
     }
+    if (params.q) searchParams.append('q', params.q);
 
     const response = await api.get(`/reports/financial/pdf?${searchParams.toString()}`, {
       responseType: 'blob'

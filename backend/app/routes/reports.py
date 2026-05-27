@@ -182,6 +182,7 @@ def get_financial_report_pdf(
     servico_id: Optional[int] = None,
     municipio: Optional[str] = None,
     bairro: Optional[List[str]] = Query(None),
+    q: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_active_user)
 ):
@@ -247,6 +248,14 @@ def get_financial_report_pdf(
             
         if conditions:
             query = query.filter(or_(*conditions))
+            
+    if q:
+        pattern = f"%{q}%"
+        from sqlalchemy import or_
+        query = query.filter(or_(
+            Cliente.nome_razao_social.ilike(pattern),
+            Cliente.cpf_cnpj.ilike(pattern)
+        ))
         
     receivables_db = query.all()
     
@@ -293,7 +302,8 @@ def get_financial_report_pdf(
         "end_date": end_date.strftime('%d/%m/%Y') if end_date else "",
         "status": status,
         "municipio": municipio,
-        "bairro": bairro
+        "bairro": bairro,
+        "q": q
     }
     
     pdf_buffer = ReportService.generate_financial_report(empresa, receivables_data, filters)
