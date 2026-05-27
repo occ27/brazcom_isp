@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, validator, model_validator
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, date
 import re
 
 from .empresa import EmpresaResponse
@@ -46,6 +46,7 @@ class ClienteBase(BaseModel):
     inscricao_estadual: Optional[str] = Field(None, max_length=20)
     email: Optional[str] = Field(None, max_length=255)
     telefone: Optional[str] = Field(None, max_length=20)
+    data_nascimento: Optional[date] = None
     recebe_notificacoes: bool = True
     # Campos de autenticação
     password_hash: Optional[str] = Field(None, description="Hash da senha para autenticação no portal")
@@ -217,6 +218,7 @@ class ClienteUpdate(BaseModel):
     inscricao_estadual: Optional[str] = Field(None, max_length=20)
     email: Optional[str] = Field(None, max_length=255)
     telefone: Optional[str] = Field(None, max_length=20)
+    data_nascimento: Optional[date] = None
     is_active: Optional[bool] = None
     recebe_notificacoes: Optional[bool] = None
     # Campos de autenticação opcionais para update

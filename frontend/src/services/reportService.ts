@@ -95,6 +95,22 @@ export const reportService = {
       params: { empresa_id: empresaId }
     });
     return response.data;
+  },
+
+  generateStatementPdf: async (
+    clienteId: number,
+    empresaId: number,
+    params: { contrato_id?: string; status?: string }
+  ) => {
+    const searchParams = new URLSearchParams();
+    searchParams.append('empresa_id', String(empresaId));
+    if (params.contrato_id) searchParams.append('contrato_id', params.contrato_id);
+    if (params.status) searchParams.append('status', params.status);
+
+    const response = await api.get(`/reports/clients/${clienteId}/statement/pdf?${searchParams.toString()}`, {
+      responseType: 'blob'
+    });
+    return response.data;
   }
 };
 

@@ -45,6 +45,7 @@ const Clients: React.FC = () => {
   const [statementFilterContract, setStatementFilterContract] = useState<string>('all');
   const [statementFilterStatus, setStatementFilterStatus] = useState<string>('all');
   const [statementLoading, setStatementLoading] = useState(false);
+  const [printingStatement, setPrintingStatement] = useState(false);
 
   // Menu state
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -212,6 +213,7 @@ const Clients: React.FC = () => {
           inscricao_estadual: fullClient.inscricao_estadual || '',
           email: fullClient.email || '',
           telefone: fullClient.telefone || '',
+          data_nascimento: fullClient.data_nascimento || '',
           recebe_notificacoes: fullClient.recebe_notificacoes !== false,
           enderecos: fullClient.enderecos && fullClient.enderecos.length > 0 ? fullClient.enderecos : [{
             is_principal: true,
@@ -234,6 +236,7 @@ const Clients: React.FC = () => {
         inscricao_estadual: '',
         email: '',
         telefone: '',
+        data_nascimento: '',
         recebe_notificacoes: true,
         enderecos: [{
           is_principal: true,
@@ -266,6 +269,33 @@ const Clients: React.FC = () => {
       setSnackbar({ open: true, message: 'Erro ao carregar extrato financeiro', severity: 'error' });
     } finally {
       setStatementLoading(false);
+    }
+  };
+
+  const handlePrintStatement = async () => {
+    if (!selectedClientForStatement || !activeCompany) return;
+    setPrintingStatement(true);
+    try {
+      const blob = await reportService.generateStatementPdf(
+        selectedClientForStatement.id,
+        activeCompany.id,
+        {
+          contrato_id: statementFilterContract === 'all' ? undefined : statementFilterContract,
+          status: statementFilterStatus === 'all' ? undefined : statementFilterStatus
+        }
+      );
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `extrato_${selectedClientForStatement.nome_razao_social.replace(/\s+/g, '_')}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      setSnackbar({ open: true, message: 'PDF do extrato gerado com sucesso!', severity: 'success' });
+    } catch (error) {
+      console.error(error);
+      setSnackbar({ open: true, message: 'Erro ao gerar PDF do extrato', severity: 'error' });
+    } finally {
+      setPrintingStatement(false);
     }
   };
 
@@ -314,6 +344,14 @@ const Clients: React.FC = () => {
       newErrors.telefone = 'Telefone inválido (informe DDD + número)';
     }
 
+    // Data de Nascimento (não pode ser no futuro - apenas Pessoa Física)
+    if (formData.tipo_pessoa === 'F' && formData.data_nascimento) {
+      const birth = new Date(formData.data_nascimento);
+      if (birth > new Date()) {
+        newErrors.data_nascimento = 'Data de nascimento não pode ser no futuro';
+      }
+    }
+
     // Regras para Pessoa Jurídica
     if (formData.tipo_pessoa === 'J') {
       // Inscrição estadual conforme indicador
@@ -355,6 +393,13 @@ const Clients: React.FC = () => {
     if (!activeCompany) return;
     try {
       const payload: any = { ...formData };
+      
+      // Limpar data de nascimento se for Pessoa Jurídica
+      if (payload.tipo_pessoa !== 'F') {
+        payload.data_nascimento = null;
+      } else if (!payload.data_nascimento) {
+        payload.data_nascimento = null;
+      }
       
       // Filtrar endereços vazios se não for PJ
       if (payload.tipo_pessoa === 'F') {
@@ -763,6 +808,21 @@ const Clients: React.FC = () => {
                         helperText={errors.email}
                       />
                     </div>
+                    {formData.tipo_pessoa === 'F' && (
+                      <div>
+                        <TextField
+                          label="Data de Nascimento"
+                          type="date"
+                          value={formData.data_nascimento || ''}
+                          onChange={(e) => handleInputChange('data_nascimento', e.target.value)}
+                          fullWidth
+                          size="small"
+                          InputLabelProps={{ shrink: true }}
+                          error={!!errors.data_nascimento}
+                          helperText={errors.data_nascimento}
+                        />
+                      </div>
+                    )}
                     <div className="sm:col-span-2">
                       <label className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer select-none ${
                         formData.recebe_notificacoes
@@ -1089,8 +1149,19 @@ const Clients: React.FC = () => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setStatementOpen(false)}>Fechar</Button>
+        <DialogActions sx={{ px: 3, pb: 2, display: 'flex', justifyContent: 'space-between' }}>
+          <Button
+            variant="contained"
+            color="primary"
+            disabled={printingStatement || statementLoading || filteredReceivables.length === 0}
+            onClick={handlePrintStatement}
+            startIcon={printingStatement ? <CircularProgress size={20} color="inherit" /> : <DocumentArrowDownIcon className="w-5 h-5" />}
+          >
+            {printingStatement ? 'Gerando...' : 'Gerar PDF'}
+          </Button>
+          <Button onClick={() => setStatementOpen(false)} variant="outlined" color="inherit">
+            Fechar
+          </Button>
         </DialogActions>
       </Dialog>
 

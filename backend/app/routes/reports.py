@@ -438,3 +438,61 @@ def get_clients_report_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+@router.get("/clients/{cliente_id}/statement/pdf")
+def get_client_statement_pdf(
+    cliente_id: int,
+    empresa_id: int,
+    contrato_id: Optional[str] = Query("all"),
+    status: Optional[str] = Query("all"),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Gera um PDF do extrato financeiro (recebíveis) de um cliente com filtros."""
+    deps.permission_checker('receivables_view')(db=db, current_user=current_user)
+    
+    empresa = db.query(Empresa).filter(Empresa.id == empresa_id).first()
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+        
+    cliente = db.query(Cliente).filter(Cliente.id == cliente_id).first()
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+        
+    query = db.query(Receivable).filter(
+        Receivable.cliente_id == cliente_id,
+        Receivable.empresa_id == empresa_id
+    )
+    
+    if contrato_id and contrato_id != "all":
+        query = query.filter(Receivable.servico_contratado_id == int(contrato_id))
+        
+    if status and status != "all":
+        query = query.filter(Receivable.status == status)
+        
+    receivables_db = query.order_by(Receivable.due_date.desc()).all()
+    
+    receivables_data = []
+    for r in receivables_db:
+        receivables_data.append({
+            "due_date": r.due_date.strftime('%d/%m/%Y') if r.due_date else "",
+            "servico_contratado_id": r.servico_contratado_id,
+            "tipo": "Mercado Pago" if r.tipo == "MERCADO_PAGO" else r.bank,
+            "amount": r.amount,
+            "paid_amount": r.paid_amount,
+            "status": r.status
+        })
+        
+    filters = {
+        "contract_id": contrato_id,
+        "status": status
+    }
+    
+    pdf_buffer = ReportService.generate_statement_report(empresa, cliente, receivables_data, filters)
+    
+    filename = f"extrato_{cliente.nome_razao_social.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf"
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )

@@ -254,6 +254,7 @@ class Cliente(Base):
     inscricao_estadual = Column(String(20))
     email = Column(String(255))
     telefone = Column(String(20))
+    data_nascimento = Column(Date, nullable=True)
     is_active = Column(Boolean, default=True)
     recebe_notificacoes = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

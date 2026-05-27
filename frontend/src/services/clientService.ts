@@ -21,6 +21,7 @@ export interface ClientCreate {
   inscricao_estadual?: string;
   email?: string;
   telefone?: string;
+  data_nascimento?: string;
   recebe_notificacoes?: boolean;
   enderecos?: ClienteEnderecoCreate[];
 }

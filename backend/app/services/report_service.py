@@ -441,3 +441,125 @@ class ReportService:
         doc.build(elements)
         buffer.seek(0)
         return buffer
+
+    @staticmethod
+    def generate_statement_report(
+        empresa: Empresa,
+        cliente: Cliente,
+        receivables: List[Dict[str, Any]],
+        filters: Dict[str, Any]
+    ) -> BytesIO:
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1*cm, leftMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm)
+        elements = []
+        styles = getSampleStyleSheet()
+        
+        title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=16, alignment=1, spaceAfter=10)
+        client_title_style = ParagraphStyle('ClientTitleStyle', parent=styles['Heading2'], fontSize=11, color=colors.darkblue, spaceBefore=10, spaceAfter=5)
+        cell_style = ParagraphStyle('CellStyle', parent=styles['Normal'], fontSize=8, leading=10)
+        header_style = ParagraphStyle('HeaderStyle', parent=styles['Normal'], fontSize=10, textColor=colors.whitesmoke, fontName='Helvetica-Bold')
+
+        elements.append(Paragraph(f"Extrato Financeiro - {empresa.nome_fantasia or empresa.razao_social}", title_style))
+        elements.append(Spacer(1, 0.2*cm))
+        elements.append(Paragraph(f"<b>Cliente:</b> {cliente.nome_razao_social} (CPF/CNPJ: {cliente.cpf_cnpj or ''})", client_title_style))
+        
+        filter_text = f"Filtros aplicados - Contrato: {filters.get('contract_id', 'Todos')} | Status: {filters.get('status', 'Todos')}"
+        elements.append(Paragraph(filter_text, styles['Normal']))
+        elements.append(Spacer(1, 0.4*cm))
+
+        # Calculate totals for summary box matching the frontend logic
+        total_received = 0.0
+        total_pending = 0.0
+        for r in receivables:
+            status = r.get('status', '')
+            amt = r.get('amount', 0.0)
+            p_amt = r.get('paid_amount', 0.0) if r.get('paid_amount') is not None else 0.0
+            
+            if status == 'PAID':
+                total_received += p_amt if r.get('paid_amount') is not None else amt
+            elif status != 'CANCELLED':
+                total_pending += amt
+
+        # Summary box layout
+        summary_data = [
+            [
+                Paragraph("<b>Total Recebido:</b>", cell_style),
+                Paragraph(f"R$ {total_received:.2f}", ParagraphStyle('RecStyle', parent=cell_style, textColor=colors.HexColor('#2e7d32'), fontName='Helvetica-Bold')),
+                Paragraph("<b>Total Pendente:</b>", cell_style),
+                Paragraph(f"R$ {total_pending:.2f}", ParagraphStyle('PendStyle', parent=cell_style, textColor=colors.HexColor('#ed6c02'), fontName='Helvetica-Bold'))
+            ]
+        ]
+        summary_table = Table(summary_data, colWidths=[4.5*cm, 4.5*cm, 4.5*cm, 4.5*cm])
+        summary_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f5f5f5')),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e0e0e0')),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(summary_table)
+        elements.append(Spacer(1, 0.5*cm))
+        
+        headers = [
+            Paragraph('Vencimento', header_style),
+            Paragraph('Contrato', header_style),
+            Paragraph('Método', header_style),
+            Paragraph('Valor', header_style),
+            Paragraph('Vlr Pago', header_style),
+            Paragraph('Status', header_style)
+        ]
+        
+        data = [headers]
+        total_amount = 0.0
+        total_paid = 0.0
+        
+        status_map_fin = {
+            "PAID": "Pago",
+            "OPEN": "Aberto",
+            "CANCELLED": "Cancelado",
+            "PENDING": "Pendente",
+            "REJECTED": "Rejeitado"
+        }
+
+        for r in receivables:
+            amt = r.get('amount', 0.0)
+            p_amt = r.get('paid_amount', 0.0) if r.get('paid_amount') is not None else 0.0
+            total_amount += amt
+            total_paid += p_amt
+            
+            data.append([
+                Paragraph(r.get('due_date', ''), cell_style),
+                Paragraph(f"#{r.get('servico_contratado_id')}" if r.get('servico_contratado_id') else 'Avulso', cell_style),
+                Paragraph(r.get('tipo', ''), cell_style),
+                Paragraph(f"R$ {amt:.2f}", cell_style),
+                Paragraph(f"R$ {p_amt:.2f}" if r.get('paid_amount') is not None else "-", cell_style),
+                Paragraph(status_map_fin.get(r.get('status', ''), r.get('status', '')), cell_style)
+            ])
+            
+        data.append([
+            Paragraph('TOTAIS', cell_style),
+            '',
+            '',
+            Paragraph(f"R$ {total_amount:.2f}", cell_style),
+            Paragraph(f"R$ {total_paid:.2f}", cell_style),
+            ''
+        ])
+            
+        table = Table(data, colWidths=[3.5*cm, 2.5*cm, 3.5*cm, 3.2*cm, 3.2*cm, 3.1*cm])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
+        ]))
+        elements.append(table)
+        
+        elements.append(Spacer(1, 1*cm))
+        elements.append(Paragraph(f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", styles['Normal']))
+        
+        doc.build(elements)
+        buffer.seek(0)
+        return buffer
