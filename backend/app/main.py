@@ -141,6 +141,7 @@ app.include_router(public_contracts.router)
 app.include_router(mercadopago.router)
 app.include_router(reports.router)
 app.include_router(licenses.router)
+app.include_router(license_plans.router)
 app.include_router(whatsapp.router)
 app.include_router(ftth.router)
 
