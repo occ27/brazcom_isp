@@ -592,7 +592,7 @@ const Contracts: React.FC = () => {
         params.proximidade_gps = proximityCoords;
       }
       const resp = await api.get('/ftth/ctos', { params });
-      let loadedCtos = resp.data || [];
+      let loadedCtos = Array.isArray(resp.data) ? resp.data : (resp.data?.data || []);
       if (forceCtoId && !loadedCtos.some((c: any) => c.id === forceCtoId)) {
         try {
           const singleResp = await api.get(`/ftth/ctos/${forceCtoId}`);

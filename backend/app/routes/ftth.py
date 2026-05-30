@@ -316,20 +316,20 @@ def delete_olt(
 # CTOs
 # ===========================================================================
 
-@router.get("/ctos", response_model=List[CTOSchema])
+@router.get("/ctos")
 def list_ctos(
     olt_id: Optional[int] = None,
     search: Optional[str] = Query(None, description="Termo de busca para nome, endereço ou descrição da CTO"),
     proximidade_gps: Optional[str] = Query(None, description="Coordenadas GPS do cliente no formato 'lat,lng' para ordenar por proximidade"),
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
+    limit: int = Query(100, ge=1, le=10000),
     _: bool = Depends(deps.permission_checker("network_manage")),
     current_user: Usuario = Depends(deps.get_current_active_user),
     active_empresa: Empresa = Depends(deps.get_active_empresa),
     db: Session = Depends(get_db)
 ):
     """Lista CTOs. Pode filtrar por OLT, termo de busca e ordenar por proximidade GPS."""
-    ctos = FTTHMonitorService.list_ctos(
+    ctos, total = FTTHMonitorService.list_ctos(
         db,
         active_empresa.id,
         olt_id=olt_id,
@@ -358,7 +358,7 @@ def list_ctos(
             "distancia_metros": getattr(cto, "distancia_metros", None),
         }
         result.append(d)
-    return result
+    return {"data": result, "total": total}
 
 
 @router.get("/ctos/{cto_id}", response_model=CTOSchema)

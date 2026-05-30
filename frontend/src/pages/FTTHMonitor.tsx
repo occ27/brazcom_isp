@@ -776,6 +776,13 @@ const FTTHMonitor: React.FC = () => {
 
   // CTOs
   const [ctos, setCtos] = useState<CTO[]>([]);
+  const [ctosTotal, setCtosTotal] = useState(0);
+  const [ctosLoading, setCtosLoading] = useState(false);
+  const [ctosPage, setCtosPage] = useState(1);
+  const [ctosLimit, setCtosLimit] = useState(10);
+  const [ctosSearch, setCtosSearch] = useState('');
+  const [mapCtos, setMapCtos] = useState<CTO[]>([]);
+  const [mapCtosLoading, setMapCtosLoading] = useState(false);
   const [ctoModal, setCtoModal] = useState<{ open: boolean; cto?: CTO | null }>({ open: false });
   const [ctoSaving, setCtoSaving] = useState(false);
 
@@ -816,6 +823,10 @@ const FTTHMonitor: React.FC = () => {
     setOnusPage(1);
   }, [search, statusFilter, oltFilter]);
 
+  useEffect(() => {
+    setCtosPage(1);
+  }, [ctosSearch]);
+
   const loadMapONUs = useCallback(async () => {
     if (!empresaId || !token) return;
     setMapOnusLoading(true);
@@ -839,10 +850,34 @@ const FTTHMonitor: React.FC = () => {
 
   const loadCTOs = useCallback(async () => {
     if (!empresaId || !token) return;
+    setCtosLoading(true);
     try {
-      const r = await axios.get(`${API_BASE}/ftth/ctos`, { headers });
-      setCtos(r.data);
-    } catch { }
+      const params: any = {
+        limit: ctosLimit,
+        skip: (ctosPage - 1) * ctosLimit
+      };
+      if (ctosSearch) params.search = ctosSearch;
+      const r = await axios.get(`${API_BASE}/ftth/ctos`, { headers, params });
+      setCtos(r.data.data);
+      setCtosTotal(r.data.total);
+    } catch { } finally {
+      setCtosLoading(false);
+    }
+  }, [empresaId, token, ctosPage, ctosLimit, ctosSearch]);
+
+  const loadMapCTOs = useCallback(async () => {
+    if (!empresaId || !token) return;
+    setMapCtosLoading(true);
+    try {
+      const params = {
+        limit: 10000,
+        skip: 0
+      };
+      const r = await axios.get(`${API_BASE}/ftth/ctos`, { headers, params });
+      setMapCtos(r.data.data);
+    } catch { } finally {
+      setMapCtosLoading(false);
+    }
   }, [empresaId, token]);
 
   const loadAlertas = useCallback(async () => {
@@ -860,10 +895,17 @@ const FTTHMonitor: React.FC = () => {
       loadONUs();
     } else if (activeTab === 'mapa') {
       loadMapONUs();
-      loadCTOs();
+      loadMapCTOs();
     }
-  }, [activeTab, loadONUs, loadMapONUs, loadCTOs]);
-  useEffect(() => { if (activeTab === 'infra') { loadOLTs(); loadCTOs(); } }, [activeTab, loadOLTs, loadCTOs]);
+  }, [activeTab, loadONUs, loadMapONUs, loadMapCTOs]);
+  useEffect(() => {
+    if (activeTab === 'infra') {
+      loadOLTs();
+      if (infraTab === 'ctos') {
+        loadCTOs();
+      }
+    }
+  }, [activeTab, infraTab, loadOLTs, loadCTOs]);
 
   // Auto-refresh a cada 2 minutos
   useEffect(() => {
@@ -1119,6 +1161,85 @@ const FTTHMonitor: React.FC = () => {
     );
   };
 
+  const totalCtosPages = Math.ceil(ctosTotal / ctosLimit);
+
+  const renderCtosPagination = () => {
+    if (totalCtosPages <= 1) return null;
+    return (
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderTop: '1px solid #e5e7eb', background: '#fff', flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 13, color: '#6b7280', fontWeight: 600 }}>
+            Exibindo {Math.min((ctosPage - 1) * ctosLimit + 1, ctosTotal)} a {Math.min(ctosPage * ctosLimit, ctosTotal)} de {ctosTotal} CTOs
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>Itens por página:</label>
+            <select 
+              value={ctosLimit} 
+              onChange={e => { setCtosLimit(Number(e.target.value)); setCtosPage(1); }}
+              style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none' }}
+            >
+              {[10, 25, 50, 100].map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <button 
+            disabled={ctosPage === 1}
+            onClick={() => setCtosPage(p => Math.max(p - 1, 1))}
+            style={{
+              padding: '6px 12px', borderRadius: 8, border: '1px solid #d1d5db',
+              background: ctosPage === 1 ? '#f3f4f6' : '#fff',
+              color: ctosPage === 1 ? '#9ca3af' : '#374151',
+              cursor: ctosPage === 1 ? 'not-allowed' : 'pointer',
+              fontWeight: 700, fontSize: 13, transition: 'all 0.2s'
+            }}
+          >
+            Anterior
+          </button>
+          
+          {Array.from({ length: totalCtosPages }).map((_, i) => {
+            const p = i + 1;
+            if (totalCtosPages > 6 && Math.abs(ctosPage - p) > 2 && p !== 1 && p !== totalCtosPages) {
+              if (p === 2 || p === totalCtosPages - 1) {
+                return <span key={`ellipsis-cto-${p}`} style={{ padding: '6px', color: '#9ca3af' }}>...</span>;
+              }
+              return null;
+            }
+            return (
+              <button
+                key={`page-cto-${p}`}
+                onClick={() => setCtosPage(p)}
+                style={{
+                  minWidth: 32, padding: '6px 8px', borderRadius: 8,
+                  background: ctosPage === p ? '#4f46e5' : '#fff',
+                  color: ctosPage === p ? '#fff' : '#374151',
+                  border: ctosPage === p ? 'none' : '1px solid #d1d5db',
+                  cursor: 'pointer', fontWeight: 700, fontSize: 13, transition: 'all 0.2s'
+                }}
+              >
+                {p}
+              </button>
+            );
+          })}
+
+          <button 
+            disabled={ctosPage === totalCtosPages}
+            onClick={() => setCtosPage(p => Math.min(p + 1, totalCtosPages))}
+            style={{
+              padding: '6px 12px', borderRadius: 8, border: '1px solid #d1d5db',
+              background: ctosPage === totalCtosPages ? '#f3f4f6' : '#fff',
+              color: ctosPage === totalCtosPages ? '#9ca3af' : '#374151',
+              cursor: ctosPage === totalCtosPages ? 'not-allowed' : 'pointer',
+              fontWeight: 700, fontSize: 13, transition: 'all 0.2s'
+            }}
+          >
+            Próxima
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const renderONTs = () => (
     <div>
       {/* Filtros */}
@@ -1292,51 +1413,75 @@ const FTTHMonitor: React.FC = () => {
       {infraTab === 'ctos' && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <div style={{ fontWeight: 700, color: '#374151', fontSize: 15 }}>CTOs Cadastradas — {ctos.length}</div>
+            <div style={{ fontWeight: 700, color: '#374151', fontSize: 15 }}>
+              CTOs Cadastradas — {ctosTotal} total ({ctos.length} nesta página)
+            </div>
             <button onClick={() => setCtoModal({ open: true, cto: null })} style={{
               background: '#4f46e5', color: '#fff', border: 'none', borderRadius: 10,
               padding: '10px 18px', cursor: 'pointer', fontWeight: 700, fontSize: 14,
             }}>+ Nova CTO</button>
           </div>
-          <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: '#f9fafb' }}>
-                  {['Nome', 'OLT', 'PON', 'Splitter', 'Capacidade', 'Endereço', 'GPS', 'Ações'].map(h => (
-                    <th key={h} style={{ padding: '12px 14px', textAlign: 'left', color: '#6b7280', fontWeight: 700, fontSize: 12, borderBottom: '1px solid #e5e7eb' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {ctos.length === 0 ? (
-                  <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>
-                    <div style={{ fontSize: 32, marginBottom: 8 }}>📦</div>
-                    Nenhuma CTO cadastrada
-                  </td></tr>
-                ) : ctos.map(cto => (
-                  <tr key={cto.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={{ padding: '12px 14px', fontWeight: 700, color: '#111827' }}>{cto.nome}</td>
-                    <td style={{ padding: '12px 14px', color: '#374151' }}>{cto.olt_nome || '—'}</td>
-                    <td style={{ padding: '12px 14px', fontFamily: 'monospace', color: '#374151' }}>{cto.porta_pon || '—'}</td>
-                    <td style={{ padding: '12px 14px', color: '#374151' }}>{cto.splitter_ratio || '—'}</td>
-                    <td style={{ padding: '12px 14px', color: '#374151' }}>{cto.capacidade || '—'}</td>
-                    <td style={{ padding: '12px 14px', color: '#374151', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cto.endereco || '—'}</td>
-                    <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: 11, color: '#9ca3af' }}>{cto.coordenadas_gps || '—'}</td>
-                    <td style={{ padding: '12px 14px', display: 'flex', gap: 6 }}>
-                      <button onClick={() => setCtoModal({ open: true, cto })} style={{
-                        background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 7,
-                        padding: '6px 10px', cursor: 'pointer', fontWeight: 600, fontSize: 12,
-                      }}>✏️</button>
-                      <button onClick={() => handleDeleteCTO(cto.id)} style={{
-                        background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: 7,
-                        padding: '6px 10px', cursor: 'pointer', fontWeight: 600, fontSize: 12,
-                      }}>🗑️</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+          {/* Filtros CTO */}
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
+            <input 
+              value={ctosSearch} 
+              onChange={e => setCtosSearch(e.target.value)}
+              placeholder="🔍 Buscar por nome, endereço, descrição ou OLT..."
+              style={{ flex: 1, minWidth: 200, padding: '10px 14px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 14 }}
+            />
+            <button onClick={loadCTOs} style={{
+              background: '#4f46e5', color: '#fff', border: 'none', borderRadius: 10,
+              padding: '10px 18px', cursor: 'pointer', fontWeight: 700, fontSize: 14,
+            }}>Filtrar</button>
           </div>
+
+          {ctosLoading ? (
+            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>Carregando CTOs...</div>
+          ) : (
+            <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: '#f9fafb' }}>
+                      {['Nome', 'OLT', 'PON', 'Splitter', 'Capacidade', 'Endereço', 'GPS', 'Ações'].map(h => (
+                        <th key={h} style={{ padding: '12px 14px', textAlign: 'left', color: '#6b7280', fontWeight: 700, fontSize: 12, borderBottom: '1px solid #e5e7eb' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ctos.length === 0 ? (
+                      <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>
+                        <div style={{ fontSize: 32, marginBottom: 8 }}>📦</div>
+                        Nenhuma CTO cadastrada
+                      </td></tr>
+                    ) : ctos.map(cto => (
+                      <tr key={cto.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                        <td style={{ padding: '12px 14px', fontWeight: 700, color: '#111827' }}>{cto.nome}</td>
+                        <td style={{ padding: '12px 14px', color: '#374151' }}>{cto.olt_nome || '—'}</td>
+                        <td style={{ padding: '12px 14px', fontFamily: 'monospace', color: '#374151' }}>{cto.porta_pon || '—'}</td>
+                        <td style={{ padding: '12px 14px', color: '#374151' }}>{cto.splitter_ratio || '—'}</td>
+                        <td style={{ padding: '12px 14px', color: '#374151' }}>{cto.capacidade || '—'}</td>
+                        <td style={{ padding: '12px 14px', color: '#374151', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cto.endereco || '—'}</td>
+                        <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: 11, color: '#9ca3af' }}>{cto.coordenadas_gps || '—'}</td>
+                        <td style={{ padding: '12px 14px', display: 'flex', gap: 6 }}>
+                          <button onClick={() => setCtoModal({ open: true, cto })} style={{
+                            background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 7,
+                            padding: '6px 10px', cursor: 'pointer', fontWeight: 600, fontSize: 12,
+                          }}>✏️</button>
+                          <button onClick={() => handleDeleteCTO(cto.id)} style={{
+                            background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: 7,
+                            padding: '6px 10px', cursor: 'pointer', fontWeight: 600, fontSize: 12,
+                          }}>🗑️</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {renderCtosPagination()}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1400,7 +1545,7 @@ const FTTHMonitor: React.FC = () => {
     }
 
     if (!foundCenter) {
-      for (const cto of ctos) {
+      for (const cto of mapCtos) {
         const pc = parseCoords(cto.coordenadas_gps);
         if (pc) {
           center = pc;
@@ -1528,7 +1673,7 @@ const FTTHMonitor: React.FC = () => {
             })}
 
             {/* Renderizar CTOs */}
-            {(mapFilter === 'all' || mapFilter === 'ctos') && ctos.map(cto => {
+            {(mapFilter === 'all' || mapFilter === 'ctos') && mapCtos.map(cto => {
               const pc = parseCoords(cto.coordenadas_gps);
               if (!pc) return null;
 
@@ -1647,7 +1792,7 @@ const FTTHMonitor: React.FC = () => {
         <CTOModal
           cto={ctoModal.cto}
           olts={olts}
-          ctos={ctos}
+          ctos={mapCtos}
           onClose={() => setCtoModal({ open: false })}
           onSave={handleSaveCTO}
           saving={ctoSaving}

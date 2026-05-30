@@ -793,7 +793,7 @@ class FTTHMonitorService:
         proximidade_gps: Optional[str] = None,
         skip: int = 0,
         limit: int = 100
-    ) -> List[CTO]:
+    ) -> Tuple[List[CTO], int]:
         q = db.query(CTO).filter(CTO.empresa_id == empresa_id)
         if olt_id:
             q = q.filter(CTO.olt_id == olt_id)
@@ -813,6 +813,7 @@ class FTTHMonitorService:
             target_coords = FTTHMonitorService._parse_gps(proximidade_gps)
             if target_coords:
                 all_ctos = q.all()
+                total = len(all_ctos)
                 ctos_with_dist = []
                 for cto in all_ctos:
                     cto_coords = FTTHMonitorService._parse_gps(cto.coordenadas_gps)
@@ -827,9 +828,11 @@ class FTTHMonitorService:
                 ctos_with_dist.sort(key=lambda x: (x.distancia_metros is None, x.distancia_metros or 0))
                 
                 # Paginate in memory
-                return ctos_with_dist[skip:skip + limit]
+                return ctos_with_dist[skip:skip + limit], total
 
-        return q.order_by(CTO.nome).offset(skip).limit(limit).all()
+        total = q.count()
+        results = q.order_by(CTO.nome).offset(skip).limit(limit).all()
+        return results, total
 
     @staticmethod
     def get_cto(db: Session, cto_id: int, empresa_id: int) -> Optional[CTO]:
