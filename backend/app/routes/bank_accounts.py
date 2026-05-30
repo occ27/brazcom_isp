@@ -296,7 +296,7 @@ def update_bank_account(empresa_id: int, bank_account_id: int, payload: BankAcco
         else:
             setattr(ba, field, val)
             
-    ba.updated_at = datetime.utcnow()
+    ba.updated_at = datetime.now()
     db.commit()
     db.refresh(ba)
     return _serialize(ba, include_credentials=getattr(current_user, 'is_superuser', False))

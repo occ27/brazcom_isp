@@ -76,7 +76,7 @@ def generate_receivable_from_contract(db: Session, contrato: ServicoContratado, 
         empresa_id=contrato.empresa_id,
         cliente_id=contrato.cliente_id,
         servico_contratado_id=contrato.id,
-        issue_date=datetime.utcnow(),
+        issue_date=datetime.now(),
         due_date=due_date,
         amount=amount,
         discount=0.0,
@@ -237,7 +237,7 @@ def generate_receivables_for_company(db: Session, empresa_id: int, target_date: 
         recv = generate_receivable_from_contract(db, c, target_date)
         create_and_persist_receivable(db, recv)
         # atualizar last_emission
-        c.last_emission = datetime.utcnow()
+        c.last_emission = datetime.now()
         created.append(recv)
     return created
 def build_boleto_context(db: Session, recv: Receivable) -> dict:
@@ -515,7 +515,7 @@ def send_receivable_notification(db: Session, recv: Receivable) -> bool:
     # Se não autorizou, marcamos como processado (sent_at) para evitar tentativas futuras e pulamos.
     if not getattr(cliente, "recebe_notificacoes", True):
         logging.info(f"Notificação suprimida: cliente '{cliente.nome_razao_social}' (ID: {cliente.id}) desabilitou 'recebe_notificacoes'.")
-        recv.sent_at = datetime.utcnow()
+        recv.sent_at = datetime.now()
         db.add(recv)
         db.flush()
         return True
@@ -591,7 +591,7 @@ def send_receivable_notification(db: Session, recv: Receivable) -> bool:
                 logging.error(f"Erro ao enviar WhatsApp de cobrança: {wa_err}")
 
         if success:
-            recv.sent_at = datetime.utcnow()
+            recv.sent_at = datetime.now()
             db.add(recv)
             db.flush()
 

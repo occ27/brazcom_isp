@@ -4,7 +4,7 @@ from app.models.models import PasswordResetToken, Usuario
 
 
 def create_password_reset_token(db: Session, usuario: Usuario, code: str, expires_minutes: int = 15):
-    expires_at = datetime.utcnow() + timedelta(minutes=expires_minutes)
+    expires_at = datetime.now() + timedelta(minutes=expires_minutes)
     token = PasswordResetToken(usuario_id=usuario.id, code=code, expires_at=expires_at, used=False)
     db.add(token)
     db.commit()
@@ -17,7 +17,7 @@ def get_reset_token_by_code(db: Session, code: str):
 
 
 def get_active_token_for_user(db: Session, usuario_id: int):
-    now = datetime.utcnow()
+    now = datetime.now()
     return db.query(PasswordResetToken).filter(
         PasswordResetToken.usuario_id == usuario_id,
         PasswordResetToken.used == False,
@@ -34,7 +34,7 @@ def mark_token_used(db: Session, token: PasswordResetToken):
 
 
 def cleanup_expired_tokens(db: Session):
-    now = datetime.utcnow()
+    now = datetime.now()
     expired = db.query(PasswordResetToken).filter(PasswordResetToken.expires_at < now).all()
     for t in expired:
         db.delete(t)

@@ -549,7 +549,7 @@ class TicketService:
                 )
 
             if ticket.status not in [StatusTicket.RESOLVIDO, StatusTicket.FECHADO]:
-                update_data['resolvido_em'] = datetime.utcnow()
+                update_data['resolvido_em'] = datetime.now()
                 update_data['resolvido_por_id'] = updated_by_id
 
         for field, value in update_data.items():
@@ -683,7 +683,7 @@ class TicketService:
     @staticmethod
     def get_ticket_stats(db: Session, empresa_id: int) -> TicketStats:
         """Retorna estatísticas dos tickets da empresa."""
-        now = datetime.utcnow()
+        now = datetime.now()
         week_ago = now - timedelta(days=7)
         month_ago = now - timedelta(days=30)
 

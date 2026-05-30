@@ -94,7 +94,7 @@ def cliente_login(login_data: ClienteLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Cliente inativo")
 
     # Atualiza último login
-    cliente.last_login = datetime.utcnow()
+    cliente.last_login = datetime.now()
     db.commit()
 
     # Busca dados da empresa
@@ -151,7 +151,7 @@ def cliente_forgot_password(
         return {"message": "Se o CPF/CNPJ existir, o email estiver cadastrado e corresponder ao informado, você receberá um código para redefinir a senha."}
 
     # Verifica rate limiting - não permite nova solicitação nos últimos 5 minutos
-    now = datetime.utcnow()
+    now = datetime.now()
     if cliente.last_password_reset_request and (now - cliente.last_password_reset_request).total_seconds() < 300:  # 5 minutos
         remaining_time = int(300 - (now - cliente.last_password_reset_request).total_seconds()) // 60
         return {"message": f"Uma solicitação recente foi feita. Aguarde {remaining_time} minutos antes de tentar novamente."}

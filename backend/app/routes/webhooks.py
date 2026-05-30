@@ -55,7 +55,7 @@ async def bb_webhook(
             
         # Se foi liquidado (pago), marca a data de pagamento
         if new_status == 'PAID' and not ar.paid_at:
-            ar.paid_at = datetime.utcnow()
+            ar.paid_at = datetime.now()
             logger.info(f"BB webhook: Boleto {numero} marcado como PAGO")
             
             # Se a cobrança estiver vinculada a um contrato ISP, realiza o desbloqueio automático

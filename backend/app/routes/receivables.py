@@ -342,7 +342,7 @@ def settle_receivable(receivable_id: int, payload: SettlePayload = Body(...), db
         raise HTTPException(status_code=404, detail="Cobrança não encontrada")
     
     recv.status = 'PAID'
-    recv.paid_at = datetime.utcnow()
+    recv.paid_at = datetime.now()
     recv.paid_amount = payload.paid_amount if payload.paid_amount is not None else recv.amount
     
     # Se for boleto BB registrado, solicita a baixa (cancelamento) no banco
@@ -448,7 +448,7 @@ def create_manual_receivable(
         empresa_id=payload.empresa_id,
         cliente_id=payload.cliente_id,
         servico_contratado_id=payload.servico_contratado_id,
-        issue_date=datetime.utcnow(),
+        issue_date=datetime.now(),
         due_date=datetime.combine(payload.due_date, datetime.min.time()),
         amount=payload.amount,
         fine_percent=payload.fine_percent,
@@ -500,7 +500,7 @@ def print_receivable(receivable_id: int, db: Session = Depends(get_db), current_
     context = build_boleto_context(db, recv)
     pdf_bytes = generate_boleto_pdf(context)
     
-    recv.printed_at = datetime.utcnow()
+    recv.printed_at = datetime.now()
     db.commit()
 
     return Response(
@@ -621,7 +621,7 @@ def send_receivable_email_route(receivable_id: int, db: Session = Depends(get_db
                 detail=f"Falha ao enviar por: {', '.join(failed_channels)}. Verifique as configurações."
             )
 
-        recv.sent_at = datetime.utcnow()
+        recv.sent_at = datetime.now()
         db.commit()
         return {"message": f"Cobrança enviada com sucesso via {', '.join(channels_sent)}!"}
             

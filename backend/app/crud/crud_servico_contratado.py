@@ -457,7 +457,7 @@ def delete_servico_contratado(db: Session, db_obj: models.ServicoContratado, rad
 
 def find_due_for_emission(db: Session, empresa_id: int = None, limit: int = 100):
     q = db.query(models.ServicoContratado).filter(models.ServicoContratado.auto_emit == True, models.ServicoContratado.is_active == True)
-    q = q.filter(models.ServicoContratado.next_emission != None, models.ServicoContratado.next_emission <= datetime.utcnow())
+    q = q.filter(models.ServicoContratado.next_emission != None, models.ServicoContratado.next_emission <= datetime.now())
     if empresa_id is not None: q = q.filter(models.ServicoContratado.empresa_id == empresa_id)
     return q.limit(limit).all()
 

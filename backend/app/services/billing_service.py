@@ -108,7 +108,7 @@ class BillingService:
                 receivable.codigo_barras = response.get("codigoBarras")
                 receivable.linha_digitavel = response.get("linhaDigitavel")
                 receivable.status = "REGISTERED"
-                receivable.registered_at = datetime.utcnow()
+                receivable.registered_at = datetime.now()
 
                 # Salvar payload da resposta
                 receivable.bank_payload = json.dumps(response, default=str)
@@ -318,7 +318,7 @@ class BillingService:
             # Atualizar status dos receivables
             for recv in receivables:
                 recv.status = "REMITTED"
-                recv.sent_at = datetime.utcnow()
+                recv.sent_at = datetime.now()
                 recv.registro_result = f"Incluído em arquivo de remessa: {filename}"
             
             db.commit()
@@ -418,7 +418,7 @@ class BillingService:
                 receivable.nosso_numero = resp.get("numero")
                 receivable.linha_digitavel = resp.get("codigoLinhaDigitavel")
                 receivable.status = "REGISTERED"
-                receivable.registered_at = datetime.utcnow()
+                receivable.registered_at = datetime.now()
                 receivable.bank_payload = json.dumps(resp, default=str)
                 
                 db.commit()

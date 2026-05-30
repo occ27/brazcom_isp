@@ -347,12 +347,12 @@ def bulk_email_nfcoms(
 
                     if sent:
                         status_row.status = 'sent'
-                        status_row.sent_at = datetime.utcnow()
+                        status_row.sent_at = datetime.now()
                         job_obj.successes += 1
                         # Also update NFCom record for UI convenience
                         try:
                             nf.email_status = 'sent'
-                            nf.email_sent_at = datetime.utcnow()
+                            nf.email_sent_at = datetime.now()
                             nf.email_error = None
                             dbbg.add(nf)
                         except Exception:
@@ -782,7 +782,7 @@ def transmitir_empresa_nfcom(
                                 if sent:
                                     db_nfcom.email_status = 'sent'
                                     from datetime import datetime
-                                    db_nfcom.email_sent_at = datetime.utcnow()
+                                    db_nfcom.email_sent_at = datetime.now()
                                     db_nfcom.email_error = None
                                 else:
                                     db_nfcom.email_status = 'failed'
@@ -991,7 +991,7 @@ def send_emails_for_nfcoms(
                     try:
                         if sent:
                             db_nfcom.email_status = 'sent'
-                            db_nfcom.email_sent_at = datetime.utcnow()
+                            db_nfcom.email_sent_at = datetime.now()
                             db_nfcom.email_error = None
                         else:
                             db_nfcom.email_status = 'failed'

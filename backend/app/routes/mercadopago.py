@@ -97,7 +97,7 @@ def get_receivable_by_token(token: str, db: Session = Depends(get_db)):
                 elif current_mp_status == "approved":
                     # Pode ter sido aprovado via webhook; marcar como pago
                     receivable.status = "PAID"
-                    receivable.paid_at = datetime.utcnow()
+                    receivable.paid_at = datetime.now()
                     db.commit()
                     return {
                         "id": receivable.id,
@@ -213,7 +213,7 @@ async def process_payment(
             
             if mp_status == "approved":
                 r.status = "PAID"
-                r.paid_at = datetime.utcnow()
+                r.paid_at = datetime.now()
                 # Se for ISP, processar desbloqueio
                 if r.servico_contratado_id:
                     try:
@@ -270,7 +270,7 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
                     r.mp_payment_status = new_status
                     if new_status == "approved" and r.status != "PAID":
                         r.status = "PAID"
-                        r.paid_at = datetime.utcnow()
+                        r.paid_at = datetime.now()
                         # Se for ISP, processar desbloqueio
                         if r.servico_contratado_id:
                             try:
