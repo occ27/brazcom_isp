@@ -703,24 +703,32 @@ def sync_router_interfaces(
                         ip_class_create = IPClassCreate(
                             nome=class_name,
                             rede=network,
-                            gateway=None,  # Pode ser configurado depois
+                            gateway=None,
                             dns1=None,
                             dns2=None
                         )
-                        new_class = crud.crud_network.create_ip_class(
+                        existing_class = crud.crud_network.create_ip_class(
                             db=db,
                             ip_class=ip_class_create,
                             empresa_id=empresa_id
                         )
+                        print(f"Classe IP criada: {class_name}")
 
-                        # Associar classe IP à interface
+                    # Verificar se a associação interface <-> classe já existe (evita duplicatas)
+                    from app.models.network import InterfaceIPClassAssignment as IPCAModel
+                    already_assigned = db.query(IPCAModel).filter(
+                        IPCAModel.interface_id == interface.id,
+                        IPCAModel.ip_class_id == existing_class.id
+                    ).first()
+
+                    if not already_assigned:
+                        # Criar associação entre interface e classe IP
                         assignment_create = InterfaceIPClassAssignmentCreate(
                             interface_id=interface.id,
-                            ip_class_id=new_class.id
+                            ip_class_id=existing_class.id
                         )
                         crud.crud_network.assign_ip_class_to_interface(db=db, assignment=assignment_create)
-
-                        print(f"Classe IP criada e associada: {class_name} -> {interface_name}")
+                        print(f"Classe IP '{existing_class.rede}' associada à interface '{interface_name}'")
 
         mk.close()
 

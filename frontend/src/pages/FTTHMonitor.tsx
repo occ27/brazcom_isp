@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import L from 'leaflet';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker, Tooltip, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useCompany } from '../contexts/CompanyContext';
 import { useAuth } from '../contexts/AuthContext';
 import * as authService from '../services/authService';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // ============================================================
 // COMPONENTES AUXILIARES MAPA
@@ -116,10 +114,6 @@ const STATUS_CONFIG = {
   DESCONHECIDO: { label: 'Desconhecido', color: '#6b7280', bg: '#f3f4f6', icon: '⚪' },
 };
 
-const getAuthHeaders = (token: string, empresaId?: number) => ({
-  Authorization: `Bearer ${token}`,
-  ...(empresaId ? { 'X-Active-Empresa': String(empresaId) } : {}),
-});
 
 function formatDate(iso?: string) {
   if (!iso) return '—';
@@ -235,26 +229,24 @@ const MiniChart: React.FC<{ snapshots: Snapshot[] }> = ({ snapshots }) => {
 /** Modal de Detalhes da ONU */
 const ONUDetailModal: React.FC<{
   onu: ONUStatus; onClose: () => void;
-  token: string; empresaId?: number;
-}> = ({ onu, onClose, token, empresaId }) => {
+}> = ({ onu, onClose }) => {
   const [history, setHistory] = useState<Snapshot[]>([]);
   const [loading, setLoading] = useState(true);
   const [pinging, setPinging] = useState(false);
   const [pingResult, setPingResult] = useState<any>(null);
 
   useEffect(() => {
-    axios.get(`${API_BASE}/ftth/onts/${onu.contrato_id}/historico?horas=24`, {
-      headers: getAuthHeaders(token, empresaId),
-    }).then(r => setHistory(r.data)).catch(() => {}).finally(() => setLoading(false));
-  }, [onu.contrato_id, token, empresaId]);
+    api.get(`/ftth/onts/${onu.contrato_id}/historico?horas=24`)
+      .then(r => setHistory(r.data))
+      .catch(e => console.error("Error loading ONU history", e))
+      .finally(() => setLoading(false));
+  }, [onu.contrato_id]);
 
   const handlePing = async () => {
     setPinging(true);
     setPingResult(null);
     try {
-      const r = await axios.post(`${API_BASE}/ftth/onts/${onu.contrato_id}/ping`, {}, {
-        headers: getAuthHeaders(token, empresaId),
-      });
+      const r = await api.post(`/ftth/onts/${onu.contrato_id}/ping`, {});
       setPingResult(r.data);
     } catch (e: any) {
       setPingResult({ error: e.response?.data?.detail || 'Erro ao executar ping' });
@@ -745,7 +737,6 @@ const FTTHMonitor: React.FC = () => {
   const { activeCompany } = useCompany();
   useAuth(); // Manter contexto de autenticação ativo
   const empresaId = activeCompany?.id;
-  const token = authService.getStoredToken();
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'onts' | 'infra' | 'historico' | 'mapa'>('dashboard');
   const [infraTab, setInfraTab] = useState<'olts' | 'ctos'>('olts');
@@ -789,20 +780,18 @@ const FTTHMonitor: React.FC = () => {
   // Alertas
   const [alertas, setAlertas] = useState<ONUStatus[]>([]);
 
-  const headers = token ? getAuthHeaders(token, empresaId) : {};
-
   // ---- Loaders ----
   const loadDashboard = useCallback(async () => {
-    if (!empresaId || !token) return;
+    if (!empresaId) return;
     setDashLoading(true);
     try {
-      const r = await axios.get(`${API_BASE}/ftth/dashboard`, { headers });
+      const r = await api.get(`/ftth/dashboard`);
       setDashboard(r.data);
-    } catch { } finally { setDashLoading(false); }
-  }, [empresaId, token]);
+    } catch (e) { console.error("Error loading dashboard", e); } finally { setDashLoading(false); }
+  }, [empresaId]);
 
   const loadONUs = useCallback(async () => {
-    if (!empresaId || !token) return;
+    if (!empresaId) return;
     setOnusLoading(true);
     try {
       const params: any = {
@@ -812,11 +801,11 @@ const FTTHMonitor: React.FC = () => {
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
       if (oltFilter) params.olt_nome = oltFilter;
-      const r = await axios.get(`${API_BASE}/ftth/onts`, { headers, params });
+      const r = await api.get(`/ftth/onts`, { params });
       setOnus(r.data.data);
       setOnusTotal(r.data.total);
-    } catch { } finally { setOnusLoading(false); }
-  }, [empresaId, token, onusPage, onusLimit, search, statusFilter, oltFilter]);
+    } catch (e) { console.error("Error loading ONUs", e); } finally { setOnusLoading(false); }
+  }, [empresaId, onusPage, onusLimit, search, statusFilter, oltFilter]);
 
   // Reseta para a primeira página quando os filtros mudam
   useEffect(() => {
@@ -828,28 +817,28 @@ const FTTHMonitor: React.FC = () => {
   }, [ctosSearch]);
 
   const loadMapONUs = useCallback(async () => {
-    if (!empresaId || !token) return;
+    if (!empresaId) return;
     setMapOnusLoading(true);
     try {
       const params = {
         limit: 10000,
         skip: 0
       };
-      const r = await axios.get(`${API_BASE}/ftth/onts`, { headers, params });
+      const r = await api.get(`/ftth/onts`, { params });
       setMapOnus(r.data.data);
-    } catch { } finally { setMapOnusLoading(false); }
-  }, [empresaId, token]);
+    } catch (e) { console.error("Error loading Map ONUs", e); } finally { setMapOnusLoading(false); }
+  }, [empresaId]);
 
   const loadOLTs = useCallback(async () => {
-    if (!empresaId || !token) return;
+    if (!empresaId) return;
     try {
-      const r = await axios.get(`${API_BASE}/ftth/olts`, { headers });
+      const r = await api.get(`/ftth/olts`);
       setOlts(r.data);
-    } catch { }
-  }, [empresaId, token]);
+    } catch (e) { console.error("Error loading OLTs", e); }
+  }, [empresaId]);
 
   const loadCTOs = useCallback(async () => {
-    if (!empresaId || !token) return;
+    if (!empresaId) return;
     setCtosLoading(true);
     try {
       const params: any = {
@@ -857,36 +846,36 @@ const FTTHMonitor: React.FC = () => {
         skip: (ctosPage - 1) * ctosLimit
       };
       if (ctosSearch) params.search = ctosSearch;
-      const r = await axios.get(`${API_BASE}/ftth/ctos`, { headers, params });
+      const r = await api.get(`/ftth/ctos`, { params });
       setCtos(r.data.data);
       setCtosTotal(r.data.total);
-    } catch { } finally {
+    } catch (e) { console.error("Error loading CTOs", e); } finally {
       setCtosLoading(false);
     }
-  }, [empresaId, token, ctosPage, ctosLimit, ctosSearch]);
+  }, [empresaId, ctosPage, ctosLimit, ctosSearch]);
 
   const loadMapCTOs = useCallback(async () => {
-    if (!empresaId || !token) return;
+    if (!empresaId) return;
     setMapCtosLoading(true);
     try {
       const params = {
         limit: 10000,
         skip: 0
       };
-      const r = await axios.get(`${API_BASE}/ftth/ctos`, { headers, params });
+      const r = await api.get(`/ftth/ctos`, { params });
       setMapCtos(r.data.data);
-    } catch { } finally {
+    } catch (e) { console.error("Error loading Map CTOs", e); } finally {
       setMapCtosLoading(false);
     }
-  }, [empresaId, token]);
+  }, [empresaId]);
 
   const loadAlertas = useCallback(async () => {
-    if (!empresaId || !token) return;
+    if (!empresaId) return;
     try {
-      const r = await axios.get(`${API_BASE}/ftth/alertas`, { headers });
+      const r = await api.get(`/ftth/alertas`);
       setAlertas(r.data.data);
-    } catch { }
-  }, [empresaId, token]);
+    } catch (e) { console.error("Error loading alertas", e); }
+  }, [empresaId]);
 
   // Carregamento inicial
   useEffect(() => { loadDashboard(); loadAlertas(); }, [loadDashboard, loadAlertas]);
@@ -926,21 +915,21 @@ const FTTHMonitor: React.FC = () => {
     setOltSaving(true);
     try {
       if (oltModal.olt) {
-        await axios.put(`${API_BASE}/ftth/olts/${oltModal.olt.id}`, data, { headers });
+        await api.put(`/ftth/olts/${oltModal.olt.id}`, data);
       } else {
-        await axios.post(`${API_BASE}/ftth/olts`, data, { headers });
+        await api.post(`/ftth/olts`, data);
       }
       setOltModal({ open: false });
       loadOLTs();
-    } catch { } finally { setOltSaving(false); }
+    } catch (e) { console.error("Error saving OLT", e); } finally { setOltSaving(false); }
   };
 
   const handleDeleteOLT = async (id: number) => {
     if (!window.confirm('Remover esta OLT?')) return;
     try {
-      await axios.delete(`${API_BASE}/ftth/olts/${id}`, { headers });
+      await api.delete(`/ftth/olts/${id}`);
       loadOLTs();
-    } catch { }
+    } catch (e) { console.error("Error deleting OLT", e); }
   };
 
   // ---- Ações CTO ----
@@ -948,30 +937,30 @@ const FTTHMonitor: React.FC = () => {
     setCtoSaving(true);
     try {
       if (ctoModal.cto) {
-        await axios.put(`${API_BASE}/ftth/ctos/${ctoModal.cto.id}`, data, { headers });
+        await api.put(`/ftth/ctos/${ctoModal.cto.id}`, data);
       } else {
-        await axios.post(`${API_BASE}/ftth/ctos`, data, { headers });
+        await api.post(`/ftth/ctos`, data);
       }
       setCtoModal({ open: false });
       loadCTOs();
-    } catch { } finally { setCtoSaving(false); }
+    } catch (e) { console.error("Error saving CTO", e); } finally { setCtoSaving(false); }
   };
 
   const handleDeleteCTO = async (id: number) => {
     if (!window.confirm('Remover esta CTO?')) return;
     try {
-      await axios.delete(`${API_BASE}/ftth/ctos/${id}`, { headers });
+      await api.delete(`/ftth/ctos/${id}`);
       loadCTOs();
-    } catch { }
+    } catch (e) { console.error("Error deleting CTO", e); }
   };
 
   // ---- Poll All ----
   const handlePollAll = async () => {
     setPollingAll(true);
     try {
-      await axios.post(`${API_BASE}/ftth/poll-all`, {}, { headers });
+      await api.post(`/ftth/poll-all`, {});
       setTimeout(() => { loadDashboard(); loadONUs(); loadAlertas(); }, 3000);
-    } catch { } finally { setTimeout(() => setPollingAll(false), 3000); }
+    } catch (e) { console.error("Error polling all", e); } finally { setTimeout(() => setPollingAll(false), 3000); }
   };
 
   // ============================================================
@@ -1776,8 +1765,6 @@ const FTTHMonitor: React.FC = () => {
         <ONUDetailModal
           onu={selectedONU}
           onClose={() => setSelectedONU(null)}
-          token={token || ''}
-          empresaId={empresaId}
         />
       )}
       {oltModal.open && (

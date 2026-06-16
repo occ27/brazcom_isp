@@ -1,0 +1,196 @@
+<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook
+  xmlns:x="urn:schemas-microsoft-com:office:excel"
+  xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+
+<Styles>
+ <Style ss:ID="Default" ss:Name="Normal">
+  <Alignment ss:Vertical="Bottom"/>
+  <Borders/>
+  <Font/>
+  <Interior/>
+  <NumberFormat/>
+  <Protection/>
+ </Style>
+ <Style ss:ID="s27">
+  <Font x:Family="Swiss" ss:Color="#0000FF" ss:Bold="1"/>
+ </Style>
+ <Style ss:ID="s21">
+  <NumberFormat ss:Format="yyyy\-mm\-dd"/>
+ </Style>
+ <Style ss:ID="s22">
+  <NumberFormat ss:Format="yyyy\-mm\-dd\ hh:mm:ss"/>
+ </Style>
+ <Style ss:ID="s23">
+  <NumberFormat ss:Format="hh:mm:ss"/>
+ </Style>
+</Styles>
+
+ <Worksheet ss:Name="Sheet1">
+  <ss:Table>
+   <ss:Row>
+    <ss:Cell  ss:StyleID="s27"><Data ss:Type="String">COD_PLANO</Data></ss:Cell>
+    <ss:Cell  ss:StyleID="s27"><Data ss:Type="String">NOME</Data></ss:Cell>
+    <ss:Cell  ss:StyleID="s27"><Data ss:Type="String">VALOR_MENSAL</Data></ss:Cell>
+    <ss:Cell  ss:StyleID="s27"><Data ss:Type="String">DOWNLOAD</Data></ss:Cell>
+    <ss:Cell  ss:StyleID="s27"><Data ss:Type="String">UPLOAD</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">1</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">ALPHA 70</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">70.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">7168</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">7168</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">2</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">ALPHA 50</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">50.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">7168</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">7168</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">3</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">ALPHA 40</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">40.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">5120</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">5120</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">4</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">ALPHA 45</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">45.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">3072</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">3072</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">5</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">ALPHA 60</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">60.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">6144</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">6144</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">6</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">ALPHA 65</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">65.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">7168</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">7168</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">7</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">ALPHA 75</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">75.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">8192</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">8192</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">8</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">ALPHA 80</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">80.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">9216</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">9216</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">9</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">ALPHA 85</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">85.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">9216</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">9216</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">10</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">ALPHA 90</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">90.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">10240</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">10240</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">11</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">ALPHA 100</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">100.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">13312</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">13312</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">12</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">ALPHA 130</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">130.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">10240</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">10240</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">13</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">ALPHA 55</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">55.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">5120</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">5120</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">14</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">ALPHA 120</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">120.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">20480</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">20480</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">15</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">ALPHA 30</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">30.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">5120</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">5120</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">16</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">ALPHA 150</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">150.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">10240</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">10240</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">17</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">PLANO FIBRA 64,90</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">64.90</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">21264</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">21264</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">18</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">PLANO FIBRA 50,00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">50.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">20480</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">20480</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">19</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">PLANO FIBRA 70,00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">70.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">20480</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">20480</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">20</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">ALPHA 95</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">95.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">5120</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">5120</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">21</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">ALPHA 85 FIBRA</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">85.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">30720</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">30720</Data></ss:Cell>
+   </ss:Row>
+   <ss:Row>
+    <ss:Cell><Data ss:Type="Number">22</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">ALPHA 140 FIBRA</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="Number">140.00</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">20480</Data></ss:Cell>
+    <ss:Cell><Data ss:Type="String">20480</Data></ss:Cell>
+   </ss:Row>
+  </ss:Table>
+ </Worksheet>
+</Workbook>

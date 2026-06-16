@@ -1428,8 +1428,11 @@ const Contracts: React.FC = () => {
     }
 
     // Prefetch defaults (do not await)
+    // Nota: no modo edição (c !== undefined), o cliente já foi carregado individualmente acima.
+    // NÃO chamar loadClients('') neste caso, pois sobrescreveria o array clients com os primeiros
+    // 20 clientes paginados, fazendo o cliente selecionado "desaparecer" do Autocomplete.
     if (activeCompany) {
-      if (!clientSearch && !preselectedClient) loadClients('');
+      if (!c && !clientSearch && !preselectedClient) loadClients('');
       if (!servicoSearch) loadServicos('');
     }
     setOpenForm(true);
