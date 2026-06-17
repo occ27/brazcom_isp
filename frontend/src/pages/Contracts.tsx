@@ -2245,7 +2245,7 @@ const Contracts: React.FC = () => {
                 value={diaVencimentoMin}
                 onChange={(e) => setDiaVencimentoMin(e.target.value === '' ? '' : Number(e.target.value))}
                 inputProps={{ min: 1, max: 31 }}
-                sx={{ minWidth: { xs: 90, sm: 120 } }}
+                sx={{ minWidth: { xs: 90, sm: 150 } }}
               />
               <TextField
                 size="small"
@@ -2254,7 +2254,7 @@ const Contracts: React.FC = () => {
                 value={diaVencimentoMax}
                 onChange={(e) => setDiaVencimentoMax(e.target.value === '' ? '' : Number(e.target.value))}
                 inputProps={{ min: 1, max: 31 }}
-                sx={{ minWidth: { xs: 90, sm: 120 } }}
+                sx={{ minWidth: { xs: 90, sm: 150 } }}
               />
               <TextField
                 select
@@ -3008,13 +3008,13 @@ const Contracts: React.FC = () => {
                                         {option.nome}
                                       </Typography>
                                       {option.distancia_metros !== undefined && option.distancia_metros !== null && (
-                                        <Chip 
-                                          size="small" 
+                                        <Chip
+                                          size="small"
                                           color={option.distancia_metros < 200 ? "success" : "default"}
-                                          label={option.distancia_metros < 1000 
-                                            ? `📍 ${Math.round(option.distancia_metros)}m` 
+                                          label={option.distancia_metros < 1000
+                                            ? `📍 ${Math.round(option.distancia_metros)}m`
                                             : `📍 ${(option.distancia_metros / 1000).toFixed(1)}km`
-                                          } 
+                                          }
                                           sx={{ height: 18, fontSize: '0.7rem', flexShrink: 0 }}
                                         />
                                       )}

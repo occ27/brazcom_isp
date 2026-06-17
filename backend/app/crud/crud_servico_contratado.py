@@ -354,8 +354,10 @@ def count_servicos_contratados_by_empresa(db: Session, empresa_id: int = None, q
             models.Servico.codigo.ilike(pattern),
             models.EmpresaClienteEndereco.municipio.ilike(pattern)
         ))
+    if dia_vencimento_min is not None: q = q.filter(models.ServicoContratado.dia_vencimento >= dia_vencimento_min)
+    if dia_vencimento_max is not None: q = q.filter(models.ServicoContratado.dia_vencimento <= dia_vencimento_max)
+    if status is not None: q = q.filter(models.ServicoContratado.status == status)
     return q.count()
-
 
 def create_servico_contratado(db: Session, contrato_in: sc_schema.ServicoContratadoCreate, empresa_id: int = None, created_by_user_id: int = None, radius_db=None):
     data = contrato_in.model_dump()
