@@ -119,12 +119,13 @@ const getContratosByEmpresa = async (empresaId: number, signal?: AbortSignal): P
   return response.data;
 };
 
-const getContratosByEmpresaPaginated = async (empresaId: number, page: number, limit: number, q?: string, diaVencimentoMin?: number, diaVencimentoMax?: number, signal?: AbortSignal): Promise<ContratoListResponse> => {
+const getContratosByEmpresaPaginated = async (empresaId: number, page: number, limit: number, q?: string, diaVencimentoMin?: number, diaVencimentoMax?: number, status?: string, signal?: AbortSignal): Promise<ContratoListResponse> => {
   const skip = (page - 1) * limit;
   const params: any = { skip, limit };
   if (q) params.q = q;
   if (diaVencimentoMin !== undefined) params.dia_vencimento_min = diaVencimentoMin;
   if (diaVencimentoMax !== undefined) params.dia_vencimento_max = diaVencimentoMax;
+  if (status) params.status = status;
   const response = await api.get(`/servicos-contratados/empresa/${empresaId}`, { params, signal });
   const data = response.data;
   // Backend returns array directly, total is in X-Total-Count header

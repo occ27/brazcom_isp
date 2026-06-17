@@ -452,17 +452,17 @@ def create_contrato_for_empresa(
 
 
 @router.get("/empresa/{empresa_id}", response_model=List[sc_schema.ServicoContratadoResponse])
-def list_contratos_empresa(empresa_id: int, q: str = None, skip: int = 0, limit: int = 100, dia_vencimento_min: int = None, dia_vencimento_max: int = None, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user), response: Response = None):
+def list_contratos_empresa(empresa_id: int, q: str = None, skip: int = 0, limit: int = 100, dia_vencimento_min: int = None, dia_vencimento_max: int = None, status: str = None, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user), response: Response = None):
     db_empresa = crud_empresa.get_empresa(db, empresa_id=empresa_id)
     if not db_empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
     user_empresas_ids = [e.empresa_id for e in current_user.empresas]
     if not current_user.is_superuser and empresa_id not in user_empresas_ids:
         raise HTTPException(status_code=403, detail="Usuário não tem permissão")
-    total = crud_servico_contratado.count_servicos_contratados_by_empresa(db, empresa_id=empresa_id, qstr=q, dia_vencimento_min=dia_vencimento_min, dia_vencimento_max=dia_vencimento_max)
+    total = crud_servico_contratado.count_servicos_contratados_by_empresa(db, empresa_id=empresa_id, qstr=q, dia_vencimento_min=dia_vencimento_min, dia_vencimento_max=dia_vencimento_max, status=status)
     if response is not None:
         response.headers['X-Total-Count'] = str(total)
-    return crud_servico_contratado.get_servicos_contratados_by_empresa(db, empresa_id=empresa_id, qstr=q, skip=skip, limit=limit, dia_vencimento_min=dia_vencimento_min, dia_vencimento_max=dia_vencimento_max)
+    return crud_servico_contratado.get_servicos_contratados_by_empresa(db, empresa_id=empresa_id, qstr=q, skip=skip, limit=limit, dia_vencimento_min=dia_vencimento_min, dia_vencimento_max=dia_vencimento_max, status=status)
 
 
 @router.put("/empresa/{empresa_id}/{contrato_id}", response_model=sc_schema.ServicoContratadoResponse)

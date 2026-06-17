@@ -165,6 +165,9 @@ const Contracts: React.FC = () => {
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Status filter state
+  const [filterStatus, setFilterStatus] = useState<string>('');
+
   // Due date filter state
   const [diaVencimentoMin, setDiaVencimentoMin] = useState<number | ''>('');
   const [diaVencimentoMax, setDiaVencimentoMax] = useState<number | ''>('');
@@ -355,14 +358,15 @@ const Contracts: React.FC = () => {
         rowsPerPage,
         searchTerm || undefined,
         diaVencimentoMin || undefined,
-        diaVencimentoMax || undefined
+        diaVencimentoMax || undefined,
+        filterStatus || undefined
       );
       setContratos(data.contratos);
       setTotalRows(data.total);
     } catch (e) {
       setSnackbar({ open: true, message: 'Erro ao carregar contratos', severity: 'error' });
     } finally { setLoading(false); }
-  }, [activeCompany, page, rowsPerPage, searchTerm, diaVencimentoMin, diaVencimentoMax]);
+  }, [activeCompany, page, rowsPerPage, searchTerm, diaVencimentoMin, diaVencimentoMax, filterStatus]);
 
   useEffect(() => { if (activeCompany) load(); }, [activeCompany, load]);
 
@@ -390,7 +394,7 @@ const Contracts: React.FC = () => {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [searchTerm, diaVencimentoMin, diaVencimentoMax, activeCompany]);
+  }, [searchTerm, diaVencimentoMin, diaVencimentoMax, filterStatus, activeCompany]);
 
   // Ajustar paginação para carregar todos os contratos quando estiver no modo mapa
   useEffect(() => {
@@ -2252,6 +2256,21 @@ const Contracts: React.FC = () => {
                 inputProps={{ min: 1, max: 31 }}
                 sx={{ minWidth: { xs: 90, sm: 120 } }}
               />
+              <TextField
+                select
+                size="small"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                sx={{ minWidth: 150 }}
+                SelectProps={{ displayEmpty: true }}
+              >
+                <MenuItem value="">Todos os Status</MenuItem>
+                <MenuItem value="ATIVO">Ativo</MenuItem>
+                <MenuItem value="SUSPENSO">Suspenso</MenuItem>
+                <MenuItem value="CANCELADO">Cancelado</MenuItem>
+                <MenuItem value="PENDENTE_INSTALACAO">Pend. Instalação</MenuItem>
+                <MenuItem value="AGUARDANDO_ASSINATURA">Aguard. Assinatura</MenuItem>
+              </TextField>
             </Box>
           </Box>
         </Box>

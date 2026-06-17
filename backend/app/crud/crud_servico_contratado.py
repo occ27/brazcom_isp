@@ -233,7 +233,7 @@ def get_servico_contratado_with_relations(db: Session, contrato_id: int, empresa
     return contrato_dict
 
 
-def get_servicos_contratados_by_empresa(db: Session, empresa_id: int = None, qstr: str = None, skip: int = 0, limit: int = 100, dia_vencimento_min: int = None, dia_vencimento_max: int = None):
+def get_servicos_contratados_by_empresa(db: Session, empresa_id: int = None, qstr: str = None, skip: int = 0, limit: int = 100, dia_vencimento_min: int = None, dia_vencimento_max: int = None, status: str = None):
     MAX_LIMIT = 200
     limit = min(int(limit or 100), MAX_LIMIT)
     skip = max(int(skip or 0), 0)
@@ -293,6 +293,8 @@ def get_servicos_contratados_by_empresa(db: Session, empresa_id: int = None, qst
         q = q.filter(models.ServicoContratado.dia_vencimento >= dia_vencimento_min)
     if dia_vencimento_max is not None:
         q = q.filter(models.ServicoContratado.dia_vencimento <= dia_vencimento_max)
+    if status is not None:
+        q = q.filter(models.ServicoContratado.status == status)
         
     results = q.offset(skip).limit(limit).all()
     contratos = []
@@ -321,7 +323,7 @@ def get_servicos_contratados_by_empresa(db: Session, empresa_id: int = None, qst
     return contratos
 
 
-def count_servicos_contratados_by_empresa(db: Session, empresa_id: int = None, qstr: str = None, dia_vencimento_min: int = None, dia_vencimento_max: int = None) -> int:
+def count_servicos_contratados_by_empresa(db: Session, empresa_id: int = None, qstr: str = None, dia_vencimento_min: int = None, dia_vencimento_max: int = None, status: str = None) -> int:
     q = db.query(models.ServicoContratado).join(
         models.Cliente, models.ServicoContratado.cliente_id == models.Cliente.id
     ).join(
