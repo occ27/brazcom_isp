@@ -1305,19 +1305,44 @@ const Companies: React.FC = () => {
                       </p>
                     </div>
 
-                    <div>
-                      <TextField
-                        fullWidth
-                        label="Prazo de Bloqueio Automático (Dias)"
-                        type="number"
-                        variant="outlined"
-                        value={formData.dias_bloqueio_inadimplentes ?? 15}
-                        onChange={(e) => handleInputChange('dias_bloqueio_inadimplentes', e.target.value === '' ? undefined : parseInt(e.target.value))}
-                        size="small"
-                        InputProps={{ inputProps: { min: 0 } }}
-                        helperText="Prazo em dias após o vencimento da fatura para o sistema bloquear o cliente automaticamente."
-                      />
+                    <div className="sm:col-span-2">
+                      <label className={`flex items-start p-4 rounded-xl border-2 transition-all cursor-pointer select-none group ${
+                        (formData.dias_bloqueio_inadimplentes !== undefined && formData.dias_bloqueio_inadimplentes !== null && formData.dias_bloqueio_inadimplentes >= 0)
+                          ? 'border-indigo-500 bg-indigo-50/20'
+                          : 'border-gray-200 hover:border-gray-300 bg-white'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={formData.dias_bloqueio_inadimplentes !== undefined && formData.dias_bloqueio_inadimplentes !== null && formData.dias_bloqueio_inadimplentes >= 0}
+                          onChange={(e) => handleInputChange('dias_bloqueio_inadimplentes', e.target.checked ? 15 : -1)}
+                          className="w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 transition-all cursor-pointer mt-0.5"
+                        />
+                        <div className="ml-3">
+                          <span className="font-bold text-sm text-text flex items-center gap-1.5">
+                            🔒 Habilitar Bloqueio Automático
+                          </span>
+                          <span className="block text-xs text-textLight mt-1">
+                            Permite que o sistema suspenda o serviço do cliente automaticamente quando a fatura estiver vencida.
+                          </span>
+                        </div>
+                      </label>
                     </div>
+
+                    {(formData.dias_bloqueio_inadimplentes !== undefined && formData.dias_bloqueio_inadimplentes !== null && formData.dias_bloqueio_inadimplentes >= 0) && (
+                      <div>
+                        <TextField
+                          fullWidth
+                          label="Prazo de Bloqueio Automático (Dias)"
+                          type="number"
+                          variant="outlined"
+                          value={formData.dias_bloqueio_inadimplentes ?? 15}
+                          onChange={(e) => handleInputChange('dias_bloqueio_inadimplentes', e.target.value === '' ? undefined : parseInt(e.target.value))}
+                          size="small"
+                          InputProps={{ inputProps: { min: 0 } }}
+                          helperText="Dias após o vencimento para o sistema bloquear o cliente."
+                        />
+                      </div>
+                    )}
 
                     <div className="sm:col-span-2">
                       <TextField
