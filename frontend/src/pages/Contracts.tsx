@@ -263,21 +263,18 @@ const Contracts: React.FC = () => {
 
   // Handle select all contracts
   const handleSelectAll = useCallback((checked: boolean) => {
-    const eligibleContracts = contratos.filter(c => isContractEligibleForEmission(c));
-    setSelectedContracts(checked ? eligibleContracts.map(c => c.id) : []);
-  }, [contratos, isContractEligibleForEmission]);
+    setSelectedContracts(checked ? contratos.map(c => c.id) : []);
+  }, [contratos]);
 
-  // Check if all eligible contracts are selected
+  // Check if all contracts are selected
   const isAllSelected = useMemo(() => {
-    const eligibleContracts = contratos.filter(c => isContractEligibleForEmission(c));
-    return eligibleContracts.length > 0 && selectedContracts.length === eligibleContracts.length;
-  }, [contratos, selectedContracts, isContractEligibleForEmission]);
+    return contratos.length > 0 && selectedContracts.length === contratos.length;
+  }, [contratos, selectedContracts]);
 
-  // Check if some (but not all) eligible contracts are selected
+  // Check if some (but not all) contracts are selected
   const isIndeterminate = useMemo(() => {
-    const eligibleContracts = contratos.filter(c => isContractEligibleForEmission(c));
-    return selectedContracts.length > 0 && selectedContracts.length < eligibleContracts.length;
-  }, [contratos, selectedContracts, isContractEligibleForEmission]);
+    return selectedContracts.length > 0 && selectedContracts.length < contratos.length;
+  }, [contratos, selectedContracts]);
 
   // Calculate total value of selected contracts
   const selectedContractsTotalValue = useMemo(() => {
@@ -285,6 +282,51 @@ const Contracts: React.FC = () => {
       .filter(c => selectedContracts.includes(c.id))
       .reduce((total, contrato) => total + (contrato.valor_total || 0), 0);
   }, [contratos, selectedContracts]);
+
+  const [bulkUnlockLoading, setBulkUnlockLoading] = useState(false);
+
+  const handleBulkUnlock = useCallback(async () => {
+    const suspendedContracts = selectedContracts.filter(id => {
+      const c = contratos.find(c => c.id === id);
+      return c?.status === 'SUSPENSO';
+    });
+
+    if (suspendedContracts.length === 0) {
+      setSnackbar({ open: true, message: 'Nenhum contrato suspenso selecionado', severity: 'warning' });
+      return;
+    }
+
+    if (!window.confirm(`Tem certeza que deseja desbloquear ${suspendedContracts.length} cliente(s)?`)) return;
+
+    setBulkUnlockLoading(true);
+    try {
+      const results = await Promise.allSettled(suspendedContracts.map(id => contratoService.ativarServico(id)));
+      
+      const fulfilled = results.filter(r => r.status === 'fulfilled');
+      const rejected = results.filter(r => r.status === 'rejected');
+      
+      const successfulIds = suspendedContracts.filter((_, index) => results[index].status === 'fulfilled');
+      
+      if (rejected.length > 0) {
+        setSnackbar({ 
+          open: true, 
+          message: `${fulfilled.length} desbloqueado(s) com sucesso. ${rejected.length} falharam.`, 
+          severity: fulfilled.length > 0 ? 'warning' : 'error' 
+        });
+      } else {
+        setSnackbar({ open: true, message: `${fulfilled.length} serviço(s) desbloqueado(s) com sucesso!`, severity: 'success' });
+      }
+      
+      setSelectedContracts(prev => prev.filter(id => !successfulIds.includes(id)));
+      
+      // Use the ref since load might have dependencies we don't want to add to handleBulkUnlock
+      loadRef.current();
+    } catch (e) {
+      setSnackbar({ open: true, message: 'Erro inesperado ao desbloquear serviços', severity: 'error' });
+    } finally {
+      setBulkUnlockLoading(false);
+    }
+  }, [selectedContracts, contratos]);
 
   // Open bulk emit dialog
   const handleBulkEmitNFCom = useCallback(() => {
@@ -732,13 +774,11 @@ const Contracts: React.FC = () => {
                       {c.numero_contrato || `Contrato #${c.id}`}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                      {isContractEligibleForEmission(c) && (
-                        <Checkbox
-                          checked={selectedContracts.includes(c.id)}
-                          onChange={(e) => handleContractSelect(c.id, e.target.checked)}
-                          size="small"
-                        />
-                      )}
+                      <Checkbox
+                        checked={selectedContracts.includes(c.id)}
+                        onChange={(e) => handleContractSelect(c.id, e.target.checked)}
+                        size="small"
+                      />
                       {isExpired ? (
                         <Chip label="VENCIDO" color="error" size="small" variant="filled" />
                       ) : (
@@ -1066,7 +1106,6 @@ const Contracts: React.FC = () => {
                   <Checkbox
                     checked={selectedContracts.includes(c.id)}
                     onChange={(e) => handleContractSelect(c.id, e.target.checked)}
-                    disabled={!isContractEligibleForEmission(c)}
                     size="small"
                   />
                 </TableCell>
@@ -2172,6 +2211,18 @@ const Contracts: React.FC = () => {
               disabled={bulkEmitLoading}
             >
               {bulkEmitLoading ? 'Emitindo...' : `Emitir NFCom (${selectedContracts.length}) - R$ ${selectedContractsTotalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            </Button>
+          )}
+          {hasPermission('contract_manage') && selectedContracts.some(id => contratos.find(c => c.id === id)?.status === 'SUSPENSO') && (
+            <Button
+              variant="contained"
+              color="warning"
+              startIcon={bulkUnlockLoading ? <CircularProgress size={16} color="inherit" /> : <PlayIcon className="w-5 h-5" />}
+              sx={{ py: 1.5, width: { xs: '100%', sm: 'auto' } }}
+              onClick={handleBulkUnlock}
+              disabled={bulkUnlockLoading}
+            >
+              {bulkUnlockLoading ? 'Desbloqueando...' : `Desbloquear (${selectedContracts.filter(id => contratos.find(c => c.id === id)?.status === 'SUSPENSO').length})`}
             </Button>
           )}
         </Box>
