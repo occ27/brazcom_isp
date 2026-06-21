@@ -1479,14 +1479,27 @@ const Contracts: React.FC = () => {
   };
 
   useEffect(() => {
-    if (location.state && location.state.preselectClientId && activeCompany) {
-      const { preselectClientId, preselectClientName, preselectClientCpfCnpj, preselectClientAddresses } = location.state;
-      handleOpenForm(undefined, false, {
-        id: preselectClientId,
-        nome_razao_social: preselectClientName,
-        cpf_cnpj: preselectClientCpfCnpj || '',
-        enderecos: preselectClientAddresses || []
-      });
+    if (location.state && activeCompany) {
+      const { preselectClientId, preselectClientName, preselectClientCpfCnpj, preselectClientAddresses, editContractId } = location.state;
+      
+      if (editContractId) {
+        const loadAndEdit = async () => {
+          try {
+            const contractToEdit = await contratoService.getContratoById(editContractId);
+            handleOpenForm(contractToEdit);
+          } catch (e) {
+            console.error('Erro ao carregar contrato para edicao', e);
+          }
+        };
+        loadAndEdit();
+      } else if (preselectClientId) {
+        handleOpenForm(undefined, false, {
+          id: preselectClientId,
+          nome_razao_social: preselectClientName,
+          cpf_cnpj: preselectClientCpfCnpj || '',
+          enderecos: preselectClientAddresses || []
+        });
+      }
       // Clear location state to avoid re-opening the form on page refresh/navigation back
       navigate(location.pathname, { replace: true, state: {} });
     }

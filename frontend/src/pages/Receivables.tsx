@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Box, Paper, Typography, Button, IconButton, TextField, 
   CircularProgress, Chip, Snackbar, Alert, useMediaQuery, 
@@ -31,6 +31,7 @@ import { maskCurrency, unmaskCurrency } from '../utils/currencyUtils';
 
 const Receivables: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { activeCompany } = useCompany();
   const { user } = useAuth();
   const theme = useTheme();
@@ -249,6 +250,18 @@ const Receivables: React.FC = () => {
   useEffect(() => {
     setPage(0);
   }, [tabValue]);
+
+  useEffect(() => {
+    if (location.state && activeCompany) {
+      const { preselectClientSearch } = location.state as { preselectClientSearch?: string };
+      if (preselectClientSearch) {
+        setSearchTerm(preselectClientSearch);
+        setPage(0);
+      }
+      // Clear location state to avoid sticky filtering on page refreshes
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, activeCompany, navigate, location.pathname]);
 
   const paginatedReceivables = receivables;
 

@@ -63,4 +63,5 @@ ecommerce/
 *.tgz
 *.tar.gz
 
-credenciais-apl267334 testes brazcom_isp.txtbackup/rclone.conf
+credenciais-apl267334 testes brazcom_isp.txt
+backup/rclone.conf

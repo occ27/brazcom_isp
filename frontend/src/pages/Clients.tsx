@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Paper, Typography, Button, IconButton, TextField, CircularProgress, Chip, Snackbar, Alert, useMediaQuery, useTheme, MenuItem, FormControl, InputLabel, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination, Card, CardContent, Divider, Pagination, SelectChangeEvent, InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions, Menu, ListItemIcon, ListItemText } from '@mui/material';
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon, DocumentTextIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline';
+import { Box, Paper, Typography, Button, IconButton, TextField, CircularProgress, Chip, Snackbar, Alert, useMediaQuery, useTheme, MenuItem, FormControl, InputLabel, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination, Card, CardContent, Divider, Pagination, SelectChangeEvent, InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions, Menu, ListItemIcon, ListItemText, Grid, Tooltip } from '@mui/material';
+import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon, DocumentTextIcon, EllipsisVerticalIcon, UserIcon, MapPinIcon, WrenchScrewdriverIcon, BanknotesIcon, ChatBubbleLeftRightIcon, SignalIcon, CalendarDaysIcon, EnvelopeIcon, PhoneIcon, DocumentArrowDownIcon, ArrowTopRightOnSquareIcon, CheckCircleIcon, ExclamationCircleIcon, BellIcon, EyeIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import api from '../services/authService';
 import { formatCurrency } from '../utils/currencyUtils';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,8 +9,10 @@ import { useCompany } from '../contexts/CompanyContext';
 import clientService, { ClientCreate } from '../services/clientService';
 import { companyService } from '../services/companyService';
 import { stringifyError } from '../utils/error';
-import { DocumentArrowDownIcon } from '@heroicons/react/24/outline';
 import reportService from '../services/reportService';
+import ticketService from '../services/ticketService';
+import receivableService, { Receivable } from '../services/receivableService';
+import { caixaService, CaixaSessao, FormaPagamento } from '../services/caixaService';
 
 const Clients: React.FC = () => {
   const { user } = useAuth();
@@ -46,6 +48,33 @@ const Clients: React.FC = () => {
   const [statementFilterStatus, setStatementFilterStatus] = useState<string>('all');
   const [statementLoading, setStatementLoading] = useState(false);
   const [printingStatement, setPrintingStatement] = useState(false);
+  const [statementTab, setStatementTab] = useState<string>('overview');
+  const [clientTickets, setClientTickets] = useState<any[]>([]);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+
+  // Caixa / Baixa states
+  const [sessao, setSessao] = useState<CaixaSessao | null>(null);
+  const [formas, setFormas] = useState<FormaPagamento[]>([]);
+  const [formaId, setFormaId] = useState<number | ''>('');
+  const [multaStr, setMultaStr] = useState('0,00');
+  const [jurosStr, setJurosStr] = useState('0,00');
+  const [descontoStr, setDescontoStr] = useState('0,00');
+  const [openSettle, setOpenSettle] = useState(false);
+  const [selectedReceivable, setSelectedReceivable] = useState<Receivable | null>(null);
+  const [unblockResultDialogOpen, setUnblockResultDialogOpen] = useState(false);
+  const [unblockResult, setUnblockResult] = useState<{
+    attempted: boolean;
+    success: boolean;
+    message: string;
+    cliente_nome: string;
+  } | null>(null);
+
+  // Supervisor authorization states
+  const [openAuthSettle, setOpenAuthSettle] = useState(false);
+  const [authSettleEmail, setAuthSettleEmail] = useState('');
+  const [authSettlePassword, setAuthSettlePassword] = useState('');
+  const [authSettleError, setAuthSettleError] = useState('');
+  const [authSettleLoading, setAuthSettleLoading] = useState(false);
 
   // Menu state
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -256,7 +285,12 @@ const Clients: React.FC = () => {
     setStatementLoading(true);
     setStatementFilterContract('all');
     setStatementFilterStatus('all');
+    setStatementTab('overview');
     try {
+      // Fetch full client details (to get addresses and other fields)
+      const fullClient = await clientService.getClient(client.id);
+      setSelectedClientForStatement(fullClient);
+
       // Load Receivables
       const recRes = await api.get(`/receivables/cliente/${client.id}?empresa_id=${activeCompany.id}`);
       setClientReceivables(recRes.data || []);
@@ -264,11 +298,202 @@ const Clients: React.FC = () => {
       // Load Contracts
       const conRes = await api.get(`/servicos-contratados/cliente/${client.id}?empresa_id=${activeCompany.id}`);
       setClientContracts(conRes.data || []);
+
+      // Load Tickets
+      setTicketsLoading(true);
+      try {
+        const ticketRes = await ticketService.listTickets(0, 100, undefined, undefined, undefined, client.id);
+        setClientTickets(ticketRes.data || []);
+      } catch (err) {
+        console.error('Erro ao carregar tickets do cliente', err);
+        setClientTickets([]);
+      } finally {
+        setTicketsLoading(false);
+      }
     } catch (e) {
       console.error('Erro ao carregar dados do extrato', e);
-      setSnackbar({ open: true, message: 'Erro ao carregar extrato financeiro', severity: 'error' });
+      setSnackbar({ open: true, message: 'Erro ao carregar dados completos do cliente', severity: 'error' });
     } finally {
       setStatementLoading(false);
+    }
+  };
+
+  const parseCurrencyInput = (val: string): number => {
+    if (!val) return 0;
+    const clean = val.replace(/\./g, '').replace(',', '.');
+    const floatVal = parseFloat(clean);
+    return isNaN(floatVal) ? 0 : floatVal;
+  };
+
+  const formatMoneyInput = (val: string): string => {
+    let digits = val.replace(/\D/g, '');
+    if (!digits) return '';
+    const floatVal = parseInt(digits, 10) / 100;
+    return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(floatVal);
+  };
+
+  const handleMoneyChange = (val: string, setter: (v: string) => void) => {
+    setter(formatMoneyInput(val));
+  };
+  
+  const calculateTotalSettle = () => {
+    if (!selectedReceivable) return 0;
+    const base = selectedReceivable.amount;
+    const multa = parseCurrencyInput(multaStr);
+    const juros = parseCurrencyInput(jurosStr);
+    const desconto = parseCurrencyInput(descontoStr);
+    return base + multa + juros - desconto;
+  };
+
+  const handleOpenSettleV2 = async (r: Receivable) => {
+    setSelectedReceivable(r);
+    setOpenSettle(true);
+    let defaultMulta = 0;
+    let defaultJuros = 0;
+
+    if (r.due_date) {
+      const dueDateStr = r.due_date.includes(' ') ? r.due_date.replace(' ', 'T') : (r.due_date.includes('T') ? r.due_date : r.due_date + 'T00:00:00');
+      const dueDate = new Date(dueDateStr);
+      const today = new Date();
+      dueDate.setHours(0,0,0,0);
+      today.setHours(0,0,0,0);
+
+      if (today > dueDate) {
+        const diffTime = Math.abs(today.getTime() - dueDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        const finePercent = r.fine_percent != null ? r.fine_percent : 2.0; 
+        const interestPercent = r.interest_percent != null ? r.interest_percent : 1.0;
+        
+        defaultMulta = r.amount * (finePercent / 100);
+        defaultJuros = r.amount * ((interestPercent / 30) / 100) * diffDays;
+      }
+    }
+
+    setMultaStr(new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(defaultMulta));
+    setJurosStr(new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(defaultJuros));
+    setDescontoStr('0,00');
+    setFormaId('');
+    
+    try {
+      if (activeCompany) {
+        const sessaoData = await caixaService.getSessaoAtual(activeCompany.id);
+        setSessao(sessaoData);
+        const formasData = await caixaService.getFormas(activeCompany.id);
+        setFormas(formasData.filter(f => f.is_active));
+      }
+    } catch (e: any) {
+      if (e.response?.status === 404) {
+        setSessao(null);
+      }
+    }
+  };
+
+  const processSettleRequest = async () => {
+    if (!selectedReceivable || !sessao || !activeCompany) return;
+    const total = calculateTotalSettle();
+    
+    try {
+      const response = await receivableService.settleReceivable(selectedReceivable.id, {
+        paid_amount: total,
+        multa: parseCurrencyInput(multaStr),
+        juros: parseCurrencyInput(jurosStr),
+        desconto: parseCurrencyInput(descontoStr),
+        splits: [{
+          forma_pagamento_id: Number(formaId),
+          amount: total
+        }]
+      });
+
+      setOpenSettle(false);
+
+      // Refresh client statement receivables
+      if (selectedClientForStatement) {
+        setStatementLoading(true);
+        try {
+          const recRes = await api.get(`/receivables/cliente/${selectedClientForStatement.id}?empresa_id=${activeCompany.id}`);
+          setClientReceivables(recRes.data || []);
+        } catch (e) {
+          console.error('Erro ao recarregar extrato após baixa', e);
+        } finally {
+          setStatementLoading(false);
+        }
+      }
+
+      if (response.unblock_attempted) {
+        setUnblockResult({
+          attempted: true,
+          success: response.unblock_success || false,
+          message: response.unblock_message || '',
+          cliente_nome: selectedReceivable.cliente_nome || selectedClientForStatement?.nome_razao_social || 'Cliente'
+        });
+        setUnblockResultDialogOpen(true);
+      } else {
+        setSnackbar({ open: true, message: 'Cobrança recebida com sucesso.', severity: 'success' });
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Erro ao baixar cobrança");
+    }
+  };
+
+  const handleConfirmSettleV2 = async () => {
+    if (!selectedReceivable || !sessao) return;
+    if (formaId === '') {
+      alert("Selecione a forma de pagamento");
+      return;
+    }
+    
+    const total = calculateTotalSettle();
+    if (total <= 0) {
+      alert("O total não pode ser menor ou igual a zero.");
+      return;
+    }
+
+    const desconto = parseCurrencyInput(descontoStr);
+    if (desconto > 0) {
+      if (!user?.is_superuser && !user?.is_company_admin) {
+        setAuthSettleEmail('');
+        setAuthSettlePassword('');
+        setAuthSettleError('');
+        setOpenAuthSettle(true);
+        return;
+      }
+    }
+    
+    await processSettleRequest();
+  };
+
+  const handleAuthSettleSubmit = async () => {
+    setAuthSettleError('');
+    setAuthSettleLoading(true);
+    try {
+      const formData = new URLSearchParams();
+      formData.append('username', authSettleEmail);
+      formData.append('password', authSettlePassword);
+      
+      const baseUrl = api.defaults.baseURL || 'http://localhost:8000';
+      const res = await fetch(`${baseUrl}/auth/login`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) throw new Error('Credenciais inválidas');
+      const data = await res.json();
+      
+      const userRes = await fetch(`${baseUrl}/users/me`, {
+        headers: { 'Authorization': `Bearer ${data.access_token}` }
+      });
+      const userData = await userRes.json();
+      
+      if (!userData.is_superuser && !userData.is_company_admin) {
+        throw new Error('Usuário não tem permissão para autorizar desconto.');
+      }
+      
+      setOpenAuthSettle(false);
+      await processSettleRequest();
+    } catch (err: any) {
+      setAuthSettleError(err.message || 'Erro ao autorizar');
+    } finally {
+      setAuthSettleLoading(false);
     }
   };
 
@@ -1010,8 +1235,8 @@ const Clients: React.FC = () => {
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
         <MenuItem onClick={() => { if (selectedClientForMenu) handleOpenStatement(selectedClientForMenu); handleMenuClose(); }}>
-          <ListItemIcon><DocumentTextIcon className="w-4 h-4 text-indigo-500" /></ListItemIcon>
-          <ListItemText primary="Extrato Financeiro" />
+          <ListItemIcon><UserIcon className="w-4 h-4 text-indigo-500" /></ListItemIcon>
+          <ListItemText primary="Painel do Cliente" />
         </MenuItem>
         <MenuItem onClick={() => { if (selectedClientForMenu) handleOpen(selectedClientForMenu); handleMenuClose(); }}>
           <ListItemIcon><PencilIcon className="w-4 h-4 text-blue-500" /></ListItemIcon>
@@ -1024,143 +1249,1190 @@ const Clients: React.FC = () => {
         </MenuItem>
       </Menu>
 
-      {/* Modal Extrato Financeiro */}
-      <Dialog open={statementOpen} onClose={() => setStatementOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 'bold' }}>
-          Extrato Financeiro: {selectedClientForStatement?.nome_razao_social}
-          <IconButton onClick={() => setStatementOpen(false)}><XMarkIcon className="w-6 h-6" /></IconButton>
-        </DialogTitle>
-        <DialogContent dividers>
-          <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-            <FormControl size="small" sx={{ minWidth: 250 }}>
-              <InputLabel>Filtrar por Contrato</InputLabel>
-              <Select
-                value={statementFilterContract}
-                label="Filtrar por Contrato"
-                onChange={(e) => setStatementFilterContract(e.target.value)}
-              >
-                <MenuItem value="all">Todos os Contratos / Lançamentos</MenuItem>
-                {clientContracts.map(c => (
-                  <MenuItem key={c.id} value={c.id.toString()}>
-                    Contrato #{c.id} - {c.servico_descricao || 'Serviço'}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statementFilterStatus}
-                label="Status"
-                onChange={(e) => setStatementFilterStatus(e.target.value)}
-              >
-                <MenuItem value="all">Todos os Status</MenuItem>
-                <MenuItem value="PENDING">PENDENTE</MenuItem>
-                <MenuItem value="PAID">PAGO</MenuItem>
-                <MenuItem value="CANCELLED">CANCELADO</MenuItem>
-              </Select>
-            </FormControl>
-            
-            <Paper variant="outlined" sx={{ p: 1, px: 2, display: 'flex', gap: 3, bgcolor: 'grey.50' }}>
-              <Box>
-                <Typography variant="caption" color="text.secondary" display="block">Total Recebido</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'success.main' }}>{formatCurrency(statementTotals.paid)}</Typography>
+      {/* Modal Painel do Cliente (Ficha e Extrato) */}
+      <Dialog 
+        open={statementOpen} 
+        onClose={() => setStatementOpen(false)} 
+        maxWidth="lg" 
+        fullWidth
+        scroll="paper"
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            minHeight: '80vh',
+            maxHeight: '90vh',
+            bgcolor: 'grey.50'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          p: 0,
+          borderBottom: '1px solid', 
+          borderColor: 'divider',
+          bgcolor: 'white'
+        }}>
+          {/* Header */}
+          <Box sx={{ 
+            p: 3, 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
+            color: 'white',
+            gap: 2,
+            flexWrap: 'wrap'
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexGrow: 1 }}>
+              <Box sx={{ 
+                width: 48, 
+                height: 48, 
+                borderRadius: 2, 
+                bgcolor: 'rgba(255, 255, 255, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <UserIcon className="w-7 h-7 text-white" />
               </Box>
-              <Divider orientation="vertical" flexItem />
               <Box>
-                <Typography variant="caption" color="text.secondary" display="block">Total Pendente</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'warning.main' }}>{formatCurrency(statementTotals.pending)}</Typography>
-              </Box>
-            </Paper>
-          </Box>
-
-          {statementLoading ? (
-            <Box sx={{ py: 10, textAlign: 'center' }}><CircularProgress /></Box>
-          ) : (
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Vencimento</TableCell>
-                    <TableCell>Contrato</TableCell>
-                    <TableCell>Método</TableCell>
-                    <TableCell align="right">Valor</TableCell>
-                    <TableCell align="right">Vlr Pago</TableCell>
-                    <TableCell>Status</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredReceivables.length === 0 ? (
-                    <TableRow><TableCell colSpan={5} align="center" sx={{ py: 3 }}>Nenhuma cobrança encontrada.</TableCell></TableRow>
-                  ) : filteredReceivables.map(r => (
-                    <TableRow key={r.id} hover>
-                      <TableCell>{new Date(r.due_date).toLocaleDateString('pt-BR')}</TableCell>
-                      <TableCell>{r.servico_contratado_id ? `#${r.servico_contratado_id}` : 'Avulso'}</TableCell>
-                      <TableCell>{r.tipo === 'MERCADO_PAGO' ? 'Mercado Pago' : r.bank}</TableCell>
-                      <TableCell align="right">{formatCurrency(r.amount)}</TableCell>
-                      <TableCell align="right">
-                        {r.paid_amount !== null && r.paid_amount !== undefined ? formatCurrency(r.paid_amount) : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={r.status} 
-                          size="small" 
-                          color={r.status === 'PAID' ? 'success' : r.status === 'CANCELLED' ? 'default' : 'warning'} 
-                          variant="outlined"
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {filteredReceivables.length > 0 && (
-                    <TableRow sx={{ bgcolor: 'grey.100', '& td': { fontWeight: 'bold' } }}>
-                      <TableCell colSpan={3} align="right">TOTAIS:</TableCell>
-                      <TableCell align="right">
-                        {formatCurrency(filteredReceivables.reduce((acc, r) => acc + r.amount, 0))}
-                      </TableCell>
-                      <TableCell align="right">
-                        {formatCurrency(filteredReceivables.reduce((acc, r) => acc + (r.paid_amount || 0), 0))}
-                      </TableCell>
-                      <TableCell />
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-
-          {!statementLoading && filteredReceivables.length > 0 && (
-            <Box sx={{ mt: 3, p: 2, bgcolor: 'primary.50', borderRadius: 2, border: '1px solid', borderColor: 'primary.100' }}>
-              <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.700' }}>
-                Resumo do Filtro Atual
-              </Typography>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Quantidade</Typography>
-                  <Typography variant="body1" sx={{ fontWeight: 'bold' }}>{filteredReceivables.length} registro(s)</Typography>
-                </Box>
-                <Box alignSelf="flex-end" sx={{ textAlign: 'right' }}>
-                  <Typography variant="caption" color="text.secondary">Soma dos Valores</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.800' }}>
-                    {formatCurrency(filteredReceivables.reduce((acc, r) => acc + r.amount, 0))}
-                  </Typography>
-                </Box>
+                <Typography variant="h5" sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                  {selectedClientForStatement?.nome_razao_social}
+                  <Chip 
+                    label={selectedClientForStatement?.is_active ? 'ATIVO' : 'INATIVO'} 
+                    color={selectedClientForStatement?.is_active ? 'success' : 'default'} 
+                    size="small" 
+                    sx={{ fontWeight: 'bold', bgcolor: selectedClientForStatement?.is_active ? 'success.dark' : 'grey.600', color: 'white' }} 
+                  />
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.85, display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                  <span>{selectedClientForStatement?.tipo_pessoa === 'F' ? 'CPF: ' : 'CNPJ: '}</span>
+                  <span>{clientService.formatCpfCnpj(selectedClientForStatement?.cpf_cnpj)}</span>
+                  {selectedClientForStatement?.email && <span> • {selectedClientForStatement?.email}</span>}
+                  {selectedClientForStatement?.telefone && <span> • {selectedClientForStatement?.telefone}</span>}
+                </Typography>
               </Box>
             </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Button
+                size="small"
+                variant="contained"
+                onClick={() => { setStatementOpen(false); handleOpen(selectedClientForStatement); }}
+                startIcon={<PencilIcon className="w-4 h-4" />}
+                sx={{ 
+                  textTransform: 'none', 
+                  bgcolor: 'rgba(255, 255, 255, 0.2)', 
+                  color: 'white',
+                  fontWeight: 'bold',
+                  borderRadius: 2,
+                  boxShadow: 'none',
+                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.3)', boxShadow: 'none' }
+                }}
+              >
+                Editar Cadastro
+              </Button>
+              <IconButton onClick={() => setStatementOpen(false)} sx={{ color: 'white' }}>
+                <XMarkIcon className="w-7 h-7" />
+              </IconButton>
+            </Box>
+          </Box>
+
+          {/* Navigation Tabs */}
+          <Box sx={{ 
+            bgcolor: 'white', 
+            borderBottom: '1px solid', 
+            borderColor: 'divider',
+            display: 'flex', 
+            overflowX: 'auto',
+            px: 2
+          }}>
+            {[
+              { id: 'overview', label: 'Visão Geral', icon: <UserIcon className="w-5 h-5" /> },
+              { id: 'details', label: 'Dados Cadastrais', icon: <MapPinIcon className="w-5 h-5" /> },
+              { id: 'contracts', label: 'Contratos e Conectividade', icon: <SignalIcon className="w-5 h-5" /> },
+              { id: 'financial', label: 'Extrato Financeiro', icon: <BanknotesIcon className="w-5 h-5" /> },
+              { id: 'tickets', label: 'Atendimentos (Tickets)', icon: <ChatBubbleLeftRightIcon className="w-5 h-5" /> }
+            ].map(tab => (
+              <Button
+                key={tab.id}
+                onClick={() => setStatementTab(tab.id)}
+                startIcon={tab.icon}
+                sx={{
+                  py: 2,
+                  px: 3,
+                  borderRadius: 0,
+                  color: statementTab === tab.id ? 'primary.main' : 'text.secondary',
+                  borderBottom: '3px solid',
+                  borderColor: statementTab === tab.id ? 'primary.main' : 'transparent',
+                  fontWeight: statementTab === tab.id ? 'bold' : 'normal',
+                  '&:hover': {
+                    bgcolor: 'grey.50'
+                  },
+                  textTransform: 'none',
+                  fontSize: '0.95rem',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {tab.label}
+              </Button>
+            ))}
+          </Box>
+        </DialogTitle>
+
+        <DialogContent sx={{ p: 3, bgcolor: 'grey.50' }}>
+          {statementLoading ? (
+            <Box sx={{ py: 15, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <CircularProgress size={50} />
+              <Typography variant="body2" color="text.secondary">Carregando informações completas do cliente...</Typography>
+            </Box>
+          ) : (
+            <>
+              {/* TAB: OVERVIEW */}
+              {statementTab === 'overview' && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  {/* KPI Grid */}
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' }, gap: 2.5 }}>
+                    {/* Financeiro Recebido */}
+                    <Card 
+                      variant="outlined" 
+                      onClick={() => setStatementTab('financial')}
+                      sx={{ 
+                        borderRadius: 3, 
+                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                          boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+                          borderColor: 'success.300',
+                          bgcolor: 'success.50/5'
+                        }
+                      }}
+                    >
+                      <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2.5 }}>
+                        <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'success.50', color: 'success.main' }}>
+                          <BanknotesIcon className="w-7 h-7" />
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>Total Recebido</Typography>
+                          <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'success.dark', mt: 0.5 }}>
+                            {formatCurrency(clientReceivables.reduce((acc, r) => r.status === 'PAID' ? acc + (r.paid_amount ?? r.amount) : acc, 0))}
+                          </Typography>
+                        </Box>
+                      </CardContent>
+                    </Card>
+
+                    {/* Financeiro Pendente */}
+                    <Card 
+                      variant="outlined" 
+                      onClick={() => setStatementTab('financial')}
+                      sx={{ 
+                        borderRadius: 3, 
+                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                          boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+                          borderColor: 'warning.300',
+                          bgcolor: 'warning.50/5'
+                        }
+                      }}
+                    >
+                      <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2.5 }}>
+                        <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'warning.50', color: 'warning.main' }}>
+                          <BanknotesIcon className="w-7 h-7" />
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>Total Pendente</Typography>
+                          <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'warning.dark', mt: 0.5 }}>
+                            {formatCurrency(clientReceivables.reduce((acc, r) => (r.status !== 'PAID' && r.status !== 'CANCELLED' && new Date(r.due_date) >= new Date()) ? acc + r.amount : acc, 0))}
+                          </Typography>
+                        </Box>
+                      </CardContent>
+                    </Card>
+
+                    {/* Financeiro Atrasado */}
+                    <Card 
+                      variant="outlined" 
+                      onClick={() => setStatementTab('financial')}
+                      sx={{ 
+                        borderRadius: 3, 
+                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                          boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+                          borderColor: 'error.300',
+                          bgcolor: 'error.50/5'
+                        }
+                      }}
+                    >
+                      <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2.5 }}>
+                        <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'error.50', color: 'error.main' }}>
+                          <BanknotesIcon className="w-7 h-7" />
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>Total Atrasado</Typography>
+                          <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'error.dark', mt: 0.5 }}>
+                            {formatCurrency(clientReceivables.reduce((acc, r) => (r.status !== 'PAID' && r.status !== 'CANCELLED' && new Date(r.due_date) < new Date()) ? acc + r.amount : acc, 0))}
+                          </Typography>
+                        </Box>
+                      </CardContent>
+                    </Card>
+
+                    {/* Contratos Ativos */}
+                    <Card 
+                      variant="outlined" 
+                      onClick={() => setStatementTab('contracts')}
+                      sx={{ 
+                        borderRadius: 3, 
+                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                          boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+                          borderColor: 'primary.300',
+                          bgcolor: 'primary.50/5'
+                        }
+                      }}
+                    >
+                      <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2.5 }}>
+                        <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'primary.50', color: 'primary.main' }}>
+                          <SignalIcon className="w-7 h-7" />
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>Contratos Ativos</Typography>
+                          <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.dark', mt: 0.5 }}>
+                            {clientContracts.filter(c => c.status === 'ATIVO').length} / {clientContracts.length}
+                          </Typography>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Box>
+
+                  {/* Overview layout */}
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.5fr 1fr' }, gap: 3 }}>
+                    {/* Active Contract Tech Summary */}
+                    <Paper variant="outlined" sx={{ p: 3, borderRadius: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <SignalIcon className="w-5 h-5 text-blue-500" />
+                        Serviço e Conectividade Atual
+                      </Typography>
+                      <Divider />
+                      {clientContracts.length === 0 ? (
+                        <Box sx={{ py: 4, textAlign: 'center' }}>
+                          <Typography variant="body2" color="text.secondary">Nenhum contrato assinado ou instalado.</Typography>
+                        </Box>
+                      ) : (
+                        clientContracts.map(c => (
+                          <Box key={c.id} sx={{ p: 2, mb: 1, bgcolor: 'grey.50', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'primary.800' }}>
+                                Contrato #{c.id} - {c.servico_descricao || 'Internet'}
+                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Tooltip title="Editar Contrato">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => {
+                                      setStatementOpen(false);
+                                      navigate('/contracts', { state: { editContractId: c.id } });
+                                    }}
+                                    sx={{ color: 'primary.main', p: 0.5 }}
+                                  >
+                                    <PencilIcon className="w-4 h-4" />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Abrir Chamado para este Contrato">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => {
+                                      setStatementOpen(false);
+                                      navigate('/tickets', { 
+                                        state: { 
+                                          preselectClientId: selectedClientForStatement.id,
+                                          preselectClientName: selectedClientForStatement.nome_razao_social,
+                                          preselectContractId: c.id,
+                                          openCreate: true
+                                        } 
+                                      });
+                                    }}
+                                    sx={{ color: 'warning.main', p: 0.5 }}
+                                  >
+                                    <ChatBubbleLeftRightIcon className="w-4 h-4" />
+                                  </IconButton>
+                                </Tooltip>
+                                <Chip 
+                                  label={c.status} 
+                                  size="small" 
+                                  color={c.status === 'ATIVO' ? 'success' : 'warning'} 
+                                  sx={{ fontWeight: 'bold' }}
+                                />
+                              </Box>
+                            </Box>
+                            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary" display="block">Tipo de Conexão</Typography>
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>{c.tipo_conexao || 'FIBRA'}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary" display="block">Usuário PPPoE</Typography>
+                                <Typography variant="body2" sx={{ fontWeight: 500, fontFamily: 'monospace' }}>{c.pppoe_username || '-'}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary" display="block">Serial ONU</Typography>
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>{c.onu_serial || '-'}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary" display="block">Sinal Recebido (Rx)</Typography>
+                                <Typography variant="body2" sx={{ fontWeight: 500, color: c.onu_sinal ? 'success.main' : 'text.secondary' }}>
+                                  {c.onu_sinal ? `${c.onu_sinal} dBm` : '-'}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </Box>
+                        ))
+                      )}
+                    </Paper>
+
+                    {/* Support & Notification summaries */}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {/* Ticket quick status */}
+                      <Paper variant="outlined" sx={{ p: 3, borderRadius: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="h6" sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <ChatBubbleLeftRightIcon className="w-5 h-5 text-blue-500" />
+                            Últimos Chamados
+                          </Typography>
+                          <Button
+                            size="small"
+                            variant="text"
+                            startIcon={<PlusIcon className="w-4 h-4" />}
+                            onClick={() => {
+                              setStatementOpen(false);
+                              navigate('/tickets', { 
+                                state: { 
+                                  preselectClientId: selectedClientForStatement.id,
+                                  preselectClientName: selectedClientForStatement.nome_razao_social,
+                                  openCreate: true
+                                } 
+                              });
+                            }}
+                            sx={{ textTransform: 'none', fontWeight: 'bold' }}
+                          >
+                            Novo
+                          </Button>
+                        </Box>
+                        <Divider />
+                        {ticketsLoading ? (
+                          <CircularProgress size={24} sx={{ mx: 'auto', my: 2 }} />
+                        ) : clientTickets.length === 0 ? (
+                          <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>Nenhum chamado de suporte aberto.</Typography>
+                        ) : (
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                            {clientTickets.slice(0, 3).map(ticket => (
+                              <Box key={ticket.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flexGrow: 1 }}>
+                                  <Tooltip title="Ver no Suporte">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => {
+                                        setStatementOpen(false);
+                                        navigate('/tickets', { 
+                                          state: { 
+                                            preselectClientId: selectedClientForStatement.id,
+                                            preselectClientName: selectedClientForStatement.nome_razao_social 
+                                          } 
+                                        });
+                                      }}
+                                      sx={{ color: 'primary.main', p: 0.5, flexShrink: 0 }}
+                                    >
+                                      <EyeIcon className="w-4 h-4" />
+                                    </IconButton>
+                                  </Tooltip>
+                                  <Box sx={{ minWidth: 0 }}>
+                                    <Typography variant="body2" sx={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: { xs: 120, md: 150 } }}>
+                                      #{ticket.id} - {ticket.titulo}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {new Date(ticket.created_at).toLocaleDateString('pt-BR')} • {ticket.categoria}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                                <Chip 
+                                  label={ticket.status} 
+                                  size="small" 
+                                  color={ticket.status === 'ABERTO' ? 'info' : ticket.status === 'EM_ANDAMENTO' ? 'warning' : 'success'} 
+                                  variant="outlined"
+                                  sx={{ fontSize: '0.7rem', height: 20 }}
+                                />
+                              </Box>
+                            ))}
+                          </Box>
+                        )}
+                      </Paper>
+
+                      {/* Notification Auth card */}
+                      <Paper variant="outlined" sx={{ p: 3, borderRadius: 3, bgcolor: selectedClientForStatement?.recebe_notificacoes ? 'success.50/10' : 'grey.100', border: '1px solid', borderColor: selectedClientForStatement?.recebe_notificacoes ? 'success.100' : 'divider' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                          <Box sx={{ color: selectedClientForStatement?.recebe_notificacoes ? 'success.main' : 'text.secondary', mt: 0.5 }}>
+                            <BellIcon className="w-6 h-6" />
+                          </Box>
+                          <Box>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>Notificações por Email e WhatsApp</Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontSize: '0.85rem' }}>
+                              {selectedClientForStatement?.recebe_notificacoes 
+                                ? 'Autorizado. O cliente recebe avisos de cobrança, faturas e avisos de manutenção automática.' 
+                                : 'Bloqueado. O cliente optou por não receber avisos automáticos.'
+                              }
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Paper>
+                    </Box>
+                  </Box>
+                </Box>
+              )}
+
+              {/* TAB: DETAILS */}
+              {statementTab === 'details' && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Dados Pessoais / Cadastrais</Typography>
+                      <Button
+                        size="small"
+                        variant="text"
+                        startIcon={<PencilIcon className="w-4 h-4" />}
+                        onClick={() => { setStatementOpen(false); handleOpen(selectedClientForStatement); }}
+                        sx={{ textTransform: 'none', fontWeight: 'bold' }}
+                      >
+                        Editar Cadastro
+                      </Button>
+                    </Box>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 3 }}>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Nome / Razão Social</Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>{selectedClientForStatement?.nome_razao_social}</Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">CPF / CNPJ</Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>{clientService.formatCpfCnpj(selectedClientForStatement?.cpf_cnpj)}</Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Tipo Pessoa</Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>{selectedClientForStatement?.tipo_pessoa === 'F' ? 'Física' : 'Jurídica'}</Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">E-mail</Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>{selectedClientForStatement?.email || '-'}</Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Telefone / WhatsApp</Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>{selectedClientForStatement?.telefone || '-'}</Typography>
+                      </Box>
+                      {selectedClientForStatement?.tipo_pessoa === 'F' && (
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">Data de Nascimento</Typography>
+                          <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                            {selectedClientForStatement?.data_nascimento ? new Date(selectedClientForStatement.data_nascimento + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}
+                          </Typography>
+                        </Box>
+                      )}
+                      {selectedClientForStatement?.tipo_pessoa === 'J' && (
+                        <>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">Indicador IE</Typography>
+                            <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                              {selectedClientForStatement?.ind_ie_dest === '1' ? 'Contribuinte ICMS' : selectedClientForStatement?.ind_ie_dest === '2' ? 'Contribuinte Isento' : 'Não Contribuinte'}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">Inscrição Estadual</Typography>
+                            <Typography variant="body1" sx={{ fontWeight: 500 }}>{selectedClientForStatement?.inscricao_estadual || '-'}</Typography>
+                          </Box>
+                        </>
+                      )}
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Data de Cadastro</Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                          {selectedClientForStatement?.created_at ? new Date(selectedClientForStatement.created_at).toLocaleDateString('pt-BR') : '-'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Paper>
+
+                  <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>Endereços Vinculados</Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
+                      {!selectedClientForStatement?.enderecos || selectedClientForStatement.enderecos.length === 0 ? (
+                        <Typography variant="body2" color="text.secondary">Nenhum endereço cadastrado para este cliente.</Typography>
+                      ) : (
+                        selectedClientForStatement.enderecos.map((end: any, idx: number) => (
+                          <Card key={end.id || idx} variant="outlined" sx={{ borderRadius: 2.5, borderColor: end.is_principal ? 'primary.200' : 'divider', bgcolor: end.is_principal ? 'primary.50/10' : 'background.paper' }}>
+                            <CardContent sx={{ p: 2.5 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: end.is_principal ? 'primary.800' : 'text.primary' }}>
+                                  Endereço {idx + 1}
+                                </Typography>
+                                {end.is_principal && (
+                                  <Chip label="Principal" color="primary" size="small" sx={{ fontWeight: 'bold', height: 20 }} />
+                                )}
+                              </Box>
+                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                  {end.endereco}, {end.numero} {end.complemento && `(${end.complemento})`}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {end.bairro} — {end.municipio}/{end.uf}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'flex', gap: 2 }}>
+                                  <span>CEP: {end.cep}</span>
+                                  {end.codigo_ibge && <span>IBGE: {end.codigo_ibge}</span>}
+                                </Typography>
+                              </Box>
+                            </CardContent>
+                          </Card>
+                        ))
+                      )}
+                    </Box>
+                  </Paper>
+                </Box>
+              )}
+
+              {/* TAB: CONTRACTS & CONNECTIVITY */}
+              {statementTab === 'contracts' && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Contratos Registrados</Typography>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      startIcon={<PlusIcon className="w-4 h-4" />}
+                      onClick={() => {
+                        setStatementOpen(false);
+                        navigate('/contracts', { 
+                          state: { 
+                            preselectClientId: selectedClientForStatement.id,
+                            preselectClientName: selectedClientForStatement.nome_razao_social,
+                            preselectClientCpfCnpj: selectedClientForStatement.cpf_cnpj,
+                            preselectClientAddresses: selectedClientForStatement.enderecos || []
+                          } 
+                        });
+                      }}
+                      sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 2 }}
+                    >
+                      Novo Contrato
+                    </Button>
+                  </Box>
+                  {clientContracts.length === 0 ? (
+                    <Paper variant="outlined" sx={{ p: 5, textAlign: 'center' }}>
+                      <Typography variant="h6" color="text.secondary">Nenhum contrato ativo ou inativo</Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        Este cliente não possui serviços contratados cadastrados.
+                      </Typography>
+                    </Paper>
+                  ) : (
+                    clientContracts.map(c => (
+                      <Paper key={c.id} variant="outlined" sx={{ p: 3, borderRadius: 3, position: 'relative' }}>
+                        {/* Title & Status Header */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 3 }}>
+                          <Box>
+                            <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.800' }}>
+                              Contrato #{c.id} — {c.servico_descricao || 'Internet'}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Período: {c.d_contrato_ini ? new Date(c.d_contrato_ini + 'T00:00:00').toLocaleDateString('pt-BR') : 'Sem data inicial'} até {c.d_contrato_fim ? new Date(c.d_contrato_fim + 'T00:00:00').toLocaleDateString('pt-BR') : 'Vigência indeterminada'}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<PencilIcon className="w-4 h-4" />}
+                              onClick={() => {
+                                setStatementOpen(false);
+                                navigate('/contracts', { state: { editContractId: c.id } });
+                              }}
+                              sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 2 }}
+                            >
+                              Editar Contrato
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="warning"
+                              startIcon={<ChatBubbleLeftRightIcon className="w-4 h-4" />}
+                              onClick={() => {
+                                setStatementOpen(false);
+                                navigate('/tickets', { 
+                                  state: { 
+                                    preselectClientId: selectedClientForStatement.id,
+                                    preselectClientName: selectedClientForStatement.nome_razao_social,
+                                    preselectContractId: c.id,
+                                    openCreate: true
+                                  } 
+                                });
+                              }}
+                              sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 2 }}
+                            >
+                              Abrir Chamado
+                            </Button>
+                            <Chip 
+                              label={c.status} 
+                              color={c.status === 'ATIVO' ? 'success' : c.status === 'SUSPENSO' ? 'warning' : 'error'}
+                              sx={{ fontWeight: 'bold' }} 
+                            />
+                          </Box>
+                        </Box>
+
+                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 4 }}>
+                          {/* Left: General/Financial Details */}
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'grey.700', borderBottom: '1px solid', borderColor: 'divider', pb: 0.5 }}>
+                              Faturamento e Cobrança
+                            </Typography>
+                            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">Mensalidade</Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 'bold', color: 'primary.700' }}>{formatCurrency(c.valor_total ?? c.valor_unitario)}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">Vencimento</Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 500 }}>Todo dia {c.dia_vencimento || c.dia_emissao}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">Periodicidade</Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 500 }}>{c.periodicidade || 'MENSAL'}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">Método Preferido</Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 500 }}>{c.payment_method || 'BOLETO'}</Typography>
+                              </Box>
+                            </Box>
+                            {c.assinado_em && (
+                              <Box sx={{ mt: 1, p: 1.5, bgcolor: 'success.50/10', borderRadius: 2, border: '1px dashed', borderColor: 'success.200' }}>
+                                <Typography variant="caption" color="success.dark" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 'bold' }}>
+                                  <CheckCircleIcon className="w-4 h-4" /> Contrato Assinado Digitalmente
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.75rem', mt: 0.5 }}>
+                                  Assinado em: {new Date(c.assinado_em).toLocaleString('pt-BR')} (IP: {c.assinatura_ip || '-'})
+                                </Typography>
+                              </Box>
+                            )}
+                          </Box>
+
+                          {/* Right: Technical Details */}
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'grey.700', borderBottom: '1px solid', borderColor: 'divider', pb: 0.5 }}>
+                              Configurações Técnicas (Provisionamento)
+                            </Typography>
+                            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">Conexão</Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 500 }}>{c.tipo_conexao || 'FIBRA'}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">Autenticação</Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 500 }}>{c.metodo_autenticacao || 'PPPOE'}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">Usuário PPPoE</Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 'bold', fontFamily: 'monospace' }}>{c.pppoe_username || '-'}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">Senha PPPoE</Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 500, fontFamily: 'monospace' }}>{c.pppoe_password || '-'}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">IP Designado</Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 500, fontFamily: 'monospace' }}>{c.assigned_ip || '-'}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">MAC Address</Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 500, fontFamily: 'monospace' }}>{c.mac_address || '-'}</Typography>
+                              </Box>
+                            </Box>
+                            
+                            {/* ONU / Fiber specifics */}
+                            {(c.onu_serial || c.olt_nome || c.cto_nome) && (
+                              <Box sx={{ mt: 1.5, p: 2, bgcolor: 'grey.50', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+                                <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'grey.700', display: 'block', mb: 1 }}>Detalhamento da Fibra (FTTH)</Typography>
+                                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                                  <Box>
+                                    <Typography variant="caption" color="text.secondary">Equipamento ONU</Typography>
+                                    <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{c.onu_modelo || 'Padrão'} ({c.onu_serial})</Typography>
+                                  </Box>
+                                  <Box>
+                                    <Typography variant="caption" color="text.secondary">Sinal Recebido</Typography>
+                                    <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 'bold', color: c.onu_sinal ? 'success.main' : 'text.secondary' }}>
+                                      {c.onu_sinal ? `${c.onu_sinal} dBm` : '-'}
+                                    </Typography>
+                                  </Box>
+                                  <Box>
+                                    <Typography variant="caption" color="text.secondary">OLT / PON</Typography>
+                                    <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{c.olt_nome || '-'} {c.olt_pon && `(PON ${c.olt_pon})`}</Typography>
+                                  </Box>
+                                  <Box>
+                                    <Typography variant="caption" color="text.secondary">CTO / Porta</Typography>
+                                    <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>{c.cto_nome || '-'} {c.cto_porta && `(Porta ${c.cto_porta})`}</Typography>
+                                  </Box>
+                                </Box>
+                              </Box>
+                            )}
+                          </Box>
+                        </Box>
+                      </Paper>
+                    ))
+                  )}
+                </Box>
+              )}
+
+              {/* TAB: FINANCIAL STATEMENT */}
+              {statementTab === 'financial' && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <Box sx={{ mb: 1, display: 'flex', gap: 2.5, alignItems: 'center', flexWrap: 'wrap', bgcolor: 'white', p: 2, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+                    <FormControl size="small" sx={{ minWidth: 260 }}>
+                      <InputLabel>Filtrar por Contrato</InputLabel>
+                      <Select
+                        value={statementFilterContract}
+                        label="Filtrar por Contrato"
+                        onChange={(e) => setStatementFilterContract(e.target.value)}
+                      >
+                        <MenuItem value="all">Todos os Contratos / Lançamentos</MenuItem>
+                        {clientContracts.map(c => (
+                          <MenuItem key={c.id} value={c.id.toString()}>
+                            Contrato #{c.id} - {c.servico_descricao || 'Internet'}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+
+                    <FormControl size="small" sx={{ minWidth: 170 }}>
+                      <InputLabel>Status</InputLabel>
+                      <Select
+                        value={statementFilterStatus}
+                        label="Status"
+                        onChange={(e) => setStatementFilterStatus(e.target.value)}
+                      >
+                        <MenuItem value="all">Todos os Status</MenuItem>
+                        <MenuItem value="PENDING">PENDENTE</MenuItem>
+                        <MenuItem value="PAID">PAGO</MenuItem>
+                        <MenuItem value="CANCELLED">CANCELADO</MenuItem>
+                      </Select>
+                    </FormControl>
+                    
+                    <Box sx={{ ml: 'auto', display: 'flex', gap: 3, p: 1, px: 2, bgcolor: 'grey.50', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 500 }}>Total Recebido</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'success.main' }}>{formatCurrency(statementTotals.paid)}</Typography>
+                      </Box>
+                      <Divider orientation="vertical" flexItem />
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 500 }}>Total Pendente</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'warning.main' }}>{formatCurrency(statementTotals.pending)}</Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
+                    <TableContainer>
+                      <Table size="medium">
+                        <TableHead sx={{ bgcolor: 'grey.50' }}>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Vencimento</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Contrato</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Banco/Método</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>Valor</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>Vlr Pago</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>Ações</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {filteredReceivables.length === 0 ? (
+                            <TableRow><TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>Nenhuma cobrança encontrada com os filtros selecionados.</TableCell></TableRow>
+                          ) : filteredReceivables.map(r => (
+                            <TableRow key={r.id} hover>
+                              <TableCell>{new Date(r.due_date).toLocaleDateString('pt-BR')}</TableCell>
+                              <TableCell>{r.servico_contratado_id ? `#${r.servico_contratado_id}` : 'Avulso'}</TableCell>
+                              <TableCell>{r.tipo === 'MERCADO_PAGO' ? 'Mercado Pago' : r.bank}</TableCell>
+                              <TableCell align="right" sx={{ fontWeight: 500 }}>{formatCurrency(r.amount)}</TableCell>
+                              <TableCell align="right">
+                                {r.paid_amount !== null && r.paid_amount !== undefined ? formatCurrency(r.paid_amount) : '-'}
+                              </TableCell>
+                              <TableCell>
+                                <Chip 
+                                  label={r.status === 'PAID' ? 'PAGO' : r.status === 'CANCELLED' ? 'CANCELADO' : 'PENDENTE'} 
+                                  size="small" 
+                                  color={r.status === 'PAID' ? 'success' : r.status === 'CANCELLED' ? 'default' : 'warning'} 
+                                  variant="outlined"
+                                  sx={{ fontWeight: 'bold' }}
+                                />
+                              </TableCell>
+                              <TableCell align="right">
+                                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                                  {r.status !== 'PAID' && r.status !== 'CANCELLED' && (
+                                    <Button 
+                                      size="small" 
+                                      variant="text" 
+                                      color="success"
+                                      startIcon={<CheckCircleIcon className="w-4 h-4" />} 
+                                      onClick={() => handleOpenSettleV2(r)}
+                                      sx={{ textTransform: 'none', py: 0, fontWeight: 'bold' }}
+                                    >
+                                      Baixar
+                                    </Button>
+                                  )}
+                                  {r.payment_url && (
+                                    <Button 
+                                      size="small" 
+                                      variant="text" 
+                                      startIcon={<ArrowTopRightOnSquareIcon className="w-4 h-4" />} 
+                                      onClick={() => window.open(r.payment_url, '_blank')}
+                                      sx={{ textTransform: 'none', py: 0 }}
+                                    >
+                                      Pagar
+                                    </Button>
+                                  )}
+                                  <Button
+                                    size="small"
+                                    variant="text"
+                                    color="secondary"
+                                    startIcon={<BanknotesIcon className="w-4 h-4" />}
+                                    onClick={() => {
+                                      setStatementOpen(false);
+                                      navigate('/receivables', { 
+                                        state: { 
+                                          preselectClientSearch: selectedClientForStatement.nome_razao_social
+                                        } 
+                                      });
+                                    }}
+                                    sx={{ textTransform: 'none', py: 0 }}
+                                  >
+                                    Acessar
+                                  </Button>
+                                </Box>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {filteredReceivables.length > 0 && (
+                            <TableRow sx={{ bgcolor: 'grey.50', '& td': { fontWeight: 'bold' } }}>
+                              <TableCell colSpan={3} align="right">TOTAIS:</TableCell>
+                              <TableCell align="right">
+                                {formatCurrency(filteredReceivables.reduce((acc, r) => acc + r.amount, 0))}
+                              </TableCell>
+                              <TableCell align="right">
+                                {formatCurrency(filteredReceivables.reduce((acc, r) => acc + (r.paid_amount || 0), 0))}
+                              </TableCell>
+                              <TableCell colSpan={2} />
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Paper>
+
+                  {filteredReceivables.length > 0 && (
+                    <Box sx={{ p: 2.5, bgcolor: 'primary.50/20', borderRadius: 3, border: '1px solid', borderColor: 'primary.100', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'primary.800' }}>
+                          Resumo do Filtro
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {filteredReceivables.length} registro(s) encontrado(s)
+                        </Typography>
+                      </Box>
+                      <Box sx={{ textAlign: 'right' }}>
+                        <Typography variant="caption" color="text.secondary">Soma dos Lançamentos</Typography>
+                        <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'primary.800' }}>
+                          {formatCurrency(filteredReceivables.reduce((acc, r) => acc + r.amount, 0))}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
+                </Box>
+              )}
+
+              {/* TAB: TECHNICAL SUPPORT (TICKETS) */}
+              {statementTab === 'tickets' && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Chamados de Suporte</Typography>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      startIcon={<PlusIcon className="w-4 h-4" />}
+                      onClick={() => {
+                        setStatementOpen(false);
+                        navigate('/tickets', { 
+                          state: { 
+                            preselectClientId: selectedClientForStatement.id,
+                            preselectClientName: selectedClientForStatement.nome_razao_social 
+                          } 
+                        });
+                      }}
+                      sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 2 }}
+                    >
+                      Abrir Novo Chamado
+                    </Button>
+                  </Box>
+                  {ticketsLoading ? (
+                    <Box sx={{ py: 10, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>
+                  ) : clientTickets.length === 0 ? (
+                    <Paper variant="outlined" sx={{ p: 5, textAlign: 'center' }}>
+                      <Typography variant="h6" color="text.secondary">Nenhum chamado registrado</Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        Este cliente não possui tickets ou chamados abertos no sistema.
+                      </Typography>
+                    </Paper>
+                  ) : (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {clientTickets.map(ticket => (
+                        <Paper key={ticket.id} variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 1.5 }}>
+                            <Box>
+                              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                                #{ticket.id} - {ticket.titulo}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', gap: 2, mt: 0.5, flexWrap: 'wrap' }}>
+                                <span>Criado em: {new Date(ticket.created_at).toLocaleString('pt-BR')}</span>
+                                <span>Categoria: <strong>{ticket.categoria}</strong></span>
+                                <span>Responsável: <strong>{ticket.atribuido_para_nome || 'Não atribuído'}</strong></span>
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<ChatBubbleLeftRightIcon className="w-4 h-4" />}
+                                onClick={() => {
+                                  setStatementOpen(false);
+                                  navigate('/tickets', { 
+                                    state: { 
+                                      preselectClientId: selectedClientForStatement.id,
+                                      preselectClientName: selectedClientForStatement.nome_razao_social 
+                                    } 
+                                  });
+                                }}
+                                sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 2 }}
+                              >
+                                Ver no Suporte
+                              </Button>
+                              <Chip 
+                                label={ticket.prioridade} 
+                                size="small" 
+                                color={ticket.prioridade === 'URGENTE' || ticket.prioridade === 'ALTA' ? 'error' : 'default'}
+                                variant="filled"
+                                sx={{ fontWeight: 'bold' }}
+                              />
+                              <Chip 
+                                label={ticket.status} 
+                                size="small" 
+                                color={ticket.status === 'ABERTO' ? 'info' : ticket.status === 'EM_ANDAMENTO' ? 'warning' : ticket.status === 'RESOLVIDO' || ticket.status === 'FECHADO' ? 'success' : 'default'}
+                                sx={{ fontWeight: 'bold' }}
+                              />
+                            </Box>
+                          </Box>
+                          <Divider sx={{ my: 1.5 }} />
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'grey.700', mb: 0.5 }}>Descrição do Problema:</Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>{ticket.descricao}</Typography>
+                          </Box>
+                          {ticket.resolucao && (
+                            <Box sx={{ mt: 2, p: 2, bgcolor: 'success.50/10', borderRadius: 2.5, border: '1px solid', borderColor: 'success.100' }}>
+                              <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'success.dark', mb: 0.5 }}>Resolução do Técnico:</Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>{ticket.resolucao}</Typography>
+                              {ticket.resolvido_em && (
+                                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1, fontSize: '0.75rem' }}>
+                                  Finalizado em: {new Date(ticket.resolvido_em).toLocaleString('pt-BR')}
+                                </Typography>
+                              )}
+                            </Box>
+                          )}
+                        </Paper>
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+              )}
+            </>
           )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, display: 'flex', justifyContent: 'space-between' }}>
-          <Button
-            variant="contained"
-            color="primary"
-            disabled={printingStatement || statementLoading || filteredReceivables.length === 0}
-            onClick={handlePrintStatement}
-            startIcon={printingStatement ? <CircularProgress size={20} color="inherit" /> : <DocumentArrowDownIcon className="w-5 h-5" />}
+        <DialogActions sx={{ p: 2.5, px: 3, borderTop: '1px solid', borderColor: 'divider', bgcolor: 'white', display: 'flex', justifyContent: 'space-between' }}>
+          {statementTab === 'financial' ? (
+            <Button
+              variant="contained"
+              color="primary"
+              disabled={printingStatement || statementLoading || filteredReceivables.length === 0}
+              onClick={handlePrintStatement}
+              startIcon={printingStatement ? <CircularProgress size={20} color="inherit" /> : <DocumentArrowDownIcon className="w-5 h-5" />}
+              sx={{ borderRadius: 2.5, px: 3, py: 1, textTransform: 'none', fontWeight: 'bold' }}
+            >
+              {printingStatement ? 'Gerando...' : 'Gerar PDF do Extrato'}
+            </Button>
+          ) : (
+            <div />
+          )}
+          <Button 
+            onClick={() => setStatementOpen(false)} 
+            variant="outlined" 
+            color="inherit"
+            sx={{ borderRadius: 2.5, px: 3, py: 1, textTransform: 'none', fontWeight: 'bold' }}
           >
-            {printingStatement ? 'Gerando...' : 'Gerar PDF'}
+            Fechar Painel
           </Button>
-          <Button onClick={() => setStatementOpen(false)} variant="outlined" color="inherit">
-            Fechar
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal Confirmar Recebimento V2 */}
+      <Dialog open={openSettle} onClose={() => setOpenSettle(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>Receber Cobrança #{selectedReceivable?.id}</DialogTitle>
+        <DialogContent dividers>
+          {!sessao ? (
+            <Alert severity="warning">
+              Você não possui um caixa aberto. Abra o caixa primeiro na tela "Meu Caixa" para poder receber pagamentos.
+            </Alert>
+          ) : (
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <Typography variant="body2" gutterBottom>
+                  Confirme o recebimento para o cliente <strong>{selectedReceivable?.cliente_nome || selectedClientForStatement?.nome_razao_social}</strong>.
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Valor Original"
+                  fullWidth
+                  value={selectedReceivable ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedReceivable.amount) : ''}
+                  disabled
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel id="forma-pagamento-label">Forma de Pagamento</InputLabel>
+                  <Select
+                    labelId="forma-pagamento-label"
+                    value={formaId}
+                    label="Forma de Pagamento"
+                    onChange={(e) => setFormaId(e.target.value as number)}
+                  >
+                    <MenuItem value="">Selecione</MenuItem>
+                    {formas.map(f => (
+                      <MenuItem key={f.id} value={f.id}>{f.nome}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Multa (R$)"
+                  fullWidth
+                  value={multaStr}
+                  disabled
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Juros (R$)"
+                  fullWidth
+                  value={jurosStr}
+                  disabled
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Desconto (R$)"
+                  fullWidth
+                  value={descontoStr}
+                  onChange={(e) => handleMoneyChange(e.target.value, setDescontoStr)}
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 1, textAlign: 'right' }}>
+                  <Typography variant="subtitle1" color="text.secondary">Total a Receber</Typography>
+                  <Typography variant="h4" color="success.main" sx={{ fontWeight: 'bold' }}>
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateTotalSettle())}
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenSettle(false)}>Cancelar</Button>
+          {sessao && (
+            <Button variant="contained" color="success" onClick={handleConfirmSettleV2} disabled={formaId === ''}>
+              Confirmar Recebimento
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal de Autorização de Desconto */}
+      <Dialog open={openAuthSettle} onClose={() => setOpenAuthSettle(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold', color: 'error.main' }}>Autorização Necessária</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" gutterBottom>
+            O desconto de <strong>R$ {descontoStr}</strong> exige aprovação de um supervisor ou administrador.
+          </Typography>
+          {authSettleError && <Alert severity="error" sx={{ my: 1 }}>{authSettleError}</Alert>}
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="E-mail do Supervisor"
+              fullWidth
+              value={authSettleEmail}
+              onChange={(e) => setAuthSettleEmail(e.target.value)}
+            />
+            <TextField
+              label="Senha"
+              type="password"
+              fullWidth
+              value={authSettlePassword}
+              onChange={(e) => setAuthSettlePassword(e.target.value)}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenAuthSettle(false)} disabled={authSettleLoading}>Cancelar</Button>
+          <Button variant="contained" color="error" onClick={handleAuthSettleSubmit} disabled={authSettleLoading || !authSettleEmail || !authSettlePassword}>
+            {authSettleLoading ? 'Autorizando...' : 'Autorizar Desconto'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal de Status de Desbloqueio Automático ISP */}
+      <Dialog open={unblockResultDialogOpen} onClose={() => setUnblockResultDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <InformationCircleIcon className="w-6 h-6 text-blue-500" />
+          Resultado do Desbloqueio ISP
+        </DialogTitle>
+        <DialogContent dividers sx={{ pb: 3 }}>
+          <Box sx={{ mb: 2 }}>
+            {unblockResult?.success ? (
+              <Alert severity="success" sx={{ mb: 2 }}>
+                O sinal de internet do cliente foi liberado automaticamente no servidor MikroTik!
+              </Alert>
+            ) : (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                O recebimento foi confirmado, mas não foi possível liberar a internet automaticamente: <br />
+                <strong>{unblockResult?.message || 'Sem conexão com o concentrador.'}</strong>
+              </Alert>
+            )}
+            <Typography variant="body2">
+              Cliente: <strong>{unblockResult?.cliente_nome}</strong> <br />
+              Status do Comando: {unblockResult?.success ? 'Sucesso' : 'Falha / Atenção Manual Necessária'}
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setUnblockResultDialogOpen(false)} variant="contained" color="primary">
+            Ok, Entendido
           </Button>
         </DialogActions>
       </Dialog>

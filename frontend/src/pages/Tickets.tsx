@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box, Paper, Typography, Button, IconButton, TextField, CircularProgress,
   Chip, Snackbar, Alert, useMediaQuery, useTheme, Table, TableBody,
@@ -27,6 +28,8 @@ import { API_BASE_URL } from '../services/api';
 const Tickets: React.FC = () => {
   const { activeCompany } = useCompany();
   const { user, hasPermission } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -41,6 +44,8 @@ const Tickets: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>(isTecnico ? 'ATIVOS' : '');
   const [prioridadeFilter, setPrioridadeFilter] = useState<PrioridadeTicket | ''>('');
   const [categoriaFilter, setCategoriaFilter] = useState<CategoriaTicket | ''>('');
+  const [clientFilterId, setClientFilterId] = useState<number | undefined>(undefined);
+  const [clientFilterName, setClientFilterName] = useState<string>('');
 
   // Paginação
   const [page, setPage] = useState(0);
@@ -105,7 +110,7 @@ const Tickets: React.FC = () => {
         statusFilter === 'ATIVOS' ? 'ABERTO,EM_ANDAMENTO,AGUARDANDO_CLIENTE' : (statusFilter || undefined),
         prioridadeFilter || undefined,
         categoriaFilter || undefined,
-        undefined, // cliente_id
+        clientFilterId, // cliente_id
         undefined, // atribuido_para_id
         searchTerm || undefined
       );
@@ -116,13 +121,45 @@ const Tickets: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [activeCompany, page, rowsPerPage, statusFilter, prioridadeFilter, categoriaFilter, searchTerm]);
+  }, [activeCompany, page, rowsPerPage, statusFilter, prioridadeFilter, categoriaFilter, searchTerm, clientFilterId]);
 
   useEffect(() => {
     if (isTecnico) {
       setStatusFilter('ATIVOS');
     }
   }, [isTecnico]);
+
+  useEffect(() => {
+    if (location.state && activeCompany) {
+      const { preselectClientId, preselectClientName, openCreate, preselectContractId } = location.state;
+      
+      const handlePreselect = async () => {
+        if (preselectClientId) {
+          setClientFilterId(preselectClientId);
+          setClientFilterName(preselectClientName || `Cliente #${preselectClientId}`);
+          setPage(0);
+        }
+        
+        if (openCreate) {
+          setCreateDialogOpen(true);
+          
+          if (preselectContractId) {
+            try {
+              const contract = await contratoService.getContratoById(preselectContractId);
+              setNewTicket(prev => ({ ...prev, contrato: contract }));
+            } catch (err) {
+              console.error('Erro ao carregar contrato para pre-selecao de ticket', err);
+            }
+          }
+        }
+      };
+
+      handlePreselect();
+      
+      // Clear location state to avoid sticky filtering on page refreshes
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, activeCompany, navigate, location.pathname]);
 
   const loadTecnicos = useCallback(async () => {
     if (!activeCompany) return;
@@ -560,6 +597,8 @@ const Tickets: React.FC = () => {
                 setStatusFilter('');
                 setPrioridadeFilter('');
                 setCategoriaFilter('');
+                setClientFilterId(undefined);
+                setClientFilterName('');
               }}
               startIcon={<XMarkIcon className="w-4 h-4" />}
               sx={{
@@ -571,6 +610,19 @@ const Tickets: React.FC = () => {
               Limpar
             </Button>
           </Box>
+          {clientFilterId && (
+            <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Chip
+                label={`Filtrando por cliente: ${clientFilterName}`}
+                onDelete={() => {
+                  setClientFilterId(undefined);
+                  setClientFilterName('');
+                }}
+                color="primary"
+                variant="outlined"
+              />
+            </Box>
+          )}
         </Paper>
       )}
 
