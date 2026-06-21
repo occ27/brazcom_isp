@@ -96,6 +96,13 @@ const Receivables: React.FC = () => {
   const [descontoStr, setDescontoStr] = useState('0,00');
   const [formaId, setFormaId] = useState<number | ''>('');
 
+  const [openAuthSettle, setOpenAuthSettle] = useState(false);
+  const [authSettleEmail, setAuthSettleEmail] = useState('');
+  const [authSettlePassword, setAuthSettlePassword] = useState('');
+  const [authSettleError, setAuthSettleError] = useState('');
+  const [authSettleLoading, setAuthSettleLoading] = useState(false);
+
+
   
   // Data for Form
   const [clients, setClients] = useState<any[]>([]);
@@ -362,18 +369,9 @@ const Receivables: React.FC = () => {
     }
   };
 
-  const handleConfirmSettleV2 = async () => {
+  const processSettleRequest = async () => {
     if (!selectedReceivable || !sessao) return;
-    if (formaId === '') {
-      alert("Selecione a forma de pagamento");
-      return;
-    }
-    
     const total = calculateTotalSettle();
-    if (total <= 0) {
-      alert("O total não pode ser menor ou igual a zero.");
-      return;
-    }
     
     try {
       const response = await receivableService.settleReceivable(selectedReceivable.id, {
@@ -403,6 +401,71 @@ const Receivables: React.FC = () => {
       }
     } catch (err: any) {
       alert(err.response?.data?.detail || "Erro ao baixar cobrança");
+    }
+  };
+
+  const handleConfirmSettleV2 = async () => {
+    if (!selectedReceivable || !sessao) return;
+    if (formaId === '') {
+      alert("Selecione a forma de pagamento");
+      return;
+    }
+    
+    const total = calculateTotalSettle();
+    if (total <= 0) {
+      alert("O total não pode ser menor ou igual a zero.");
+      return;
+    }
+
+    const desconto = parseCurrencyInput(descontoStr);
+    if (desconto > 0) {
+      if (!user?.is_superuser && !user?.is_company_admin) {
+        // requires supervisor
+        setAuthSettleEmail('');
+        setAuthSettlePassword('');
+        setAuthSettleError('');
+        setOpenAuthSettle(true);
+        return;
+      }
+    }
+    
+    await processSettleRequest();
+  };
+
+  const handleAuthSettleSubmit = async () => {
+    setAuthSettleError('');
+    setAuthSettleLoading(true);
+    try {
+      // Import authService dynamically or if it's already there? We'll use axios directly
+      // Wait, api is not imported, let me just use the global api
+      // since receivableService uses api, I can just do a fetch or import api
+      // I'll add an auth function inline
+      const formData = new URLSearchParams();
+      formData.append('username', authSettleEmail);
+      formData.append('password', authSettlePassword);
+      
+      const res = await fetch('http://localhost:8000/auth/login', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) throw new Error('Credenciais inválidas');
+      const data = await res.json();
+      
+      const userRes = await fetch('http://localhost:8000/users/me', {
+        headers: { 'Authorization': `Bearer ${data.access_token}` }
+      });
+      const userData = await userRes.json();
+      
+      if (!userData.is_superuser && !userData.is_company_admin) {
+        throw new Error('Usuário não tem permissão para autorizar desconto.');
+      }
+      
+      setOpenAuthSettle(false);
+      await processSettleRequest();
+    } catch (err: any) {
+      setAuthSettleError(err.message || 'Erro ao autorizar');
+    } finally {
+      setAuthSettleLoading(false);
     }
   };
 
@@ -573,7 +636,7 @@ const Receivables: React.FC = () => {
                 <TableCell align="right">Valor</TableCell>
                 <TableCell align="right">Vlr Pago</TableCell>
                 <TableCell>Status</TableCell>
-                <TableCell>Gateway / Link</TableCell>
+                <TableCell>Gateway / Local</TableCell>
                 <TableCell align="right">Ações</TableCell>
               </TableRow>
             </TableHead>
@@ -607,6 +670,7 @@ const Receivables: React.FC = () => {
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                       <Typography variant="caption" sx={{ fontWeight: 600 }}>
                         {r.tipo === 'MERCADO_PAGO' ? 'MERCADO PAGO' : r.bank}
+                        {r.local_pagamento_nome && ` - ${r.local_pagamento_nome}`}
                       </Typography>
                       {r.mp_payment_id && (
                         <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
@@ -950,7 +1014,7 @@ const Receivables: React.FC = () => {
                   label="Multa (R$)"
                   fullWidth
                   value={multaStr}
-                  onChange={(e) => handleMoneyChange(e.target.value, setMultaStr)}
+                  disabled
                 />
               </Grid>
               <Grid item xs={12} sm={4}>
@@ -958,7 +1022,7 @@ const Receivables: React.FC = () => {
                   label="Juros (R$)"
                   fullWidth
                   value={jurosStr}
-                  onChange={(e) => handleMoneyChange(e.target.value, setJurosStr)}
+                  disabled
                 />
               </Grid>
               <Grid item xs={12} sm={4}>
@@ -1061,6 +1125,39 @@ const Receivables: React.FC = () => {
       <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
         <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
+    
+      {/* Modal de Autorização de Desconto */}
+      <Dialog open={openAuthSettle} onClose={() => setOpenAuthSettle(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold', color: 'error.main' }}>Autorização Necessária</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" gutterBottom>
+            O desconto de <strong>R$ {descontoStr}</strong> exige aprovação de um supervisor ou administrador.
+          </Typography>
+          {authSettleError && <Alert severity="error" sx={{ my: 1 }}>{authSettleError}</Alert>}
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="E-mail do Supervisor"
+              fullWidth
+              value={authSettleEmail}
+              onChange={(e) => setAuthSettleEmail(e.target.value)}
+            />
+            <TextField
+              label="Senha"
+              type="password"
+              fullWidth
+              value={authSettlePassword}
+              onChange={(e) => setAuthSettlePassword(e.target.value)}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenAuthSettle(false)} disabled={authSettleLoading}>Cancelar</Button>
+          <Button variant="contained" color="error" onClick={handleAuthSettleSubmit} disabled={authSettleLoading || !authSettleEmail || !authSettlePassword}>
+            {authSettleLoading ? 'Autorizando...' : 'Autorizar Desconto'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
     </Box>
   );
 };

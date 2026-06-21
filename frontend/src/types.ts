@@ -9,6 +9,7 @@ export type PageType =
   | 'bank-accounts'
   | 'receivables'
   | 'caixa'
+  | 'caixas'
   | 'tickets'
   | 'reports'
   | 'users'

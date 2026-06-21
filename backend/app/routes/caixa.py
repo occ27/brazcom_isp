@@ -140,3 +140,71 @@ def lancar_movimentacao(sessao_id: int, payload: schema_caixa.CaixaMovimentacaoC
     mov = crud_caixa.lancar_movimentacao(db, sessao_id, current_user.id, payload)
     mov.forma_pagamento_nome = mov.forma_pagamento.nome if mov.forma_pagamento else None
     return mov
+
+@router.get("/historico/{empresa_id}")
+def historico_caixas(
+    empresa_id: int,
+    page: int = 1,
+    per_page: int = 25,
+    status: str = None,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    deps = permission_checker('caixa_manage')
+    deps(db=db, current_user=current_user)
+    
+    from app.models.models import CaixaSessao, Usuario, LocalPagamento
+    
+    query = db.query(CaixaSessao).filter(CaixaSessao.empresa_id == empresa_id)
+    if status:
+        query = query.filter(CaixaSessao.status == status)
+        
+    total = query.count()
+    items = query.order_by(CaixaSessao.id.desc())\
+        .offset((page - 1) * per_page)\
+        .limit(per_page)\
+        .all()
+        
+    result = []
+    for s in items:
+        # Preenche os nomes
+        s.usuario_nome = s.usuario.full_name if s.usuario else 'Desconhecido'
+        s.local_pagamento_nome = s.local_pagamento.nome if s.local_pagamento else 'Desconhecido'
+        result.append(schema_caixa.CaixaSessaoResponse.from_orm(s))
+        
+    return {"data": result, "total": total}
+
+@router.get("/sessao/{sessao_id}/pdf")
+def get_caixa_pdf(
+    sessao_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    deps = permission_checker('caixa_manage')
+    deps(db=db, current_user=current_user)
+    
+    sessao = crud_caixa.get_sessao_by_id(db, sessao_id)
+    if not sessao:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada")
+        
+    from app.models.models import Empresa
+    empresa = db.query(Empresa).filter(Empresa.id == sessao.empresa_id).first()
+    
+    movs = crud_caixa.get_extrato(db, sessao_id)
+    usuario_nome = sessao.usuario.full_name if sessao.usuario else 'Desconhecido'
+    
+    from app.services.report_service import ReportService
+    from fastapi.responses import StreamingResponse
+    
+    buffer = ReportService.generate_caixa_session_report(
+        empresa=empresa,
+        sessao=sessao,
+        usuario_nome=usuario_nome,
+        extrato=movs
+    )
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename=caixa_{sessao_id}.pdf"}
+    )

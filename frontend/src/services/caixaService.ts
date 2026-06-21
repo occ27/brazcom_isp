@@ -83,6 +83,24 @@ class CaixaService {
     return response.data;
   }
 
+  async getSessoesHistorico(empresaId: number, page: number = 1, perPage: number = 25, status?: string): Promise<{ data: CaixaSessao[]; total: number }> {
+    const params: any = { page, per_page: perPage };
+    if (status) params.status = status;
+    const response = await api.get(`/caixa/historico/${empresaId}`, { params });
+    return response.data;
+  }
+
+  async downloadCaixaPDF(sessaoId: number): Promise<void> {
+    const response = await api.get(`/caixa/sessao/${sessaoId}/pdf`, { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `caixa_${sessaoId}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
   // --- Admin API ---
   async getLocais(empresaId: number, includeInactive: boolean = false): Promise<LocalPagamento[]> {
     const response = await api.get(`/caixa/locais/${empresaId}?include_inactive=${includeInactive}`);

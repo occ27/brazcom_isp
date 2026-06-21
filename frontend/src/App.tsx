@@ -47,6 +47,7 @@ import Checkout from './pages/Checkout';
 import PaymentStatus from './pages/PaymentStatus';
 import FTTHMonitor from './pages/FTTHMonitor';
 import CaixaPDV from './pages/CaixaPDV';
+import SessoesCaixa from './pages/SessoesCaixa';
 import { PageType } from './types';
 
 // Componente para redirecionar usuários baseado no tipo
@@ -203,6 +204,7 @@ const AuthenticatedApp: React.FC<{ children: React.ReactNode }> = ({ children })
       else if (page === 'bank-accounts') navigate('/bank-accounts');
       else if (page === 'receivables') navigate('/receivables');
       else if (page === 'caixa') navigate('/caixa');
+      else if (page === 'caixas') navigate('/caixas');
       else if (page === 'tickets') navigate('/tickets');
     else if (page === 'users') navigate('/users');
     else if (page === 'roles') navigate('/roles');
@@ -423,6 +425,16 @@ const AppContent: React.FC = () => {
           <ProtectedRoute>
             <AuthenticatedApp>
               <CaixaPDV />
+            </AuthenticatedApp>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/caixas"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedApp>
+              <SessoesCaixa />
             </AuthenticatedApp>
           </ProtectedRoute>
         }

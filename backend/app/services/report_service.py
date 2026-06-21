@@ -563,3 +563,117 @@ class ReportService:
         doc.build(elements)
         buffer.seek(0)
         return buffer
+
+    @staticmethod
+    def generate_caixa_session_report(
+        empresa,
+        sessao,
+        usuario_nome: str,
+        extrato: List[Any]
+    ) -> BytesIO:
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1*cm, leftMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm)
+        elements = []
+        styles = getSampleStyleSheet()
+        
+        title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=16, alignment=1, spaceAfter=10)
+        subtitle_style = ParagraphStyle('SubTitleStyle', parent=styles['Heading2'], fontSize=12, color=colors.darkblue, spaceBefore=5, spaceAfter=5)
+        cell_style = ParagraphStyle('CellStyle', parent=styles['Normal'], fontSize=8, leading=10)
+        header_style = ParagraphStyle('HeaderStyle', parent=styles['Normal'], fontSize=10, textColor=colors.whitesmoke, fontName='Helvetica-Bold')
+
+        elements.append(Paragraph(f"Relatório de Fechamento de Caixa - {empresa.nome_fantasia or empresa.razao_social}", title_style))
+        elements.append(Spacer(1, 0.2*cm))
+        
+        # Resumo da Sessão
+        sessao_info = [
+            [Paragraph("<b>Caixa / Sessão:</b>", cell_style), Paragraph(f"#{sessao.id}", cell_style),
+             Paragraph("<b>Status:</b>", cell_style), Paragraph(sessao.status, cell_style)],
+            [Paragraph("<b>Operador:</b>", cell_style), Paragraph(usuario_nome, cell_style),
+             Paragraph("<b>Local:</b>", cell_style), Paragraph(sessao.local_pagamento.nome if sessao.local_pagamento else '-', cell_style)],
+            [Paragraph("<b>Abertura:</b>", cell_style), Paragraph(sessao.aberto_em.strftime('%d/%m/%Y %H:%M:%S') if sessao.aberto_em else '-', cell_style),
+             Paragraph("<b>Fechamento:</b>", cell_style), Paragraph(sessao.fechado_em.strftime('%d/%m/%Y %H:%M:%S') if sessao.fechado_em else '-', cell_style)]
+        ]
+        
+        info_table = Table(sessao_info, colWidths=[3*cm, 6*cm, 3*cm, 6*cm])
+        info_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f5f5f5')),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e0e0e0')),
+            ('PADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(info_table)
+        elements.append(Spacer(1, 0.5*cm))
+        
+        # Resumo Financeiro
+        total_entradas = sum([m.valor for m in extrato if m.tipo in ('SUPRIMENTO', 'RECEBIMENTO')])
+        total_saidas = sum([m.valor for m in extrato if m.tipo == 'SANGRIA'])
+        saldo_calc = sessao.saldo_inicial + total_entradas - total_saidas
+        
+        fin_info = [
+            [
+                Paragraph("<b>Saldo Inicial:</b>", cell_style), Paragraph(f"R$ {sessao.saldo_inicial:.2f}", cell_style),
+                Paragraph("<b>Entradas:</b>", cell_style), Paragraph(f"R$ {total_entradas:.2f}", ParagraphStyle('In', parent=cell_style, textColor=colors.HexColor('#2e7d32')))
+            ],
+            [
+                Paragraph("<b>Saídas (Sangria):</b>", cell_style), Paragraph(f"R$ {total_saidas:.2f}", ParagraphStyle('Out', parent=cell_style, textColor=colors.HexColor('#d32f2f'))),
+                Paragraph("<b>Saldo Calculado:</b>", cell_style), Paragraph(f"R$ {saldo_calc:.2f}", ParagraphStyle('Calc', parent=cell_style, fontName='Helvetica-Bold')),
+            ],
+            [
+                Paragraph("<b>Saldo Informado:</b>", cell_style), Paragraph(f"R$ {sessao.saldo_final:.2f}" if sessao.saldo_final is not None else '-', cell_style),
+                Paragraph("<b>Diferença:</b>", cell_style), Paragraph(f"R$ {(sessao.saldo_final - saldo_calc):.2f}" if sessao.saldo_final is not None else '-', cell_style)
+            ]
+        ]
+        
+        fin_table = Table(fin_info, colWidths=[3*cm, 6*cm, 3*cm, 6*cm])
+        fin_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#bdbdbd')),
+            ('PADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(Paragraph("Resumo Financeiro", subtitle_style))
+        elements.append(fin_table)
+        elements.append(Spacer(1, 0.5*cm))
+
+        # Extrato de Movimentações
+        elements.append(Paragraph("Extrato de Movimentações", subtitle_style))
+        
+        headers = [
+            Paragraph('Data/Hora', header_style),
+            Paragraph('Tipo', header_style),
+            Paragraph('Forma Pgto', header_style),
+            Paragraph('Descrição', header_style),
+            Paragraph('Valor', header_style)
+        ]
+        
+        data = [headers]
+        
+        for m in extrato:
+            data.append([
+                Paragraph(m.created_at.strftime('%d/%m/%Y %H:%M') if m.created_at else '', cell_style),
+                Paragraph(m.tipo, cell_style),
+                Paragraph(m.forma_pagamento.nome if m.forma_pagamento else '-', cell_style),
+                Paragraph(m.descricao or '-', cell_style),
+                Paragraph(f"{'+' if m.tipo in ('RECEBIMENTO', 'SUPRIMENTO') else '-'} R$ {m.valor:.2f}", 
+                          ParagraphStyle('Val', parent=cell_style, textColor=colors.HexColor('#2e7d32') if m.tipo in ('RECEBIMENTO', 'SUPRIMENTO') else colors.HexColor('#d32f2f')))
+            ])
+            
+        table = Table(data, colWidths=[3*cm, 2.5*cm, 3.5*cm, 6.5*cm, 2.5*cm])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.whitesmoke])
+        ]))
+        elements.append(table)
+        
+        elements.append(Spacer(1, 1*cm))
+        elements.append(Paragraph(f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", styles['Normal']))
+        
+        doc.build(elements)
+        buffer.seek(0)
+        return buffer

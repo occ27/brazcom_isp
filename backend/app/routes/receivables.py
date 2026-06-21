@@ -84,6 +84,7 @@ class ReceivableResponse(BaseModel):
     unblock_attempted: Optional[bool] = None
     unblock_success: Optional[bool] = None
     unblock_message: Optional[str] = None
+    local_pagamento_nome: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -310,16 +311,27 @@ def list_receivables(
         query = query.filter(filter_field <= end_date)
         
     total = query.count()
-    items = query.order_by(Receivable.id.desc())\
+    items = query.order_by(Receivable.paid_at.desc(), Receivable.due_date.desc())\
         .offset((page - 1) * per_page)\
         .limit(per_page)\
         .all()
     
+    from app.models.schema_caixa import CaixaMovimentacao, CaixaSessao, LocalPagamento
     result = []
     for recv, cliente_nome, cliente_cpf_cnpj in items:
         response = ReceivableResponse.from_orm(recv).dict()
         response['cliente_nome'] = cliente_nome
         response['cliente_cpf_cnpj'] = cliente_cpf_cnpj
+        
+        if recv.status == 'PAID' and recv.bank == 'CAIXA':
+            mov = db.query(CaixaMovimentacao).filter(CaixaMovimentacao.receivable_id == recv.id).first()
+            if mov:
+                sessao = db.query(CaixaSessao).filter(CaixaSessao.id == mov.sessao_id).first()
+                if sessao:
+                    local = db.query(LocalPagamento).filter(LocalPagamento.id == sessao.local_id).first()
+                    if local:
+                        response['local_pagamento_nome'] = local.nome
+                        
         result.append(response)
     
     return {"data": result, "total": total}
@@ -364,15 +376,20 @@ def settle_receivable(receivable_id: int, payload: SettlePayload = Body(...), db
     # 3. Lançar movimentações no caixa para cada split
     # Como não temos uma tabela de recebimento específica, criamos uma movimentação de "RECEBIMENTO"
     # para cada forma de pagamento do split, e deixamos recebimento_caixa_id como None
+    from app.models.models import Cliente
+    cliente = db.query(Cliente).filter(Cliente.id == receivable.cliente_id).first()
+    cliente_nome = cliente.nome_razao_social if cliente else "Desconhecido"
+
     for split in payload.splits:
         mov = CaixaMovimentacao(
             sessao_id=sessao.id,
             usuario_id=current_user.id,
             forma_pagamento_id=split.forma_pagamento_id,
             recebimento_caixa_id=None,
+            receivable_id=receivable.id,
             tipo="RECEBIMENTO",
             valor=split.amount,
-            descricao=f"Baixa Manual do Recebível #{receivable.id}"
+            descricao=f"Baixa Manual #{receivable.id} - {cliente_nome}"
         )
         db.add(mov)
 
@@ -440,6 +457,12 @@ def refund_receivable(receivable_id: int, db: Session = Depends(get_db), current
     if recv.status != 'PAID':
         raise HTTPException(status_code=400, detail="Apenas cobranças pagas podem ser estornadas.")
     
+    # Remover movimentações do caixa se foi pago pelo caixa
+    from app.models.models import CaixaMovimentacao
+    movimentacoes = db.query(CaixaMovimentacao).filter(CaixaMovimentacao.receivable_id == recv.id).all()
+    for mov in movimentacoes:
+        db.delete(mov)
+
     recv.status = 'PENDING'
     recv.paid_at = None
     recv.paid_amount = None
