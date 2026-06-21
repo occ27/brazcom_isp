@@ -142,6 +142,7 @@ class ServicoContratadoUpdate(BaseModel):
     dia_vencimento: Optional[int] = Field(None, ge=1, le=31)
     periodicidade: Optional[str] = Field(None, max_length=20)
     dia_emissao: Optional[int] = Field(None, ge=1, le=31)
+    last_emission: Optional[datetime] = None
     quantidade: Optional[float] = None
     valor_unitario: Optional[float] = None
     valor_total: Optional[float] = None

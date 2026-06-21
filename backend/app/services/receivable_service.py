@@ -230,26 +230,25 @@ def generate_receivables_for_company(db: Session, empresa_id: int, target_date: 
         for i in range(iterations):
             current_target = add_months_date(target_date, i)
 
-            start_issue = _dt.datetime(current_target.year, current_target.month, 1, 0, 0, 0)
-            if current_target.month == 12:
-                end_issue = _dt.datetime(current_target.year + 1, 1, 1, 0, 0, 0)
-            else:
-                end_issue = _dt.datetime(current_target.year, current_target.month + 1, 1, 0, 0, 0)
+            # gerar a simulação do receivable para saber as datas
+            recv_simul = generate_receivable_from_contract(db, c, current_target)
 
+            # Para evitar duplicados, checamos se já existe fatura para o mesmo contrato e mesmo mês/ano de VENCIMENTO.
+            # Isso é mais seguro que issue_date, especialmente para carnês gerados todos no mesmo dia.
+            from sqlalchemy import extract
             existing_recv = db.query(Receivable).filter(
                 Receivable.servico_contratado_id == c.id,
-                Receivable.issue_date >= start_issue,
-                Receivable.issue_date < end_issue
+                extract('year', Receivable.due_date) == recv_simul.due_date.year,
+                extract('month', Receivable.due_date) == recv_simul.due_date.month
             ).first()
 
             if existing_recv:
                 # Já existe uma cobrança para este contrato neste mês de faturamento!
                 continue
 
-            # gerar
-            recv = generate_receivable_from_contract(db, c, current_target)
-            create_and_persist_receivable(db, recv)
-            created.append(recv)
+            # Se não existe, podemos persistir o gerado
+            create_and_persist_receivable(db, recv_simul)
+            created.append(recv_simul)
             
         # atualizar last_emission após o loop
         c.last_emission = datetime.now()

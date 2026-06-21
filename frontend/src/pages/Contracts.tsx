@@ -2695,6 +2695,16 @@ const Contracts: React.FC = () => {
                         InputLabelProps={{ shrink: true }}
                       />
                       <TextField
+                        label="Última Emissão Automática"
+                        type="datetime-local"
+                        value={form.last_emission ? form.last_emission.substring(0, 16) : ''}
+                        onChange={e => handleInputChange('last_emission', e.target.value ? new Date(e.target.value).toISOString() : null)}
+                        fullWidth
+                        size="small"
+                        InputLabelProps={{ shrink: true }}
+                        helperText="Data da última vez que faturas automáticas foram geradas. Limpe para forçar a re-geração."
+                      />
+                      <TextField
                         label="Dia de Vencimento (1-31) *"
                         type="number"
                         value={form.dia_vencimento ?? ''}
