@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, 
-  TableHead, TableRow, TablePagination, TextField, Button, Chip, IconButton,
+  TableHead, TableRow, TablePagination, Button, Chip, IconButton,
   MenuItem, Select, FormControl, InputLabel, CircularProgress, Tooltip, Dialog,
-  DialogTitle, DialogContent, DialogActions
+  DialogTitle, DialogContent, DialogActions, Grid, Divider
 } from '@mui/material';
 import { ArrowPathIcon, DocumentArrowDownIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
@@ -29,6 +29,12 @@ export default function SessoesCaixa() {
   const [extrato, setExtrato] = useState<CaixaMovimentacao[]>([]);
   const [loadingExtrato, setLoadingExtrato] = useState(false);
   const [downloading, setDownloading] = useState<number | null>(null);
+
+  const totalEntradas = extrato.filter(m => ['SUPRIMENTO', 'RECEBIMENTO'].includes(m.tipo)).reduce((acc, m) => acc + m.valor, 0);
+  const totalSaidas = extrato.filter(m => m.tipo === 'SANGRIA').reduce((acc, m) => acc + m.valor, 0);
+  const saldoCalculado = (selectedSessao?.saldo_inicial || 0) + totalEntradas - totalSaidas;
+  const saldoInformado = selectedSessao?.saldo_final_informado;
+  const diferenca = saldoInformado !== undefined && saldoInformado !== null ? saldoInformado - saldoCalculado : undefined;
 
   const loadSessoes = async () => {
     if (!activeCompany?.id) return;
@@ -111,14 +117,14 @@ export default function SessoesCaixa() {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: 'rgba(0,0,0,0.02)' }}>
-                <TableCell>ID</TableCell>
-                <TableCell>Operador</TableCell>
-                <TableCell>Local</TableCell>
-                <TableCell>Abertura</TableCell>
-                <TableCell>Fechamento</TableCell>
-                <TableCell align="right">Saldo Final</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Ações</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>ID</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>Operador</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>Local</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>Abertura</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>Fechamento</TableCell>
+                <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>Saldo Final</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>Status</TableCell>
+                <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>Ações</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -128,20 +134,20 @@ export default function SessoesCaixa() {
                 <TableRow><TableCell colSpan={8} align="center" sx={{ py: 4 }}>Nenhum caixa encontrado</TableCell></TableRow>
               ) : sessoes.map((s) => (
                 <TableRow key={s.id} hover>
-                  <TableCell>#{s.id}</TableCell>
-                  <TableCell>{s.usuario_nome}</TableCell>
-                  <TableCell>{s.local_pagamento_nome}</TableCell>
-                  <TableCell>{new Date(s.data_abertura).toLocaleString('pt-BR')}</TableCell>
-                  <TableCell>{s.data_fechamento ? new Date(s.data_fechamento).toLocaleString('pt-BR') : '-'}</TableCell>
-                  <TableCell align="right">
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>#{s.id}</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{s.usuario_nome}</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{s.local_pagamento_nome}</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{new Date(s.data_abertura).toLocaleString('pt-BR')}</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{s.data_fechamento ? new Date(s.data_fechamento).toLocaleString('pt-BR') : '-'}</TableCell>
+                  <TableCell align="right" sx={{ whiteSpace: 'nowrap', fontWeight: 'bold' }}>
                     {s.saldo_final_informado !== null && s.saldo_final_informado !== undefined ? `R$ ${s.saldo_final_informado.toFixed(2)}` : '-'}
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>
                     {s.status === 'ABERTO' 
                       ? <Chip label="Aberto" size="small" color="success" /> 
                       : <Chip label="Fechado" size="small" color="default" />}
                   </TableCell>
-                  <TableCell align="right">
+                  <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                     <Tooltip title="Ver Extrato">
                       <IconButton size="small" onClick={() => handleViewExtrato(s)} color="info">
                         <EyeIcon className="w-5 h-5" />
@@ -181,7 +187,42 @@ export default function SessoesCaixa() {
           {loadingExtrato ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
           ) : (
-            <Table size="small">
+            <>
+              {selectedSessao && (
+                <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: 'rgba(0,0,0,0.02)' }}>
+                  <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold' }}>Resumo Financeiro</Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={6} sm={4}>
+                      <Typography variant="caption" color="text.secondary">Saldo Inicial</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>R$ {selectedSessao.saldo_inicial.toFixed(2)}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography variant="caption" color="text.secondary">Entradas</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 500, color: 'success.main' }}>R$ {totalEntradas.toFixed(2)}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography variant="caption" color="text.secondary">Saídas (Sangria)</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 500, color: 'error.main' }}>R$ {totalSaidas.toFixed(2)}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography variant="caption" color="text.secondary">Saldo Calculado</Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 'bold' }}>R$ {saldoCalculado.toFixed(2)}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography variant="caption" color="text.secondary">Saldo Informado</Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 'bold' }}>{saldoInformado !== undefined ? `R$ ${saldoInformado.toFixed(2)}` : '-'}</Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={4}>
+                      <Typography variant="caption" color="text.secondary">Diferença</Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 'bold', color: diferenca === undefined ? 'inherit' : diferenca < 0 ? 'error.main' : 'success.main' }}>
+                        {diferenca !== undefined ? `R$ ${diferenca.toFixed(2)}` : '-'}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </Paper>
+              )}
+              
+              <Table size="small">
               <TableHead>
                 <TableRow>
                   <TableCell>Data/Hora</TableCell>
@@ -208,6 +249,7 @@ export default function SessoesCaixa() {
                 )}
               </TableBody>
             </Table>
+            </>
           )}
         </DialogContent>
         <DialogActions>

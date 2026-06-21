@@ -324,7 +324,7 @@ def list_receivables(
         response['cliente_cpf_cnpj'] = cliente_cpf_cnpj
         
         if recv.status == 'PAID' and recv.bank == 'CAIXA':
-            mov = db.query(CaixaMovimentacao).filter(CaixaMovimentacao.receivable_id == recv.id).first()
+            mov = db.query(CaixaMovimentacao).filter(CaixaMovimentacao.recebimento_caixa_id == recv.id).first()
             if mov:
                 sessao = db.query(CaixaSessao).filter(CaixaSessao.id == mov.sessao_id).first()
                 if sessao:
@@ -385,8 +385,7 @@ def settle_receivable(receivable_id: int, payload: SettlePayload = Body(...), db
             sessao_id=sessao.id,
             usuario_id=current_user.id,
             forma_pagamento_id=split.forma_pagamento_id,
-            recebimento_caixa_id=None,
-            receivable_id=receivable.id,
+            recebimento_caixa_id=receivable.id,
             tipo="RECEBIMENTO",
             valor=split.amount,
             descricao=f"Baixa Manual #{receivable.id} - {cliente_nome}"
@@ -459,7 +458,7 @@ def refund_receivable(receivable_id: int, db: Session = Depends(get_db), current
     
     # Remover movimentações do caixa se foi pago pelo caixa
     from app.models.models import CaixaMovimentacao
-    movimentacoes = db.query(CaixaMovimentacao).filter(CaixaMovimentacao.receivable_id == recv.id).all()
+    movimentacoes = db.query(CaixaMovimentacao).filter(CaixaMovimentacao.recebimento_caixa_id == recv.id).all()
     for mov in movimentacoes:
         db.delete(mov)
 
