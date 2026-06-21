@@ -316,7 +316,7 @@ def list_receivables(
         .limit(per_page)\
         .all()
     
-    from app.models.schema_caixa import CaixaMovimentacao, CaixaSessao, LocalPagamento
+    from app.models.models import CaixaMovimentacao, CaixaSessao, LocalPagamento
     result = []
     for recv, cliente_nome, cliente_cpf_cnpj in items:
         response = ReceivableResponse.from_orm(recv).dict()
@@ -328,7 +328,7 @@ def list_receivables(
             if mov:
                 sessao = db.query(CaixaSessao).filter(CaixaSessao.id == mov.sessao_id).first()
                 if sessao:
-                    local = db.query(LocalPagamento).filter(LocalPagamento.id == sessao.local_id).first()
+                    local = db.query(LocalPagamento).filter(LocalPagamento.id == sessao.local_pagamento_id).first()
                     if local:
                         response['local_pagamento_nome'] = local.nome
                         

@@ -170,7 +170,7 @@ def historico_caixas(
         # Preenche os nomes
         s.usuario_nome = s.usuario.full_name if s.usuario else 'Desconhecido'
         s.local_pagamento_nome = s.local_pagamento.nome if s.local_pagamento else 'Desconhecido'
-        result.append(schema_caixa.CaixaSessaoResponse.from_orm(s))
+        result.append(schema_caixa.CaixaSessaoResponse.model_validate(s))
         
     return {"data": result, "total": total}
 

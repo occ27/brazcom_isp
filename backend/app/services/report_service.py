@@ -590,8 +590,8 @@ class ReportService:
              Paragraph("<b>Status:</b>", cell_style), Paragraph(sessao.status, cell_style)],
             [Paragraph("<b>Operador:</b>", cell_style), Paragraph(usuario_nome, cell_style),
              Paragraph("<b>Local:</b>", cell_style), Paragraph(sessao.local_pagamento.nome if sessao.local_pagamento else '-', cell_style)],
-            [Paragraph("<b>Abertura:</b>", cell_style), Paragraph(sessao.aberto_em.strftime('%d/%m/%Y %H:%M:%S') if sessao.aberto_em else '-', cell_style),
-             Paragraph("<b>Fechamento:</b>", cell_style), Paragraph(sessao.fechado_em.strftime('%d/%m/%Y %H:%M:%S') if sessao.fechado_em else '-', cell_style)]
+            [Paragraph("<b>Abertura:</b>", cell_style), Paragraph(sessao.data_abertura.strftime('%d/%m/%Y %H:%M:%S') if sessao.data_abertura else '-', cell_style),
+             Paragraph("<b>Fechamento:</b>", cell_style), Paragraph(sessao.data_fechamento.strftime('%d/%m/%Y %H:%M:%S') if sessao.data_fechamento else '-', cell_style)]
         ]
         
         info_table = Table(sessao_info, colWidths=[3*cm, 6*cm, 3*cm, 6*cm])
@@ -620,8 +620,8 @@ class ReportService:
                 Paragraph("<b>Saldo Calculado:</b>", cell_style), Paragraph(f"R$ {saldo_calc:.2f}", ParagraphStyle('Calc', parent=cell_style, fontName='Helvetica-Bold')),
             ],
             [
-                Paragraph("<b>Saldo Informado:</b>", cell_style), Paragraph(f"R$ {sessao.saldo_final:.2f}" if sessao.saldo_final is not None else '-', cell_style),
-                Paragraph("<b>Diferença:</b>", cell_style), Paragraph(f"R$ {(sessao.saldo_final - saldo_calc):.2f}" if sessao.saldo_final is not None else '-', cell_style)
+                Paragraph("<b>Saldo Informado:</b>", cell_style), Paragraph(f"R$ {sessao.saldo_final_informado:.2f}" if sessao.saldo_final_informado is not None else '-', cell_style),
+                Paragraph("<b>Diferença:</b>", cell_style), Paragraph(f"R$ {(sessao.saldo_final_informado - saldo_calc):.2f}" if sessao.saldo_final_informado is not None else '-', cell_style)
             ]
         ]
         

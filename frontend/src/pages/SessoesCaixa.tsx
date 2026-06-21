@@ -8,10 +8,12 @@ import {
 import { ArrowPathIcon, DocumentArrowDownIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 import { caixaService, CaixaSessao, CaixaMovimentacao } from '../services/caixaService';
+import { useCompany } from '../contexts/CompanyContext';
 import { useSnackbar } from 'notistack';
 
 export default function SessoesCaixa() {
   const { user } = useAuth();
+  const { activeCompany } = useCompany();
   const { enqueueSnackbar } = useSnackbar();
   
   const [sessoes, setSessoes] = useState<CaixaSessao[]>([]);
@@ -29,11 +31,11 @@ export default function SessoesCaixa() {
   const [downloading, setDownloading] = useState<number | null>(null);
 
   const loadSessoes = async () => {
-    if (!user?.active_empresa_id) return;
+    if (!activeCompany?.id) return;
     try {
       setLoading(true);
       const res = await caixaService.getSessoesHistorico(
-        user.active_empresa_id,
+        activeCompany.id,
         page + 1,
         perPage,
         statusFilter || undefined
@@ -50,7 +52,7 @@ export default function SessoesCaixa() {
 
   useEffect(() => {
     loadSessoes();
-  }, [page, perPage, statusFilter, user?.active_empresa_id]);
+  }, [page, perPage, statusFilter, activeCompany?.id]);
 
   const handleDownloadPDF = async (sessaoId: number) => {
     try {
