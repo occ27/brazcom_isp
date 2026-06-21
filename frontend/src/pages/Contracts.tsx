@@ -2646,6 +2646,7 @@ const Contracts: React.FC = () => {
                           onChange={(e: SelectChangeEvent) => handleInputChange('periodicidade', e.target.value)}
                         >
                           <MenuItem value="MENSAL">Mensal</MenuItem>
+                          <MenuItem value="SEMESTRAL">Semestral</MenuItem>
                           <MenuItem value="UNICA">Única</MenuItem>
                         </Select>
                       </FormControl>

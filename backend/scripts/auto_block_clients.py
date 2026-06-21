@@ -73,14 +73,40 @@ def run_auto_blocking():
 
                     if pending_receivables:
                         print(f"  [AUTO-NOTIFICATIONS] Found {len(pending_receivables)} pending receivables to notify.")
+                        
+                        from collections import defaultdict
+                        from app.services.receivable_service import send_carne_notification
+                        from app.models.models import ServicoContratado
+
+                        # Agrupar por contrato
+                        receivables_by_contract = defaultdict(list)
                         for r in pending_receivables:
-                            try:
-                                session.flush()
-                                if send_receivable_notification(session, r):
-                                    company_notified += 1
-                                    db_changed = True
-                            except Exception as notif_err:
-                                print(f"    [AUTO-NOTIFICATIONS] [WARNING] Failed to notify receivable #{r.id}: {notif_err}")
+                            receivables_by_contract[r.servico_contratado_id].append(r)
+
+                        for contract_id, recvs in receivables_by_contract.items():
+                            if contract_id:
+                                contrato = session.query(ServicoContratado).filter(ServicoContratado.id == contract_id).first()
+                                if contrato and contrato.periodicidade == 'SEMESTRAL' and len(recvs) > 1:
+                                    # Enviar como Carnê Semestral em lote
+                                    try:
+                                        session.flush()
+                                        if send_carne_notification(session, recvs):
+                                            company_notified += len(recvs)
+                                            db_changed = True
+                                    except Exception as notif_err:
+                                        print(f"    [AUTO-NOTIFICATIONS] [WARNING] Failed to notify carne for contract #{contract_id}: {notif_err}")
+                                    continue
+
+                            # Fallback para envio individual
+                            for r in recvs:
+                                try:
+                                    session.flush()
+                                    if send_receivable_notification(session, r):
+                                        company_notified += 1
+                                        db_changed = True
+                                except Exception as notif_err:
+                                    print(f"    [AUTO-NOTIFICATIONS] [WARNING] Failed to notify receivable #{r.id}: {notif_err}")
+
                         if company_notified > 0:
                             print(f"  [AUTO-NOTIFICATIONS] Sent {company_notified}/{len(pending_receivables)} notifications via configured channels.")
                     else:

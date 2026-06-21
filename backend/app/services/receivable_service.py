@@ -215,30 +215,44 @@ def generate_receivables_for_company(db: Session, empresa_id: int, target_date: 
         if not should_generate_for_contract(c, target_date):
             continue
 
-        # Evitar duplicados no mesmo mês/ano de faturamento (com base na data de emissão/geração)
         import datetime as _dt
-        start_issue = _dt.datetime(target_date.year, target_date.month, 1, 0, 0, 0)
-        if target_date.month == 12:
-            end_issue = _dt.datetime(target_date.year + 1, 1, 1, 0, 0, 0)
-        else:
-            end_issue = _dt.datetime(target_date.year, target_date.month + 1, 1, 0, 0, 0)
+        import calendar
 
-        existing_recv = db.query(Receivable).filter(
-            Receivable.servico_contratado_id == c.id,
-            Receivable.issue_date >= start_issue,
-            Receivable.issue_date < end_issue
-        ).first()
+        def add_months_date(sourcedate, months):
+            month = sourcedate.month - 1 + months
+            year = sourcedate.year + month // 12
+            month = month % 12 + 1
+            day = min(sourcedate.day, calendar.monthrange(year, month)[1])
+            return _dt.date(year, month, day)
 
-        if existing_recv:
-            # Já existe uma cobrança para este contrato neste mês de faturamento!
-            continue
+        iterations = 6 if c.periodicidade == 'SEMESTRAL' else 1
 
-        # gerar
-        recv = generate_receivable_from_contract(db, c, target_date)
-        create_and_persist_receivable(db, recv)
-        # atualizar last_emission
+        for i in range(iterations):
+            current_target = add_months_date(target_date, i)
+
+            start_issue = _dt.datetime(current_target.year, current_target.month, 1, 0, 0, 0)
+            if current_target.month == 12:
+                end_issue = _dt.datetime(current_target.year + 1, 1, 1, 0, 0, 0)
+            else:
+                end_issue = _dt.datetime(current_target.year, current_target.month + 1, 1, 0, 0, 0)
+
+            existing_recv = db.query(Receivable).filter(
+                Receivable.servico_contratado_id == c.id,
+                Receivable.issue_date >= start_issue,
+                Receivable.issue_date < end_issue
+            ).first()
+
+            if existing_recv:
+                # Já existe uma cobrança para este contrato neste mês de faturamento!
+                continue
+
+            # gerar
+            recv = generate_receivable_from_contract(db, c, current_target)
+            create_and_persist_receivable(db, recv)
+            created.append(recv)
+            
+        # atualizar last_emission após o loop
         c.last_emission = datetime.now()
-        created.append(recv)
     return created
 def build_boleto_context(db: Session, recv: Receivable) -> dict:
     """Prepara o dicionário de contexto para o gerador de PDF."""
@@ -602,3 +616,96 @@ def send_receivable_notification(db: Session, recv: Receivable) -> bool:
                 os.unlink(pdf_path)
             except Exception:
                 pass
+
+def send_carne_notification(db: Session, recvs: list[Receivable]) -> bool:
+    """Envia um lote de faturas (carnê) aglomerado em 1 único PDF."""
+    if not recvs:
+        return False
+
+    from app.models.models import Empresa, Cliente
+    from app.crud import crud_empresa
+    from app.services.email_service import EmailService
+    from app.services.whatsapp_service import WhatsAppService
+    from app.services.boleto_generator import generate_boletos_pdf
+    import tempfile
+
+    primeiro_recv = recvs[0]
+    empresa = db.query(Empresa).filter(Empresa.id == primeiro_recv.empresa_id).first()
+    cliente = db.query(Cliente).filter(Cliente.id == primeiro_recv.cliente_id).first()
+    if not empresa or not cliente:
+        return False
+
+    if not getattr(cliente, "recebe_notificacoes", True):
+        for r in recvs:
+            r.sent_at = datetime.now()
+            db.add(r)
+        db.flush()
+        return True
+
+    empresa_raw = crud_empresa.get_empresa_raw(db, empresa_id=empresa.id)
+
+    contexts = []
+    total_amount = 0.0
+    for r in recvs:
+        total_amount += r.amount
+        try:
+            contexts.append(build_boleto_context(db, r))
+        except Exception as e:
+            logging.error(f"Erro montando contexto boleto: {e}")
+
+    pdf_path = None
+    if contexts:
+        try:
+            pdf_bytes = generate_boletos_pdf(contexts)
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+            tmp.write(pdf_bytes)
+            tmp.close()
+            pdf_path = tmp.name
+        except Exception as e:
+            logging.error(f"Erro ao gerar PDF agrupado do carnê: {e}")
+
+    carne_data = {
+        "total_amount": total_amount,
+        "count": len(recvs)
+    }
+
+    send_email = getattr(empresa, "send_method_email", True)
+    send_whatsapp = getattr(empresa, "send_method_whatsapp", False)
+
+    if not send_email and not send_whatsapp:
+        send_email = True
+
+    success = False
+    if send_email and cliente.email:
+        try:
+            success_email = EmailService.send_carne_email(
+                empresa=empresa_raw,
+                cliente_email=cliente.email,
+                carne_data=carne_data,
+                pdf_path=pdf_path
+            )
+            if success_email:
+                success = True
+        except Exception as e:
+            logging.error(f"Erro ao enviar email de carnê: {e}")
+
+    if send_whatsapp and cliente.telefone:
+        try:
+            success_whatsapp = WhatsAppService.send_carne_message(
+                empresa=empresa_raw,
+                cliente_nome=cliente.nome_razao_social,
+                cliente_phone=cliente.telefone,
+                carne_data=carne_data
+            )
+            if success_whatsapp:
+                success = True
+        except Exception as e:
+            logging.error(f"Erro ao enviar wpp de carnê: {e}")
+
+    if success:
+        for r in recvs:
+            r.sent_at = datetime.now()
+            db.add(r)
+        db.flush()
+
+    return success

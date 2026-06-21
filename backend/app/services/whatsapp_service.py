@@ -285,3 +285,23 @@ class WhatsAppService:
         except Exception as e:
             logger.error(f"Erro ao desconectar/excluir instância do WhatsApp: {e}", exc_info=True)
             return False
+
+    @staticmethod
+    def send_carne_message(
+        empresa: Empresa,
+        cliente_nome: str,
+        cliente_phone: str,
+        carne_data: Dict[str, Any]
+    ) -> bool:
+        """
+        Formata e envia uma notificação de carnê por WhatsApp para o cliente.
+        """
+        count = carne_data.get('count', 0)
+        company_name = empresa.nome_fantasia or empresa.razao_social
+
+        message = f"Olá, *{cliente_nome}*!\n\n"
+        message += f"O seu carnê contendo as próximas {count} faturas da *{company_name}* já foi gerado.\n\n"
+        message += "O PDF do seu carnê com todos os boletos foi encaminhado para o seu e-mail cadastrado.\n\n"
+        message += f"Agradecemos a sua parceria!\n*Atenciosamente, {company_name}*"
+
+        return WhatsAppService.send_message(empresa, cliente_phone, message)

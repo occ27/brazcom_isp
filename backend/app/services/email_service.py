@@ -466,3 +466,40 @@ Atenciosamente,
         except Exception as e:
             _safe_print(f"Erro ao enviar email com credenciais: {_safe_exc_str(e)}")
             return False
+    @staticmethod
+    def send_carne_email(
+        empresa: Empresa,
+        cliente_email: str,
+        carne_data: Dict[str, Any],
+        pdf_path: Optional[str] = None
+    ) -> bool:
+        """
+        Envia um carnê (lote de faturas) por email para o cliente.
+        """
+        subject = f"Carnê Semestral Disponível - {empresa.nome_fantasia or empresa.razao_social}"
+        
+        total_amount = carne_data.get('total_amount', 0.0)
+        count = carne_data.get('count', 0)
+        
+        body = f"""
+Olá,
+
+Seu carnê de {empresa.nome_fantasia or empresa.razao_social} contendo as próximas {count} faturas já está disponível para pagamento.
+O valor total do semestre é R$ {total_amount:,.2f}.
+
+Segue em anexo o PDF com todos os boletos.
+
+Atenciosamente,
+{empresa.nome_fantasia or empresa.razao_social}
+        """.strip()
+        
+        attachments = [pdf_path] if pdf_path and os.path.exists(pdf_path) else []
+
+        return EmailService.send_email(
+            empresa=empresa,
+            to_email=cliente_email,
+            subject=subject,
+            body=body,
+            is_html=False,
+            attachments=attachments
+        )

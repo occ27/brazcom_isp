@@ -535,3 +535,26 @@ def generate_boleto_pdf(context: dict, logo_path: Optional[str] = None) -> bytes
     c.save()
     buf.seek(0)
     return buf.read()
+
+def generate_boletos_pdf(contexts: list[dict], logo_path: Optional[str] = None) -> bytes:
+    """
+    Gera um PDF contendo múltiplos boletos, com uma página por boleto.
+    """
+    buf = io.BytesIO()
+    c = rl_canvas.Canvas(buf, pagesize=A4)
+    c.setTitle('Boletos de Cobrança')
+
+    for ctx in contexts:
+        y = 0.0
+        # Canhoto
+        y = _draw_canhoto(c, ctx, logo_path, y)
+        # Separador
+        y = _draw_separator(c, y)
+        # Ficha de compensação
+        _draw_ficha(c, ctx, logo_path, y)
+        
+        c.showPage()
+
+    c.save()
+    buf.seek(0)
+    return buf.read()
