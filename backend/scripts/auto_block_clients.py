@@ -178,6 +178,25 @@ def run_auto_blocking():
                 if created_recv:
                     company_generated = len(created_recv)
                     print(f"  [AUTO-BILLING] Generated {company_generated} new receivables for today (notified later in morning run).")
+                    
+                    # Auto-registrar na API do Banco (BB, Sicoob, etc)
+                    import asyncio
+                    from app.services.billing_service import BillingService
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    for r in created_recv:
+                        if r.bank_account_id and r.tipo != 'MERCADO_PAGO':
+                            try:
+                                print(f"  [AUTO-BILLING] Attempting to register receivable {r.id} via bank API...")
+                                success = loop.run_until_complete(BillingService.register_receivable_with_bank(session, r))
+                                if success:
+                                    print(f"  [AUTO-BILLING] Registered receivable {r.id} successfully.")
+                                else:
+                                    print(f"  [AUTO-BILLING] Failed to register receivable {r.id}.")
+                            except Exception as api_err:
+                                print(f"  [AUTO-BILLING] API Error for receivable {r.id}: {api_err}")
+                    loop.close()
+                    
                     total_generated += company_generated
                     db_changed = True
                 else:
