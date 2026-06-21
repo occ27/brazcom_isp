@@ -188,6 +188,7 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
       icon: DocumentTextIcon,
       color: 'green',
       items: [
+        { label: 'Meu Caixa', icon: DocumentTextIcon, path: 'caixa' as PageType, group: 'financeiro' },
         { label: 'Contas Bancárias', icon: DocumentTextIcon, path: 'bank-accounts' as PageType, group: 'financeiro' },
         { label: 'Cobranças', icon: DocumentTextIcon, path: 'receivables' as PageType, group: 'financeiro' },
         { label: 'Relatórios', icon: ChartBarIcon, path: 'reports' as PageType, group: 'financeiro' },
@@ -246,6 +247,7 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
   };
 
   // Permissões para financeiro
+  permissionMap['caixa'] = undefined;
   permissionMap['bank-accounts'] = 'bank_accounts_view';
   permissionMap['receivables'] = 'receivables_view';
   permissionMap['tickets'] = 'tickets_view';

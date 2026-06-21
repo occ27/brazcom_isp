@@ -32,6 +32,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 import { API_BASE_URL } from '../services/api';
+import { CaixaConfigTab } from '../components/companies/CaixaConfigTab';
 import { companyService, CompanyCreate, CompanyUpdate } from '../services/companyService';
 import bankAccountService, { BankAccount } from '../services/bankAccountService';
 import { stringifyError } from '../utils/error';
@@ -1008,6 +1009,7 @@ const Companies: React.FC = () => {
                   { id: "files", label: "Arquivos", icon: "📁", color: "purple" },
                   { id: "email", label: "Canais & Notificações", icon: "💬", color: "orange" },
                   { id: "isp", label: "ISP / Contratos", icon: "📄", color: "indigo" },
+                  { id: "caixa", label: "Caixa / Recebimentos", icon: "💰", color: "green" },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -2292,6 +2294,26 @@ const Companies: React.FC = () => {
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {activeTab === "caixa" && editingCompany && (
+                <div className="space-y-4 sm:space-y-6">
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-green-100 mb-4">
+                    <h3 className="text-lg sm:text-xl font-bold text-green-800 mb-1 sm:mb-2 flex items-center">
+                      <span className="mr-2 text-base sm:text-lg">💰</span>
+                      <span className="text-sm sm:text-base">Caixa e Recebimentos</span>
+                    </h3>
+                    <p className="text-xs sm:text-sm text-green-600 hidden sm:block">
+                      Configure os locais físicos (caixas) e as formas de pagamento disponíveis para baixas manuais.
+                    </p>
+                  </div>
+                  <CaixaConfigTab empresaId={editingCompany.id} />
+                </div>
+              )}
+              {activeTab === "caixa" && !editingCompany && (
+                <div className="p-4 text-center text-gray-500">
+                  Salve a empresa primeiro para configurar o Caixa.
                 </div>
               )}
             </div>

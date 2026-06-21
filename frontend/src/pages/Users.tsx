@@ -39,6 +39,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
 import userService, { Usuario, UsuarioCreate, UsuarioUpdate, Role } from '../services/userService';
 import clientService from '../services/clientService';
+import { caixaService, LocalPagamento } from '../services/caixaService';
 // Cliente (Portal) association removed from Users page
 
 const Users: React.FC = () => {
@@ -55,8 +56,11 @@ const Users: React.FC = () => {
     email: '',
     password: '',
     is_superuser: false,
-    is_admin: false
+    is_admin: false,
+    local_pagamento_id: undefined as number | undefined
   });
+
+  const [locais, setLocais] = useState<LocalPagamento[]>([]);
 
   const [rolesList, setRolesList] = useState<Role[]>([]);
   const [assignedRoles, setAssignedRoles] = useState<Role[]>([]);
@@ -100,12 +104,12 @@ const Users: React.FC = () => {
   // client lookup removed
 
   useEffect(() => {
-    if (activeCompany && canManageUsers) {
-      loadUsers();
-    } else {
-      setLoading(false);
+    loadUsers();
+    loadRoles();
+    if (activeCompany?.id) {
+      caixaService.getLocais(activeCompany.id).then(setLocais).catch(console.error);
     }
-  }, [activeCompany, canManageUsers]);
+  }, [activeCompany, currentUser]);
 
   const handleBackendError = (err: any, fallbackMessage: string) => {
     const detail = err.response?.data?.detail;
@@ -208,11 +212,12 @@ const Users: React.FC = () => {
     if (user) {
       setEditingUser(user);
       setFormData({
-        nome: user.full_name || (user as any).nome || '',
+        nome: user.nome || user.full_name || '',
         email: user.email,
         password: '', // Não preencher senha na edição
         is_superuser: user.is_superuser,
-        is_admin: user.is_admin || false
+        is_admin: user.is_company_admin || false,
+        local_pagamento_id: user.local_pagamento_id || undefined
       });
       // carregar roles e roles atribuídas para este usuário
       loadRoles();
@@ -224,7 +229,8 @@ const Users: React.FC = () => {
         email: '',
         password: '',
         is_superuser: false,
-        is_admin: false
+        is_admin: false,
+        local_pagamento_id: undefined
       });
       // carregar roles disponíveis para atribuição
       loadRoles();
@@ -261,7 +267,8 @@ const Users: React.FC = () => {
       email: '',
       password: '',
       is_superuser: false,
-      is_admin: false
+      is_admin: false,
+      local_pagamento_id: undefined
     });
     setError(null);
     setFormErrors({});
@@ -280,7 +287,8 @@ const Users: React.FC = () => {
         const updateData: UsuarioUpdate = {
           nome: formData.nome,
           email: formData.email,
-          is_superuser: formData.is_superuser
+          is_superuser: formData.is_superuser,
+          local_pagamento_id: formData.local_pagamento_id
         };
         if (formData.password) {
           updateData.password = formData.password;
@@ -594,10 +602,6 @@ const Users: React.FC = () => {
               helperText={formErrors.password || (editingUser ? "Deixe em branco para manter a senha atual" : "A senha deve ter pelo menos 6 caracteres")}
             />
 
-            {/* Cliente (Portal do Cliente) removed from user form */}
-
-            {/* O acesso de Superusuário (Global) foi removido da interface por segurança, sendo restrito apenas a desenvolvedores via banco de dados */}
-
             <FormControlLabel
               control={
                 <Switch
@@ -607,42 +611,59 @@ const Users: React.FC = () => {
               }
               label="Administrador da Empresa (Acesso Total Local)"
             />
-            {/* Roles */}
-            <Box>
-              <InputLabel sx={{ mb: 1 }}>Roles</InputLabel>
-              <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
-                {assignedRoles.map((r) => (
-                  <Chip
-                    key={r.id}
-                    label={r.name}
-                    onDelete={async () => {
-                      try {
-                        await userService.unassignRole(r.id, editingUser?.id || 0);
-                        if (editingUser) await loadAssignedRoles(editingUser.id);
-                      } catch (err: any) {
-                        setError(err.response?.data?.detail || 'Erro ao desatribuir role');
-                      }
-                    }}
-                    color="primary"
-                    size="small"
-                  />
+
+            <FormControl fullWidth margin="dense">
+              <InputLabel id="local-pagamento-label">Caixa / Local de Pagamento (Padrão)</InputLabel>
+              <Select
+                labelId="local-pagamento-label"
+                value={formData.local_pagamento_id || ''}
+                label="Caixa / Local de Pagamento (Padrão)"
+                onChange={(e) => setFormData({ ...formData, local_pagamento_id: e.target.value ? Number(e.target.value) : undefined })}
+              >
+                <MenuItem value=""><em>Nenhum</em></MenuItem>
+                {locais.map(local => (
+                  <MenuItem key={local.id} value={local.id}>{local.nome}</MenuItem>
                 ))}
-              </Stack>
-              <FormControl fullWidth>
-                <InputLabel id="select-role-label">Atribuir role</InputLabel>
-                <Select
-                  labelId="select-role-label"
-                  value={roleToAssign}
-                  label="Atribuir role"
-                  onChange={(e) => setRoleToAssign(e.target.value as number | '')}
-                >
-                  <MenuItem value="">(nenhum)</MenuItem>
-                  {rolesList.map((r) => (
-                    <MenuItem key={r.id} value={r.id}>{r.name}{r.description ? ` — ${r.description}` : ''}</MenuItem>
+              </Select>
+            </FormControl>
+
+            {editingUser && (
+              <Box>
+                <InputLabel sx={{ mb: 1 }}>Roles</InputLabel>
+                <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
+                  {assignedRoles.map((r) => (
+                    <Chip
+                      key={r.id}
+                      label={r.name}
+                      onDelete={async () => {
+                        try {
+                          await userService.unassignRole(r.id, editingUser?.id || 0);
+                          if (editingUser) await loadAssignedRoles(editingUser.id);
+                        } catch (err: any) {
+                          setError(err.response?.data?.detail || 'Erro ao desatribuir role');
+                        }
+                      }}
+                      color="primary"
+                      size="small"
+                    />
                   ))}
-                </Select>
-              </FormControl>
-            </Box>
+                </Stack>
+                <FormControl fullWidth>
+                  <InputLabel id="select-role-label">Atribuir role</InputLabel>
+                  <Select
+                    labelId="select-role-label"
+                    value={roleToAssign}
+                    label="Atribuir role"
+                    onChange={(e) => setRoleToAssign(e.target.value as number | '')}
+                  >
+                    <MenuItem value="">(nenhum)</MenuItem>
+                    {rolesList.map((r) => (
+                      <MenuItem key={r.id} value={r.id}>{r.name}{r.description ? ` — ${r.description}` : ''}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+            )}
           </Box>
         </DialogContent>
         <DialogActions>

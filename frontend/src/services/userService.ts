@@ -22,6 +22,8 @@ export interface Usuario {
   is_superuser: boolean;
   is_admin?: boolean;
   active_empresa_id?: number;
+  is_company_admin?: boolean;
+  local_pagamento_id?: number;
   created_at: string;
   updated_at: string;
 }
@@ -29,8 +31,9 @@ export interface Usuario {
 export interface UsuarioCreate {
   nome: string;
   email: string;
-  password: string;
+  password?: string;
   is_superuser?: boolean;
+  local_pagamento_id?: number;
 }
 
 export interface UsuarioUpdate {
@@ -39,6 +42,7 @@ export interface UsuarioUpdate {
   password?: string;
   is_active?: boolean;
   is_superuser?: boolean;
+  local_pagamento_id?: number;
   cliente_id?: number;
 }
 
@@ -53,6 +57,11 @@ class UserService {
     const response = await api.get(`/usuarios/empresa/${empresaId}`, {
       params: role ? { role } : undefined
     });
+    return response.data;
+  }
+
+  async getUser(userId: number): Promise<Usuario> {
+    const response = await api.get(`/usuarios/${userId}`);
     return response.data;
   }
 

@@ -22,6 +22,7 @@ import {
 import { useCompany } from '../contexts/CompanyContext';
 import { useAuth } from '../contexts/AuthContext';
 import receivableService, { Receivable } from '../services/receivableService';
+import { caixaService, CaixaSessao, FormaPagamento } from '../services/caixaService';
 import bankAccountService, { BankAccount } from '../services/bankAccountService';
 import { stringifyError } from '../utils/error';
 import api from '../services/authService';
@@ -87,6 +88,14 @@ const Receivables: React.FC = () => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [openSettle, setOpenSettle] = useState(false);
   const [settleAmount, setSettleAmount] = useState('');
+  // States for Caixa
+  const [sessao, setSessao] = useState<CaixaSessao | null>(null);
+  const [formas, setFormas] = useState<FormaPagamento[]>([]);
+  const [multaStr, setMultaStr] = useState('0,00');
+  const [jurosStr, setJurosStr] = useState('0,00');
+  const [descontoStr, setDescontoStr] = useState('0,00');
+  const [formaId, setFormaId] = useState<number | ''>('');
+
   
   // Data for Form
   const [clients, setClients] = useState<any[]>([]);
@@ -278,11 +287,106 @@ const Receivables: React.FC = () => {
     setAnchorEl(null);
   };
 
-  const handleConfirmSettle = async () => {
-    if (!selectedReceivable) return;
+  
+  const parseCurrencyInput = (val: string): number => {
+    if (!val) return 0;
+    const clean = val.replace(/\./g, '').replace(',', '.');
+    const floatVal = parseFloat(clean);
+    return isNaN(floatVal) ? 0 : floatVal;
+  };
+
+  const formatMoneyInput = (val: string): string => {
+    let digits = val.replace(/\D/g, '');
+    if (!digits) return '';
+    const floatVal = parseInt(digits, 10) / 100;
+    return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(floatVal);
+  };
+
+  const handleMoneyChange = (val: string, setter: (v: string) => void) => {
+    setter(formatMoneyInput(val));
+  };
+  
+  const calculateTotalSettle = () => {
+    if (!selectedReceivable) return 0;
+    const base = selectedReceivable.amount;
+    const multa = parseCurrencyInput(multaStr);
+    const juros = parseCurrencyInput(jurosStr);
+    const desconto = parseCurrencyInput(descontoStr);
+    return base + multa + juros - desconto;
+  };
+
+  const handleOpenSettleV2 = async (r: Receivable) => {
+    setSelectedReceivable(r);
+    setOpenSettle(true);
+    let defaultMulta = 0;
+    let defaultJuros = 0;
+
+    if (r.due_date) {
+      // Handle both ISO dates (T) and SQL dates (space)
+      const dueDateStr = r.due_date.includes(' ') ? r.due_date.replace(' ', 'T') : (r.due_date.includes('T') ? r.due_date : r.due_date + 'T00:00:00');
+      const dueDate = new Date(dueDateStr);
+      const today = new Date();
+      dueDate.setHours(0,0,0,0);
+      today.setHours(0,0,0,0);
+
+      if (today > dueDate) {
+        const diffTime = Math.abs(today.getTime() - dueDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        // Use receivable values or defaults (2% multa, 1% juros a.m.)
+        const finePercent = r.fine_percent != null ? r.fine_percent : 2.0; 
+        const interestPercent = r.interest_percent != null ? r.interest_percent : 1.0;
+        
+        defaultMulta = r.amount * (finePercent / 100);
+        defaultJuros = r.amount * ((interestPercent / 30) / 100) * diffDays;
+      }
+    }
+
+    setMultaStr(new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(defaultMulta));
+    setJurosStr(new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(defaultJuros));
+    setDescontoStr('0,00');
+    setFormaId('');
+    
+    // load caixa data
     try {
-      const paidAmount = unmaskCurrency(settleAmount);
-      const response = await receivableService.settleReceivable(selectedReceivable.id, paidAmount);
+      if (activeCompany) {
+        const sessaoData = await caixaService.getSessaoAtual(activeCompany.id);
+        setSessao(sessaoData);
+        const formasData = await caixaService.getFormas(activeCompany.id);
+        setFormas(formasData.filter(f => f.is_active));
+      }
+    } catch (e: any) {
+      if (e.response?.status === 404) {
+        setSessao(null);
+      }
+    }
+  };
+
+  const handleConfirmSettleV2 = async () => {
+    if (!selectedReceivable || !sessao) return;
+    if (formaId === '') {
+      alert("Selecione a forma de pagamento");
+      return;
+    }
+    
+    const total = calculateTotalSettle();
+    if (total <= 0) {
+      alert("O total não pode ser menor ou igual a zero.");
+      return;
+    }
+    
+    try {
+      const response = await receivableService.settleReceivable(selectedReceivable.id, {
+        paid_amount: total,
+        multa: parseCurrencyInput(multaStr),
+        juros: parseCurrencyInput(jurosStr),
+        desconto: parseCurrencyInput(descontoStr),
+        splits: [{
+          forma_pagamento_id: Number(formaId),
+          amount: total
+        }]
+      });
+
       setOpenSettle(false);
       loadReceivables();
 
@@ -295,42 +399,14 @@ const Receivables: React.FC = () => {
         });
         setUnblockResultDialogOpen(true);
       } else {
-        setSnackbar({ open: true, message: 'Cobrança baixada com sucesso.', severity: 'success' });
+        setSnackbar({ open: true, message: 'Cobrança recebida com sucesso.', severity: 'success' });
       }
-    } catch (e) {
-      setSnackbar({ open: true, message: stringifyError(e), severity: 'error' });
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Erro ao baixar cobrança");
     }
   };
 
-  const handleSettle = (id: number) => {
-    setConfirmDialog({
-      open: true,
-      title: 'Baixar Cobrança',
-      message: 'Confirmar o recebimento manual desta cobrança? O sistema marcará como PAGO.',
-      confirmColor: 'success',
-      onConfirm: async () => {
-        try {
-          const response = await receivableService.settleReceivable(id);
-          loadReceivables();
-
-          if (response.unblock_attempted) {
-            setUnblockResult({
-              attempted: true,
-              success: response.unblock_success || false,
-              message: response.unblock_message || '',
-              cliente_nome: selectedReceivable?.cliente_nome || 'Cliente'
-            });
-            setUnblockResultDialogOpen(true);
-          } else {
-            setSnackbar({ open: true, message: 'Cobrança baixada com sucesso.', severity: 'success' });
-          }
-        } catch (e) {
-          setSnackbar({ open: true, message: stringifyError(e), severity: 'error' });
-        }
-      }
-    });
-    setAnchorEl(null);
-  };
+  const handleSettle = (id: number) => { const r = receivables.find(x => x.id === id); if (r) handleOpenSettleV2(r); };
 
   const handleDelete = (id: number) => {
     setConfirmDialog({
@@ -612,7 +688,7 @@ const Receivables: React.FC = () => {
         )}
         
         {selectedReceivable?.status !== 'PAID' && selectedReceivable?.status !== 'CANCELLED' && (
-          <MenuItem onClick={() => { handleOpenSettle(selectedReceivable!); setAnchorEl(null); }}>
+          <MenuItem onClick={() => { handleOpenSettleV2(selectedReceivable!); setAnchorEl(null); }}>
             <CheckCircleIcon className="w-4 h-4 mr-2 text-green-500" /> Baixar
           </MenuItem>
         )}
@@ -828,34 +904,90 @@ const Receivables: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Modal Confirmar Recebimento */}
-      <Dialog open={openSettle} onClose={() => setOpenSettle(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 'bold' }}>Confirmar Recebimento</DialogTitle>
+      {/* Modal Confirmar Recebimento V2 */}
+      <Dialog open={openSettle} onClose={() => setOpenSettle(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>Receber Cobrança #{selectedReceivable?.id}</DialogTitle>
         <DialogContent dividers>
-          <Typography variant="body2" gutterBottom>
-            Confirme o valor recebido para a cobrança do cliente <strong>{selectedReceivable?.cliente_nome}</strong>.
-          </Typography>
-          <Box sx={{ mt: 2 }}>
-            <TextField
-              label="Valor Pago"
-              fullWidth
-              variant="outlined"
-              value={settleAmount}
-              onChange={(e) => setSettleAmount(maskCurrency(e.target.value))}
-              InputProps={{
-                startAdornment: <InputAdornment position="start">R$</InputAdornment>,
-              }}
-            />
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              Valor original devido: {selectedReceivable?.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-            </Typography>
-          </Box>
+          {!sessao ? (
+            <Alert severity="warning">
+              Você não possui um caixa aberto. Abra o caixa primeiro na tela "Meu Caixa" para poder receber pagamentos.
+            </Alert>
+          ) : (
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <Typography variant="body2" gutterBottom>
+                  Confirme o recebimento para o cliente <strong>{selectedReceivable?.cliente_nome}</strong>.
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Valor Original"
+                  fullWidth
+                  value={selectedReceivable ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedReceivable.amount) : ''}
+                  disabled
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel id="forma-pagamento-label">Forma de Pagamento</InputLabel>
+                  <Select
+                    labelId="forma-pagamento-label"
+                    value={formaId}
+                    label="Forma de Pagamento"
+                    onChange={(e) => setFormaId(e.target.value as number)}
+                  >
+                    <MenuItem value="">Selecione</MenuItem>
+                    {formas.map(f => (
+                      <MenuItem key={f.id} value={f.id}>{f.nome}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Multa (R$)"
+                  fullWidth
+                  value={multaStr}
+                  onChange={(e) => handleMoneyChange(e.target.value, setMultaStr)}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Juros (R$)"
+                  fullWidth
+                  value={jurosStr}
+                  onChange={(e) => handleMoneyChange(e.target.value, setJurosStr)}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Desconto (R$)"
+                  fullWidth
+                  value={descontoStr}
+                  onChange={(e) => handleMoneyChange(e.target.value, setDescontoStr)}
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 1, textAlign: 'right' }}>
+                  <Typography variant="subtitle1" color="text.secondary">Total a Receber</Typography>
+                  <Typography variant="h4" color="success.main" sx={{ fontWeight: 'bold' }}>
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateTotalSettle())}
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenSettle(false)}>Cancelar</Button>
-          <Button variant="contained" color="success" onClick={handleConfirmSettle}>
-            Confirmar Baixa
-          </Button>
+          {sessao && (
+            <Button variant="contained" color="success" onClick={handleConfirmSettleV2} disabled={formaId === ''}>
+              Confirmar Recebimento
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 

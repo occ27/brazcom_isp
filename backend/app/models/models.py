@@ -45,6 +45,7 @@ class Usuario(Base):
     is_superuser = Column(Boolean, default=False)
     # Empresa ativa selecionada pelo usuário (opcional)
     active_empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=True)
+    local_pagamento_id = Column(Integer, ForeignKey("locais_pagamento.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -828,4 +829,70 @@ class TicketComment(Base):
 from .network import Router
 from .access_control import Role, Permission
 from .radius import RadiusServer, RadiusUser, RadiusSession
+
+class LocalPagamento(Base):
+    """Modelo de Caixa / Local de Pagamento físico."""
+    __tablename__ = "locais_pagamento"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
+    nome = Column(String(100), nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+class FormaPagamento(Base):
+    """Forma de Pagamento (Dinheiro, PIX, Cartão, etc)."""
+    __tablename__ = "formas_pagamento"
+
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
+    nome = Column(String(100), nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+class CaixaSessao(Base):
+    """Sessão de Caixa (Turno de trabalho)."""
+    __tablename__ = "caixa_sessoes"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
+    usuario_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    local_pagamento_id = Column(Integer, ForeignKey("locais_pagamento.id"), nullable=False)
+    
+    data_abertura = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    data_fechamento = Column(DateTime(timezone=True), nullable=True)
+    
+    saldo_inicial = Column(Float, nullable=False, default=0.0)
+    saldo_final_informado = Column(Float, nullable=True)
+    saldo_final_calculado = Column(Float, nullable=True)
+    
+    status = Column(String(20), nullable=False, default="ABERTO")
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    local_pagamento = relationship("LocalPagamento")
+    usuario = relationship("Usuario")
+
+class CaixaMovimentacao(Base):
+    """Movimentações no Caixa (Sangria, Suprimento, Recebimento)."""
+    __tablename__ = "caixa_movimentacoes"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    sessao_id = Column(Integer, ForeignKey("caixa_sessoes.id"), nullable=False)
+    usuario_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    forma_pagamento_id = Column(Integer, ForeignKey("formas_pagamento.id"), nullable=True)
+    recebimento_caixa_id = Column(Integer, nullable=True)  # Referência ao recebimento
+    
+    tipo = Column(String(30), nullable=False) # SANGRIA, SUPRIMENTO, RECEBIMENTO
+    valor = Column(Float, nullable=False)
+    descricao = Column(String(255), nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    forma_pagamento = relationship("FormaPagamento")
+    sessao = relationship("CaixaSessao")
+    usuario = relationship("Usuario")
 

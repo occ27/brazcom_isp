@@ -10,8 +10,10 @@ logger = logging.getLogger(__name__)
 from app.core.database import get_db
 from app.routes.auth import get_current_active_user
 from app.api import deps
-from app.models.models import Usuario, Receivable, BankAccount, Empresa
+from app.models.models import Usuario, Receivable, BankAccount, Empresa, CaixaSessao, CaixaMovimentacao
 from app.services import isp_service
+from app.schemas import caixa as schema_caixa
+from app.crud import crud_caixa
 from app.services.receivable_service import generate_receivables_for_company, build_boleto_context
 from app.services.boleto_generator import generate_boleto_pdf
 from app.services.email_service import EmailService
@@ -23,6 +25,7 @@ router = APIRouter(prefix="/receivables", tags=["Receivables"])
 
 class SettlePayload(BaseModel):
     paid_amount: Optional[float] = None
+    splits: List[schema_caixa.RecebimentoCaixaSplit]
 
 class ReceivableResponse(BaseModel):
     id: int
@@ -333,45 +336,73 @@ def list_receivables_by_client(cliente_id: int, empresa_id: Optional[int] = None
         
     items = query.order_by(Receivable.due_date.desc()).all()
     return [ReceivableResponse.from_orm(r) for r in items]
-@router.put("/{receivable_id}/settle", response_model=ReceivableResponse)
+
+@router.post("/{receivable_id}/settle", status_code=status.HTTP_200_OK, response_model=ReceivableResponse)
 def settle_receivable(receivable_id: int, payload: SettlePayload = Body(...), db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
-    """Marca uma cobrança como paga manualmente."""
+    # 1. Verifica sessão de caixa do usuário
+    sessao = crud_caixa.get_sessao_atual(db, current_user.active_empresa_id, current_user.id)
+    if not sessao:
+        raise HTTPException(status_code=400, detail="Você não possui um caixa aberto. Abra um caixa para receber pagamentos.")
+
+    receivable = db.query(Receivable).filter(Receivable.id == receivable_id).first()
+    if not receivable:
+        raise HTTPException(status_code=404, detail="Receivable not found")
+
     deps.permission_checker('receivables_manage')(db=db, current_user=current_user)
-    recv = db.query(Receivable).filter(Receivable.id == receivable_id).first()
-    if not recv:
-        raise HTTPException(status_code=404, detail="Cobrança não encontrada")
+
+    if receivable.status == 'PAID':
+        raise HTTPException(status_code=400, detail="Receivable is already paid")
+
+    # 2. Executa a baixa
+    receivable.status = 'PAID'
+    receivable.paid_amount = payload.paid_amount if payload.paid_amount is not None else receivable.amount
     
-    recv.status = 'PAID'
-    recv.paid_at = datetime.now()
-    recv.paid_amount = payload.paid_amount if payload.paid_amount is not None else recv.amount
-    
+    from datetime import timezone, timedelta
+    tz_br = timezone(timedelta(hours=-3))
+    receivable.paid_at = datetime.now(tz_br)
+
+    # 3. Lançar movimentações no caixa para cada split
+    # Como não temos uma tabela de recebimento específica, criamos uma movimentação de "RECEBIMENTO"
+    # para cada forma de pagamento do split, e deixamos recebimento_caixa_id como None
+    for split in payload.splits:
+        mov = CaixaMovimentacao(
+            sessao_id=sessao.id,
+            usuario_id=current_user.id,
+            forma_pagamento_id=split.forma_pagamento_id,
+            recebimento_caixa_id=None,
+            tipo="RECEBIMENTO",
+            valor=split.amount,
+            descricao=f"Baixa Manual do Recebível #{receivable.id}"
+        )
+        db.add(mov)
+
     # Se for boleto BB registrado, solicita a baixa (cancelamento) no banco
-    if recv.bank == 'BANCO_DO_BRASIL' and recv.bb_boleto_numero:
+    if receivable.bank == 'BANCO_DO_BRASIL' and receivable.bb_boleto_numero:
         try:
             from app.services import bb_api_service
-            bank_account = db.query(BankAccount).filter(BankAccount.id == recv.bank_account_id).first()
+            bank_account = db.query(BankAccount).filter(BankAccount.id == receivable.bank_account_id).first()
             if bank_account:
-                bb_api_service.solicitar_baixa(bank_account, recv.bb_boleto_numero)
-                logger.info(f"Baixa solicitada no BB para boleto {recv.bb_boleto_numero} devido a pagamento manual")
+                bb_api_service.solicitar_baixa(bank_account, receivable.bb_boleto_numero)
+                logger.info(f"Baixa solicitada no BB para boleto {receivable.bb_boleto_numero} devido a pagamento manual")
         except Exception as e:
-            logger.error(f"Erro ao solicitar baixa no BB para boleto {recv.bb_boleto_numero}: {e}")
+            logger.error(f"Erro ao solicitar baixa no BB para boleto {receivable.bb_boleto_numero}: {e}")
 
     # Se a cobrança estiver vinculada a um contrato ISP, realiza o desbloqueio automático
     unblock_attempted = False
     unblock_success = False
     unblock_message = None
 
-    if recv.servico_contratado_id:
+    if receivable.servico_contratado_id:
         unblock_attempted = True
         try:
             # Sincroniza com o router e passa raise_on_error=True para obtermos a resposta precisa
-            success = isp_service.process_unblock_if_needed(db, recv.servico_contratado_id, raise_on_error=True)
+            success = isp_service.process_unblock_if_needed(db, receivable.servico_contratado_id, raise_on_error=True)
             if success:
                 unblock_success = True
-                unblock_message = f"Contrato #{recv.servico_contratado_id} reativado com absoluto sucesso no Router/Radius!"
+                unblock_message = f"Contrato #{receivable.servico_contratado_id} reativado com absoluto sucesso no Router/Radius!"
             else:
                 from app.models.models import ServicoContratado, StatusContrato
-                contrato = db.query(ServicoContratado).filter(ServicoContratado.id == recv.servico_contratado_id).first()
+                contrato = db.query(ServicoContratado).filter(ServicoContratado.id == receivable.servico_contratado_id).first()
                 if contrato and contrato.status == StatusContrato.ATIVO:
                     unblock_success = True
                     unblock_message = "O contrato associado já estava ativo."
@@ -381,12 +412,12 @@ def settle_receivable(receivable_id: int, payload: SettlePayload = Body(...), db
         except Exception as e:
             unblock_success = False
             unblock_message = f"Falha de comunicação com o Router/Radius: {str(e)}"
-            logger.error(f"Erro ao processar desbloqueio automático ISP para contrato {recv.servico_contratado_id}: {e}")
+            logger.error(f"Erro ao processar desbloqueio automático ISP para contrato {receivable.servico_contratado_id}: {e}")
 
     db.commit()
-    db.refresh(recv)
+    db.refresh(receivable)
     
-    response_obj = ReceivableResponse.from_orm(recv)
+    response_obj = ReceivableResponse.from_orm(receivable)
     response_obj.unblock_attempted = unblock_attempted
     response_obj.unblock_success = unblock_success
     response_obj.unblock_message = unblock_message

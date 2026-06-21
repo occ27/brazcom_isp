@@ -46,6 +46,7 @@ import PublicSignature from './pages/PublicSignature';
 import Checkout from './pages/Checkout';
 import PaymentStatus from './pages/PaymentStatus';
 import FTTHMonitor from './pages/FTTHMonitor';
+import CaixaPDV from './pages/CaixaPDV';
 import { PageType } from './types';
 
 // Componente para redirecionar usuários baseado no tipo
@@ -174,6 +175,7 @@ const AuthenticatedApp: React.FC<{ children: React.ReactNode }> = ({ children })
     if (path.startsWith('/nfcom')) return 'nfcom';
     if (path === '/bank-accounts') return 'bank-accounts';
     if (path === '/receivables') return 'receivables';
+    if (path === '/caixa') return 'caixa';
     if (path === '/tickets') return 'tickets';
     if (path.startsWith('/users')) return 'users';
     if (path.startsWith('/roles')) return 'roles';
@@ -200,6 +202,7 @@ const AuthenticatedApp: React.FC<{ children: React.ReactNode }> = ({ children })
     else if (page === 'nfcom') navigate('/nfcom');
       else if (page === 'bank-accounts') navigate('/bank-accounts');
       else if (page === 'receivables') navigate('/receivables');
+      else if (page === 'caixa') navigate('/caixa');
       else if (page === 'tickets') navigate('/tickets');
     else if (page === 'users') navigate('/users');
     else if (page === 'roles') navigate('/roles');
@@ -410,6 +413,16 @@ const AppContent: React.FC = () => {
           <ProtectedRoute>
             <AuthenticatedApp>
               <Routers />
+            </AuthenticatedApp>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/caixa"
+        element={
+          <ProtectedRoute>
+            <AuthenticatedApp>
+              <CaixaPDV />
             </AuthenticatedApp>
           </ProtectedRoute>
         }

@@ -15,6 +15,7 @@ class UsuarioBase(BaseModel):
 class UsuarioCreate(UsuarioBase):
     password: str = Field(..., min_length=6, max_length=72)
     is_superuser: Optional[bool] = False
+    local_pagamento_id: Optional[int] = None
 
 class UsuarioRegister(UsuarioBase):
     password: str = Field(..., min_length=6, max_length=72)
@@ -26,12 +27,14 @@ class UsuarioUpdate(BaseModel):
     password: Optional[str] = Field(None, min_length=6, max_length=72)
     is_active: Optional[bool] = None
     is_superuser: Optional[bool] = None
+    local_pagamento_id: Optional[int] = None
 
 class UsuarioResponse(UsuarioBase):
     id: int
     is_active: bool
     is_superuser: bool
     active_empresa_id: Optional[int] = None
+    local_pagamento_id: Optional[int] = None
     is_company_admin: bool = False
     created_at: datetime
     updated_at: Optional[datetime] = None

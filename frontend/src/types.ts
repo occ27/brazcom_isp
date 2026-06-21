@@ -8,6 +8,7 @@ export type PageType =
   | 'nfcom'
   | 'bank-accounts'
   | 'receivables'
+  | 'caixa'
   | 'tickets'
   | 'reports'
   | 'users'

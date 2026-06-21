@@ -75,8 +75,16 @@ const testSicoobIntegration = async (empresaId: number, bankAccountId?: number, 
   return resp.data;
 };
 
-const settleReceivable = async (receivableId: number, paidAmount?: number) => {
-  const resp = await api.put(`/receivables/${receivableId}/settle`, { paid_amount: paidAmount });
+export interface SettleRequest {
+  paid_amount?: number;
+  desconto?: number;
+  multa?: number;
+  juros?: number;
+  splits: { forma_pagamento_id: number; amount: number }[];
+}
+
+const settleReceivable = async (receivableId: number, data: SettleRequest) => {
+  const resp = await api.post(`/receivables/${receivableId}/settle`, data);
   return resp.data;
 };
 
