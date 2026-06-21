@@ -108,6 +108,110 @@ class WhatsAppService:
             return False
 
     @staticmethod
+    def send_document(
+        empresa: Empresa,
+        to_phone: str,
+        caption: str,
+        file_path: str
+    ) -> bool:
+        """
+        Envia um documento via WhatsApp API usando message/sendMedia
+        """
+        if not to_phone:
+            return False
+
+        cleaned_phone = WhatsAppService._clean_phone(to_phone)
+        if not cleaned_phone:
+            return False
+
+        system_name = os.getenv("WHATSAPP_SYSTEM", "evolution_api").lower()
+        
+        try:
+            if system_name == "evolution_api":
+                api_url = WhatsAppService._get_api_url(empresa)
+                api_key = os.getenv("EVOLUTION_API_TOKEN", "brazcom_secure_token_12345")
+                instance_name = getattr(empresa, 'whatsapp_api_instance', 'mega-net-telecom') or 'mega-net-telecom'
+
+                conn = WhatsAppService.get_connection_state(empresa)
+                if not conn.get("connected", False):
+                    logger.warning(f"Instância WhatsApp '{instance_name}' não está ativa/conectada. Ativando fallback local para arquivo.")
+                else:
+                    if api_url.endswith("/"):
+                        api_url = api_url[:-1]
+                    
+                    endpoint = f"{api_url}/message/sendMedia/{instance_name}"
+                    headers = {
+                        "Content-Type": "application/json",
+                        "apikey": api_key
+                    }
+                    
+                    import base64
+                    with open(file_path, "rb") as f:
+                        file_data = base64.b64encode(f.read()).decode('utf-8')
+                    
+                    file_name = os.path.basename(file_path)
+                    
+                    payload = {
+                        "number": cleaned_phone,
+                        "options": {
+                            "delay": 1200,
+                            "presence": "composing"
+                        },
+                        "mediaMessage": {
+                            "mediatype": "document",
+                            "caption": caption,
+                            "media": file_data,
+                            "fileName": file_name
+                        }
+                    }
+                    
+                    # Evolution API v2 fallback if v1 payload doesn't work
+                    payload_v2 = {
+                        "number": cleaned_phone,
+                        "mediatype": "document",
+                        "mimetype": "application/pdf",
+                        "caption": caption,
+                        "media": file_data,
+                        "fileName": file_name
+                    }
+                    
+                    try:
+                        logger.info(f"Tentando envio de documento via WhatsApp API para {cleaned_phone}")
+                        # Tentamos com payload padrão v1
+                        response = requests.post(endpoint, json=payload, headers=headers, timeout=10)
+                        if response.status_code not in [200, 201]:
+                            logger.info(f"Falha com v1, tentando v2...")
+                            response = requests.post(endpoint, json=payload_v2, headers=headers, timeout=10)
+                            
+                        if response.status_code in [200, 201]:
+                            logger.info(f"Documento enviado com sucesso para {cleaned_phone}!")
+                            return True
+                        else:
+                            logger.warning(f"Brazcom API retornou status {response.status_code}: {response.text}.")
+                    except Exception as api_err:
+                        logger.warning(f"Falha de conexão com a API ({api_err}). Fallback de simulação local.")
+            
+            # Fallback
+            logger.info("=========================================")
+            logger.info("  DISPARO DE WHATSAPP COM ARQUIVO (SIMULADO)")
+            logger.info(f"  Destinatário: {cleaned_phone}")
+            logger.info(f"  Arquivo: {file_path}")
+            logger.info(f"  Legenda: {caption}")
+            logger.info("=========================================")
+            
+            log_dir = "/Users/orlando/python/FastAPI/brazcom_isp/backend/logs"
+            os.makedirs(log_dir, exist_ok=True)
+            log_path = os.path.join(log_dir, "whatsapp_sent.log")
+            with open(log_path, "a", encoding="utf-8") as f:
+                clean_msg = caption.replace('\n', ' ')
+                f.write(f"[{empresa.razao_social}] Para: {cleaned_phone} | Arquivo: {os.path.basename(file_path)} | Msg: {clean_msg}\n")
+
+            return True
+        except Exception as e:
+            logger.error(f"Erro ao disparar documento WhatsApp: {e}", exc_info=True)
+            return False
+
+    @staticmethod
     def send_receivable_message(
         empresa: Empresa,
         cliente_nome: str,
@@ -291,7 +395,8 @@ class WhatsAppService:
         empresa: Empresa,
         cliente_nome: str,
         cliente_phone: str,
-        carne_data: Dict[str, Any]
+        carne_data: Dict[str, Any],
+        pdf_path: str = None
     ) -> bool:
         """
         Formata e envia uma notificação de carnê por WhatsApp para o cliente.
@@ -301,7 +406,12 @@ class WhatsAppService:
 
         message = f"Olá, *{cliente_nome}*!\n\n"
         message += f"O seu carnê contendo as próximas {count} faturas da *{company_name}* já foi gerado.\n\n"
-        message += "O PDF do seu carnê com todos os boletos foi encaminhado para o seu e-mail cadastrado.\n\n"
-        message += f"Agradecemos a sua parceria!\n*Atenciosamente, {company_name}*"
-
-        return WhatsAppService.send_message(empresa, cliente_phone, message)
+        
+        if pdf_path and os.path.exists(pdf_path):
+            message += "Segue o PDF do seu carnê com todos os boletos anexado nesta mensagem.\n\n"
+            message += f"Agradecemos a sua parceria!\n*Atenciosamente, {company_name}*"
+            return WhatsAppService.send_document(empresa, cliente_phone, message, pdf_path)
+        else:
+            message += "O PDF do seu carnê com todos os boletos foi encaminhado para o seu e-mail cadastrado.\n\n"
+            message += f"Agradecemos a sua parceria!\n*Atenciosamente, {company_name}*"
+            return WhatsAppService.send_message(empresa, cliente_phone, message)

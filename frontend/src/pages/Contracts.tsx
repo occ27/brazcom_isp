@@ -1315,9 +1315,6 @@ const Contracts: React.FC = () => {
       normalized.d_contrato_ini = toLocalDateInputString(c.d_contrato_ini);
       normalized.d_contrato_fim = toLocalDateInputString(c.d_contrato_fim);
       normalized.data_inicio_cobranca = toLocalDateInputString(c.data_inicio_cobranca);
-      // Debugging: log raw + normalized to help diagnose TZ/format issues
-      // eslint-disable-next-line no-console
-      console.log('handleOpenForm - vencimento raw:', c.vencimento, 'normalized:', normalized.vencimento);
       setForm(normalized);
 
       // Carregar dados do cliente selecionado
@@ -2009,8 +2006,6 @@ const Contracts: React.FC = () => {
     }
     if (!activeCompany) return;
     try {
-      console.log('Form data before filtering:', form);
-      console.log('Form entries:', Object.entries(form));
       if (editing) {
         // Filtrar apenas campos com valores válidos para evitar erros do Pydantic
         const contractData = Object.fromEntries(
@@ -2028,8 +2023,6 @@ const Contracts: React.FC = () => {
             return true;
           })
         );
-        console.log('Contract data after filtering (update):', contractData);
-        console.log('Contract data JSON:', JSON.stringify(contractData));
         await contratoService.updateContrato(activeCompany.id, editing.id, contractData);
         setSnackbar({ open: true, message: 'Contrato atualizado com sucesso!', severity: 'success' });
       } else {
@@ -2049,8 +2042,6 @@ const Contracts: React.FC = () => {
             return true;
           })
         );
-        console.log('Contract data after filtering (create):', contractData);
-        console.log('Contract data JSON:', JSON.stringify(contractData));
         const createdContrato = await contratoService.createContrato(activeCompany.id, contractData);
 
         setSnackbar({ open: true, message: 'Contrato criado com sucesso!', severity: 'success' });

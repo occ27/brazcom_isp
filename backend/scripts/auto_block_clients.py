@@ -76,7 +76,6 @@ def run_auto_blocking():
                         
                         from collections import defaultdict
                         from app.services.receivable_service import send_carne_notification
-                        from app.models.models import ServicoContratado
 
                         # Agrupar por contrato
                         receivables_by_contract = defaultdict(list)

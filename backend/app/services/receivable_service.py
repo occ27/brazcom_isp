@@ -694,7 +694,8 @@ def send_carne_notification(db: Session, recvs: list[Receivable]) -> bool:
                 empresa=empresa_raw,
                 cliente_nome=cliente.nome_razao_social,
                 cliente_phone=cliente.telefone,
-                carne_data=carne_data
+                carne_data=carne_data,
+                pdf_path=pdf_path
             )
             if success_whatsapp:
                 success = True
