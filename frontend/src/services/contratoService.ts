@@ -19,6 +19,7 @@ export interface Contrato {
   auto_emit?: boolean;
   auto_emit_nfcom?: boolean;
   is_active?: boolean;
+  last_emission?: string;
 
   // Novos campos específicos para ISPs
   status?: 'ATIVO' | 'SUSPENSO' | 'CANCELADO' | 'PENDENTE_INSTALACAO' | 'AGUARDANDO_ASSINATURA';
