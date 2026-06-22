@@ -192,8 +192,15 @@ const AuthenticatedLayout: React.FC<Props> = ({ children, currentPage, onNavigat
         { label: 'Histórico de Caixas', icon: DocumentTextIcon, path: 'caixas' as PageType, group: 'financeiro' },
         { label: 'Contas Bancárias', icon: DocumentTextIcon, path: 'bank-accounts' as PageType, group: 'financeiro' },
         { label: 'Cobranças', icon: DocumentTextIcon, path: 'receivables' as PageType, group: 'financeiro' },
-        { label: 'Relatórios', icon: ChartBarIcon, path: 'reports' as PageType, group: 'financeiro' },
         { label: 'Suporte/Tickets', icon: DocumentTextIcon, path: 'tickets' as PageType, group: 'financeiro' },
+      ]
+    },
+    {
+      name: 'Relatórios',
+      icon: ChartBarIcon,
+      color: 'emerald',
+      items: [
+        { label: 'Centro de Relatórios', icon: ChartBarIcon, path: 'reports' as PageType, group: 'relatorios' },
       ]
     },
     {

@@ -10,15 +10,19 @@ import {
   DocumentTextIcon, 
   CurrencyDollarIcon,
   ArrowDownTrayIcon,
-  AdjustmentsHorizontalIcon
+  AdjustmentsHorizontalIcon,
+  ArchiveBoxIcon
 } from '@heroicons/react/24/outline';
 import { useCompany } from '../contexts/CompanyContext';
+import { useAuth } from '../contexts/AuthContext';
 import { reportService, ContractsFiltersData } from '../services/reportService';
 import servicoService, { Servico } from '../services/servicoService';
+import backupService from '../services/backupService';
 import { stringifyError } from '../utils/error';
 
 const Reports: React.FC = () => {
   const { activeCompany } = useCompany();
+  const { user } = useAuth();
   const [loading, setLoading] = useState<string | null>(null);
   const [services, setServices] = useState<Servico[]>([]);
   const [loadingServices, setLoadingServices] = useState(false);
@@ -231,6 +235,27 @@ const Reports: React.FC = () => {
     } catch (error) {
       console.error(error);
       alert('Erro ao gerar relatório: ' + stringifyError(error));
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleDownloadBackup = async () => {
+    if (!activeCompany) return;
+    setLoading('backup');
+    try {
+      const { blob, filename } = await backupService.downloadBackup(activeCompany.id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+      alert('Erro ao gerar backup: ' + stringifyError(error));
     } finally {
       setLoading(null);
     }
@@ -591,6 +616,42 @@ const Reports: React.FC = () => {
                 sx={{ borderRadius: 2, py: 1.5, textTransform: 'none', fontWeight: 600 }}
               >
                 {loading === 'clients' ? 'Gerando...' : 'Visualizar Clientes'}
+              </Button>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Backup de Dados */}
+        <Grid item xs={12} lg={6}>
+          <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', height: '100%' }}>
+            <CardContent sx={{ p: 4 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                <Box sx={{ p: 1.5, bgcolor: '#f3e5f5', borderRadius: 2, mr: 2 }}>
+                  <ArchiveBoxIcon className="w-8 h-8 text-purple-600" />
+                </Box>
+                <Box>
+                  <Typography variant="h6" fontWeight="700">Backup de Dados da Empresa</Typography>
+                  <Typography variant="caption" color="text.secondary">Cópia de segurança compactada (XLS/ZIP)</Typography>
+                </Box>
+              </Box>
+              
+              <Divider sx={{ mb: 3 }} />
+              
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+                Gere e baixe uma cópia de segurança completa com todos os dados cadastrais (clientes e contratos), faturamento, contas bancárias, tickets de suporte, roteadores cadastrados e sessões/movimentações de caixa. Todos os registros serão compactados em um arquivo ZIP.
+              </Typography>
+
+              <Button 
+                variant="contained" 
+                color="secondary"
+                fullWidth 
+                size="large"
+                startIcon={loading === 'backup' ? <CircularProgress size={20} color="inherit" /> : <ArrowDownTrayIcon className="w-5 h-5" />}
+                onClick={handleDownloadBackup}
+                disabled={!!loading || !(user?.is_superuser || user?.is_company_admin)}
+                sx={{ borderRadius: 2, py: 1.5, textTransform: 'none', fontWeight: 600 }}
+              >
+                {loading === 'backup' ? 'Gerando...' : !(user?.is_superuser || user?.is_company_admin) ? 'Apenas para Administradores' : 'Baixar Backup Completo (ZIP)'}
               </Button>
             </CardContent>
           </Card>

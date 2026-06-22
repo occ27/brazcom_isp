@@ -30,7 +30,7 @@ from app.routes import licenses
 from app.routes import license_plans
 from app.routes import whatsapp
 from app.routes import ftth
-from app.routes import caixa
+from app.routes import caixa, backup
 
 # A criação das tabelas será feita no evento de startup, após o DB ficar disponível
 
@@ -146,6 +146,7 @@ app.include_router(license_plans.router)
 app.include_router(whatsapp.router)
 app.include_router(ftth.router)
 app.include_router(caixa.router, prefix="/caixa", tags=["caixa"])
+app.include_router(backup.router)
 
 from fastapi.responses import RedirectResponse
 from urllib.parse import urlparse
