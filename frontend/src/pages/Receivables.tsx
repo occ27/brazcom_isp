@@ -577,7 +577,7 @@ const Receivables: React.FC = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 2 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', p: 2 }}>
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="h5" sx={{ fontWeight: 700, color: 'primary.main' }}>
           Financeiro / Recebíveis
@@ -602,7 +602,7 @@ const Receivables: React.FC = () => {
         </Box>
       </Box>
 
-      <Paper sx={{ borderRadius: 3, overflow: 'hidden', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+      <Paper sx={{ borderRadius: 3, display: 'flex', flexDirection: 'column' }}>
         <Tabs value={tabValue} onChange={(_, v) => { setTabValue(v); setPage(0); }} sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
           <Tab label="Todos" />
           <Tab label="Pendentes" />
@@ -637,7 +637,7 @@ const Receivables: React.FC = () => {
           <IconButton onClick={loadReceivables} disabled={loading}><ArrowPathIcon className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} /></IconButton>
         </Box>
 
-        <TableContainer sx={{ flexGrow: 1 }}>
+        <TableContainer sx={{ maxHeight: '70vh', overflow: 'auto' }}>
           <Table stickyHeader size="small">
             <TableHead>
               <TableRow>

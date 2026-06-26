@@ -262,7 +262,7 @@ const BankAccounts: React.FC = () => {
   const isBB = currentAccount?.bank === 'BANCO DO BRASIL' || currentAccount?.bank === 'BANCO_DO_BRASIL';
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 2 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', p: 2 }}>
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="h5" sx={{ fontWeight: 700, color: 'primary.main' }}>
           Gestão Bancária e Cobranças
@@ -281,7 +281,7 @@ const BankAccounts: React.FC = () => {
         </Button>
       </Box>
 
-      <Paper sx={{ borderRadius: 3, overflow: 'hidden', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+      <Paper sx={{ borderRadius: 3, display: 'flex', flexDirection: 'column' }}>
         <Tabs 
           value={tabValue} 
           onChange={handleTabChange} 
@@ -429,7 +429,7 @@ const BankAccounts: React.FC = () => {
               )}
             </Box>
 
-            <TableContainer component={Paper} variant="outlined">
+            <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '70vh', overflow: 'auto' }}>
               <Table size="small">
                 <TableHead>
                   <TableRow>

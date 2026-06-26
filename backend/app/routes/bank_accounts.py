@@ -166,8 +166,8 @@ def _serialize(bank_account: BankAccount, include_credentials: bool = False):
         'sicredi_codigo_beneficiario': bank_account.sicredi_codigo_beneficiario,
         'sicredi_posto': bank_account.sicredi_posto,
         'sicredi_byte_id': bank_account.sicredi_byte_id,
-        'bb_client_id': bank_account.bb_client_id,
-        'bb_app_key': bank_account.bb_app_key,
+        'bb_client_id': bank_account.bb_client_id if include_credentials else ("********" if bank_account.bb_client_id else None),
+        'bb_app_key': bank_account.bb_app_key if include_credentials else ("********" if bank_account.bb_app_key else None),
         'bb_sandbox': bank_account.bb_sandbox,
     }
     
@@ -312,9 +312,9 @@ def update_bank_account(empresa_id: int, bank_account_id: int, payload: BankAcco
             # Só atualiza se o valor enviado não for vazio/nulo (para não sobrescrever o DB com os campos ocultados no frontend)
             if val is not None and str(val).strip() != "":
                 setattr(ba, field, encrypt_sensitive_data(val))
-        elif field == 'sicoob_access_token':
-            # Só atualiza se preenchido
-            if val is not None and str(val).strip() != "":
+        elif field in ['sicoob_access_token', 'bb_client_id', 'bb_app_key']:
+            # Só atualiza se preenchido e não for a máscara "********"
+            if val is not None and str(val).strip() != "" and str(val).strip() != "********":
                 setattr(ba, field, val)
         else:
             setattr(ba, field, val)
