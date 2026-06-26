@@ -160,36 +160,35 @@ def _serialize(bank_account: BankAccount, include_credentials: bool = False):
         'juros_atraso_percentual': bank_account.juros_atraso_percentual,
         'created_at': bank_account.created_at,
         'updated_at': bank_account.updated_at,
+        
+        # Campos de identificação não sensíveis (sempre visíveis no get/list para quem pode ver a conta)
+        'sicoob_client_id': bank_account.sicoob_client_id,
+        'sicredi_codigo_beneficiario': bank_account.sicredi_codigo_beneficiario,
+        'sicredi_posto': bank_account.sicredi_posto,
+        'sicredi_byte_id': bank_account.sicredi_byte_id,
+        'bb_client_id': bank_account.bb_client_id,
+        'bb_app_key': bank_account.bb_app_key,
+        'bb_sandbox': bank_account.bb_sandbox,
     }
-    if include_credentials and bank_account.gateway_credentials:
+    
+    # Apenas retornar secrets decriptados se include_credentials for True (o que agora só acontece no endpoint de credentials)
+    if include_credentials:
         try:
-            out['gateway_credentials'] = decrypt_sensitive_data(bank_account.gateway_credentials)
+            out['gateway_credentials'] = decrypt_sensitive_data(bank_account.gateway_credentials) if bank_account.gateway_credentials else None
         except Exception:
             out['gateway_credentials'] = None
+            
+        try:
+            out['bb_client_secret'] = decrypt_sensitive_data(bank_account.bb_client_secret) if bank_account.bb_client_secret else None
+        except Exception:
+            out['bb_client_secret'] = None
+            
+        out['sicoob_access_token'] = bank_account.sicoob_access_token
     else:
         out['gateway_credentials'] = None
-    
-    # Sempre incluir credenciais específicas quando solicitadas (apenas para superusers/donos)
-    if include_credentials:
-        out['sicoob_client_id'] = bank_account.sicoob_client_id
-        out['sicoob_access_token'] = bank_account.sicoob_access_token
-        out['sicredi_codigo_beneficiario'] = bank_account.sicredi_codigo_beneficiario
-        out['sicredi_posto'] = bank_account.sicredi_posto
-        out['sicredi_byte_id'] = bank_account.sicredi_byte_id
-        out['bb_client_id'] = bank_account.bb_client_id
-        out['bb_app_key'] = bank_account.bb_app_key
-        out['bb_sandbox'] = bank_account.bb_sandbox
-        if bank_account.bb_client_secret:
-            try:
-                out['bb_client_secret'] = decrypt_sensitive_data(bank_account.bb_client_secret)
-            except:
-                out['bb_client_secret'] = None
-    else:
-        for field in ['sicoob_client_id', 'sicoob_access_token', 'sicredi_codigo_beneficiario', 
-                     'sicredi_posto', 'sicredi_byte_id', 'bb_client_id', 'bb_app_key', 
-                     'bb_sandbox', 'bb_client_secret']:
-            out[field] = None
-    
+        out['bb_client_secret'] = None
+        out['sicoob_access_token'] = None
+        
     return out
 
 
@@ -221,12 +220,31 @@ def init_permissions(empresa_id: int, db: Session = Depends(get_db), current_use
     return {'created': created}
 
 
+CREDENTIALS_FIELDS = {
+    'gateway_credentials', 'sicoob_client_id', 'sicoob_access_token',
+    'sicredi_codigo_beneficiario', 'sicredi_posto', 'sicredi_byte_id',
+    'bb_client_id', 'bb_client_secret', 'bb_app_key', 'bb_sandbox'
+}
+
+class BankAccountCredentialsUpdate(BaseModel):
+    gateway_credentials: Optional[str] = None
+    sicoob_client_id: Optional[str] = None
+    sicoob_access_token: Optional[str] = None
+    sicredi_codigo_beneficiario: Optional[str] = None
+    sicredi_posto: Optional[str] = None
+    sicredi_byte_id: Optional[str] = None
+    bb_client_id: Optional[str] = None
+    bb_client_secret: Optional[str] = None
+    bb_app_key: Optional[str] = None
+    bb_sandbox: Optional[bool] = None
+
+
 @router.get('/', response_model=List[BankAccountResponse])
 def list_bank_accounts(empresa_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     # Checa se usuário tem permissão de visualização
     deps.permission_checker('bank_accounts_view')(db=db, current_user=current_user)
     items = db.query(BankAccount).filter(BankAccount.empresa_id == empresa_id).all()
-    serialized = [_serialize(i, include_credentials=getattr(current_user, 'is_superuser', False)) for i in items]
+    serialized = [_serialize(i, include_credentials=False) for i in items]
     return serialized
 @router.post('/', status_code=status.HTTP_201_CREATED)
 def create_bank_account(empresa_id: int, payload: BankAccountCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
@@ -257,29 +275,28 @@ def create_bank_account(empresa_id: int, payload: BankAccountCreate, db: Session
         multa_atraso_percentual=payload.multa_atraso_percentual,
         juros_atraso_percentual=payload.juros_atraso_percentual,
     )
-    if payload.gateway_credentials:
-        ba.gateway_credentials = encrypt_sensitive_data(payload.gateway_credentials)
     
-    # Credenciais do Sicoob
+    # Adiciona credenciais não sensíveis
     ba.sicoob_client_id = payload.sicoob_client_id
-    ba.sicoob_access_token = payload.sicoob_access_token
-    
-    # Credenciais do Sicredi
     ba.sicredi_codigo_beneficiario = payload.sicredi_codigo_beneficiario
     ba.sicredi_posto = payload.sicredi_posto
     ba.sicredi_byte_id = payload.sicredi_byte_id
-    
-    # Credenciais BB
     ba.bb_client_id = payload.bb_client_id
     ba.bb_app_key = payload.bb_app_key
     ba.bb_sandbox = payload.bb_sandbox
-    if payload.bb_client_secret:
-        ba.bb_client_secret = encrypt_sensitive_data(payload.bb_client_secret)
     
+    # Apenas criptografa e salva segredos se forem enviados e não-vazios
+    if payload.gateway_credentials and payload.gateway_credentials.strip() != "":
+        ba.gateway_credentials = encrypt_sensitive_data(payload.gateway_credentials)
+    if payload.bb_client_secret and payload.bb_client_secret.strip() != "":
+        ba.bb_client_secret = encrypt_sensitive_data(payload.bb_client_secret)
+    if payload.sicoob_access_token and payload.sicoob_access_token.strip() != "":
+        ba.sicoob_access_token = payload.sicoob_access_token
+        
     db.add(ba)
     db.commit()
     db.refresh(ba)
-    return _serialize(ba, include_credentials=getattr(current_user, 'is_superuser', False))
+    return _serialize(ba, include_credentials=False)
 
 
 @router.put('/{bank_account_id}', status_code=status.HTTP_200_OK)
@@ -292,14 +309,72 @@ def update_bank_account(empresa_id: int, bank_account_id: int, payload: BankAcco
     update_data = payload.dict(exclude_unset=True)
     for field, val in update_data.items():
         if field in ['gateway_credentials', 'bb_client_secret']:
-            setattr(ba, field, encrypt_sensitive_data(val))
+            # Só atualiza se o valor enviado não for vazio/nulo (para não sobrescrever o DB com os campos ocultados no frontend)
+            if val is not None and str(val).strip() != "":
+                setattr(ba, field, encrypt_sensitive_data(val))
+        elif field == 'sicoob_access_token':
+            # Só atualiza se preenchido
+            if val is not None and str(val).strip() != "":
+                setattr(ba, field, val)
         else:
             setattr(ba, field, val)
             
     ba.updated_at = datetime.now()
     db.commit()
     db.refresh(ba)
-    return _serialize(ba, include_credentials=getattr(current_user, 'is_superuser', False))
+    return _serialize(ba, include_credentials=False)
+
+
+@router.get('/{bank_account_id}/credentials')
+def get_bank_account_credentials(empresa_id: int, bank_account_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_superuser)):
+    """Retorna as credenciais de uma conta bancária de forma segura/descriptografada (apenas para superadministradores/acesso interno)."""
+    ba = db.query(BankAccount).filter(BankAccount.id == bank_account_id, BankAccount.empresa_id == empresa_id).first()
+    if not ba:
+        raise HTTPException(status_code=404, detail='Conta bancária não encontrada')
+    
+    try:
+        gateway_creds = decrypt_sensitive_data(ba.gateway_credentials) if ba.gateway_credentials else None
+    except Exception:
+        gateway_creds = None
+
+    try:
+        bb_secret = decrypt_sensitive_data(ba.bb_client_secret) if ba.bb_client_secret else None
+    except Exception:
+        bb_secret = None
+
+    return {
+        'gateway_credentials': gateway_creds,
+        'sicoob_client_id': ba.sicoob_client_id,
+        'sicoob_access_token': ba.sicoob_access_token,
+        'sicredi_codigo_beneficiario': ba.sicredi_codigo_beneficiario,
+        'sicredi_posto': ba.sicredi_posto,
+        'sicredi_byte_id': ba.sicredi_byte_id,
+        'bb_client_id': ba.bb_client_id,
+        'bb_app_key': ba.bb_app_key,
+        'bb_sandbox': ba.bb_sandbox,
+        'bb_client_secret': bb_secret,
+    }
+
+
+@router.put('/{bank_account_id}/credentials', status_code=status.HTTP_200_OK)
+def update_bank_account_credentials(empresa_id: int, bank_account_id: int, payload: BankAccountCredentialsUpdate, db: Session = Depends(get_db), current_user: Usuario = Depends(deps.get_current_superuser)):
+    """Atualiza as credenciais de uma conta bancária de forma segura (apenas para superadministradores/acesso interno)."""
+    ba = db.query(BankAccount).filter(BankAccount.id == bank_account_id, BankAccount.empresa_id == empresa_id).first()
+    if not ba:
+        raise HTTPException(status_code=404, detail='Conta bancária não encontrada')
+    
+    update_data = payload.dict(exclude_unset=True)
+    for field, val in update_data.items():
+        if field in ['gateway_credentials', 'bb_client_secret']:
+            # Se for enviado String vazia ou None, limpa a credencial no DB
+            setattr(ba, field, encrypt_sensitive_data(val) if val else None)
+        else:
+            setattr(ba, field, val)
+            
+    ba.updated_at = datetime.now()
+    db.commit()
+    db.refresh(ba)
+    return {'ok': True}
 
 
 @router.get('/{bank_account_id}/boletos')

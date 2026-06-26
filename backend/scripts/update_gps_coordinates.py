@@ -16,7 +16,7 @@ from sqlalchemy.orm import sessionmaker
 
 # ─── Banco de Produção ────────────────────────────────────────────────────────
 DB_URL = "mysql+pymysql://occ:Altavista740@192.168.18.4:3315/brazcom_db"
-EMPRESA_ID = 5
+EMPRESA_ID = 6
 # ─────────────────────────────────────────────────────────────────────────────
 
 def get_coordinates(queries):

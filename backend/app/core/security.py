@@ -85,6 +85,9 @@ def decrypt_sensitive_data(encrypted_data: str) -> str:
     """Descriptografa dados sensíveis"""
     if not encrypted_data:
         return ""
+    if not encrypted_data.startswith("gAAAAA"):
+        # Se não parecer um token Fernet válido, assume que é texto plano e retorna como está
+        return encrypted_data
     try:
         fernet = Fernet(_get_fernet_key())
         decrypted = fernet.decrypt(encrypted_data.encode())
@@ -93,5 +96,5 @@ def decrypt_sensitive_data(encrypted_data: str) -> str:
         # Log do erro para debug
         print(f"ERRO ao descriptografar dados: {type(e).__name__}: {e}")
         print(f"Dados criptografados (primeiros 50 chars): {encrypted_data[:50]}")
-        # Se falhar a descriptografia, retorna string vazia por segurança
-        return ""
+        # Lança a exceção para que o chamador possa tratar ou usar fallback
+        raise e

@@ -27,7 +27,7 @@ class ServicoContratadoBase(BaseModel):
     periodicidade: str = Field("MENSAL", max_length=20)
     dia_emissao: int = Field(..., ge=1, le=31)
     quantidade: float = Field(1.0, gt=0)
-    valor_unitario: float = Field(..., gt=0)
+    valor_unitario: float = Field(..., ge=0)
     valor_total: Optional[float] = None
     
     # Controles de faturamento e carência

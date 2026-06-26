@@ -12,6 +12,17 @@ from app.core.config import settings
 from app.models.models import ServicoContratado, Receivable, BankAccount, Empresa, Bank
 
 
+def _mask_cpf_cnpj(doc: str) -> str:
+    if not doc:
+        return ""
+    digits = "".join(ch for ch in doc if ch.isdigit())
+    if len(digits) == 11:
+        return f"***.{digits[3:6]}.{digits[6:9]}-**"
+    elif len(digits) == 14:
+        return f"**.{digits[2:5]}.{digits[5:8]}/{digits[8:12]}-**"
+    return doc
+
+
 def days_in_month(year: int, month: int) -> int:
     return calendar.monthrange(year, month)[1]
 
@@ -321,11 +332,29 @@ def build_boleto_context(db: Session, recv: Receivable) -> dict:
     
     if (recv.bank == 'BANCO DO BRASIL' or recv.bank == 'BANCO_DO_BRASIL' or recv.bank == '001') and '/' not in nosso_numero:
         if convenio:
-            nosso_numero = f"{convenio}/{nosso_numero.zfill(10)}"
+            # Se for o nosso_numero de 20 digitos da API do BB, extrai apenas os 10 digitos do final para a sequencia
+            clean_nn = "".join(ch for ch in nosso_numero if ch.isdigit())
+            if len(clean_nn) == 20:
+                seq = clean_nn[-10:]
+            else:
+                seq = clean_nn
+            nosso_numero = f"{convenio}/{seq.zfill(10)}"
 
     linha_digitavel = recv.linha_digitavel or ""
     barcode = recv.codigo_barras or ""
     
+    # Se tivermos linha digitável mas não tivermos o código de barras, podemos reconstruí-lo
+    if linha_digitavel and not barcode:
+        try:
+            clean_ld = "".join(ch for ch in linha_digitavel if ch.isdigit())
+            if len(clean_ld) == 47:
+                # AAABC.CCCCX DDDDD.DDDDDY EEEEE.EEEEEZ K UUUUUUUUUUUUUU
+                # Para reconstituir o código de barras de 44 dígitos:
+                # AAA + B + K + Fator/Valor + Campo Livre 1 + Campo Livre 2 + Campo Livre 3
+                barcode = clean_ld[0:4] + clean_ld[32] + clean_ld[33:47] + clean_ld[4:9] + clean_ld[10:20] + clean_ld[21:31]
+        except Exception as e:
+            logging.error(f"Erro ao converter linha digitável para código de barras: {e}")
+
     # Se não tiver linha digitável mas for BB, podemos tentar calcular se tivermos os dados
     if not linha_digitavel and (recv.bank in ['BANCO DO BRASIL', 'BANCO_DO_BRASIL', '001']):
         from app.services.boleto_service import compute_fator_vencimento, compute_valor_str, compute_campo_livre, compute_barcode44, compute_linha_digitavel
@@ -339,6 +368,17 @@ def build_boleto_context(db: Session, recv: Receivable) -> dict:
             linha_digitavel = compute_linha_digitavel(barcode)
         except Exception as e:
             logging.error(f"Erro ao calcular linha digitável BB: {e}")
+
+    # Garantir que a linha digitável esteja no formato padrão para a visualização (com pontos e espaços)
+    if linha_digitavel:
+        clean_ld = "".join(ch for ch in linha_digitavel if ch.isdigit())
+        if len(clean_ld) == 47 and ("." not in linha_digitavel or " " not in linha_digitavel):
+            f1 = clean_ld[0:5] + "." + clean_ld[5:10]
+            f2 = clean_ld[10:15] + "." + clean_ld[15:21]
+            f3 = clean_ld[21:26] + "." + clean_ld[26:32]
+            f4 = clean_ld[32]
+            f5 = clean_ld[33:47]
+            linha_digitavel = f"{f1} {f2} {f3} {f4} {f5}"
 
     agencia = f"{ba_data.get('agencia','')}-{ba_data.get('agencia_dv','')}" if ba_data.get('agencia_dv') else ba_data.get('agencia','')
     conta = f"{ba_data.get('conta','')}-{ba_data.get('conta_dv','')}" if ba_data.get('conta_dv') else ba_data.get('conta','')
@@ -357,7 +397,7 @@ def build_boleto_context(db: Session, recv: Receivable) -> dict:
         "data_emissao": recv.issue_date.strftime('%d/%m/%Y'),
         "valor": f"{recv.amount:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
         "sacado_nome": cliente.nome_razao_social if cliente else "CLIENTE",
-        "sacado_documento": cliente.cpf_cnpj if cliente else "",
+        "sacado_documento": _mask_cpf_cnpj(cliente.cpf_cnpj) if cliente else "",
         "sacado_endereco": addr_str,
         "sacado_municipio": mun_uf.split('/')[0] if '/' in mun_uf else mun_uf,
         "sacado_cep": cep,
@@ -447,14 +487,20 @@ Atenciosamente,
 {company_name}""".strip()
 
             subject = f"⚠️ URGENTE: Fatura em atraso – serviço será suspenso amanhã | {company_name}"
-
             # Gerar PDF do boleto se necessário
             pdf_path = None
             if not payment_url:
                 try:
+                    logo_path = None
+                    if empresa and empresa.logo_url:
+                        if empresa.logo_url.startswith("/files/"):
+                            relative_part = empresa.logo_url[len("/files/"):]
+                            logo_path = os.path.abspath(os.path.join(settings.UPLOAD_DIR, relative_part))
+                            if not os.path.exists(logo_path):
+                                logo_path = None
                     context = build_boleto_context(db, recv)
                     from app.services.boleto_generator import generate_boleto_pdf
-                    pdf_bytes = generate_boleto_pdf(context)
+                    pdf_bytes = generate_boleto_pdf(context, logo_path=logo_path)
                     tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
                     tmp.write(pdf_bytes)
                     tmp.close()
@@ -541,9 +587,16 @@ def send_receivable_notification(db: Session, recv: Receivable) -> bool:
         # Se NÃO for Mercado Pago e não tiver link, gerar o PDF do boleto
         if not recv.payment_url:
             try:
+                logo_path = None
+                if empresa and empresa.logo_url:
+                    if empresa.logo_url.startswith("/files/"):
+                        relative_part = empresa.logo_url[len("/files/"):]
+                        logo_path = os.path.abspath(os.path.join(settings.UPLOAD_DIR, relative_part))
+                        if not os.path.exists(logo_path):
+                            logo_path = None
                 context = build_boleto_context(db, recv)
                 from app.services.boleto_generator import generate_boleto_pdf
-                pdf_bytes = generate_boleto_pdf(context)
+                pdf_bytes = generate_boleto_pdf(context, logo_path=logo_path)
                 
                 # Salvar em arquivo temporário para anexo
                 tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
@@ -655,7 +708,14 @@ def send_carne_notification(db: Session, recvs: list[Receivable]) -> bool:
     pdf_path = None
     if contexts:
         try:
-            pdf_bytes = generate_boletos_pdf(contexts)
+            logo_path = None
+            if empresa and empresa.logo_url:
+                if empresa.logo_url.startswith("/files/"):
+                    relative_part = empresa.logo_url[len("/files/"):]
+                    logo_path = os.path.abspath(os.path.join(settings.UPLOAD_DIR, relative_part))
+                    if not os.path.exists(logo_path):
+                        logo_path = None
+            pdf_bytes = generate_boletos_pdf(contexts, logo_path=logo_path)
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
             tmp.write(pdf_bytes)
             tmp.close()

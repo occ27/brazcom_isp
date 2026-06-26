@@ -24,7 +24,7 @@ MR     = 10 * mm             # margem direita
 MT     =  8 * mm             # margem superior
 CW     = PAGE_W - ML - MR   # largura do conteúdo ≈ 190 mm
 
-RC     = 42 * mm             # coluna direita (Vencimento, Nosso Nro, Valor)
+RC     = 48 * mm             # coluna direita (Vencimento, Nosso Nro, Valor)
 LC     = CW - RC             # coluna esquerda
 
 LBL_H  = 3.8 * mm           # altura do rótulo dentro da célula
@@ -274,8 +274,8 @@ def _draw_ficha(c, ctx: dict, logo_path: Optional[str], y0: float):
     y = y0
 
     # === BH-ROW: Logo | Banco | Linha digitável ===
-    logo_w = 40 * mm
-    bank_w = 28 * mm
+    logo_w = 45 * mm
+    bank_w = 23 * mm
 
     # Borda externa da linha de cabeçalho
     c.setStrokeColorRGB(0, 0, 0)
@@ -294,7 +294,7 @@ def _draw_ficha(c, ctx: dict, logo_path: Optional[str], y0: float):
             buf.seek(0)
             img_reader = ImageReader(buf)
             logo_px_w, logo_px_h = pil_img.size
-            scale = min(logo_w - 4 * mm, (H_BH - 4) * mm) / max(logo_px_w, logo_px_h) * (300 / 72)
+            scale = min((logo_w - 4 * mm) / logo_px_w, ((H_BH - 4) * mm) / logo_px_h)
             draw_w = logo_px_w * scale
             draw_h = logo_px_h * scale
             draw_x = x0 + 2 * mm
@@ -315,8 +315,8 @@ def _draw_ficha(c, ctx: dict, logo_path: Optional[str], y0: float):
     c.setLineWidth(0.5)
 
     # Código do banco
-    _text(c, x0 + logo_w + 2 * mm, y + H_BH * 0.4,
-          ctx.get('banco_codigo', ''), fs=BANK_FS, bold=True)
+    _text(c, x0 + logo_w, y + H_BH * 0.65,
+          ctx.get('banco_codigo', ''), fs=BANK_FS, bold=True, align='center', max_w=bank_w)
 
     # Separador banco | linha digitável
     c.setLineWidth(2.0)
@@ -376,14 +376,15 @@ def _draw_ficha(c, ctx: dict, logo_path: Optional[str], y0: float):
                         'MORA / MULTA', 'OUTROS ACRÉSCIMOS', 'VALOR COBRADO']
     ded_h = H_INST / len(deduction_labels)
 
-    # Borda do bloco instrucoes
+    # Rótulo instruções (fundo cinza desenhado primeiro)
+    c.setFillColorRGB(LGRAY, LGRAY, LGRAY)
+    c.rect(x0, _yt(y + LBL_H / mm), LC, LBL_H, fill=1, stroke=0)
+
+    # Borda do bloco instrucoes (desenhada por cima)
+    c.setStrokeColorRGB(0, 0, 0)
     c.setLineWidth(0.5)
     c.rect(x0, _yt(y + H_INST), CW, H_INST * mm, fill=0, stroke=1)
     _vline(c, x0 + LC, y, H_INST)
-
-    # Rótulo instruções
-    c.setFillColorRGB(LGRAY, LGRAY, LGRAY)
-    c.rect(x0, _yt(y + LBL_H / mm), LC, LBL_H, fill=1, stroke=0)
     c.setFillColorRGB(0, 0, 0)
     c.setFont('Helvetica-Bold', LBL_FS)
     c.drawString(x0 + 1.5 * mm, _yt(LBL_H / mm + y) + 0.8 * mm,
@@ -394,7 +395,7 @@ def _draw_ficha(c, ctx: dict, logo_path: Optional[str], y0: float):
     inst_y = y + LBL_H / mm + 2.0
     
     pix_qr = ctx.get('pix_qrcode')
-    has_pix = bool(pix_qr)
+    has_pix = bool(pix_qr and (pix_qr.startswith('000201') or (pix_qr.startswith('http') and 'Chave PIX' not in pix_qr)))
     
     for line in instrucoes_text.split('\n'):
         c.setFont('Helvetica', 7)
@@ -435,11 +436,14 @@ def _draw_ficha(c, ctx: dict, logo_path: Optional[str], y0: float):
     y += H_INST
 
     # === Sacado ===
-    c.rect(x0, _yt(y + H_SAC), CW, H_SAC * mm, fill=0, stroke=1)
-
-    # Rótulo PAGADOR
+    # Rótulo PAGADOR (fundo cinza desenhado primeiro)
     c.setFillColorRGB(LGRAY, LGRAY, LGRAY)
     c.rect(x0, _yt(y + LBL_H / mm), CW, LBL_H, fill=1, stroke=0)
+
+    # Borda externa do bloco (desenhada por cima)
+    c.setStrokeColorRGB(0, 0, 0)
+    c.setLineWidth(0.5)
+    c.rect(x0, _yt(y + H_SAC), CW, H_SAC * mm, fill=0, stroke=1)
     c.setFillColorRGB(0, 0, 0)
     c.setFont('Helvetica-Bold', LBL_FS)
     c.drawString(x0 + 1.5 * mm, _yt(LBL_H / mm + y) + 0.8 * mm, 'PAGADOR')

@@ -67,7 +67,7 @@ def run_auto_blocking():
                     from app.services.receivable_service import send_receivable_notification
                     pending_receivables = session.query(Receivable).filter(
                         Receivable.empresa_id == company.id,
-                        Receivable.status == 'PENDING',
+                        Receivable.status.in_(['PENDING', 'REGISTERED', 'PENDING_REMITTANCE', 'REMITTED']),
                         Receivable.sent_at == None
                     ).all()
 
@@ -133,7 +133,7 @@ def run_auto_blocking():
                         from sqlalchemy import func
                         last_day_receivables = session.query(Receivable).filter(
                             Receivable.empresa_id == company.id,
-                            Receivable.status == 'PENDING',
+                            Receivable.status.in_(['PENDING', 'REGISTERED', 'PENDING_REMITTANCE', 'REMITTED']),
                             func.date(Receivable.due_date) == target_due_date,
                         ).all()
 
@@ -319,7 +319,7 @@ def run_auto_blocking():
                 overdue_receivables = session.query(Receivable).filter(
                     Receivable.cliente_id == client.id,
                     Receivable.empresa_id == company.id,
-                    Receivable.status == 'PENDING',
+                    Receivable.status.in_(['PENDING', 'REGISTERED', 'PENDING_REMITTANCE', 'REMITTED']),
                     Receivable.due_date <= limit_date
                 ).all()
                 

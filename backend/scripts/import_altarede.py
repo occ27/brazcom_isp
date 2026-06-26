@@ -1,6 +1,5 @@
 import sys
 import os
-import xml.etree.ElementTree as ET
 from datetime import datetime
 import traceback
 import ipaddress
@@ -36,58 +35,88 @@ from app.models.models import (
 from app.models.servico_model import Servico, TipoServico
 from app.models.network import IPClass, InterfaceIPClassAssignment, RouterInterface
 
-EMPRESA_ID = 5
-NAMESPACES = {'ss': 'urn:schemas-microsoft-com:office:spreadsheet'}
+EMPRESA_ID = int(os.environ.get("EMPRESA_ID", "6"))
 
-def parse_xml_spreadsheet(file_path):
+def parse_single_line_csv(file_path, encoding='latin1'):
     """
-    Parses an XML Spreadsheet 2003 and yields rows as lists of strings.
+    Parses a single-line semicolon separated CSV with potential duplicate headers.
     """
-    print(f"Parsing {file_path}...")
-    try:
-        tree = ET.parse(file_path)
-        root = tree.getroot()
+    print(f"Parsing CSV {file_path}...")
+    if not os.path.exists(file_path):
+        print(f"  Warning: File {file_path} does not exist. Skipping.")
+        return []
+    
+    with open(file_path, 'r', encoding=encoding) as f:
+        content = f.read()
+
+    # Find the first quote indicating the start of data
+    first_quote_idx = content.find('"')
+    if first_quote_idx == -1:
+        header_part = content
+        value_part = ""
+    else:
+        header_part = content[:first_quote_idx]
+        value_part = content[first_quote_idx:]
+
+    # Parse headers and make duplicate names unique
+    header_raw = [h.strip() for h in header_part.split(';') if h.strip()]
+    header = []
+    seen = {}
+    for h in header_raw:
+        if h in seen:
+            seen[h] += 1
+            header.append(f"{h}_{seen[h]}")
+        else:
+            seen[h] = 0
+            header.append(h)
+
+    num_cols = len(header)
+    if num_cols == 0:
+        return []
         
-        # Find all Worksheets
-        for worksheet in root.findall('ss:Worksheet', NAMESPACES):
-            table = worksheet.find('ss:Table', NAMESPACES)
-            if table is None:
-                continue
+    print(f"  Found headers ({num_cols}): {header[:10]}...")
+
+    tokens = []
+    n = len(value_part)
+    i = 0
+    while i < n:
+        if value_part[i] == '"':
+            # Quoted token
+            start = i + 1
+            i += 1
+            while i < n:
+                if value_part[i] == '\\':
+                    i += 2  # skip escape and escaped char
+                elif value_part[i] == '"':
+                    break
+                else:
+                    i += 1
+            token = value_part[start:i]
+            tokens.append(token)
+            i += 1 # move past closing quote
+            if i < n and value_part[i] == ';':
+                i += 1 # move past semicolon
+        else:
+            # Unquoted token
+            start = i
+            while i < n and value_part[i] != ';' and value_part[i] != '"':
+                i += 1
+            token = value_part[start:i]
+            if token == '\\N':
+                token = None
+            tokens.append(token)
+            if i < n and value_part[i] == ';':
+                i += 1 # move past semicolon
+
+    rows = []
+    for idx in range(0, len(tokens), num_cols):
+        row_tokens = tokens[idx:idx+num_cols]
+        if len(row_tokens) == num_cols:
+            row_dict = {header[c]: row_tokens[c] for c in range(num_cols)}
+            rows.append(row_dict)
             
-            rows = table.findall('ss:Row', NAMESPACES)
-            if not rows:
-                continue
-            
-            # Read header
-            header_cells = rows[0].findall('ss:Cell', NAMESPACES)
-            headers = []
-            for cell in header_cells:
-                data = cell.find('ss:Data', NAMESPACES)
-                headers.append(data.text if data is not None else "")
-                
-            print(f"  Found headers: {headers}")
-            
-            # Yield data
-            for row in rows[1:]:
-                cells = row.findall('ss:Cell', NAMESPACES)
-                row_data = {}
-                current_col = 0
-                for cell in cells:
-                    index_attr = cell.get('{urn:schemas-microsoft-com:office:spreadsheet}Index')
-                    if index_attr:
-                        current_col = int(index_attr) - 1
-                    
-                    data = cell.find('ss:Data', NAMESPACES)
-                    val = data.text if data is not None and data.text else ""
-                    if current_col < len(headers):
-                        row_data[headers[current_col]] = val
-                    current_col += 1
-                
-                yield row_data
-                
-    except Exception as e:
-        print(f"Error parsing {file_path}: {e}")
-        traceback.print_exc()
+    print(f"  Parsed {len(rows)} rows.")
+    return rows
 
 def normalize_cod(cod):
     """
@@ -96,33 +125,28 @@ def normalize_cod(cod):
     """
     if not cod:
         return cod
-    # Se parecer um número com ponto como separador de milhar, remove os pontos
-    # Ex: '1.152' -> '1152', '58.340' -> '58340'
-    # Mas preserva decimais reais como '10.5'
     cleaned = cod.strip()
     parts = cleaned.split('.')
     if len(parts) > 1 and all(p.isdigit() for p in parts):
         return ''.join(parts)
     return cleaned
 
-def get_cliente_and_endereco_by_legacy_id(db, cod_cliente_raw):
+def get_cached_cliente_and_endereco(cod_cliente_raw, clients_by_id_outros, clients_by_id, emp_clis, enderecos_by_desc):
     if not cod_cliente_raw:
         return None, None
 
-    # Tenta com o valor original e com o valor normalizado
     variants = list(dict.fromkeys([cod_cliente_raw, normalize_cod(cod_cliente_raw)]))
 
     for cod in variants:
-        endereco = db.query(EmpresaClienteEndereco).join(EmpresaCliente).filter(
-            EmpresaCliente.empresa_id == EMPRESA_ID,
-            EmpresaClienteEndereco.descricao == cod
-        ).first()
+        endereco = enderecos_by_desc.get(cod)
         if endereco:
-            cliente = db.query(Cliente).filter(Cliente.id == endereco.empresa_cliente.cliente_id).first()
-            return cliente, endereco
+            emp_cli = emp_clis.get(endereco.empresa_cliente_id)
+            if emp_cli:
+                cliente = clients_by_id.get(emp_cli.cliente_id)
+                if cliente:
+                    return cliente, endereco
 
-        # Fallback to Cliente.idOutros
-        cliente = db.query(Cliente).filter(Cliente.empresa_id == EMPRESA_ID, Cliente.idOutros == cod).first()
+        cliente = clients_by_id_outros.get(cod)
         if cliente:
             return cliente, None
 
@@ -131,13 +155,18 @@ def get_cliente_and_endereco_by_legacy_id(db, cod_cliente_raw):
 def process_planos(db, file_path):
     print("\n--- Processando Planos ---")
     count = 0
-    for row in parse_xml_spreadsheet(file_path):
+    # Preload existing plans for EMPRESA_ID
+    existing_planos = {
+        s.codigo: s for s in db.query(Servico).filter(Servico.empresa_id == EMPRESA_ID).all()
+    }
+    
+    for row in parse_single_line_csv(file_path):
         cod_plano = row.get('COD_PLANO')
         if not cod_plano:
             continue
             
         try:
-            servico = db.query(Servico).filter(Servico.empresa_id == EMPRESA_ID, Servico.codigo == cod_plano).first()
+            servico = existing_planos.get(cod_plano)
             if not servico:
                 servico = Servico(
                     empresa_id=EMPRESA_ID,
@@ -152,18 +181,44 @@ def process_planos(db, file_path):
                     upload_speed=float(row.get('UPLOAD', 0.0) or 0.0) / 1024.0
                 )
                 db.add(servico)
+                existing_planos[cod_plano] = servico
                 count += 1
-            db.commit()
         except Exception as e:
             db.rollback()
             print(f"Error row Plano {cod_plano}: {e}")
             
+    db.commit()
     print(f"Planos importados: {count}")
 
 def process_clientes(db, file_path):
     print("\n--- Processando Clientes ---")
     count = 0
-    for row in parse_xml_spreadsheet(file_path):
+    
+    # Preload existing clients
+    existing_by_cpf = {}
+    existing_by_id_outros = {}
+    
+    clis = db.query(Cliente).filter(Cliente.empresa_id == EMPRESA_ID).all()
+    for c in clis:
+        if c.cpf_cnpj:
+            existing_by_cpf[c.cpf_cnpj] = c
+        if c.idOutros:
+            existing_by_id_outros[c.idOutros] = c
+            
+    # Preload existing EmpresaCliente relations
+    existing_emp_clis = {
+        ec.cliente_id: ec for ec in db.query(EmpresaCliente).filter(EmpresaCliente.empresa_id == EMPRESA_ID).all()
+    }
+    
+    # Preload existing EmpresaClienteEndereco relations
+    existing_enderecos = {
+        (ece.empresa_cliente_id, ece.descricao): ece
+        for ece in db.query(EmpresaClienteEndereco)
+        .join(EmpresaCliente, EmpresaClienteEndereco.empresa_cliente_id == EmpresaCliente.id)
+        .filter(EmpresaCliente.empresa_id == EMPRESA_ID).all()
+    }
+    
+    for row in parse_single_line_csv(file_path):
         cod_cliente = row.get('COD_CLIENTE')
         if not cod_cliente:
             continue
@@ -177,18 +232,13 @@ def process_clientes(db, file_path):
                     cpf_cnpj = None
                     
             if cpf_cnpj:
-                cliente = db.query(Cliente).filter(
-                    Cliente.empresa_id == EMPRESA_ID, 
-                    Cliente.cpf_cnpj == cpf_cnpj
-                ).first()
+                cliente = existing_by_cpf.get(cpf_cnpj)
                 
             if not cliente:
-                cliente = db.query(Cliente).filter(
-                    Cliente.empresa_id == EMPRESA_ID, 
-                    Cliente.idOutros == cod_cliente
-                ).first()
+                cliente = existing_by_id_outros.get(cod_cliente)
                 
             if not cliente:
+                # TIPO_CLIENTE (index 6) holds person type like 'F' or 'J'
                 tipo_pessoa = TipoPessoa.FISICA if row.get('TIPO_CLIENTE') == 'F' else TipoPessoa.JURIDICA
                 data_nasc_str = row.get('DATA_NASCIMENTO')
                 data_nasc = None
@@ -212,13 +262,13 @@ def process_clientes(db, file_path):
                     is_active=True if row.get('ATIVO') == 'S' else False
                 )
                 db.add(cliente)
-                db.flush()
+                db.flush() # get cliente.id
                 
-            emp_cli = db.query(EmpresaCliente).filter(
-                EmpresaCliente.empresa_id == EMPRESA_ID,
-                EmpresaCliente.cliente_id == cliente.id
-            ).first()
-            
+                if cpf_cnpj:
+                    existing_by_cpf[cpf_cnpj] = cliente
+                existing_by_id_outros[cod_cliente] = cliente
+                
+            emp_cli = existing_emp_clis.get(cliente.id)
             if not emp_cli:
                 emp_cli = EmpresaCliente(
                     empresa_id=EMPRESA_ID,
@@ -226,13 +276,12 @@ def process_clientes(db, file_path):
                     is_active=cliente.is_active
                 )
                 db.add(emp_cli)
-                db.flush()
+                db.flush() # get emp_cli.id
+                existing_emp_clis[cliente.id] = emp_cli
                 
             # Verifica se já importou este endereço/cod_cliente
-            endereco_exists = db.query(EmpresaClienteEndereco).filter(
-                EmpresaClienteEndereco.empresa_cliente_id == emp_cli.id,
-                EmpresaClienteEndereco.descricao == cod_cliente
-            ).first()
+            addr_key = (emp_cli.id, cod_cliente)
+            endereco_exists = existing_enderecos.get(addr_key)
             
             if not endereco_exists:
                 endereco = EmpresaClienteEndereco(
@@ -247,6 +296,8 @@ def process_clientes(db, file_path):
                     is_principal=True
                 )
                 db.add(endereco)
+                db.flush() # get endereco.id
+                existing_enderecos[addr_key] = endereco
                 count += 1
                 
             if count % 1000 == 0:
@@ -259,15 +310,37 @@ def process_clientes(db, file_path):
     db.commit()
     print(f"Clientes/Endereços importados: {count}")
 
-def process_logins(db, file_path):
+def process_logins(db, logins_file_path, endereco_logins_file_path):
     print("\n--- Processando Logins (ServicoContratado) ---")
     
-    # 1. Pré-carrega apenas as classes de IP dos roteadores da EMPRESA_ID
-    networks_map = []
+    # 1. Preload clients and address caches
+    clients_by_id_outros = {c.idOutros: c for c in db.query(Cliente).filter(Cliente.empresa_id == EMPRESA_ID).all() if c.idOutros}
+    clients_by_id = {c.id: c for c in db.query(Cliente).filter(Cliente.empresa_id == EMPRESA_ID).all()}
     
+    emp_clis = {
+        ec.cliente_id: ec for ec in db.query(EmpresaCliente).filter(EmpresaCliente.empresa_id == EMPRESA_ID).all()
+    }
+    emp_clis_by_id = {ec.id: ec for ec in emp_clis.values()}
+    
+    enderecos_by_desc = {
+        ece.descricao: ece 
+        for ece in db.query(EmpresaClienteEndereco)
+        .join(EmpresaCliente, EmpresaClienteEndereco.empresa_cliente_id == EmpresaCliente.id)
+        .filter(EmpresaCliente.empresa_id == EMPRESA_ID).all()
+    }
+    
+    # 2. Load Endereco_Logins.csv mapping
+    login_address_map = {}
+    if os.path.exists(endereco_logins_file_path):
+        for row in parse_single_line_csv(endereco_logins_file_path):
+            login_val = row.get('LOGIN')
+            if login_val:
+                login_address_map[login_val.strip()] = row
+                
+    # 3. Preload Router interfaces and IP classes
+    networks_map = []
     from app.models.network import Router as RouterModel
     
-    # Busca apenas as interfaces cujos roteadores pertencem à EMPRESA_ID
     assignments = (
         db.query(InterfaceIPClassAssignment)
         .join(RouterInterface, InterfaceIPClassAssignment.interface_id == RouterInterface.id)
@@ -290,29 +363,64 @@ def process_logins(db, file_path):
                 })
             except Exception as e:
                 print(f"Erro ao parsear rede {ip_class.rede}: {e}")
-
+                
     print(f"Carregadas {len(networks_map)} associações de rede para roteadores (apenas empresa {EMPRESA_ID}).")
-    if networks_map:
-        for nm in networks_map:
-            print(f"  Rede: {nm['network']} -> router_id={nm['router_id']}, interface_id={nm['interface_id']}")
+
+    # 4. Preload existing plans
+    existing_planos = {
+        s.codigo: s for s in db.query(Servico).filter(Servico.empresa_id == EMPRESA_ID).all()
+    }
+    
+    # 5. Preload existing contracts (ServicoContratado)
+    existing_contratos = {
+        (sc.cliente_id, sc.servico_id, sc.endereco_id): sc
+        for sc in db.query(ServicoContratado).filter(ServicoContratado.empresa_id == EMPRESA_ID).all()
+    }
 
     count = 0
-    for row in parse_xml_spreadsheet(file_path):
+    for row in parse_single_line_csv(logins_file_path):
         cod_cliente = row.get('COD_CLIENTE')
         try:
-            cliente, endereco = get_cliente_and_endereco_by_legacy_id(db, cod_cliente)
+            cliente, endereco = get_cached_cliente_and_endereco(
+                cod_cliente, clients_by_id_outros, clients_by_id, emp_clis_by_id, enderecos_by_desc
+            )
             if not cliente:
                 continue
                 
             cod_plano = row.get('COD_PLANO')
             servico = None
             if cod_plano:
-                servico = db.query(Servico).filter(Servico.empresa_id == EMPRESA_ID, Servico.codigo == cod_plano).first()
+                servico = existing_planos.get(cod_plano)
                 
             if not servico:
                 continue
                 
-            # Verifica o IP e associa ao Router
+            # Check if this login has a custom address in Endereco_Logins.csv
+            login_key = row.get('LOGIN', '').strip()
+            custom_addr = login_address_map.get(login_key)
+            if custom_addr:
+                emp_cli = emp_clis.get(cliente.id)
+                if emp_cli:
+                    addr_desc = f"{cod_cliente}_login_{login_key}"
+                    custom_endereco = enderecos_by_desc.get(addr_desc)
+                    if not custom_endereco:
+                        # Create secondary address
+                        custom_endereco = EmpresaClienteEndereco(
+                            empresa_cliente_id=emp_cli.id,
+                            descricao=addr_desc,
+                            endereco=f"{custom_addr.get('LOGRADOURO', '')} {custom_addr.get('ENDERECO', '')}".strip()[:255] or 'Sem Endereço',
+                            numero=custom_addr.get('COMPLEMENTO', 'S/N')[:20] or 'S/N',
+                            bairro=custom_addr.get('BAIRRO', 'Centro')[:100] or 'Centro',
+                            municipio=custom_addr.get('CIDADE', 'Cidade')[:100] or 'Cidade',
+                            uf=custom_addr.get('ESTADO', 'MG')[:2] or 'MG',
+                            cep=''.join(filter(str.isdigit, custom_addr.get('CEP', '00000000')))[:9] or '00000000',
+                            is_principal=False
+                        )
+                        db.add(custom_endereco)
+                        db.flush() # get id
+                        enderecos_by_desc[addr_desc] = custom_endereco
+                    endereco = custom_endereco
+
             assigned_ip = row.get('IP')
             router_id = None
             interface_id = None
@@ -329,30 +437,22 @@ def process_logins(db, file_path):
                             break
                 except:
                     pass
-                
-            # check if already exists by MAC, login, or simply cliente + servico + endereco
-            exists = db.query(ServicoContratado).filter(
-                ServicoContratado.empresa_id == EMPRESA_ID,
-                ServicoContratado.cliente_id == cliente.id,
-                ServicoContratado.servico_id == servico.id,
-                ServicoContratado.endereco_id == (endereco.id if endereco else None)
-            ).first()
+            
+            addr_id = endereco.id if endereco else None
+            exists = existing_contratos.get((cliente.id, servico.id, addr_id))
             
             if exists:
                 # Update existing
                 exists.metodo_autenticacao = 'IP_MAC'
                 exists.assigned_ip = assigned_ip
                 exists.mac_address = row.get('MAC')
-                # Para IP_MAC, o Altarede armazenava o IP no campo LOGIN — não são credenciais PPPoE
                 exists.pppoe_username = None
                 exists.pppoe_password = None
 
-                # Número do contrato legado (CODIGO do Altarede)
                 codigo_legado = row.get('CODIGO', '').strip()
                 if codigo_legado and not exists.numero_contrato:
                     exists.numero_contrato = codigo_legado
 
-                # Data de instalação / início do contrato
                 data_inst_str = row.get('DATA_INSTALACAO', '').strip()
                 if data_inst_str and data_inst_str != '0000-00-00':
                     try:
@@ -366,7 +466,6 @@ def process_logins(db, file_path):
                     except:
                         pass
 
-                # Se encontrou o mapeamento de rede, atualiza também
                 if router_id:
                     exists.router_id = router_id
                     exists.interface_id = interface_id
@@ -384,10 +483,8 @@ def process_logins(db, file_path):
                 except:
                     pass
 
-                # Número do contrato legado (CODIGO do Altarede)
                 codigo_legado = normalize_cod(row.get('CODIGO', '').strip()) or None
 
-                # Data de instalação / início do contrato
                 data_inst = None
                 data_inst_str = row.get('DATA_INSTALACAO', '').strip()
                 if data_inst_str and data_inst_str not in ('0000-00-00', ''):
@@ -400,7 +497,7 @@ def process_logins(db, file_path):
                     empresa_id=EMPRESA_ID,
                     cliente_id=cliente.id,
                     servico_id=servico.id,
-                    endereco_id=endereco.id if endereco else None,
+                    endereco_id=addr_id,
                     router_id=router_id,
                     interface_id=interface_id,
                     ip_class_id=ip_class_id,
@@ -408,20 +505,19 @@ def process_logins(db, file_path):
                     d_contrato_ini=data_inst,
                     data_instalacao=data_inst,
                     data_inicio_cobranca=data_inst,
-                    # d_contrato_fim não existe no Altarede
                     valor_unitario=servico.valor_unitario,
                     dia_emissao=dia_venc,
                     dia_vencimento=dia_venc,
                     metodo_autenticacao='IP_MAC',
                     assigned_ip=assigned_ip,
                     mac_address=row.get('MAC'),
-                    # Para IP_MAC, o Altarede armazenava o IP no campo LOGIN — não são credenciais PPPoE
                     pppoe_username=None,
                     pppoe_password=None,
                     auto_emit=True,
                     is_active=True
                 )
                 db.add(servico_contratado)
+                existing_contratos[(cliente.id, servico.id, addr_id)] = servico_contratado
                 count += 1
 
                 if count % 1000 == 0:
@@ -435,11 +531,35 @@ def process_logins(db, file_path):
 
 def process_financeiro(db, file_path):
     print(f"\n--- Processando Financeiro ({file_path}) ---")
+    
+    # Preload clients for lookup
+    clients_by_id_outros = {c.idOutros: c for c in db.query(Cliente).filter(Cliente.empresa_id == EMPRESA_ID).all() if c.idOutros}
+    clients_by_id = {c.id: c for c in db.query(Cliente).filter(Cliente.empresa_id == EMPRESA_ID).all()}
+    
+    emp_clis = {
+        ec.cliente_id: ec for ec in db.query(EmpresaCliente).filter(EmpresaCliente.empresa_id == EMPRESA_ID).all()
+    }
+    emp_clis_by_id = {ec.id: ec for ec in emp_clis.values()}
+    
+    enderecos_by_desc = {
+        ece.descricao: ece 
+        for ece in db.query(EmpresaClienteEndereco)
+        .join(EmpresaCliente, EmpresaClienteEndereco.empresa_cliente_id == EmpresaCliente.id)
+        .filter(EmpresaCliente.empresa_id == EMPRESA_ID).all()
+    }
+    
+    # Preload existing receivables
+    existing_receivables = set(
+        r[0] for r in db.query(Receivable.nosso_numero).filter(Receivable.empresa_id == EMPRESA_ID).all() if r[0]
+    )
+    
     count = 0
-    for row in parse_xml_spreadsheet(file_path):
+    for row in parse_single_line_csv(file_path):
         cod_cliente = row.get('COD_CLIENTE')
         try:
-            cliente, _ = get_cliente_and_endereco_by_legacy_id(db, cod_cliente)
+            cliente, _ = get_cached_cliente_and_endereco(
+                cod_cliente, clients_by_id_outros, clients_by_id, emp_clis_by_id, enderecos_by_desc
+            )
             if not cliente:
                 continue
                 
@@ -447,44 +567,45 @@ def process_financeiro(db, file_path):
             if not cod_areceber:
                 continue
                 
-            exists = db.query(Receivable).filter(
-                Receivable.empresa_id == EMPRESA_ID,
-                Receivable.nosso_numero == cod_areceber
-            ).first()
+            if cod_areceber in existing_receivables:
+                continue
+                
+            due_date_str = row.get('DATA_VENCIMENTO')
+            if not due_date_str or due_date_str == '0000-00-00':
+                continue
+            due_date = datetime.strptime(due_date_str[:10], '%Y-%m-%d')
             
-            if not exists:
-                due_date_str = row.get('DATA_VENCIMENTO')
-                if not due_date_str or due_date_str == '0000-00-00':
-                    continue
-                due_date = datetime.strptime(due_date_str[:10], '%Y-%m-%d')
-                
-                amount = float(row.get('VALOR', 0.0) or 0.0)
-                paid_amount_str = row.get('VALOR_PAGO', 0.0)
-                paid_amount = float(paid_amount_str) if paid_amount_str else None
-                
-                paid_at = None
-                status = 'PENDING'
-                data_pagamento_str = row.get('DATA_PAGAMENTO')
-                if data_pagamento_str and data_pagamento_str != '0000-00-00':
+            amount = float(row.get('VALOR', 0.0) or 0.0)
+            paid_amount_str = row.get('VALOR_PAGO', 0.0)
+            paid_amount = float(paid_amount_str) if paid_amount_str else None
+            
+            paid_at = None
+            status = 'PENDING'
+            data_pagamento_str = row.get('DATA_PAGAMENTO')
+            if data_pagamento_str and data_pagamento_str != '0000-00-00':
+                try:
                     paid_at = datetime.strptime(data_pagamento_str[:10], '%Y-%m-%d')
                     status = 'PAID'
-                    
-                receivable = Receivable(
-                    empresa_id=EMPRESA_ID,
-                    cliente_id=cliente.id,
-                    nosso_numero=cod_areceber,
-                    due_date=due_date,
-                    amount=amount,
-                    paid_amount=paid_amount,
-                    paid_at=paid_at,
-                    status=status,
-                    bank='OUTRO'
-                )
-                db.add(receivable)
-                count += 1
+                except:
+                    pass
                 
-                if count % 1000 == 0:
-                    db.commit()
+            receivable = Receivable(
+                empresa_id=EMPRESA_ID,
+                cliente_id=cliente.id,
+                nosso_numero=cod_areceber,
+                due_date=due_date,
+                amount=amount,
+                paid_amount=paid_amount,
+                paid_at=paid_at,
+                status=status,
+                bank='OUTRO'
+            )
+            db.add(receivable)
+            existing_receivables.add(cod_areceber)
+            count += 1
+            
+            if count % 1000 == 0:
+                db.commit()
         except Exception as e:
             db.rollback()
             print(f"Error row Financeiro {cod_cliente}: {e}")
@@ -494,11 +615,36 @@ def process_financeiro(db, file_path):
 
 def process_os(db, file_path):
     print("\n--- Processando OS ---")
+    
+    # Preload clients
+    clients_by_id_outros = {c.idOutros: c for c in db.query(Cliente).filter(Cliente.empresa_id == EMPRESA_ID).all() if c.idOutros}
+    clients_by_id = {c.id: c for c in db.query(Cliente).filter(Cliente.empresa_id == EMPRESA_ID).all()}
+    
+    emp_clis = {
+        ec.cliente_id: ec for ec in db.query(EmpresaCliente).filter(EmpresaCliente.empresa_id == EMPRESA_ID).all()
+    }
+    emp_clis_by_id = {ec.id: ec for ec in emp_clis.values()}
+    
+    enderecos_by_desc = {
+        ece.descricao: ece 
+        for ece in db.query(EmpresaClienteEndereco)
+        .join(EmpresaCliente, EmpresaClienteEndereco.empresa_cliente_id == EmpresaCliente.id)
+        .filter(EmpresaCliente.empresa_id == EMPRESA_ID).all()
+    }
+    
+    # Preload existing ticket titles for the client
+    existing_tickets = set(
+        (t.cliente_id, t.titulo)
+        for t in db.query(Ticket).filter(Ticket.empresa_id == EMPRESA_ID).all()
+    )
+    
     count = 0
-    for row in parse_xml_spreadsheet(file_path):
+    for row in parse_single_line_csv(file_path):
         cod_cliente = row.get('COD_CLIENTE')
         try:
-            cliente, _ = get_cliente_and_endereco_by_legacy_id(db, cod_cliente)
+            cliente, _ = get_cached_cliente_and_endereco(
+                cod_cliente, clients_by_id_outros, clients_by_id, emp_clis_by_id, enderecos_by_desc
+            )
             if not cliente:
                 continue
                 
@@ -516,8 +662,11 @@ def process_os(db, file_path):
             
             data_conclusao_str = row.get('DATA_CONCLUSAO')
             if data_conclusao_str and data_conclusao_str != '0000-00-00':
-                resolvido_em = datetime.strptime(data_conclusao_str[:10], '%Y-%m-%d')
-                status = StatusTicket.FECHADO
+                try:
+                    resolvido_em = datetime.strptime(data_conclusao_str[:10], '%Y-%m-%d')
+                    status = StatusTicket.FECHADO
+                except:
+                    pass
                 
             obs = row.get('OBS', 'Sem descrição')
             obs_conclusao = row.get('OBS_CONCLUSAO', '')
@@ -525,30 +674,27 @@ def process_os(db, file_path):
             
             titulo_os = f"OS {id_os} - {row.get('TIPO_SERVICO', 'Geral')}"
             
-            exists_os = db.query(Ticket).filter(
-                Ticket.empresa_id == EMPRESA_ID,
-                Ticket.cliente_id == cliente.id,
-                Ticket.titulo == titulo_os
-            ).first()
-            
-            if not exists_os:
-                ticket = Ticket(
-                    empresa_id=EMPRESA_ID,
-                    cliente_id=cliente.id,
-                    criado_por_id=user_id,
-                    titulo=titulo_os,
-                    descricao=obs,
-                    status=status,
-                    resolucao=obs_conclusao,
-                    resolvido_em=resolvido_em,
-                    prioridade=PrioridadeTicket.NORMAL,
-                    categoria=CategoriaTicket.SUPORTE
-                )
-                db.add(ticket)
-                count += 1
+            if (cliente.id, titulo_os) in existing_tickets:
+                continue
                 
-                if count % 1000 == 0:
-                    db.commit()
+            ticket = Ticket(
+                empresa_id=EMPRESA_ID,
+                cliente_id=cliente.id,
+                criado_por_id=user_id,
+                titulo=titulo_os,
+                descricao=obs,
+                status=status,
+                resolucao=obs_conclusao,
+                resolvido_em=resolvido_em,
+                prioridade=PrioridadeTicket.NORMAL,
+                categoria=CategoriaTicket.SUPORTE
+            )
+            db.add(ticket)
+            existing_tickets.add((cliente.id, titulo_os))
+            count += 1
+            
+            if count % 1000 == 0:
+                db.commit()
                 
         except Exception as e:
             db.rollback()
@@ -564,19 +710,31 @@ def main():
         # Check if empresa exists
         empresa = db.query(Empresa).filter(Empresa.id == EMPRESA_ID).first()
         if not empresa:
-            print(f"Empresa ID {EMPRESA_ID} não encontrada. Criando empresa padrão ID 5.")
-            empresa = Empresa(id=EMPRESA_ID, razao_social="Empresa Migrada", cnpj="00000000000000", endereco="Rua A", numero="1", bairro="Centro", municipio="BH", uf="MG", codigo_ibge="0000000", cep="00000000", email="contato@empresa.com", user_id=1)
+            print(f"Empresa ID {EMPRESA_ID} não encontrada. Criando empresa padrão.")
+            empresa = Empresa(
+                id=EMPRESA_ID, 
+                razao_social="Empresa Migrada", 
+                cnpj="00000000000000", 
+                endereco="Rua A", 
+                numero="1", 
+                bairro="Centro", 
+                municipio="BH", 
+                uf="MG", 
+                codigo_ibge="0000000", 
+                cep="00000000", 
+                email="contato@empresa.com", 
+                user_id=1
+            )
             db.add(empresa)
             db.commit()
 
-        base_dir = "/Users/orlando/python/FastAPI/brazcom_isp/Alpha"
+        base_dir = "/Users/orlando/python/FastAPI/brazcom_isp/Pronect"
         
-        process_planos(db, f"{base_dir}/Planos.xls")
-        process_clientes(db, f"{base_dir}/Clientes.xls")
-        process_logins(db, f"{base_dir}/Logins.xls")
-        process_financeiro(db, f"{base_dir}/Financeiro.xls")
-        process_financeiro(db, f"{base_dir}/Carnês.xls")
-        process_os(db, f"{base_dir}/OS.xls")
+        process_planos(db, f"{base_dir}/Planos.csv")
+        process_clientes(db, f"{base_dir}/Clientes.csv")
+        process_logins(db, f"{base_dir}/Logins.csv", f"{base_dir}/Endereco_Logins.csv")
+        process_financeiro(db, f"{base_dir}/Financeiro.csv")
+        process_os(db, f"{base_dir}/OS.csv")
 
         print("Importação concluída com sucesso!")
         

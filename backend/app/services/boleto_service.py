@@ -52,7 +52,7 @@ def compute_valor_str(amount: Decimal) -> str:
 def _campo_livre_bb(agency: str, account: str, convenio: str,
                     carteira: str, nosso_numero_seq: str) -> str:
     conv7 = (convenio or '').zfill(7)[:7]
-    seq10 = nosso_numero_seq.zfill(10)[:10]
+    seq10 = nosso_numero_seq.zfill(10)[-10:]
     cart2 = (carteira or '17').zfill(2)[:2]
     return '000000' + conv7 + seq10 + cart2
 

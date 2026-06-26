@@ -193,6 +193,20 @@ def registrar_boleto(
     client_name = cliente.nome_razao_social
     client_doc = cliente.cpf_cnpj
 
+    # Buscar endereço principal do cliente para a empresa associada
+    from app.models.models import EmpresaCliente, EmpresaClienteEndereco
+    emp_cli = db.query(EmpresaCliente).filter(
+        EmpresaCliente.cliente_id == receivable.cliente_id,
+        EmpresaCliente.empresa_id == receivable.empresa_id
+    ).first()
+    
+    endereco_obj = None
+    if emp_cli:
+        endereco_obj = db.query(EmpresaClienteEndereco).filter(
+            EmpresaClienteEndereco.empresa_cliente_id == emp_cli.id,
+            EmpresaClienteEndereco.is_principal == True
+        ).first()
+
     # Mapeamento do cedente (Agrobraz pattern)
     convenio = ''.join(filter(str.isdigit, (ba.convenio or '').strip()))
     carteira = int(ba.carteira or 17)
@@ -211,6 +225,12 @@ def registrar_boleto(
         seq_ts = str(int(time.time()))[-10:].zfill(10)
         conv7  = str(SANDBOX_CEDENTE['numeroConvenio']).zfill(7)
         numero_titulo_cliente = '000' + conv7 + seq_ts
+        
+        endereco_str = 'ENDERECO TESTE'
+        cep_int = 12345678
+        cidade_str = 'CIDADE'
+        bairro_str = 'BAIRRO'
+        uf_str = 'DF'
     else:
         convenio_int      = int(convenio)
         agencia_cedente   = int(''.join(filter(str.isdigit, ba.agencia or '')) or 0)
@@ -219,6 +239,26 @@ def registrar_boleto(
         client_doc_use    = _strip_doc(client_doc)
         client_name_use   = client_name
         numero_titulo_cliente = _nosso_numero_seq(receivable.nosso_numero or str(receivable.id), convenio)
+        
+        if endereco_obj:
+            rua_num = f"{endereco_obj.endereco}, {endereco_obj.numero}"
+            if endereco_obj.complemento:
+                rua_num = f"{rua_num} - {endereco_obj.complemento}"
+            endereco_str = rua_num[:60].strip()
+            
+            cep_digits = ''.join(filter(str.isdigit, endereco_obj.cep or ''))
+            if not cep_digits or len(cep_digits) != 8:
+                raise ValueError('O CEP do cliente deve ter exatamente 8 dígitos. Verifique o endereço no cadastro do cliente.')
+            cep_int = int(cep_digits)
+            
+            cidade_str = (endereco_obj.municipio or '')[:30].strip()
+            bairro_str = (endereco_obj.bairro or '')[:30].strip()
+            uf_str = (endereco_obj.uf or '')[:2].strip().upper()
+            
+            if not cidade_str or not bairro_str or not uf_str:
+                raise ValueError('Cadastro de endereço do cliente incompleto (Cidade, Bairro e UF são obrigatórios).')
+        else:
+            raise ValueError('Endereço do cliente não cadastrado. Por favor, cadastre um endereço principal antes de registrar o boleto.')
 
     digits_doc = _strip_doc(client_doc_use)
     tipo_inscricao = 2 if len(digits_doc) > 11 else 1
@@ -243,11 +283,11 @@ def registrar_boleto(
             'tipoInscricao': tipo_inscricao,
             'numeroInscricao': int(digits_doc) if digits_doc.isdigit() else 0,
             'nome': client_name_use[:60].upper(),
-            'endereco': 'ENDERECO TESTE' if sandbox else 'Rua Principal, 123',
-            'cep': 12345678 if sandbox else 0,
-            'cidade': 'CIDADE' if sandbox else '',
-            'bairro': 'BAIRRO' if sandbox else '',
-            'uf': 'DF' if sandbox else '',
+            'endereco': endereco_str,
+            'cep': cep_int,
+            'cidade': cidade_str,
+            'bairro': bairro_str,
+            'uf': uf_str,
         },
     }
 

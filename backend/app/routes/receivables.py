@@ -549,9 +549,21 @@ def print_receivable(receivable_id: int, db: Session = Depends(get_db), current_
     from app.services.receivable_service import build_boleto_context
     from app.services.boleto_generator import generate_boleto_pdf
     from fastapi.responses import Response
+    from app.models.models import Empresa
+    from app.core.config import settings
+    import os
 
     context = build_boleto_context(db, recv)
-    pdf_bytes = generate_boleto_pdf(context)
+    logo_path = None
+    empresa = db.query(Empresa).filter(Empresa.id == recv.empresa_id).first()
+    if empresa and empresa.logo_url:
+        if empresa.logo_url.startswith("/files/"):
+            relative_part = empresa.logo_url[len("/files/"):]
+            logo_path = os.path.abspath(os.path.join(settings.UPLOAD_DIR, relative_part))
+            if not os.path.exists(logo_path):
+                logo_path = None
+
+    pdf_bytes = generate_boleto_pdf(context, logo_path=logo_path)
     
     recv.printed_at = datetime.now()
     db.commit()
@@ -600,8 +612,16 @@ def send_receivable_email_route(receivable_id: int, db: Session = Depends(get_db
     try:
         # Se NÃO for Mercado Pago e não tiver link, gerar o PDF do boleto
         if not recv.payment_url:
+            logo_path = None
+            if empresa and empresa.logo_url:
+                if empresa.logo_url.startswith("/files/"):
+                    relative_part = empresa.logo_url[len("/files/"):]
+                    import os
+                    logo_path = os.path.abspath(os.path.join(settings.UPLOAD_DIR, relative_part))
+                    if not os.path.exists(logo_path):
+                        logo_path = None
             context = build_boleto_context(db, recv)
-            pdf_bytes = generate_boleto_pdf(context)
+            pdf_bytes = generate_boleto_pdf(context, logo_path=logo_path)
             
             # Salvar em arquivo temporário para anexo
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')

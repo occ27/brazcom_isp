@@ -44,7 +44,8 @@ class BillingService:
             elif bank_account.bank == "SICREDI":
                 return await BillingService._register_sicredi(db, receivable, bank_account)
             elif bank_account.bank in ["BANCO_DO_BRASIL", "BANCO DO BRASIL"]:
-                return await BillingService._register_bb(db, receivable, bank_account)
+                success, _ = await BillingService._register_bb(db, receivable, bank_account)
+                return success
             else:
                 logger.info(f"Conta bancária {bank_account.id} não suporta registro automático: {bank_account.bank}")
                 return False

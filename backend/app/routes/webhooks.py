@@ -11,7 +11,7 @@ from app.services import bb_api_service, isp_service
 router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
 logger = logging.getLogger(__name__)
 
-@router.post("/bb", include_in_schema=False)
+@router.api_route("/bb", methods=["GET", "POST"], include_in_schema=False)
 async def bb_webhook(
     request: Request,
     db: Session = Depends(get_db),
@@ -22,7 +22,13 @@ async def bb_webhook(
 
     O BB envia um POST com JSON contendo a lista de eventos.
     """
+    if request.method == "GET":
+        return {"ok": True, "message": "BB Webhook receiver is active"}
+
     try:
+        body_bytes = await request.body()
+        if not body_bytes:
+            return {"ok": True, "message": "BB Webhook test ping received"}
         body = await request.json()
     except Exception:
         logger.error("BB webhook: Payload JSON inválido")

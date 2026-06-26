@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import and_, or_
 from fastapi import HTTPException, status
 from datetime import datetime, date
@@ -181,19 +181,8 @@ def get_servico_contratado_with_relations(db: Session, contrato_id: int, empresa
     ).join(
         models.Servico, models.ServicoContratado.servico_id == models.Servico.id
     ).outerjoin(
-        models.EmpresaCliente,
-        and_(models.EmpresaCliente.cliente_id == models.Cliente.id,
-             models.EmpresaCliente.empresa_id == models.ServicoContratado.empresa_id)
-    ).outerjoin(
         models.EmpresaClienteEndereco,
-        or_(
-            models.EmpresaClienteEndereco.id == models.ServicoContratado.endereco_id,
-            and_(
-                models.ServicoContratado.endereco_id.is_(None),
-                models.EmpresaClienteEndereco.empresa_cliente_id == models.EmpresaCliente.id,
-                models.EmpresaClienteEndereco.is_principal == True
-            )
-        )
+        models.EmpresaClienteEndereco.id == models.ServicoContratado.endereco_id
     ).outerjoin(
         models.BankAccount, models.ServicoContratado.bank_account_id == models.BankAccount.id
     ).filter(models.ServicoContratado.id == contrato_id)
@@ -256,24 +245,13 @@ def get_servicos_contratados_by_empresa(db: Session, empresa_id: int = None, qst
         models.BankAccount.bank.label('bank_account_bank'),
         models.BankAccount.agencia.label('bank_account_agencia'),
         models.BankAccount.conta.label('bank_account_conta')
-    ).join(
+    ).options(selectinload(models.ServicoContratado.ativos)).join(
         models.Cliente, models.ServicoContratado.cliente_id == models.Cliente.id
     ).join(
         models.Servico, models.ServicoContratado.servico_id == models.Servico.id
     ).outerjoin(
-        models.EmpresaCliente,
-        and_(models.EmpresaCliente.cliente_id == models.Cliente.id,
-             models.EmpresaCliente.empresa_id == models.ServicoContratado.empresa_id)
-    ).outerjoin(
         models.EmpresaClienteEndereco,
-        or_(
-            models.EmpresaClienteEndereco.id == models.ServicoContratado.endereco_id,
-            and_(
-                models.ServicoContratado.endereco_id.is_(None),
-                models.EmpresaClienteEndereco.empresa_cliente_id == models.EmpresaCliente.id,
-                models.EmpresaClienteEndereco.is_principal == True
-            )
-        )
+        models.EmpresaClienteEndereco.id == models.ServicoContratado.endereco_id
     ).outerjoin(
         models.BankAccount, models.ServicoContratado.bank_account_id == models.BankAccount.id
     )
@@ -329,19 +307,8 @@ def count_servicos_contratados_by_empresa(db: Session, empresa_id: int = None, q
     ).join(
         models.Servico, models.ServicoContratado.servico_id == models.Servico.id
     ).outerjoin(
-        models.EmpresaCliente,
-        and_(models.EmpresaCliente.cliente_id == models.Cliente.id,
-             models.EmpresaCliente.empresa_id == models.ServicoContratado.empresa_id)
-    ).outerjoin(
         models.EmpresaClienteEndereco,
-        or_(
-            models.EmpresaClienteEndereco.id == models.ServicoContratado.endereco_id,
-            and_(
-                models.ServicoContratado.endereco_id.is_(None),
-                models.EmpresaClienteEndereco.empresa_cliente_id == models.EmpresaCliente.id,
-                models.EmpresaClienteEndereco.is_principal == True
-            )
-        )
+        models.EmpresaClienteEndereco.id == models.ServicoContratado.endereco_id
     )
     if empresa_id is not None: q = q.filter(models.ServicoContratado.empresa_id == empresa_id)
     if qstr:
@@ -484,8 +451,8 @@ def get_servicos_contratados_by_cliente(db: Session, cliente_id: int, empresa_id
 
     if empresa_id is not None: q = q.filter(models.ServicoContratado.empresa_id == empresa_id)
     if cidade:
-        q = q.join(models.EmpresaCliente, and_(models.EmpresaCliente.cliente_id == models.ServicoContratado.cliente_id, models.EmpresaCliente.empresa_id == models.ServicoContratado.empresa_id)).join(
-            models.EmpresaClienteEndereco, and_(models.EmpresaClienteEndereco.empresa_cliente_id == models.EmpresaCliente.id, models.EmpresaClienteEndereco.is_principal == True)
+        q = q.join(
+            models.EmpresaClienteEndereco, models.EmpresaClienteEndereco.id == models.ServicoContratado.endereco_id
         ).filter(models.EmpresaClienteEndereco.municipio.ilike(f"%{cidade}%"))
 
     results = q.all()
