@@ -48,6 +48,21 @@ async def bb_webhook(
             Receivable.bb_boleto_numero == numero,
         ).first()
         
+        # Fallback para boletos importados do Altarede
+        if not ar:
+            ar = db.query(Receivable).filter(
+                Receivable.nosso_numero == numero,
+            ).first()
+            
+        if not ar and len(numero) > 10:
+            try:
+                seq_number = str(int(numero[-10:]))
+                ar = db.query(Receivable).filter(
+                    Receivable.nosso_numero == seq_number,
+                ).first()
+            except ValueError:
+                pass
+        
         if not ar:
             logger.warning(f"BB webhook: Boleto {numero} não encontrado no sistema")
             continue
