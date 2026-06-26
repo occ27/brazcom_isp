@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from app.core.database import SessionLocal
 from app.models.models import Empresa, Cliente, Receivable, ServicoContratado, StatusContrato, EmpresaCliente
-from app.services.isp_service import process_block_if_needed, process_unblock_if_needed
+from app.services.isp_service import process_block_if_needed, process_unblock_if_needed, process_cancel_if_needed
 from sqlalchemy import or_
 from sqlalchemy import select as sa_select
 
@@ -16,6 +16,7 @@ def run_auto_blocking():
     parser = argparse.ArgumentParser(description="Script de bloqueio automático de clientes inadimplentes.")
     parser.add_argument("--company", type=int, help="ID da empresa para processar especificamente")
     parser.add_argument("--notifications-only", action="store_true", help="Executa apenas o envio de notificações pendentes")
+    parser.add_argument("--test-emission", action="store_true", help="Testa apenas a geração (emissão) de cobranças, sem registrar em banco, sem notificar e sem bloquear")
     args, unknown = parser.parse_known_args()
 
     print("=============================================================")
@@ -48,6 +49,9 @@ def run_auto_blocking():
         for company in companies:
             print(f"\n>>> Processing company: {company.razao_social or company.nome_fantasia} (ID: {company.id})")
             
+            if args.test_emission:
+                print(f"  [TEST-EMISSION] Mode enabled. Skipping notifications, NFComs, and blocking.")
+
             if args.notifications_only:
                 # MODO 2: Apenas notificações pendentes (Horário comercial)
                 print(f"  [AUTO-NOTIFICATIONS] Processing pending receivable notifications...")
@@ -180,22 +184,25 @@ def run_auto_blocking():
                     print(f"  [AUTO-BILLING] Generated {company_generated} new receivables for today (notified later in morning run).")
                     
                     # Auto-registrar na API do Banco (BB, Sicoob, etc)
-                    import asyncio
-                    from app.services.billing_service import BillingService
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    for r in created_recv:
-                        if r.bank_account_id and r.tipo != 'MERCADO_PAGO':
-                            try:
-                                print(f"  [AUTO-BILLING] Attempting to register receivable {r.id} via bank API...")
-                                success = loop.run_until_complete(BillingService.register_receivable_with_bank(session, r))
-                                if success:
-                                    print(f"  [AUTO-BILLING] Registered receivable {r.id} successfully.")
-                                else:
-                                    print(f"  [AUTO-BILLING] Failed to register receivable {r.id}.")
-                            except Exception as api_err:
-                                print(f"  [AUTO-BILLING] API Error for receivable {r.id}: {api_err}")
-                    loop.close()
+                    if not args.test_emission:
+                        import asyncio
+                        from app.services.billing_service import BillingService
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        for r in created_recv:
+                            if r.bank_account_id and r.tipo != 'MERCADO_PAGO':
+                                try:
+                                    print(f"  [AUTO-BILLING] Attempting to register receivable {r.id} via bank API...")
+                                    success = loop.run_until_complete(BillingService.register_receivable_with_bank(session, r))
+                                    if success:
+                                        print(f"  [AUTO-BILLING] Registered receivable {r.id} successfully.")
+                                    else:
+                                        print(f"  [AUTO-BILLING] Failed to register receivable {r.id}.")
+                                except Exception as api_err:
+                                    print(f"  [AUTO-BILLING] API Error for receivable {r.id}: {api_err}")
+                        loop.close()
+                    else:
+                        print(f"  [AUTO-BILLING] --test-emission active: Skipped bank API registration.")
                     
                     total_generated += company_generated
                     db_changed = True
@@ -205,10 +212,16 @@ def run_auto_blocking():
                 print(f"  [AUTO-BILLING] [ERROR] Failed to generate today's receivables: {e}")
             
             # 1.1 Gerar e transmitir NFComs automáticas para contratos marcados
-            print(f"  [AUTO-NFCOM] Processing automatic NFCom emissions...")
             company_nfcom_emitted = 0
+            if args.test_emission:
+                print(f"  [AUTO-NFCOM] Skipped due to --test-emission.")
+
             try:
-                from app.crud.crud_nfcom import bulk_emit_nfcom_from_contracts
+                if args.test_emission:
+                    print(f"  [AUTO-NFCOM] Skipping execution of NFCom block.")
+                else:
+                    print(f"  [AUTO-NFCOM] Processing automatic NFCom emissions...")
+                    from app.crud.crud_nfcom import bulk_emit_nfcom_from_contracts
                 
                 # Definir função local que ignora last_emission, evitando ser bloqueado 
                 # pelo passo anterior de AUTO-BILLING que atualizou last_emission na memória do SQLAlchemy
@@ -288,6 +301,18 @@ def run_auto_blocking():
                 print(f"  [AUTO-NFCOM] [ERROR] Failed to process automatic NFComs: {e}")
                 traceback.print_exc()
             
+            if args.test_emission:
+                print(f"  [AUTO-BLOCK] Skipped due to --test-emission.")
+                company_summaries.append({
+                    "name": company.nome_fantasia or company.razao_social,
+                    "id": company.id,
+                    "generated": company_generated,
+                    "nfcom_emitted": company_nfcom_emitted,
+                    "blocked": 0,
+                    "unblocked": 0
+                })
+                continue
+
             dias_limite = company.dias_bloqueio_inadimplentes
             if dias_limite is None or dias_limite < 0:
                 print(f"  [AUTO-BLOCK] Disabled or not configured (dias_bloqueio_inadimplentes is {company.dias_bloqueio_inadimplentes}).")
@@ -310,9 +335,11 @@ def run_auto_blocking():
             ).all()
             
             limit_date = now - timedelta(days=dias_limite)
+            dias_cancelamento = getattr(company, "dias_cancelamento_inadimplentes", 90) or 90
             
             company_blocked = 0
             company_unblocked = 0
+            company_cancelled = 0
             
             for client in clients:
                 # Find any unpaid/pending receivable overdue by more than dias_limite days
@@ -321,11 +348,39 @@ def run_auto_blocking():
                     Receivable.empresa_id == company.id,
                     Receivable.status.in_(['PENDING', 'REGISTERED', 'PENDING_REMITTANCE', 'REMITTED']),
                     Receivable.due_date <= limit_date
-                ).all()
+                ).order_by(Receivable.due_date.asc()).all()
                 
                 should_be_blocked = len(overdue_receivables) > 0
+                should_be_cancelled = False
                 
-                if should_be_blocked:
+                if should_be_blocked and dias_cancelamento:
+                    limit_cancel_date = now - timedelta(days=dias_cancelamento)
+                    # Se a dívida MAIS ANTIGA for anterior à data limite de cancelamento, então cancela
+                    oldest_receivable = overdue_receivables[0]
+                    if oldest_receivable.due_date <= limit_cancel_date:
+                        should_be_cancelled = True
+                
+                if should_be_cancelled:
+                    # Find all contracts that are not cancelled
+                    contracts = session.query(ServicoContratado).filter(
+                        ServicoContratado.cliente_id == client.id,
+                        ServicoContratado.empresa_id == company.id,
+                        ServicoContratado.status != StatusContrato.CANCELADO
+                    ).all()
+                    
+                    if contracts:
+                        print(f"    -> Client '{client.nome_razao_social}' (ID: {client.id}) has unpaid bills older than {dias_cancelamento} days. Cancelling...")
+                        for contract in contracts:
+                            print(f"       Cancelling contract #{contract.id} (Current status: {contract.status})...")
+                            success = process_cancel_if_needed(session, contract.id)
+                            if success:
+                                print(f"       [SUCCESS] Contract #{contract.id} cancelled successfully.")
+                                company_cancelled += 1
+                                db_changed = True
+                            else:
+                                print(f"       [FAILED] Could not cancel contract #{contract.id}.")
+                                
+                elif should_be_blocked:
                     # Find all active or non-suspended/non-cancelled contracts for the client
                     contracts = session.query(ServicoContratado).filter(
                         ServicoContratado.cliente_id == client.id,
@@ -368,14 +423,15 @@ def run_auto_blocking():
                             else:
                                 print(f"       [FAILED] Could not reactivate contract #{contract.id}.")
             
-            print(f"  [AUTO-BLOCK] Summary for {company.nome_fantasia or company.razao_social}: {company_blocked} contracts suspended, {company_unblocked} contracts reactivated.")
+            print(f"  [AUTO-BLOCK] Summary for {company.nome_fantasia or company.razao_social}: {company_cancelled} contracts cancelled, {company_blocked} contracts suspended, {company_unblocked} contracts reactivated.")
             company_summaries.append({
                 "name": company.nome_fantasia or company.razao_social,
                 "id": company.id,
                 "generated": company_generated,
                 "nfcom_emitted": company_nfcom_emitted,
                 "blocked": company_blocked,
-                "unblocked": company_unblocked
+                "unblocked": company_unblocked,
+                "cancelled": company_cancelled
             })
             
         if db_changed:
@@ -401,16 +457,18 @@ def run_auto_blocking():
     print(f" Total Receivables Generated: {total_generated}")
     print(f" Total NFComs Emitted: {total_nfcom_emitted}")
     print(f" Total Contracts Suspended: {total_blocked}")
+    print(f" Total Contracts Cancelled: {sum([s.get('cancelled', 0) for s in company_summaries])}")
     print(f" Total Contracts Reactivated: {total_unblocked}")
-    print("-"*60)
+    print("-" * 60)
     print(" Breakdowns by Company:")
     for summary in company_summaries:
         print(f" * {summary['name']} (ID: {summary['id']}):")
         print(f"   - Receivables Generated: {summary['generated']}")
         print(f"   - NFComs Emitted       : {summary['nfcom_emitted']}")
         print(f"   - Contracts Suspended  : {summary['blocked']}")
+        print(f"   - Contracts Cancelled  : {summary.get('cancelled', 0)}")
         print(f"   - Contracts Reactivated: {summary['unblocked']}")
-    print("="*60)
+    print("=" * 60)
     print("Daily processing finished successfully.")
 
 if __name__ == "__main__":

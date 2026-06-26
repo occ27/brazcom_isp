@@ -239,16 +239,27 @@ def generate_receivables_for_company(db: Session, empresa_id: int, target_date: 
         iterations = 6 if c.periodicidade == 'SEMESTRAL' else 1
 
         for i in range(iterations):
-            current_target = add_months_date(target_date, i)
+            # Normalizar a data alvo usando o dia_emissao do contrato para evitar
+            # que a execução atrasada da rotina interfira nas regras de vencimento.
+            base_day = min(c.dia_emissao or 1, calendar.monthrange(target_date.year, target_date.month)[1])
+            base_target = _dt.date(target_date.year, target_date.month, base_day)
+            
+            current_target = add_months_date(base_target, i)
 
             # gerar a simulação do receivable para saber as datas
             recv_simul = generate_receivable_from_contract(db, c, current_target)
 
             # Para evitar duplicados, checamos se já existe fatura para o mesmo contrato e mesmo mês/ano de VENCIMENTO.
             # Isso é mais seguro que issue_date, especialmente para carnês gerados todos no mesmo dia.
-            from sqlalchemy import extract
+            from sqlalchemy import extract, or_, and_
             existing_recv = db.query(Receivable).filter(
-                Receivable.servico_contratado_id == c.id,
+                or_(
+                    Receivable.servico_contratado_id == c.id,
+                    and_(
+                        Receivable.cliente_id == c.cliente_id,
+                        Receivable.servico_contratado_id == None
+                    )
+                ),
                 extract('year', Receivable.due_date) == recv_simul.due_date.year,
                 extract('month', Receivable.due_date) == recv_simul.due_date.month
             ).first()
@@ -351,9 +362,15 @@ def generate_receivables_for_company_range(
                 sim_due = recv_simul.due_date.date() if isinstance(recv_simul.due_date, datetime) else recv_simul.due_date
                 if start_due_date <= sim_due <= end_due_date:
                     # Evitar duplicados no BD para este contrato e mês/ano de vencimento
-                    from sqlalchemy import extract
+                    from sqlalchemy import extract, or_, and_
                     existing_recv = db.query(Receivable).filter(
-                        Receivable.servico_contratado_id == c.id,
+                        or_(
+                            Receivable.servico_contratado_id == c.id,
+                            and_(
+                                Receivable.cliente_id == c.cliente_id,
+                                Receivable.servico_contratado_id == None
+                            )
+                        ),
                         extract('year', Receivable.due_date) == recv_simul.due_date.year,
                         extract('month', Receivable.due_date) == recv_simul.due_date.month
                     ).first()

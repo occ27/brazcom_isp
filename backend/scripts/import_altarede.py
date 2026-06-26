@@ -493,6 +493,10 @@ def process_logins(db, logins_file_path, endereco_logins_file_path):
                     except:
                         pass
 
+                dia_emissao = dia_venc - 5
+                if dia_emissao <= 0:
+                    dia_emissao += 30
+
                 servico_contratado = ServicoContratado(
                     empresa_id=EMPRESA_ID,
                     cliente_id=cliente.id,
@@ -506,7 +510,7 @@ def process_logins(db, logins_file_path, endereco_logins_file_path):
                     data_instalacao=data_inst,
                     data_inicio_cobranca=data_inst,
                     valor_unitario=servico.valor_unitario,
-                    dia_emissao=dia_venc,
+                    dia_emissao=dia_emissao,
                     dia_vencimento=dia_venc,
                     metodo_autenticacao='IP_MAC',
                     assigned_ip=assigned_ip,

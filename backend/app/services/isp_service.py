@@ -1,4 +1,5 @@
 import logging
+import os
 from sqlalchemy.orm import Session
 from app.models.models import ServicoContratado, Router, StatusContrato, MetodoAutenticacao
 from app.mikrotik.controller import MikrotikController
@@ -179,53 +180,55 @@ def process_block_if_needed(db: Session, contrato_id: int):
     
     # 2. Bloqueio no MikroTik RouterOS (se aplicável)
     if contrato.router_id:
-        router_db = db.query(Router).filter(Router.id == contrato.router_id).first()
-        if router_db:
-            try:
+        if os.getenv("SKIP_ROUTER_CONNECTION") == "true":
+            logger.info(f"Skipping router connection for {contrato_id} due to SKIP_ROUTER_CONNECTION")
+        else:
+            router_db = db.query(Router).filter(Router.id == contrato.router_id).first()
+            if router_db:
                 try:
-                    password = decrypt_password(router_db.senha) if router_db.senha else ""
-                except Exception:
-                    password = router_db.senha
-                
-                mk = MikrotikController(
-                    host=router_db.ip,
-                    username=router_db.usuario,
-                    password=password,
-                    port=router_db.porta or 8728
-                )
-                
-                # Configurar regra de redirecionamento se necessário
-                import os
-                notice_url = contrato.empresa.suspension_url if contrato.empresa and contrato.empresa.suspension_url else os.getenv("NOTICE_PAGE_URL", f"http://isp.brazcom.com.br/aviso/{contrato.empresa_id}")
-                
-                if notice_url:
-                    mk.setup_suspension_nat_rule(notice_url)
-                    mk.setup_suspension_firewall_rules()
-                
-                cliente_nome = contrato.cliente.nome_razao_social if contrato.cliente else "Cliente"
-                comment_key = f"{contrato.id}-{cliente_nome}"
+                    try:
+                        password = decrypt_password(router_db.senha) if router_db.senha else ""
+                    except Exception:
+                        password = router_db.senha
+                    
+                    mk = MikrotikController(
+                        host=router_db.ip,
+                        username=router_db.usuario,
+                        password=password,
+                        port=router_db.porta or 8728
+                    )
+                    
+                    # Configurar regra de redirecionamento se necessário
+                    notice_url = contrato.empresa.suspension_url if contrato.empresa and contrato.empresa.suspension_url else os.getenv("NOTICE_PAGE_URL", f"http://isp.brazcom.com.br/aviso/{contrato.empresa_id}")
+                    
+                    if notice_url:
+                        mk.setup_suspension_nat_rule(notice_url)
+                        mk.setup_suspension_firewall_rules()
+                    
+                    cliente_nome = contrato.cliente.nome_razao_social if contrato.cliente else "Cliente"
+                    comment_key = f"{contrato.id}-{cliente_nome}"
 
-                mk_username = f"contrato_{contrato.id}"
-                if contrato.metodo_autenticacao == MetodoAutenticacao.RADIUS and contrato.cliente and contrato.cliente.radius_user:
-                    mk_username = contrato.cliente.radius_user.username
+                    mk_username = f"contrato_{contrato.id}"
+                    if contrato.metodo_autenticacao == MetodoAutenticacao.RADIUS and contrato.cliente and contrato.cliente.radius_user:
+                        mk_username = contrato.cliente.radius_user.username
 
-                mk.suspend_client_connection(
-                    contrato_id=contrato.id,
-                    metodo_autenticacao=contrato.metodo_autenticacao,
-                    assigned_ip=contrato.assigned_ip,
-                    comment=comment_key
-                )
+                    mk.suspend_client_connection(
+                        contrato_id=contrato.id,
+                        metodo_autenticacao=contrato.metodo_autenticacao,
+                        assigned_ip=contrato.assigned_ip,
+                        comment=comment_key
+                    )
 
-                if contrato.metodo_autenticacao in [MetodoAutenticacao.PPPOE, MetodoAutenticacao.RADIUS]:
-                    mk.disconnect_pppoe_active(mk_username)
+                    if contrato.metodo_autenticacao in [MetodoAutenticacao.PPPOE, MetodoAutenticacao.RADIUS]:
+                        mk.disconnect_pppoe_active(mk_username)
 
-                mk.close()
-                logger.info(f"Contrato {contrato_id} bloqueado com sucesso no router {router_db.ip}")
-            except Exception as e:
-                logger.error(f"Erro ao bloquear contrato {contrato_id} no router {router_db.ip}: {e}")
-                # Marca este roteador como falho para não tentar mais conexões com ele nesta execução
-                FAILED_ROUTERS.add(contrato.router_id)
-                return False
+                    mk.close()
+                    logger.info(f"Contrato {contrato_id} bloqueado com sucesso no router {router_db.ip}")
+                except Exception as e:
+                    logger.error(f"Erro ao bloquear contrato {contrato_id} no router {router_db.ip}: {e}")
+                    # Marca este roteador como falho para não tentar mais conexões com ele nesta execução
+                    FAILED_ROUTERS.add(contrato.router_id)
+                    return False
                 
     # 3. Atualizar o banco de dados APENAS se as etapas acima foram executadas com absoluto sucesso
     contrato.status = StatusContrato.SUSPENSO
@@ -235,4 +238,28 @@ def process_block_if_needed(db: Session, contrato_id: int):
         radius_user.is_active = False
         db.add(radius_user)
         
+    return True
+
+
+def process_cancel_if_needed(db: Session, contrato_id: int):
+    """
+    Cancela o contrato no router/RADIUS (desativando o usuário/conexão) 
+    e muda status para CANCELADO e is_active = False.
+    """
+    contrato = db.query(ServicoContratado).filter(ServicoContratado.id == contrato_id).first()
+    if not contrato:
+        return False
+    
+    if contrato.status == StatusContrato.CANCELADO:
+        return False
+
+    # Como o cliente será cancelado, fazemos o bloqueio no equipamento se não estiver suspenso ainda
+    if contrato.status != StatusContrato.SUSPENSO:
+        # Tentar suspender primeiro no equipamento
+        process_block_if_needed(db, contrato_id)
+        
+    # Independente do sucesso do equipamento (pois pode já ter sido removido), marcamos como cancelado
+    contrato.status = StatusContrato.CANCELADO
+    contrato.is_active = False
+    db.add(contrato)
     return True

@@ -120,6 +120,7 @@ class Empresa(Base):
     suspension_message = Column(Text, nullable=True)
     suspension_url = Column(String(500), nullable=True)
     dias_bloqueio_inadimplentes = Column(Integer, default=15, nullable=True)
+    dias_cancelamento_inadimplentes = Column(Integer, nullable=True, default=90)
     
     # Informações para contratos ISP
     ato_autorizacao = Column(String(100)) # Ex: 6.792/2011

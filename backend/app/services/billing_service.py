@@ -422,22 +422,16 @@ class BillingService:
                 receivable.registered_at = datetime.now()
                 receivable.bank_payload = json.dumps(resp, default=str)
                 
-                db.commit()
+                db.flush()
                 logger.info(f"Boleto BB {receivable.id} registrado com sucesso: {receivable.bb_boleto_numero}")
                 return True, "Sucesso"
                 
         except Exception as e:
-            db.rollback()
             error_msg = str(e)
             logger.error(f"Erro ao registrar boleto via BB: {error_msg}")
-            # Tenta marcar como falha em uma transação limpa
-            try:
-                db.begin_nested()
-                receivable.status = "REGISTRATION_FAILED"
-                receivable.registro_result = error_msg[:500]
-                db.commit()
-            except:
-                db.rollback()
+            receivable.status = "REGISTRATION_FAILED"
+            receivable.registro_result = error_msg[:500]
+            db.flush()
             return False, error_msg
         
         return False, "Resposta vazia da API"
