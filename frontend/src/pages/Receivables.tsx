@@ -567,6 +567,21 @@ const Receivables: React.FC = () => {
     }
   };
 
+  const handleSendCarnet = async () => {
+    if (selectedIds.length === 0) return;
+    setLoading(true);
+    try {
+      await receivableService.sendCarnet(selectedIds);
+      setSnackbar({ open: true, message: 'Carnê gerado e enviado com sucesso!', severity: 'success' });
+      setSelectedIds([]);
+      loadReceivables();
+    } catch (e) {
+      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao enviar carnê', severity: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getStatusChip = (status: string) => {
     const s = status?.toUpperCase();
     if (s === 'PAID') return <Chip label="Pago" size="small" color="success" />;
@@ -590,6 +605,9 @@ const Receivables: React.FC = () => {
               </Button>
               <Button variant="contained" color="success" startIcon={<QrCodeIcon className="w-5 h-5" />} onClick={() => navigate('/checkout', { state: { receivableIds: selectedIds } })}>
                 Pagar ({selectedIds.length})
+              </Button>
+              <Button variant="contained" sx={{ bgcolor: 'info.main' }} startIcon={<EnvelopeIcon className="w-5 h-5" />} onClick={handleSendCarnet}>
+                Enviar Carnê ({selectedIds.length})
               </Button>
             </Box>
           )}

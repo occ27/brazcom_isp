@@ -216,7 +216,8 @@ class WhatsAppService:
         empresa: Empresa,
         cliente_nome: str,
         cliente_phone: str,
-        receivable_data: Dict[str, Any]
+        receivable_data: Dict[str, Any],
+        pdf_path: Optional[str] = None
     ) -> bool:
         """
         Formata e envia uma cobrança (Receivable) por WhatsApp para o cliente.
@@ -238,12 +239,40 @@ class WhatsAppService:
         if payment_url:
             message += f"Para realizar o pagamento de forma rápida via Pix, Boleto ou Cartão de Crédito, clique no link abaixo:\n"
             message += f"{payment_url}\n\n"
-        else:
+        elif not pdf_path:
             message += "O PDF do seu boleto foi encaminhado para o seu e-mail cadastrado.\n\n"
 
         message += f"Agradecemos a sua parceria!\n*Atenciosamente, {company_name}*"
 
-        return WhatsAppService.send_message(empresa, cliente_phone, message)
+        if pdf_path and os.path.exists(pdf_path):
+            return WhatsAppService.send_document(empresa, cliente_phone, message, pdf_path)
+        else:
+            return WhatsAppService.send_message(empresa, cliente_phone, message)
+
+    @staticmethod
+    def send_carnet_message(
+        empresa: Empresa,
+        cliente_nome: str,
+        cliente_phone: str,
+        amount_total: float,
+        boletos_count: int,
+        pdf_path: str
+    ) -> bool:
+        """
+        Formata e envia um Carnê (vários boletos agrupados em PDF) por WhatsApp.
+        """
+        company_name = empresa.nome_fantasia or empresa.razao_social
+
+        message = f"Olá, *{cliente_nome}*!\n\n"
+        message += f"Segue em anexo o Carnê contendo os *{boletos_count}* boletos "
+        message += f"da *{company_name}*, totalizando *R$ {amount_total:,.2f}*.\n\n"
+        message += f"Você pode utilizar o PDF anexo para realizar os pagamentos nas datas de vencimento.\n\n"
+        message += f"Agradecemos a sua parceria!\n*Atenciosamente, {company_name}*"
+
+        if pdf_path and os.path.exists(pdf_path):
+            return WhatsAppService.send_document(empresa, cliente_phone, message, pdf_path)
+        else:
+            return False
 
     @staticmethod
     def send_contract_message(

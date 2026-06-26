@@ -503,3 +503,39 @@ Atenciosamente,
             is_html=False,
             attachments=attachments
         )
+
+    @staticmethod
+    def send_carnet_email(
+        empresa: Empresa,
+        cliente_email: str,
+        amount_total: float,
+        boletos_count: int,
+        pdf_path: str
+    ) -> bool:
+        """
+        Envia e-mail contendo um Carnê (múltiplas cobranças) em PDF.
+        """
+        subject = f"Carnê de Pagamento - {empresa.nome_fantasia or empresa.razao_social}"
+
+        body = f"""
+Olá,
+
+Segue em anexo o Carnê contendo os {boletos_count} boletos da {empresa.nome_fantasia or empresa.razao_social}, totalizando R$ {amount_total:,.2f}.
+
+Você pode utilizar o PDF anexo para realizar os pagamentos nas datas de vencimento correspondentes.
+
+Atenciosamente,
+{empresa.nome_fantasia or empresa.razao_social}
+        """.strip()
+
+        attachments = [pdf_path] if pdf_path and os.path.exists(pdf_path) else []
+
+        return EmailService.send_email(
+            empresa=empresa,
+            to_email=cliente_email,
+            subject=subject,
+            body=body,
+            is_html=False,
+            attachments=attachments
+        )
+

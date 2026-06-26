@@ -115,6 +115,11 @@ const sendEmail = async (id: number) => {
   return resp.data;
 };
 
+const sendCarnet = async (receivableIds: number[]) => {
+  const resp = await api.post(`/receivables/send-carnet`, { receivable_ids: receivableIds });
+  return resp.data;
+};
+
 const refundReceivable = async (receivableId: number) => {
   const resp = await api.put(`/receivables/${receivableId}/refund`);
   return resp.data;
@@ -130,6 +135,7 @@ const receivableService = {
   printReceivable,
   getReceivable,
   sendEmail,
+  sendCarnet,
   refundReceivable,
 };
 
