@@ -164,14 +164,14 @@ def create_and_persist_receivable(db: Session, recv: Receivable) -> Receivable:
     return recv
 
 
-def should_generate_for_contract(contrato: ServicoContratado, target_date: date) -> bool:
+def should_generate_for_contract(contrato: ServicoContratado, target_date: date, ignore_last_emission: bool = False) -> bool:
     """Verifica se deve gerar cobrança para o contrato na data alvo, baseado na periodicidade e dia_emissao."""
     ref_date = contrato.data_inicio_cobranca or contrato.d_contrato_ini
     if not contrato.dia_emissao or not ref_date:
         return False
 
     # Verificar se o contrato já foi emitido recentemente (evitar duplicatas)
-    if contrato.last_emission:
+    if not ignore_last_emission and contrato.last_emission:
         # Para mensal, verificar se já foi emitido neste mês
         if contrato.periodicidade == 'MENSAL':
             if contrato.last_emission.year == target_date.year and contrato.last_emission.month == target_date.month:
@@ -264,6 +264,113 @@ def generate_receivables_for_company(db: Session, empresa_id: int, target_date: 
         # atualizar last_emission após o loop
         c.last_emission = datetime.now()
     return created
+
+
+def generate_receivables_for_company_range(
+    db: Session,
+    empresa_id: int,
+    start_due_date: date,
+    end_due_date: date,
+    cliente_id: Optional[int] = None
+) -> list[Receivable]:
+    """Gera cobranças automáticas cujos vencimentos simulados caem entre start_due_date e end_due_date (inclusive)."""
+    # Obter contratos da empresa
+    query = db.query(ServicoContratado).filter(
+        ServicoContratado.empresa_id == empresa_id,
+        ServicoContratado.is_active == True,
+        ServicoContratado.auto_emit == True
+    )
+    if cliente_id is not None:
+        query = query.filter(ServicoContratado.cliente_id == cliente_id)
+        
+    contratos = query.all()
+    created = []
+    
+    for c in contratos:
+        # Determinar os meses candidatos
+        # Se for SEMESTRAL, pode retroceder até 5 meses
+        # Para outros, 1 mês
+        months_back = 5 if c.periodicidade == 'SEMESTRAL' else 1
+        
+        # Calcular início da varredura de meses
+        start_year = start_due_date.year
+        start_month = start_due_date.month - months_back
+        while start_month <= 0:
+            start_month += 12
+            start_year -= 1
+            
+        end_year = end_due_date.year
+        end_month = end_due_date.month
+        
+        # Lista de (ano, mês)
+        curr_year, curr_month = start_year, start_month
+        candidate_months = []
+        while (curr_year, curr_month) <= (end_year, end_month):
+            candidate_months.append((curr_year, curr_month))
+            if curr_month == 12:
+                curr_month = 1
+                curr_year += 1
+            else:
+                curr_month += 1
+                
+        # Verificar cada mês candidato
+        contract_generated = False
+        for yr, mo in candidate_months:
+            t_day = min(c.dia_emissao or 1, days_in_month(yr, mo))
+            target_date = date(yr, mo, t_day)
+            
+            # Verificar se o contrato é elegível para este target_date
+            # Ignoramos last_emission na validação do contrato para poder re-gerar
+            # meses retroativos ou futuros, pois o banco de dados já nos previne contra duplicados
+            if not should_generate_for_contract(c, target_date, ignore_last_emission=True):
+                continue
+                
+            ref_date = c.data_inicio_cobranca or c.d_contrato_ini
+            if ref_date and ref_date > target_date:
+                continue
+            if c.d_contrato_fim and c.d_contrato_fim < target_date:
+                continue
+                
+            iterations = 6 if c.periodicidade == 'SEMESTRAL' else 1
+            
+            import datetime as _dt
+            import calendar
+
+            def add_months_date(sourcedate, months):
+                month = sourcedate.month - 1 + months
+                year = sourcedate.year + month // 12
+                month = month % 12 + 1
+                day = min(sourcedate.day, calendar.monthrange(year, month)[1])
+                return _dt.date(year, month, day)
+
+            for i in range(iterations):
+                current_target = add_months_date(target_date, i)
+                recv_simul = generate_receivable_from_contract(db, c, current_target)
+                
+                # Filtrar pelo intervalo de due_date solicitado
+                sim_due = recv_simul.due_date.date() if isinstance(recv_simul.due_date, datetime) else recv_simul.due_date
+                if start_due_date <= sim_due <= end_due_date:
+                    # Evitar duplicados no BD para este contrato e mês/ano de vencimento
+                    from sqlalchemy import extract
+                    existing_recv = db.query(Receivable).filter(
+                        Receivable.servico_contratado_id == c.id,
+                        extract('year', Receivable.due_date) == recv_simul.due_date.year,
+                        extract('month', Receivable.due_date) == recv_simul.due_date.month
+                    ).first()
+                    
+                    if existing_recv:
+                        continue
+                        
+                    create_and_persist_receivable(db, recv_simul)
+                    created.append(recv_simul)
+                    contract_generated = True
+                    
+        if contract_generated:
+            c.last_emission = datetime.now()
+            
+    return created
+
+
 def build_boleto_context(db: Session, recv: Receivable) -> dict:
     """Prepara o dicionário de contexto para o gerador de PDF."""
     from app.models.models import Cliente, Empresa, BankAccount

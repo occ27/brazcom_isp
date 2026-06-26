@@ -62,9 +62,12 @@ const listReceivables = async (empresaId: number, page = 1, perPage = 25, startD
   return resp.data as { data: Receivable[], total: number };
 };
 
-const generateForCompany = async (empresaId: number, targetDate?: string) => {
+const generateForCompany = async (empresaId: number, targetDate?: string, startDate?: string, endDate?: string, clienteId?: number) => {
   const params: any = {};
   if (targetDate) params.target_date = targetDate;
+  if (startDate) params.start_due_date = startDate;
+  if (endDate) params.end_due_date = endDate;
+  if (clienteId !== undefined && clienteId !== null) params.cliente_id = clienteId;
   const resp = await api.post(`/receivables/empresa/${empresaId}/generate`, null, { params });
   return resp.data as Receivable[];
 };
@@ -120,6 +123,11 @@ const sendCarnet = async (receivableIds: number[]) => {
   return resp.data;
 };
 
+const downloadCarnet = async (receivableIds: number[]) => {
+  const resp = await api.post(`/receivables/print-carnet`, { receivable_ids: receivableIds }, { responseType: 'blob' });
+  return resp.data as Blob;
+};
+
 const refundReceivable = async (receivableId: number) => {
   const resp = await api.put(`/receivables/${receivableId}/refund`);
   return resp.data;
@@ -136,6 +144,7 @@ const receivableService = {
   getReceivable,
   sendEmail,
   sendCarnet,
+  downloadCarnet,
   refundReceivable,
 };
 

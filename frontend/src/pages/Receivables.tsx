@@ -124,6 +124,14 @@ const Receivables: React.FC = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [clientSearchTerm, setClientSearchTerm] = useState('');
 
+  const [openAutoGen, setOpenAutoGen] = useState(false);
+  const [autoGenStartDate, setAutoGenStartDate] = useState('');
+  const [autoGenEndDate, setAutoGenEndDate] = useState('');
+  const [autoGenClient, setAutoGenClient] = useState<any | null>(null);
+  const [autoGenClientSearchTerm, setAutoGenClientSearchTerm] = useState('');
+  const [autoGenSearchClients, setAutoGenSearchClients] = useState<any[]>([]);
+  const [autoGenSearchLoading, setAutoGenSearchLoading] = useState(false);
+
   const loadReceivables = useCallback(async () => {
     if (!activeCompany) return;
     setLoading(true);
@@ -179,6 +187,26 @@ const Receivables: React.FC = () => {
       setSearchClients([]);
     }
   }, [clientSearchTerm, fetchClients]);
+
+  useEffect(() => {
+    if (autoGenClientSearchTerm.length >= 3) {
+      const timer = setTimeout(async () => {
+        if (!activeCompany) return;
+        setAutoGenSearchLoading(true);
+        try {
+          const res = await api.get(`/clientes/autocomplete/${activeCompany.id}?q=${autoGenClientSearchTerm}&limit=20`);
+          setAutoGenSearchClients(res.data || []);
+        } catch (e) {
+          console.error('Erro ao buscar clientes no autogen', e);
+        } finally {
+          setAutoGenSearchLoading(false);
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    } else if (autoGenClientSearchTerm.length === 0) {
+      setAutoGenSearchClients([]);
+    }
+  }, [autoGenClientSearchTerm, activeCompany]);
   
   // Fetch contracts when client changes
   useEffect(() => {
@@ -267,10 +295,27 @@ const Receivables: React.FC = () => {
 
   const handleGenerate = async () => {
     if (!activeCompany) return;
+    if (!autoGenStartDate || !autoGenEndDate) {
+      setSnackbar({ open: true, message: 'Por favor, informe o período de vencimento inicial e final.', severity: 'warning' });
+      return;
+    }
     setGenerating(true);
     try {
-      await receivableService.generateForCompany(activeCompany.id);
-      setSnackbar({ open: true, message: 'Processamento de geração concluído', severity: 'success' });
+      const res = await receivableService.generateForCompany(
+        activeCompany.id,
+        undefined,
+        autoGenStartDate,
+        autoGenEndDate,
+        autoGenClient?.id
+      );
+      setSnackbar({ open: true, message: `Processamento concluído. ${res.length} cobrança(s) gerada(s).`, severity: 'success' });
+      setOpenAutoGen(false);
+      // Limpar campos do modal
+      setAutoGenStartDate('');
+      setAutoGenEndDate('');
+      setAutoGenClient(null);
+      setAutoGenClientSearchTerm('');
+      setAutoGenSearchClients([]);
       loadReceivables();
     } catch (e) {
       setSnackbar({ open: true, message: stringifyError(e), severity: 'error' });
@@ -582,6 +627,29 @@ const Receivables: React.FC = () => {
     }
   };
 
+  const handleDownloadCarnet = async () => {
+    if (selectedIds.length === 0) return;
+    setLoading(true);
+    try {
+      const blob = await receivableService.downloadCarnet(selectedIds);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `carne_${selectedIds.join('_')}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      setSnackbar({ open: true, message: 'Carnê baixado com sucesso!', severity: 'success' });
+      setSelectedIds([]);
+      loadReceivables();
+    } catch (e) {
+      setSnackbar({ open: true, message: stringifyError(e) || 'Erro ao baixar carnê', severity: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getStatusChip = (status: string) => {
     const s = status?.toUpperCase();
     if (s === 'PAID') return <Chip label="Pago" size="small" color="success" />;
@@ -609,12 +677,15 @@ const Receivables: React.FC = () => {
               <Button variant="contained" sx={{ bgcolor: 'info.main' }} startIcon={<EnvelopeIcon className="w-5 h-5" />} onClick={handleSendCarnet}>
                 Enviar Carnê ({selectedIds.length})
               </Button>
+              <Button variant="contained" sx={{ bgcolor: 'primary.dark' }} startIcon={<PrinterIcon className="w-5 h-5" />} onClick={handleDownloadCarnet}>
+                Baixar Carnê ({selectedIds.length})
+              </Button>
             </Box>
           )}
           <Button variant="outlined" startIcon={<PlusIcon className="w-5 h-5" />} onClick={() => setOpenCreate(true)}>
             Nova Cobrança
           </Button>
-          <Button variant="contained" startIcon={generating ? <CircularProgress size={20} color="inherit" /> : <PlusIcon className="w-5 h-5" />} onClick={handleGenerate} disabled={generating}>
+          <Button variant="contained" startIcon={generating ? <CircularProgress size={20} color="inherit" /> : <PlusIcon className="w-5 h-5" />} onClick={() => setOpenAutoGen(true)} disabled={generating}>
             Gerar Automático
           </Button>
         </Box>
@@ -1157,6 +1228,86 @@ const Receivables: React.FC = () => {
         <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
     
+      {/* Modal de Geração Automática */}
+      <Dialog open={openAutoGen} onClose={() => setOpenAutoGen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Geração Automática de Cobranças</DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <Autocomplete
+                options={autoGenSearchClients}
+                loading={autoGenSearchLoading}
+                getOptionLabel={(o) => o.nome_razao_social}
+                onInputChange={(_, value) => setAutoGenClientSearchTerm(value)}
+                filterOptions={(x) => x}
+                value={autoGenClient}
+                onChange={(_, v) => setAutoGenClient(v)}
+                renderOption={(props, option) => (
+                  <li {...props}>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{option.nome_razao_social}</Typography>
+                      <Typography variant="caption" color="text.secondary">{option.cpf_cnpj}</Typography>
+                    </Box>
+                  </li>
+                )}
+                renderInput={(p) => (
+                  <TextField
+                    {...p}
+                    label="Localizar Cliente (Opcional)"
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    placeholder="Digite nome ou documento..."
+                    InputProps={{
+                      ...p.InputProps,
+                      endAdornment: (
+                        <>
+                          {autoGenSearchLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                          {p.InputProps.endAdornment}
+                        </>
+                      ),
+                    }}
+                  />
+                )}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                type="date"
+                label="Vencimento Inicial"
+                fullWidth
+                size="small"
+                value={autoGenStartDate}
+                onChange={(e) => setAutoGenStartDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                type="date"
+                label="Vencimento Final"
+                fullWidth
+                size="small"
+                value={autoGenEndDate}
+                onChange={(e) => setAutoGenEndDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenAutoGen(false)} disabled={generating}>Cancelar</Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleGenerate}
+            disabled={generating || !autoGenStartDate || !autoGenEndDate}
+          >
+            {generating ? 'Gerando...' : 'Confirmar Geração'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Modal de Autorização de Desconto */}
       <Dialog open={openAuthSettle} onClose={() => setOpenAuthSettle(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontWeight: 'bold', color: 'error.main' }}>Autorização Necessária</DialogTitle>

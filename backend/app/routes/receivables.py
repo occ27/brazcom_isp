@@ -14,7 +14,7 @@ from app.models.models import Usuario, Receivable, BankAccount, Empresa, CaixaSe
 from app.services import isp_service
 from app.schemas import caixa as schema_caixa
 from app.crud import crud_caixa
-from app.services.receivable_service import generate_receivables_for_company, build_boleto_context
+from app.services.receivable_service import generate_receivables_for_company, generate_receivables_for_company_range, build_boleto_context
 from app.services.boleto_generator import generate_boleto_pdf
 from app.services.email_service import EmailService
 import tempfile
@@ -125,14 +125,28 @@ class ReceivableResponse(BaseModel):
 
 
 @router.post("/empresa/{empresa_id}/generate", status_code=status.HTTP_201_CREATED, response_model=List[ReceivableResponse])
-def generate_for_company(empresa_id: int, target_date: date = None, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+def generate_for_company(
+    empresa_id: int,
+    target_date: Optional[date] = None,
+    start_due_date: Optional[date] = None,
+    end_due_date: Optional[date] = None,
+    cliente_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
     deps.permission_checker('receivables_manage')(db=db, current_user=current_user)
-    if target_date is None:
-        from datetime import timezone, timedelta
-        tz_br = timezone(timedelta(hours=-3))
-        target_date = datetime.now(tz_br).date()
-    # permission checks could be added here (empresa ownership)
-    created_receivables = generate_receivables_for_company(db, empresa_id, target_date)
+    
+    if start_due_date and end_due_date:
+        created_receivables = generate_receivables_for_company_range(
+            db, empresa_id, start_due_date, end_due_date, cliente_id
+        )
+    else:
+        if target_date is None:
+            from datetime import timezone, timedelta
+            tz_br = timezone(timedelta(hours=-3))
+            target_date = datetime.now(tz_br).date()
+        created_receivables = generate_receivables_for_company(db, empresa_id, target_date)
+        
     db.commit()  # Commit explicitamente as mudanças
     # Converte os objetos Receivable para ReceivableResponse usando o método customizado
     return [ReceivableResponse.from_orm(r) for r in created_receivables]
@@ -786,8 +800,66 @@ def delete_receivable(receivable_id: int, db: Session = Depends(get_db), current
     db.commit()
     return {"message": "Cobrança excluída permanentemente"}
 
+
 class CarnetRequest(BaseModel):
     receivable_ids: List[int]
+
+
+@router.post("/print-carnet")
+def print_carnet_route(req: CarnetRequest, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+    """Gera um PDF único com múltiplos boletos (Carnê) e retorna para download."""
+    deps.permission_checker('receivables_view')(db=db, current_user=current_user)
+    
+    if not req.receivable_ids:
+        raise HTTPException(status_code=400, detail="Nenhuma cobrança selecionada.")
+
+    receivables = db.query(Receivable).filter(Receivable.id.in_(req.receivable_ids)).all()
+    if len(receivables) != len(req.receivable_ids):
+        raise HTTPException(status_code=404, detail="Algumas cobranças não foram encontradas.")
+
+    # Validar se todas pertencem à mesma empresa e mesmo cliente
+    empresa_id = receivables[0].empresa_id
+    cliente_id = receivables[0].cliente_id
+    
+    for r in receivables:
+        if r.empresa_id != empresa_id:
+            raise HTTPException(status_code=400, detail="Cobranças pertencem a empresas diferentes.")
+        if r.cliente_id != cliente_id:
+            raise HTTPException(status_code=400, detail="Cobranças pertencem a clientes diferentes.")
+            
+    deps.check_empresa_access(db, empresa_id, current_user)
+    
+    from app.models.models import Empresa
+    empresa = db.query(Empresa).filter(Empresa.id == empresa_id).first()
+    
+    from app.services.receivable_service import build_boleto_context
+    from app.services.boleto_generator import generate_boletos_pdf
+    from fastapi.responses import Response
+    import os
+    
+    contexts = []
+    for r in receivables:
+        contexts.append(build_boleto_context(db, r))
+        # Marcar como impresso
+        r.printed_at = datetime.now()
+        
+    db.commit()
+        
+    logo_path = None
+    if empresa and empresa.logo_url and empresa.logo_url.startswith("/files/"):
+        relative_part = empresa.logo_url[len("/files/"):]
+        from app.core.config import settings
+        logo_path = os.path.abspath(os.path.join(settings.UPLOAD_DIR, relative_part))
+        if not os.path.exists(logo_path):
+            logo_path = None
+
+    pdf_bytes = generate_boletos_pdf(contexts, logo_path=logo_path)
+    
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=carne.pdf"}
+    )
 
 @router.post("/send-carnet")
 def send_carnet_route(req: CarnetRequest, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
