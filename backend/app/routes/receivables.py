@@ -454,10 +454,12 @@ def list_receivables(
     else:
         filter_field = Receivable.due_date
     
+    from sqlalchemy import cast, Date
+    
     if start_date:
-        query = query.filter(filter_field >= start_date)
+        query = query.filter(cast(filter_field, Date) >= start_date)
     if end_date:
-        query = query.filter(filter_field <= end_date)
+        query = query.filter(cast(filter_field, Date) <= end_date)
         
     total = query.count()
     items = query.order_by(Receivable.paid_at.desc(), Receivable.due_date.desc())\

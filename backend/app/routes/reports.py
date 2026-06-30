@@ -224,10 +224,12 @@ def get_financial_report_pdf(
     else:
         date_col = Receivable.due_date
     
+    from sqlalchemy import cast, Date
+    
     if start_date:
-        query = query.filter(date_col >= start_date)
+        query = query.filter(cast(date_col, Date) >= start_date)
     if end_date:
-        query = query.filter(date_col <= end_date)
+        query = query.filter(cast(date_col, Date) <= end_date)
     if status:
         query = query.filter(Receivable.status == status)
     if servico_id:
