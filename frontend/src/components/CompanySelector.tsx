@@ -30,15 +30,6 @@ const CompanySelector: React.FC = () => {
         const companyList = data || [];
         setCompanies(companyList);
 
-        // Se não há empresa ativa selecionada e temos empresas disponíveis, selecionar a primeira automaticamente
-        if (!activeCompany && companyList.length > 0) {
-          const firstCompany = companyList[0];
-          try {
-            await setActiveCompany(firstCompany as any);
-          } catch (err) {
-            console.error('Erro ao selecionar empresa automaticamente', err);
-          }
-        }
       } catch (e) {
         console.error('Erro ao buscar empresas', e);
       } finally {

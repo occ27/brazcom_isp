@@ -189,7 +189,6 @@ const CaixaPDV: React.FC = () => {
                 </div>
                 <input
                   type="text"
-                  required
                   value={saldoInicialStr}
                   onChange={(e) => handleMoneyInputChange(e.target.value, setSaldoInicialStr)}
                   className="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md"

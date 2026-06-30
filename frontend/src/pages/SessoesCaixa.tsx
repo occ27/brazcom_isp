@@ -210,12 +210,12 @@ export default function SessoesCaixa() {
                     </Grid>
                     <Grid item xs={6} sm={4}>
                       <Typography variant="caption" color="text.secondary">Saldo Informado</Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 'bold' }}>{saldoInformado !== undefined ? `R$ ${saldoInformado.toFixed(2)}` : '-'}</Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 'bold' }}>{saldoInformado != null ? `R$ ${saldoInformado.toFixed(2)}` : '-'}</Typography>
                     </Grid>
                     <Grid item xs={6} sm={4}>
                       <Typography variant="caption" color="text.secondary">Diferença</Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 'bold', color: diferenca === undefined ? 'inherit' : diferenca < 0 ? 'error.main' : 'success.main' }}>
-                        {diferenca !== undefined ? `R$ ${diferenca.toFixed(2)}` : '-'}
+                      <Typography variant="body1" sx={{ fontWeight: 'bold', color: diferenca == null ? 'inherit' : diferenca < 0 ? 'error.main' : 'success.main' }}>
+                        {diferenca != null ? `R$ ${diferenca.toFixed(2)}` : '-'}
                       </Typography>
                     </Grid>
                   </Grid>
