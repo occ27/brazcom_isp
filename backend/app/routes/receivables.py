@@ -447,7 +447,12 @@ def list_receivables(
             )
         )
     
-    filter_field = Receivable.issue_date if date_type == "issue_date" else Receivable.due_date
+    if date_type == "issue_date":
+        filter_field = Receivable.issue_date
+    elif date_type == "paid_at":
+        filter_field = Receivable.paid_at
+    else:
+        filter_field = Receivable.due_date
     
     if start_date:
         query = query.filter(filter_field >= start_date)

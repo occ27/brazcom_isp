@@ -770,6 +770,7 @@ const Receivables: React.FC = () => {
             >
               <MenuItem value="due_date">Vencimento</MenuItem>
               <MenuItem value="issue_date">Emissão</MenuItem>
+              <MenuItem value="paid_at">Pagamento</MenuItem>
             </Select>
           </FormControl>
           <TextField type="date" label="Início" size="small" value={startDate} onChange={(e) => setStartDate(e.target.value)} InputLabelProps={{ shrink: true }} />
