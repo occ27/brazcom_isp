@@ -1897,66 +1897,8 @@ const Contracts: React.FC = () => {
     }
 
     // Validação condicional para rede
-    if (form.router_id) {
-      // Para RADIUS, interface e classe IP são opcionais
-      if (form.metodo_autenticacao === 'RADIUS') {
-        delete newErrors.interface_id;
-        delete newErrors.ip_class_id;
-        delete newErrors.mac_address;
-        // assigned_ip (IP Fixo) é opcional para RADIUS, não validar
-      }
-      // Para IP_MAC, interface e classe IP são obrigatórios
-      else if (form.metodo_autenticacao === 'IP_MAC') {
-        if (!form.interface_id) {
-          newErrors.interface_id = 'Interface é obrigatória quando IP + MAC é selecionado';
-        }
-        if (!form.ip_class_id) {
-          newErrors.ip_class_id = 'Classe IP é obrigatória quando IP + MAC é selecionado';
-        }
-        if (!form.mac_address || form.mac_address.trim() === '') {
-          newErrors.mac_address = 'Endereço MAC é obrigatório quando IP + MAC é selecionado';
-        }
-        // Só validar IP se houver IPs disponíveis (campo habilitado)
-        if (form.ip_class_id && availableIPs.length > 0) {
-          if (!form.assigned_ip || form.assigned_ip.trim() === '' || form.assigned_ip === undefined || form.assigned_ip === null) {
-            newErrors.assigned_ip = 'IP Atribuído é obrigatório quando IP + MAC é selecionado';
-          }
-        }
-      }
-      // Para PPPoE, apenas interface é obrigatória (para saber onde está o servidor PPPoE)
-      else if (form.metodo_autenticacao === 'PPPOE') {
-        if (!form.interface_id) {
-          newErrors.interface_id = 'Interface é obrigatória quando PPPoE é selecionado';
-        }
-        // Classe IP, MAC e IP atribuído não são necessários para PPPoE
-        delete newErrors.ip_class_id;
-        delete newErrors.mac_address;
-        delete newErrors.assigned_ip;
-      }
-      // Para outros métodos, manter validação básica se necessário
-      else {
-        if (!form.interface_id) {
-          newErrors.interface_id = 'Interface é obrigatória';
-        }
-        delete newErrors.ip_class_id;
-        delete newErrors.mac_address;
-        delete newErrors.assigned_ip;
-      }
-    }
-
-    // Validar campos PPPoE se o método for PPPOE ou RADIUS
-    if (form.metodo_autenticacao === 'PPPOE' || form.metodo_autenticacao === 'RADIUS') {
-      if (!form.pppoe_username || form.pppoe_username.trim() === '') {
-        newErrors.pppoe_username = `Username PPPoE é obrigatório quando ${form.metodo_autenticacao} é selecionado`;
-      }
-
-      if (!form.pppoe_password || form.pppoe_password.trim() === '') {
-        newErrors.pppoe_password = `Password PPPoE é obrigatório quando ${form.metodo_autenticacao} é selecionado`;
-      }
-    } else {
-      delete newErrors.pppoe_username;
-      delete newErrors.pppoe_password;
-    }
+    // Validações de rede removidas (agora são opcionais)
+    // As configurações de rede podem ser preenchidas posteriormente pelo técnico
 
     // Validação de datas: d_contrato_fim deve ser maior ou igual a d_contrato_ini
     if (form.d_contrato_ini && form.d_contrato_fim) {

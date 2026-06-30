@@ -430,7 +430,8 @@ def _draw_ficha(c, ctx: dict, logo_path: Optional[str], y0: float):
     # Deduções (coluna direita)
     dy = y
     for lbl in deduction_labels:
-        _cell(c, x0 + LC, dy, RC, ded_h, lbl, '', val_fs=8)
+        val = ctx.get('desconto', '') if lbl == 'DESCONTO / ABATIMENTOS' else ''
+        _cell(c, x0 + LC, dy, RC, ded_h, lbl, val, val_fs=8)
         dy += ded_h
 
     y += H_INST

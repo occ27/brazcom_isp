@@ -666,11 +666,20 @@ def create_manual_receivable(
         if ba:
             recv.bank_account_id = ba.id
             recv.bank = ba.bank
+            
+            if recv.tipo == 'BOLETO' and ba.bank != 'MERCADO_PAGO':
+                seq = ba.nosso_numero_sequence or 1
+                recv.nosso_numero = str(seq)
+                ba.nosso_numero_sequence = seq + 1
+                db.add(ba)
             snapshot = {
                 "id": ba.id, "bank": ba.bank, "codigo_banco": ba.codigo_banco,
                 "agencia": ba.agencia, "agencia_dv": ba.agencia_dv,
                 "conta": ba.conta, "conta_dv": ba.conta_dv,
-                "carteira": ba.carteira, "convenio": ba.convenio
+                "carteira": ba.carteira, "convenio": ba.convenio,
+                "desconto_pontualidade_tipo": getattr(ba, 'desconto_pontualidade_tipo', 'VALOR'),
+                "desconto_pontualidade_valor": getattr(ba, 'desconto_pontualidade_valor', 0.0),
+                "desconto_pontualidade_dias": getattr(ba, 'desconto_pontualidade_dias', 0)
             }
             recv.bank_account_snapshot = json.dumps(snapshot, default=str)
     

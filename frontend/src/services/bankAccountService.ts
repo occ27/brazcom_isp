@@ -35,6 +35,9 @@ export interface BankAccount {
   bb_sandbox?: boolean;
   multa_atraso_percentual?: number;
   juros_atraso_percentual?: number;
+  desconto_pontualidade_tipo?: 'VALOR' | 'PERCENTUAL';
+  desconto_pontualidade_valor?: number;
+  desconto_pontualidade_dias?: number;
   created_at: string;
   updated_at?: string;
 }

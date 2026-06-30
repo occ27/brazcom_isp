@@ -27,6 +27,7 @@ import api from '../services/api';
 import useFitText from '../hooks/useFitText';
 import { useNavigate } from 'react-router-dom';
 import { useCompany } from '../contexts/CompanyContext';
+import { useAuth } from '../contexts/AuthContext';
 
 // Custom Card Component with Glassmorphism and Hover Effects
 const PremiumCard = React.forwardRef<HTMLDivElement, { children: React.ReactNode; sx?: any; onClick?: () => void }>(
@@ -66,6 +67,8 @@ const Dashboard: React.FC = () => {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const navigate = useNavigate();
   const { activeCompany } = useCompany();
+  const { hasPermission } = useAuth();
+  const canViewFinancials = hasPermission('company_manage');
 
   useEffect(() => {
     if (!activeCompany) return;
@@ -131,6 +134,10 @@ const Dashboard: React.FC = () => {
       trend: 'Atenção necessária',
     },
   ];
+
+  const visibleMetrics = canViewFinancials 
+    ? mainMetrics 
+    : mainMetrics.slice(0, 2); // Somente Clientes e Contratos
 
   const StatNumber: React.FC<{ value: string | number; color?: string }> = ({ value, color }) => {
     const ref = useRef<HTMLElement | null>(null);
@@ -202,21 +209,23 @@ const Dashboard: React.FC = () => {
               Bem-vindo ao centro de comando do seu provedor.
             </Typography>
           </Grid>
-          <Grid item xs={12} md={4} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
-             <Box sx={{ background: 'rgba(255,255,255,0.2)', p: 2, borderRadius: '20px', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', gap: 2 }}>
-                <ChartPieIcon className="w-8 h-8 text-white" />
-                <Box>
-                  <Typography variant="caption" sx={{ opacity: 0.8, textTransform: 'uppercase', letterSpacing: '1px' }}>Meta do Mês</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1 }}>{formatCurrency(stats.pendente_mes + stats.recebido_mes)}</Typography>
-                </Box>
-             </Box>
-          </Grid>
+          {canViewFinancials && (
+            <Grid item xs={12} md={4} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
+               <Box sx={{ background: 'rgba(255,255,255,0.2)', p: 2, borderRadius: '20px', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <ChartPieIcon className="w-8 h-8 text-white" />
+                  <Box>
+                    <Typography variant="caption" sx={{ opacity: 0.8, textTransform: 'uppercase', letterSpacing: '1px' }}>Meta do Mês</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1 }}>{formatCurrency(stats.pendente_mes + stats.recebido_mes)}</Typography>
+                  </Box>
+               </Box>
+            </Grid>
+          )}
         </Grid>
       </Box>
 
       {/* Top Metrics Row */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        {mainMetrics.map((metric, idx) => (
+        {visibleMetrics.map((metric, idx) => (
           <Grow in={true} timeout={500 + (idx * 200)} key={idx}>
             <Grid item xs={12} sm={6} lg={3}>
               <PremiumCard>
@@ -249,43 +258,46 @@ const Dashboard: React.FC = () => {
 
       {/* Charts Row */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        
-        {/* Area Chart - Revenue */}
-        <Grid item xs={12} lg={8}>
-          <Fade in={true} timeout={1000}>
-            <PremiumCard sx={{ height: 420, display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
-                    Evolução do Faturamento
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">Receitas consolidadas dos últimos 6 meses</Typography>
+         {/* Area Chart - Revenue */}
+        {canViewFinancials && (
+          <Grid item xs={12} lg={8}>
+            <Fade in={true} timeout={1000}>
+              <PremiumCard sx={{ height: 420, display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+                      Evolução do Faturamento
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">Receitas consolidadas dos últimos 6 meses</Typography>
+                  </Box>
                 </Box>
-              </Box>
-              
-              <Box sx={{ flexGrow: 1, width: '100%' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorValor" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 500 }} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `R$${val/1000}k`} />
-                    <RechartsTooltip content={<CustomTooltip />} />
-                    <Area type="monotone" dataKey="valor" stroke="#4f46e5" strokeWidth={4} fillOpacity={1} fill="url(#colorValor)" activeDot={{ r: 8, strokeWidth: 0, fill: '#4f46e5' }} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </Box>
-            </PremiumCard>
-          </Fade>
-        </Grid>
+                <Box sx={{ flexGrow: 1, minHeight: 0 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => `R$ ${value / 1000}k`} />
+                      <RechartsTooltip 
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}
+                        formatter={(value: any) => [formatCurrency(value), 'Faturamento']}
+                      />
+                      <Area type="monotone" dataKey="value" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </Box>
+              </PremiumCard>
+            </Fade>
+          </Grid>
+        )}
 
         {/* Doughnut Chart - Status */}
-        <Grid item xs={12} lg={4}>
+        <Grid item xs={12} lg={canViewFinancials ? 4 : 12}>
           <Fade in={true} timeout={1200}>
             <PremiumCard sx={{ height: 420, display: 'flex', flexDirection: 'column' }}>
               <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b', fontFamily: '"Plus Jakarta Sans", sans-serif', mb: 1 }}>
@@ -357,25 +369,32 @@ const Dashboard: React.FC = () => {
           </Grid>
         </Grid>
         
-        <Grid item xs={12} md={5}>
-           <Typography variant="h6" sx={{ fontWeight: 800, mb: 3, color: '#1e293b', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
-            Métricas de NFCom
-          </Typography>
-          <PremiumCard sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, background: '#f8fafc', borderRadius: '16px' }}>
-                <Typography variant="body1" sx={{ fontWeight: 600, color: '#475569' }}>Notas Emitidas (Total)</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 800, color: '#0f172a' }}>{stats.nfcom_emitidas || 0}</Typography>
-             </Box>
-             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, background: '#f8fafc', borderRadius: '16px' }}>
-                <Typography variant="body1" sx={{ fontWeight: 600, color: '#475569' }}>Valor Faturado em Notas</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 800, color: '#10b981' }}>{formatCurrency(stats.valor_total_nfcom)}</Typography>
-             </Box>
-             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, background: '#f8fafc', borderRadius: '16px' }}>
-                <Typography variant="body1" sx={{ fontWeight: 600, color: '#475569' }}>Notas Pendentes de Sefaz</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 800, color: '#f59e0b' }}>{dashboardData?.stats?.pendentes || 0}</Typography>
-             </Box>
-          </PremiumCard>
-        </Grid>
+        {/* NFCom Metrics */}
+        {canViewFinancials && (
+          <Grid item xs={12} md={5}>
+            <Fade in={true} timeout={2000}>
+              <PremiumCard>
+                <Typography variant="h6" sx={{ fontWeight: 800, mb: 3, color: '#1e293b', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+                  Métricas de NFCom
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <Typography variant="body1" sx={{ fontWeight: 600, color: '#475569' }}>Notas Emitidas (Total)</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#0f172a' }}>{stats.nfcom_emitidas || 0}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1" sx={{ fontWeight: 600, color: '#475569' }}>Valor Faturado em Notas</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#10b981' }}>{formatCurrency(stats.valor_total_nfcom)}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1" sx={{ fontWeight: 600, color: '#475569' }}>Notas Pendentes de Sefaz</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#f59e0b' }}>{dashboardData?.stats?.pendentes || 0}</Typography>
+                  </Grid>
+                </Grid>
+              </PremiumCard>
+            </Fade>
+          </Grid>
+        )}
       </Grid>
       
     </Box>

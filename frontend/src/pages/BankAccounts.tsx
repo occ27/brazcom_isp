@@ -99,6 +99,9 @@ const BankAccounts: React.FC = () => {
     is_active: true,
     multa_atraso_percentual: 2.0,
     juros_atraso_percentual: 1.0,
+    desconto_pontualidade_tipo: 'VALOR' as 'VALOR' | 'PERCENTUAL',
+    desconto_pontualidade_valor: 0.0,
+    desconto_pontualidade_dias: 0,
     sicoob_client_id: '',
     sicoob_access_token: '',
     sicredi_codigo_beneficiario: '',
@@ -690,6 +693,43 @@ const BankAccounts: React.FC = () => {
                 type="number"
                 value={formData.juros_atraso_percentual} 
                 onChange={e => handleInputChange('juros_atraso_percentual', parseFloat(e.target.value))} 
+              />
+            </Grid>
+
+            <Grid item xs={12}><Divider><Chip label="Desconto de Pontualidade" size="small" color="success" /></Divider></Grid>
+            <Grid item xs={12} sm={4}>
+              <FormControl fullWidth>
+                <InputLabel>Tipo de Desconto</InputLabel>
+                <Select
+                  label="Tipo de Desconto"
+                  value={formData.desconto_pontualidade_tipo || 'VALOR'}
+                  onChange={e => handleInputChange('desconto_pontualidade_tipo', e.target.value)}
+                >
+                  <MenuItem value="VALOR">Valor Fixo (R$)</MenuItem>
+                  <MenuItem value="PERCENTUAL">Percentual (%)</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                label={formData.desconto_pontualidade_tipo === 'PERCENTUAL' ? 'Desconto (%)' : 'Desconto (R$)'}
+                type="number"
+                inputProps={{ min: 0, step: 0.01 }}
+                value={formData.desconto_pontualidade_valor ?? 0}
+                onChange={e => handleInputChange('desconto_pontualidade_valor', parseFloat(e.target.value) || 0)}
+                helperText="0 = sem desconto"
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                label="Validade (dias antes do vencimento)"
+                type="number"
+                inputProps={{ min: 0, step: 1 }}
+                value={formData.desconto_pontualidade_dias ?? 0}
+                onChange={e => handleInputChange('desconto_pontualidade_dias', parseInt(e.target.value) || 0)}
+                helperText="0 = válido até o dia do vencimento"
               />
             </Grid>
 

@@ -721,6 +721,11 @@ class BankAccount(Base):
     multa_atraso_percentual = Column(Float, nullable=True, default=2.0)  # % de multa por atraso
     juros_atraso_percentual = Column(Float, nullable=True, default=1.0)  # % de juros por dia de atraso
 
+    # Desconto de pontualidade
+    desconto_pontualidade_tipo = Column(String(20), nullable=False, server_default='VALOR')  # 'VALOR' ou 'PERCENTUAL'
+    desconto_pontualidade_valor = Column(Float, nullable=False, server_default='0')  # Valor em R$ ou % do desconto
+    desconto_pontualidade_dias = Column(Integer, nullable=False, server_default='0')  # Dias antes do vencimento (0 = no vencimento)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

@@ -97,30 +97,7 @@ class ServicoContratadoCreate(ServicoContratadoBase):
                 raise ValueError('mac_address deve estar no formato AA:BB:CC:DD:EE:FF')
         return v
 
-    @model_validator(mode='after')
-    def validate_router_requirements(self):
-        if self.router_id is not None:
-            # Para métodos diferentes de RADIUS, interface_id e ip_class_id são obrigatórios
-            if self.metodo_autenticacao != MetodoAutenticacao.RADIUS:
-                if self.interface_id is None:
-                    raise ValueError('interface_id é obrigatório quando router_id é preenchido')
-                if self.ip_class_id is None:
-                    raise ValueError('ip_class_id é obrigatório quando router_id é preenchido')
-            
-            # Validação condicional para IP_MAC
-            if self.metodo_autenticacao == MetodoAutenticacao.IP_MAC:
-                if not self.mac_address or self.mac_address == '':
-                    raise ValueError('mac_address é obrigatório quando router_id é preenchido e método é IP_MAC')
-                if not self.assigned_ip or self.assigned_ip == '':
-                    raise ValueError('assigned_ip é obrigatório quando router_id é preenchido e método é IP_MAC')
-            
-            # Validação condicional para PPPOE/RADIUS
-            if self.metodo_autenticacao in (MetodoAutenticacao.PPPOE, MetodoAutenticacao.RADIUS):
-                if not self.pppoe_username or self.pppoe_username.strip() == '':
-                    raise ValueError('pppoe_username é obrigatório para autenticação PPPoE/RADIUS')
-                if not self.pppoe_password or self.pppoe_password.strip() == '':
-                    raise ValueError('pppoe_password é obrigatório para autenticação PPPoE/RADIUS')
-        return self
+    # Validações removidas para tornar a configuração de rede opcional no cadastro
 
     # Ativos vinculados
     ativos: Optional[List['AtivoContratoCreate']] = None
@@ -192,30 +169,7 @@ class ServicoContratadoUpdate(BaseModel):
                 raise ValueError('mac_address deve estar no formato AA:BB:CC:DD:EE:FF')
         return v
 
-    @model_validator(mode='after')
-    def validate_router_requirements(self):
-        if self.router_id is not None:
-            # Para métodos diferentes de RADIUS, interface_id e ip_class_id são obrigatórios
-            if self.metodo_autenticacao != 'RADIUS' and self.metodo_autenticacao != MetodoAutenticacao.RADIUS:
-                if self.interface_id is None:
-                    raise ValueError('interface_id é obrigatório quando router_id é preenchido')
-                if self.ip_class_id is None:
-                    raise ValueError('ip_class_id é obrigatório quando router_id é preenchido')
-            
-            # Validação condicional para IP_MAC
-            if self.metodo_autenticacao in ('IP_MAC', MetodoAutenticacao.IP_MAC):
-                if not self.mac_address or self.mac_address == '':
-                    raise ValueError('mac_address é obrigatório quando router_id é preenchido e método é IP_MAC')
-                if not self.assigned_ip or self.assigned_ip == '':
-                    raise ValueError('assigned_ip é obrigatório quando router_id é preenchido e método é IP_MAC')
-            
-            # Validação condicional para PPPOE/RADIUS
-            if self.metodo_autenticacao in ('PPPOE', 'RADIUS', MetodoAutenticacao.PPPOE, MetodoAutenticacao.RADIUS):
-                if self.pppoe_username is not None and self.pppoe_username.strip() == '':
-                    raise ValueError('pppoe_username não pode ser vazio para PPPoE/RADIUS')
-                if self.pppoe_password is not None and self.pppoe_password.strip() == '':
-                    raise ValueError('pppoe_password não pode ser vazio para PPPoE/RADIUS')
-        return self
+    # Validações removidas para tornar a configuração de rede opcional na edição
 
 class AtivoContratoBase(BaseModel):
     tipo_equipamento: str = Field(..., max_length=50)

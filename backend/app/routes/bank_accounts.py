@@ -51,6 +51,9 @@ class BankAccountResponse(BaseModel):
     bb_sandbox: Optional[bool] = True
     multa_atraso_percentual: Optional[float] = None
     juros_atraso_percentual: Optional[float] = None
+    desconto_pontualidade_tipo: Optional[str] = 'VALOR'
+    desconto_pontualidade_valor: Optional[float] = 0.0
+    desconto_pontualidade_dias: Optional[int] = 0
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -92,6 +95,9 @@ class BankAccountCreate(BaseModel):
     bb_sandbox: Optional[bool] = True
     multa_atraso_percentual: Optional[float] = Field(2.0, ge=0, le=100, description="Percentual de multa por atraso (%)")
     juros_atraso_percentual: Optional[float] = Field(1.0, ge=0, le=100, description="Percentual de juros por dia de atraso (%)")
+    desconto_pontualidade_tipo: Optional[str] = Field('VALOR', description="Tipo do desconto: 'VALOR' (R$) ou 'PERCENTUAL' (%)")
+    desconto_pontualidade_valor: Optional[float] = Field(0.0, ge=0, description="Valor do desconto (R$ ou %)")
+    desconto_pontualidade_dias: Optional[int] = Field(0, ge=0, description="Dias antes do vencimento para aplicar o desconto (0 = exatamente no vencimento)")
 
 
 class BankAccountUpdate(BaseModel):
@@ -128,6 +134,9 @@ class BankAccountUpdate(BaseModel):
     bb_sandbox: Optional[bool] = None
     multa_atraso_percentual: Optional[float] = Field(None, ge=0, le=100, description="Percentual de multa por atraso (%)")
     juros_atraso_percentual: Optional[float] = Field(None, ge=0, le=100, description="Percentual de juros por dia de atraso (%)")
+    desconto_pontualidade_tipo: Optional[str] = Field(None, description="Tipo do desconto: 'VALOR' (R$) ou 'PERCENTUAL' (%)")
+    desconto_pontualidade_valor: Optional[float] = Field(None, ge=0, description="Valor do desconto (R$ ou %)")
+    desconto_pontualidade_dias: Optional[int] = Field(None, ge=0, description="Dias antes do vencimento para aplicar o desconto (0 = exatamente no vencimento)")
 
 
 def _serialize(bank_account: BankAccount, include_credentials: bool = False):
@@ -158,6 +167,9 @@ def _serialize(bank_account: BankAccount, include_credentials: bool = False):
         'is_active': bank_account.is_active,
         'multa_atraso_percentual': bank_account.multa_atraso_percentual,
         'juros_atraso_percentual': bank_account.juros_atraso_percentual,
+        'desconto_pontualidade_tipo': getattr(bank_account, 'desconto_pontualidade_tipo', 'VALOR') or 'VALOR',
+        'desconto_pontualidade_valor': getattr(bank_account, 'desconto_pontualidade_valor', 0.0) or 0.0,
+        'desconto_pontualidade_dias': getattr(bank_account, 'desconto_pontualidade_dias', 0) or 0,
         'created_at': bank_account.created_at,
         'updated_at': bank_account.updated_at,
         
@@ -552,6 +564,7 @@ async def register_boletos_api(
         except Exception as e:
             results.append({"id": r.id, "ok": False, "error": str(e)})
             
+    db.commit()
     return {"results": results}
 
 

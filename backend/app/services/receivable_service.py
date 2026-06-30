@@ -127,6 +127,12 @@ def generate_receivable_from_contract(db: Session, contrato: ServicoContratado, 
         
         # Popular referência à conta e snapshot (sem credenciais)
         recv.bank_account_id = bank_account.id
+        
+        if recv.tipo == 'BOLETO' and bank_account.bank != 'MERCADO_PAGO':
+            seq = bank_account.nosso_numero_sequence or 1
+            recv.nosso_numero = str(seq)
+            bank_account.nosso_numero_sequence = seq + 1
+            db.add(bank_account)
         try:
             # Se possível, atribuir enum Bank a coluna receivable.bank
             recv.bank = Bank(bank_account.bank)
@@ -149,6 +155,9 @@ def generate_receivable_from_contract(db: Session, contrato: ServicoContratado, 
             "is_default": bool(bank_account.is_default),
             "multa_atraso_percentual": bank_account.multa_atraso_percentual,
             "juros_atraso_percentual": bank_account.juros_atraso_percentual,
+            "desconto_pontualidade_tipo": getattr(bank_account, 'desconto_pontualidade_tipo', 'VALOR'),
+            "desconto_pontualidade_valor": getattr(bank_account, 'desconto_pontualidade_valor', 0.0),
+            "desconto_pontualidade_dias": getattr(bank_account, 'desconto_pontualidade_dias', 0),
         }
         recv.bank_account_snapshot = json.dumps(snapshot, default=str)
     else:
@@ -402,19 +411,24 @@ def build_boleto_context(db: Session, recv: Receivable) -> dict:
         except:
             pass
     
-    if not ba_data and recv.bank_account_id:
+    if recv.bank_account_id:
         ba = db.query(BankAccount).filter(BankAccount.id == recv.bank_account_id).first()
         if ba:
-            ba_data = {
-                "bank": ba.bank,
-                "codigo_banco": ba.codigo_banco,
-                "agencia": ba.agencia,
-                "agencia_dv": ba.agencia_dv,
-                "conta": ba.conta,
-                "conta_dv": ba.conta_dv,
-                "carteira": ba.carteira,
-                "convenio": ba.convenio,
-            }
+            if not ba_data:
+                ba_data = {
+                    "bank": ba.bank,
+                    "codigo_banco": ba.codigo_banco,
+                    "agencia": ba.agencia,
+                    "agencia_dv": ba.agencia_dv,
+                    "conta": ba.conta,
+                    "conta_dv": ba.conta_dv,
+                    "carteira": ba.carteira,
+                    "convenio": ba.convenio,
+                }
+            if 'desconto_pontualidade_valor' not in ba_data:
+                ba_data['desconto_pontualidade_valor'] = getattr(ba, 'desconto_pontualidade_valor', 0.0)
+                ba_data['desconto_pontualidade_tipo'] = getattr(ba, 'desconto_pontualidade_tipo', 'VALOR')
+                ba_data['desconto_pontualidade_dias'] = getattr(ba, 'desconto_pontualidade_dias', 0)
 
     # Endereço do cliente
     from app.models.models import EmpresaCliente, EmpresaClienteEndereco
@@ -436,19 +450,33 @@ def build_boleto_context(db: Session, recv: Receivable) -> dict:
             cep = addr.cep
 
     # Instruções formatadas estilo Agrobraz
+    instrucoes_desc = ""
+    desconto_val = ba_data.get('desconto_pontualidade_valor', 0.0)
+    desconto_monetario = 0.0
+    if desconto_val and desconto_val > 0:
+        d_tipo = ba_data.get('desconto_pontualidade_tipo', 'VALOR')
+        d_dias = ba_data.get('desconto_pontualidade_dias', 0)
+        d_ate = "ATÉ O VENCIMENTO" if d_dias == 0 else f"ATÉ {d_dias} DIAS ANTES DO VENCIMENTO"
+        if d_tipo == 'PERCENTUAL':
+            desconto_monetario = recv.amount * (desconto_val / 100)
+            instrucoes_desc = f"CONCEDER DESCONTO DE {desconto_val:,.2f}% (R$ {desconto_monetario:,.2f}) {d_ate}.\n"
+        else:
+            desconto_monetario = float(desconto_val)
+            instrucoes_desc = f"CONCEDER DESCONTO DE R$ {desconto_val:,.2f} {d_ate}.\n"
+            
     if recv.bank in ['BANCO DO BRASIL', 'BANCO_DO_BRASIL', '001']:
         banco_cod = '001-9'
         juros_dia = (recv.amount * (recv.interest_percent / 100)) / 30
         multa_val = recv.amount * (recv.fine_percent / 100)
-        instrucoes = f"APÓS VENCIMENTO COBRAR JUROS DE R$ {juros_dia:,.2f} AO DIA.\n" \
+        instrucoes = f"{instrucoes_desc}APÓS VENCIMENTO COBRAR JUROS DE R$ {juros_dia:,.2f} AO DIA.\n" \
                      f"COBRAR MULTA DE R$ {multa_val:,.2f}.\n" \
                      f"NÃO RECEBER APÓS 30 DIAS DO VENCIMENTO."
     elif recv.bank in ['SICREDI', '748']:
         banco_cod = '748-X'
-        instrucoes = f"Após o vencimento cobrar multa de {recv.fine_percent}% e juros de {recv.interest_percent}% ao mês."
+        instrucoes = f"{instrucoes_desc}Após o vencimento cobrar multa de {recv.fine_percent}% e juros de {recv.interest_percent}% ao mês."
     else:
         banco_cod = ba_data.get('codigo_banco', '000-0')
-        instrucoes = f"Após o vencimento cobrar multa de {recv.fine_percent}% e juros de {recv.interest_percent}% ao mês."
+        instrucoes = f"{instrucoes_desc}Após o vencimento cobrar multa de {recv.fine_percent}% e juros de {recv.interest_percent}% ao mês."
 
     # Se for BB, usar dados específicos se disponíveis e formatar como Agrobraz
     nosso_numero = recv.nosso_numero or recv.bb_boleto_numero or str(recv.id)
@@ -530,7 +558,8 @@ def build_boleto_context(db: Session, recv: Receivable) -> dict:
         "local_pagamento": "Pagável em qualquer banco até o vencimento",
         "instrucoes": instrucoes,
         "linha_digitavel": linha_digitavel,
-        "barcode44": barcode
+        "barcode44": barcode,
+        "desconto": f"{desconto_monetario:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') if desconto_monetario > 0 else ""
     }
 
 
@@ -539,6 +568,11 @@ def send_last_day_tolerance_notification(db: Session, recv: Receivable) -> bool:
 
     A mensagem é diferenciada da notificação normal de cobrança, alertando que o serviço
     será suspenso no dia seguinte caso o pagamento não seja efetuado.
+
+    - Se empresa.suspension_message estiver preenchido, usa-o como corpo da mensagem WhatsApp,
+      substituindo as variáveis de template (ex: [NOME DO CLIENTE], [X.XXX,XX], [DD/MM/AAAA]).
+    - Caso contrário, usa o texto padrão pré-definido.
+    - O boleto em PDF é gerado e anexado tanto no e-mail quanto no WhatsApp (quando não há link online).
     """
     from app.models.models import Empresa, Cliente
     from app.crud import crud_empresa
@@ -579,11 +613,35 @@ def send_last_day_tolerance_notification(db: Session, recv: Receivable) -> bool:
 
     success = False
 
-    # --- Envio por E-mail ---
-    if send_email and cliente.email:
+    # ── Gerar PDF do boleto (usado tanto no e-mail quanto no WhatsApp) ──────────
+    # Gerado sempre que não houver link de pagamento online (Pix/Cartão/Boleto digital).
+    # Permite anexar o boleto físico no e-mail e no WhatsApp como alternativa ao link.
+    pdf_path = None
+    if not payment_url:
         try:
-            if payment_url:
-                body = f"""Olá,
+            logo_path = None
+            if empresa and empresa.logo_url:
+                if empresa.logo_url.startswith("/files/"):
+                    relative_part = empresa.logo_url[len("/files/"):]
+                    logo_path = os.path.abspath(os.path.join(settings.UPLOAD_DIR, relative_part))
+                    if not os.path.exists(logo_path):
+                        logo_path = None
+            context = build_boleto_context(db, recv)
+            from app.services.boleto_generator import generate_boleto_pdf
+            pdf_bytes = generate_boleto_pdf(context, logo_path=logo_path)
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+            tmp.write(pdf_bytes)
+            tmp.close()
+            pdf_path = tmp.name
+        except Exception as pdf_err:
+            logging.error(f"Erro ao gerar PDF para notificação de tolerância: {pdf_err}")
+
+    try:
+        # --- Envio por E-mail ---
+        if send_email and cliente.email:
+            try:
+                if payment_url:
+                    body = f"""Olá,
 
 ⚠️ AVISO IMPORTANTE: Sua fatura de {company_name} no valor de R$ {recv.amount:,.2f} com vencimento em {due_date_str} ainda está em aberto.
 
@@ -596,8 +654,8 @@ Se já efetuou o pagamento, por favor desconsidere este aviso.
 
 Atenciosamente,
 {company_name}""".strip()
-            else:
-                body = f"""Olá,
+                else:
+                    body = f"""Olá,
 
 ⚠️ AVISO IMPORTANTE: Sua fatura de {company_name} no valor de R$ {recv.amount:,.2f} com vencimento em {due_date_str} ainda está em aberto.
 
@@ -610,71 +668,98 @@ Se já efetuou o pagamento, por favor desconsidere este aviso.
 Atenciosamente,
 {company_name}""".strip()
 
-            subject = f"⚠️ URGENTE: Fatura em atraso – serviço será suspenso amanhã | {company_name}"
-            # Gerar PDF do boleto se necessário
-            pdf_path = None
-            if not payment_url:
-                try:
-                    logo_path = None
-                    if empresa and empresa.logo_url:
-                        if empresa.logo_url.startswith("/files/"):
-                            relative_part = empresa.logo_url[len("/files/"):]
-                            logo_path = os.path.abspath(os.path.join(settings.UPLOAD_DIR, relative_part))
-                            if not os.path.exists(logo_path):
-                                logo_path = None
-                    context = build_boleto_context(db, recv)
-                    from app.services.boleto_generator import generate_boleto_pdf
-                    pdf_bytes = generate_boleto_pdf(context, logo_path=logo_path)
-                    tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
-                    tmp.write(pdf_bytes)
-                    tmp.close()
-                    pdf_path = tmp.name
-                except Exception as pdf_err:
-                    logging.error(f"Erro ao gerar PDF para notificação de tolerância: {pdf_err}")
+                subject = f"⚠️ URGENTE: Fatura em atraso – serviço será suspenso amanhã | {company_name}"
 
+                try:
+                    ok = EmailService.send_email(
+                        empresa=empresa_raw,
+                        to_email=cliente.email,
+                        subject=subject,
+                        body=body,
+                        attachments=[pdf_path] if pdf_path and os.path.exists(pdf_path) else []
+                    )
+                    if ok:
+                        success = True
+                except Exception as email_err:
+                    logging.error(f"Erro ao enviar e-mail de tolerância: {email_err}")
+            except Exception as e:
+                logging.error(f"Erro ao preparar e-mail de tolerância: {e}")
+
+        # --- Envio por WhatsApp ---
+        if send_whatsapp and cliente.telefone:
             try:
-                ok = EmailService.send_email(
-                    empresa=empresa_raw,
-                    to_email=cliente.email,
-                    subject=subject,
-                    body=body,
-                    attachments=[pdf_path] if pdf_path and os.path.exists(pdf_path) else []
-                )
+                amount_fmt = f"R$ {recv.amount:,.2f}"
+                custom_suspension_msg = getattr(empresa, "suspension_message", None)
+
+                if custom_suspension_msg and custom_suspension_msg.strip():
+                    # Usar mensagem personalizada do cadastro da empresa,
+                    # substituindo as variáveis de template pelos valores reais.
+                    # As substituições são CASE-INSENSITIVE: [VALOR], [valor] e [Valor] funcionam igualmente.
+                    import re as _re
+
+                    def _tpl_replace(template: str, variable: str, value: str) -> str:
+                        """Substitui [variable] no template de forma case-insensitive.
+                        Usa lambda no re.sub para que caracteres especiais no valor
+                        (ex: backslash, cifrão) não sejam interpretados pelo regex.
+                        """
+                        return _re.sub(_re.escape(variable), lambda _: value, template, flags=_re.IGNORECASE)
+
+                    msg = custom_suspension_msg.strip()
+
+                    # Variantes com espaço e com underscore são aceitas (ex: [NOME DO CLIENTE] ou [NOME_DO_CLIENTE])
+                    for var in ("[NOME DO CLIENTE]", "[NOME_DO_CLIENTE]"):
+                        msg = _tpl_replace(msg, var, cliente.nome_razao_social)
+                    for var in ("[NOME DA EMPRESA]", "[NOME_DA_EMPRESA]"):
+                        msg = _tpl_replace(msg, var, company_name)
+                    for var in ("[VALOR]", "[X.XXX,XX]"):
+                        msg = _tpl_replace(msg, var, amount_fmt)
+                    for var in ("[VENCIMENTO]", "[DD/MM/AAAA]"):
+                        msg = _tpl_replace(msg, var, due_date_str)
+                    if payment_url:
+                        for var in ("[LINK_PAGAMENTO]", "[LINK DE PAGAMENTO]"):
+                            msg = _tpl_replace(msg, var, payment_url)
+                else:
+                    # Mensagem padrão (fallback quando suspension_message não está preenchido)
+                    msg = f"⚠️ *AVISO IMPORTANTE – {company_name}*\n\n"
+                    msg += f"Olá, *{cliente.nome_razao_social}*!\n\n"
+                    msg += (
+                        f"Sua fatura no valor de *{amount_fmt}* com vencimento em *{due_date_str}* "
+                        f"ainda está em aberto.\n\n"
+                    )
+                    msg += "🚨 *Seu serviço será SUSPENSO AMANHÃ* caso o pagamento não seja identificado.\n\n"
+                    if payment_url:
+                        msg += f"Para pagar agora, acesse:\n{payment_url}\n\n"
+                    else:
+                        msg += "Por favor, realize o pagamento do boleto em anexo para evitar a suspensão do seu serviço.\n\n"
+                    msg += "Se já efetuou o pagamento, por favor desconsidere este aviso.\n\n"
+                    msg += f"*Atenciosamente, {company_name}*"
+
+                # Enviar com o boleto em PDF em anexo (quando disponível) ou apenas texto
+                if pdf_path and os.path.exists(pdf_path):
+                    ok = WhatsAppService.send_document(
+                        empresa=empresa_raw,
+                        to_phone=cliente.telefone,
+                        caption=msg,
+                        file_path=pdf_path
+                    )
+                else:
+                    ok = WhatsAppService.send_message(
+                        empresa=empresa_raw,
+                        to_phone=cliente.telefone,
+                        message=msg
+                    )
                 if ok:
                     success = True
-            except Exception as email_err:
-                logging.error(f"Erro ao enviar e-mail de tolerância: {email_err}")
-            finally:
-                if pdf_path and os.path.exists(pdf_path):
-                    try:
-                        os.unlink(pdf_path)
-                    except Exception:
-                        pass
-        except Exception as e:
-            logging.error(f"Erro ao preparar e-mail de tolerância: {e}")
+            except Exception as wa_err:
+                logging.error(f"Erro ao enviar WhatsApp de tolerância: {wa_err}")
 
-    # --- Envio por WhatsApp ---
-    if send_whatsapp and cliente.telefone:
-        try:
-            msg = f"⚠️ *AVISO IMPORTANTE – {company_name}*\n\n"
-            msg += f"Olá, *{cliente.nome_razao_social}*!\n\n"
-            msg += (
-                f"Sua fatura no valor de *R$ {recv.amount:,.2f}* com vencimento em *{due_date_str}* "
-                f"ainda está em aberto.\n\n"
-            )
-            msg += "🚨 *Seu serviço será SUSPENSO AMANHÃ* caso o pagamento não seja identificado.\n\n"
-            if payment_url:
-                msg += f"Para pagar agora, acesse:\n{payment_url}\n\n"
-            else:
-                msg += "Por favor, realize o pagamento do boleto para evitar a suspensão do seu serviço.\n\n"
-            msg += "Se já efetuou o pagamento, por favor desconsidere este aviso.\n\n"
-            msg += f"*Atenciosamente, {company_name}*"
-
-            ok = WhatsAppService.send_message(empresa=empresa_raw, to_phone=cliente.telefone, message=msg)
-            if ok:
-                success = True
-        except Exception as wa_err:
-            logging.error(f"Erro ao enviar WhatsApp de tolerância: {wa_err}")
+    finally:
+        # Limpar arquivo temporário do boleto (independente de sucesso ou falha)
+        if pdf_path and os.path.exists(pdf_path):
+            try:
+                os.unlink(pdf_path)
+            except Exception:
+                pass
 
     return success
 

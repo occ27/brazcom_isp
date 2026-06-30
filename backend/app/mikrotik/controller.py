@@ -480,7 +480,16 @@ class MikrotikController:
         resource = self._api.get_resource('queue/simple')
         # Procura localmente para ser mais robusto
         all_queues = resource.get()
-        existing = [q for q in all_queues if q.get('name') == name]
+        
+        target_ip = target.split('/')[0]
+        
+        existing = []
+        for q in all_queues:
+            q_target = q.get('target', '')
+            # O target pode vir como '192.168.1.10/32' ou com múltiplos separados por vírgula
+            q_ips = [ip.split('/')[0] for ip in q_target.split(',')]
+            if target_ip in q_ips:
+                existing.append(q)
         
         # O cliente não quer que preencha o comentário para Simple Queues.
         # Definimos 'comment': '' para limpar qualquer comentário existente no RouterOS.
@@ -493,7 +502,16 @@ class MikrotikController:
             qid = existing[0].get('.id') or existing[0].get('id')
             if qid:
                 resource.set(id=qid, **data)
-                return True
+                
+            # Remove possíveis duplicatas que tenham o mesmo IP (além do primeiro)
+            for dup in existing[1:]:
+                dup_id = dup.get('.id') or dup.get('id')
+                if dup_id:
+                    try:
+                        resource.remove(id=dup_id)
+                    except Exception:
+                        pass
+            return True
         return resource.add(**data)
 
     def get_interfaces(self):
@@ -603,26 +621,46 @@ class MikrotikController:
         except Exception:
             all_entries = []
             
-        exists = False
+        existing_entries = []
         for e in all_entries:
             e_addr = e.get('address', '').split('/')[0]
             if e_addr == ip_clean:
-                exists = True
-                break
+                existing_entries.append(e)
                 
-        if not exists:
+        if existing_entries:
             data = {'address': ip_clean, 'list': list_name}
             if comment:
                 data['comment'] = comment
-            
-            try:
-                resource.add(**data)
-                return True
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).error(f"Falha ao adicionar na address-list: {e}")
-                return False
-        return True
+                
+            first_id = existing_entries[0].get('.id') or existing_entries[0].get('id')
+            if first_id and comment:
+                try:
+                    resource.set(id=first_id, **data)
+                except Exception as e:
+                    import logging
+                    logging.getLogger(__name__).warning(f"Falha ao atualizar comment na address-list: {e}")
+                    
+            # Limpar duplicatas se houver
+            for dup in existing_entries[1:]:
+                dup_id = dup.get('.id') or dup.get('id')
+                if dup_id:
+                    try:
+                        resource.remove(id=dup_id)
+                    except Exception:
+                        pass
+            return True
+        
+        data = {'address': ip_clean, 'list': list_name}
+        if comment:
+            data['comment'] = comment
+        
+        try:
+            resource.add(**data)
+            return True
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Falha ao adicionar na address-list: {e}")
+            return False
 
     def kill_client_connections(self, ip: str):
         """Remove todas as conexões ativas de um IP na tabela de Connection Tracking."""
@@ -1001,10 +1039,22 @@ class MikrotikController:
         """Remove um IP de uma Address List."""
         self.connect()
         resource = self._api.get_resource('ip/firewall/address-list')
-        existing = resource.get(address=address, list=list_name)
-        for e in existing:
-            eid = e.get('.id') or e.get('id')
-            if eid: resource.remove(id=eid)
+        ip_clean = address.split('/')[0]
+        
+        try:
+            all_entries = resource.get(list=list_name)
+        except Exception:
+            all_entries = []
+            
+        for e in all_entries:
+            e_addr = e.get('address', '').split('/')[0]
+            if e_addr == ip_clean:
+                eid = e.get('.id') or e.get('id')
+                if eid:
+                    try:
+                        resource.remove(id=eid)
+                    except Exception:
+                        pass
         return True
 
 
@@ -1414,24 +1464,26 @@ class MikrotikController:
                     if aid: arp_res.remove(id=aid)
             except Exception: pass
 
-        # Remover Simple Queue antiga (pelo nome atual e pelos padrões antigos)
-        try:
-            q_res = self._api.get_resource('queue/simple')
-            # Tenta remover:
-            # 1. Chave atual: "contrato_id-nome" (ex: "42-João da Silva")
-            # 2. Padrão antigo: só o nome do cliente (ex: "João da Silva") — migração
-            # 3. Padrão legado: "contrato-{id}"
-            old_name_only = comment.split('-', 1)[1] if comment and '-' in comment else None
-            for qname in [comment, old_name_only, f"contrato-{contrato_id}"]:
-                if not qname:
-                    continue
+        # Remover Simple Queue existente pelo IP do cliente (chave real).
+        # Isso garante que queues criadas pelo sistema antigo (Altarede) com nome diferente
+        # sejam encontradas e removidas antes de o set_queue_simple criar a nova entrada.
+        if assigned_ip:
+            try:
+                q_res = self._api.get_resource('queue/simple')
+                ip_clean = assigned_ip.split('/')[0]
                 all_queues = q_res.get()
                 for q in all_queues:
-                    if q.get('name') == qname:
+                    q_target = q.get('target', '')
+                    # target pode vir como '192.168.1.10/32' ou múltiplos separados por vírgula
+                    q_ips = [t.strip().split('/')[0] for t in q_target.split(',')]
+                    if ip_clean in q_ips:
                         qid = q.get('.id') or q.get('id')
                         if qid:
-                            q_res.remove(id=qid)
-        except Exception: pass
+                            try:
+                                q_res.remove(id=qid)
+                            except Exception:
+                                pass
+            except Exception: pass
 
         # 3. Remover ARP e DHCP Lease (se IP fornecido)
         if assigned_ip:

@@ -298,6 +298,32 @@ def registrar_boleto(
     if ba.juros_atraso_percentual:
         payload['jurosMora'] = {'tipo': 2, 'porcentagem': float(ba.juros_atraso_percentual)}
 
+    desconto_valor = getattr(ba, 'desconto_pontualidade_valor', 0.0) or 0.0
+    if desconto_valor > 0:
+        from datetime import timedelta as _td
+        desconto_tipo_str = getattr(ba, 'desconto_pontualidade_tipo', 'VALOR') or 'VALOR'
+        desconto_dias = int(getattr(ba, 'desconto_pontualidade_dias', 0) or 0)
+        # Tipo BB: 1=Valor fixo, 3=Percentual
+        desconto_tipo_bb = 1 if desconto_tipo_str == 'VALOR' else 3
+        due = receivable.due_date
+        # Calcula a data de expiração do desconto
+        if hasattr(due, 'date'):
+            due_date_only = due.date() if callable(due.date) else due.date
+        else:
+            due_date_only = due
+        from datetime import date as _date
+        if isinstance(due_date_only, _date):
+            expiry_date = due_date_only - _td(days=desconto_dias) if desconto_dias > 0 else due_date_only
+            expiry_str = expiry_date.strftime('%d.%m.%Y')
+        else:
+            expiry_str = _fmt_date(due)
+        payload['desconto'] = {
+            'tipo': desconto_tipo_bb,
+            'dataExpiracao': expiry_str,
+            'porcentagem': float(desconto_valor) if desconto_tipo_bb == 3 else 0.0,
+            'valor': float(desconto_valor) if desconto_tipo_bb == 1 else 0.0,
+        }
+
     headers = {
         'Authorization': f'Bearer {token}',
         'Content-Type': 'application/json',

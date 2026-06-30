@@ -787,6 +787,7 @@ const Receivables: React.FC = () => {
                 <TableCell>Cliente</TableCell>
                 <TableCell>Emissão</TableCell>
                 <TableCell>Vencimento</TableCell>
+                <TableCell>Contrato</TableCell>
                 <TableCell>Pagamento</TableCell>
                 <TableCell align="right">Valor</TableCell>
                 <TableCell align="right">Vlr Pago</TableCell>
@@ -797,7 +798,7 @@ const Receivables: React.FC = () => {
             </TableHead>
             <TableBody sx={{ whiteSpace: 'nowrap' }}>
               {loading && receivables.length === 0 ? (
-                <TableRow><TableCell colSpan={10} align="center" sx={{ py: 5 }}><CircularProgress /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} align="center" sx={{ py: 5 }}><CircularProgress /></TableCell></TableRow>
               ) : paginatedReceivables.map(r => (
                 <TableRow key={r.id} hover>
                   <TableCell padding="checkbox">
@@ -810,6 +811,20 @@ const Receivables: React.FC = () => {
                   </TableCell>
                   <TableCell>{new Date(r.issue_date).toLocaleDateString('pt-BR')}</TableCell>
                   <TableCell>{new Date(r.due_date).toLocaleDateString('pt-BR')}</TableCell>
+                  <TableCell>
+                    {r.servico_contratado_id ? (
+                      <Button 
+                        variant="text" 
+                        size="small" 
+                        onClick={(e) => { e.stopPropagation(); navigate('/contracts', { state: { editContractId: r.servico_contratado_id } }); }}
+                        sx={{ minWidth: 0, p: 0, textTransform: 'none', fontWeight: 'bold' }}
+                      >
+                        #{r.servico_contratado_id}
+                      </Button>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">Avulso</Typography>
+                    )}
+                  </TableCell>
                   <TableCell>{r.paid_at ? new Date(r.paid_at).toLocaleDateString('pt-BR') : '-'}</TableCell>
                   <TableCell align="right">{(r.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
                   <TableCell align="right">

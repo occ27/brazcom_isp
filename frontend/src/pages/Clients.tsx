@@ -2057,7 +2057,18 @@ const Clients: React.FC = () => {
                           ) : filteredReceivables.map(r => (
                             <TableRow key={r.id} hover>
                               <TableCell>{new Date(r.due_date).toLocaleDateString('pt-BR')}</TableCell>
-                              <TableCell>{r.servico_contratado_id ? `#${r.servico_contratado_id}` : 'Avulso'}</TableCell>
+                              <TableCell>
+                                {r.servico_contratado_id ? (
+                                  <Button 
+                                    variant="text" 
+                                    size="small" 
+                                    onClick={(e) => { e.stopPropagation(); navigate('/contracts', { state: { editContractId: r.servico_contratado_id } }); }}
+                                    sx={{ minWidth: 0, p: 0, textTransform: 'none', fontWeight: 'bold' }}
+                                  >
+                                    #{r.servico_contratado_id}
+                                  </Button>
+                                ) : 'Avulso'}
+                              </TableCell>
                               <TableCell>{r.tipo === 'MERCADO_PAGO' ? 'Mercado Pago' : r.bank}</TableCell>
                               <TableCell align="right" sx={{ fontWeight: 500 }}>{formatCurrency(r.amount)}</TableCell>
                               <TableCell align="right">
