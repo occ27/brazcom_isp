@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useCompany } from '../contexts/CompanyContext';
 import { caixaService, CaixaSessao, LocalPagamento, FormaPagamento, CaixaMovimentacao } from '../services/caixaService';
 import { CurrencyDollarIcon, ArrowDownCircleIcon, ArrowUpCircleIcon, ArchiveBoxIcon, ArchiveBoxXMarkIcon } from '@heroicons/react/24/outline';
 
 const CaixaPDV: React.FC = () => {
   const { user } = useAuth();
+  const { activeCompany } = useCompany();
   const [sessao, setSessao] = useState<CaixaSessao | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,10 +29,10 @@ const CaixaPDV: React.FC = () => {
   const [saldoFinalStr, setSaldoFinalStr] = useState<string>('');
 
   useEffect(() => {
-    if (user?.active_empresa_id) {
-      loadInitialData(user.active_empresa_id);
+    if (activeCompany?.id) {
+      loadInitialData(activeCompany.id);
     }
-  }, [user]);
+  }, [activeCompany]);
 
   const loadInitialData = async (empresaId: number) => {
     try {
@@ -98,10 +100,10 @@ const CaixaPDV: React.FC = () => {
 
   const handleAbrirCaixa = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.active_empresa_id || selectedLocal === '') return;
+    if (!activeCompany?.id || selectedLocal === '') return;
     try {
       const saldo = parseCurrencyInput(saldoInicialStr);
-      const novaSessao = await caixaService.abrirSessao(user.active_empresa_id, Number(selectedLocal), saldo);
+      const novaSessao = await caixaService.abrirSessao(activeCompany.id, Number(selectedLocal), saldo);
       setSessao(novaSessao);
       setSaldoInicialStr('');
       loadExtrato(novaSessao.id);

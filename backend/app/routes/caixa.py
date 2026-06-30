@@ -91,10 +91,6 @@ def abrir_sessao(empresa_id: int, payload: schema_caixa.CaixaSessaoAbrir, db: Se
     if sessao_existente:
         raise HTTPException(status_code=400, detail="Você já possui um caixa aberto.")
         
-    # Verifica se outra pessoa já abriu o mesmo caixa físico
-    sessoes_neste_local = crud_caixa.get_sessoes_abertas_local(db, empresa_id, payload.local_pagamento_id)
-    if sessoes_neste_local:
-        raise HTTPException(status_code=400, detail="Este local de pagamento já está aberto por outro usuário.")
         
     sessao = crud_caixa.abrir_sessao(db, empresa_id, current_user.id, payload)
     sessao.usuario_nome = current_user.full_name
