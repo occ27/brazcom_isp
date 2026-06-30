@@ -347,3 +347,47 @@ def solicitar_baixa(bank_account: BankAccount, bb_numero: str) -> bool:
     with _make_http_client(sandbox) as client:
         resp = client.post(url, json={'numeroConvenio': int(ba.convenio or 0)}, headers=headers)
         return resp.status_code in [200, 204]
+
+
+def consultar_boleto(bank_account: BankAccount, bb_numero: str) -> Dict[str, Any]:
+    """
+    Consulta o status atual de um boleto diretamente na API do Banco do Brasil.
+    Retorna o dict com os dados do boleto (codigoEstadoTituloCobranca, valorPagoSacado, etc.)
+    ou None em caso de erro.
+    """
+    ba = bank_account
+    sandbox = bool(ba.bb_sandbox)
+    client_id = ba.bb_client_id
+    client_secret = ba.bb_client_secret
+    app_key = (ba.bb_app_key or '').strip()
+
+    if not client_id or not client_secret or not app_key:
+        raise ValueError('Credenciais da API BB não configuradas.')
+
+    from app.core.security import decrypt_sensitive_data
+    try:
+        client_secret_dec = decrypt_sensitive_data(client_secret)
+    except:
+        client_secret_dec = client_secret
+
+    token = get_access_token(ba.id, client_id, client_secret_dec, app_key, sandbox)
+    base_url = _API_BASE[sandbox]
+    # O BB exige o numeroConvenio como query parameter na consulta individual
+    convenio = ''.join(filter(str.isdigit, ba.convenio or ''))
+    url = f'{base_url}/cobrancas/v2/boletos/{bb_numero}?numeroConvenio={convenio}'
+
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json',
+        'x-developer-application-key': app_key,
+    }
+
+    with _make_http_client(sandbox) as client:
+        resp = client.get(url, headers=headers)
+        if resp.status_code == 200:
+            return resp.json()
+        else:
+            logger.warning(f'BB consultar_boleto: {bb_numero} -> {resp.status_code}: {resp.text[:300]}')
+            return None
+
+

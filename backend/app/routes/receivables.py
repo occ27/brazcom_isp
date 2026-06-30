@@ -124,6 +124,149 @@ class ReceivableResponse(BaseModel):
         return cls(**data)
 
 
+
+@router.post("/empresa/{empresa_id}/reconcile-bb", status_code=status.HTTP_200_OK)
+def reconcile_bb_payments(
+    empresa_id: int,
+    days_back: int = 60,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user),
+):
+    """
+    Reconcilia pagamentos do Banco do Brasil para uma empresa.
+    Consulta a API do BB para todos os boletos pendentes/registrados e atualiza o status no sistema.
+    Útil como rede de segurança quando o webhook não chegou.
+    Requer permissão de admin da empresa ou superusuário.
+    """
+    is_admin = current_user.is_superuser or any(
+        assoc.empresa_id == empresa_id and assoc.is_admin
+        for assoc in current_user.empresas
+    )
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Apenas administradores podem executar a reconciliação.")
+
+    from app.models.models import BankAccount
+    from app.services import bb_api_service
+    from datetime import timedelta
+
+    total_checked = 0
+    total_updated = 0
+    total_errors = 0
+    details = []
+
+    cutoff_date = datetime.now() - timedelta(days=days_back)
+
+    # Grupo 1: boletos REGISTERED pelo nosso sistema (têm bb_boleto_numero)
+    q1 = db.query(Receivable).filter(
+        Receivable.empresa_id == empresa_id,
+        Receivable.status == 'REGISTERED',
+        Receivable.bb_boleto_numero != None,
+        Receivable.bb_boleto_numero != '',
+        Receivable.due_date >= cutoff_date,
+    )
+    # Grupo 2: boletos PENDING importados do Altarede (nosso_numero, sem bb_boleto_numero)
+    q2 = db.query(Receivable).filter(
+        Receivable.empresa_id == empresa_id,
+        Receivable.status == 'PENDING',
+        Receivable.nosso_numero != None,
+        Receivable.nosso_numero != '',
+        Receivable.bb_boleto_numero == None,
+        Receivable.due_date >= cutoff_date,
+    )
+
+    receivables = q1.all() + q2.all()
+
+    if not receivables:
+        return {"checked": 0, "updated": 0, "errors": 0, "message": "Nenhum boleto BB pendente encontrado."}
+
+    # Agrupa por bank_account_id para reutilizar tokens
+    by_bank = {}
+    for r in receivables:
+        by_bank.setdefault(r.bank_account_id, []).append(r)
+
+    for ba_id, recv_list in by_bank.items():
+        bank_account = None
+        if ba_id is not None:
+            bank_account = db.query(BankAccount).filter_by(id=ba_id).first()
+
+        # Fallback: usa a conta BB padrão da empresa
+        if bank_account is None:
+            bank_account = db.query(BankAccount).filter(
+                BankAccount.empresa_id == empresa_id,
+                BankAccount.bank.in_(['BANCO DO BRASIL', 'BB', 'BANCO_DO_BRASIL']),
+                BankAccount.bb_client_id != None,
+                BankAccount.is_active == True,
+            ).first()
+
+        if bank_account is None or not bank_account.bb_client_id:
+            total_errors += len(recv_list)
+            continue
+
+        convenio_digits = ''.join(filter(str.isdigit, bank_account.convenio or ''))
+
+        def get_bb_numero(r):
+            if r.bb_boleto_numero:
+                return r.bb_boleto_numero
+            seq = ''.join(filter(str.isdigit, r.nosso_numero or ''))
+            return '000' + convenio_digits.zfill(7) + seq.zfill(10)
+
+        for r in recv_list:
+            total_checked += 1
+            bb_numero = get_bb_numero(r)
+            try:
+                dados = bb_api_service.consultar_boleto(bank_account, bb_numero)
+                if dados is None:
+                    continue
+
+                codigo_sit = str(dados.get('codigoEstadoTituloCobranca', '') or '').strip()
+                new_status = bb_api_service.situacao_para_status(codigo_sit) if codigo_sit else None
+
+                if new_status and new_status != r.status:
+                    old_status = r.status
+                    r.status = new_status
+
+                    if not r.bb_boleto_numero:
+                        r.bb_boleto_numero = bb_numero
+
+                    if new_status == 'PAID':
+                        if not r.paid_at:
+                            r.paid_at = datetime.now()
+                        valor_pago = dados.get('valorPagoSacado') or dados.get('valorPago')
+                        if valor_pago is not None:
+                            try:
+                                r.paid_amount = float(valor_pago)
+                            except (ValueError, TypeError):
+                                pass
+                        if r.servico_contratado_id:
+                            try:
+                                isp_service.process_unblock_if_needed(db, r.servico_contratado_id)
+                            except Exception as e:
+                                logger.error(f"Reconcile: erro desbloqueio contrato {r.servico_contratado_id}: {e}")
+
+                    db.add(r)
+                    total_updated += 1
+                    details.append({"id": r.id, "nosso_numero": r.nosso_numero, "old": old_status, "new": new_status})
+
+            except Exception as e:
+                total_errors += 1
+                logger.error(f"Reconcile BB: erro no boleto {bb_numero} (ID={r.id}): {e}")
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Reconcile BB: erro ao salvar no banco")
+        raise HTTPException(status_code=500, detail="Erro ao salvar alterações no banco de dados.")
+
+    return {
+        "checked": total_checked,
+        "updated": total_updated,
+        "errors": total_errors,
+        "details": details,
+        "message": f"Reconciliação concluída: {total_updated} boleto(s) atualizado(s) de {total_checked} verificados.",
+    }
+
+
 @router.post("/empresa/{empresa_id}/generate", status_code=status.HTTP_201_CREATED, response_model=List[ReceivableResponse])
 def generate_for_company(
     empresa_id: int,

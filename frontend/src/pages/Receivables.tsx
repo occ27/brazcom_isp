@@ -40,6 +40,14 @@ const Receivables: React.FC = () => {
   const [receivables, setReceivables] = useState<Receivable[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
+  const [reconcileResult, setReconcileResult] = useState<{
+    open: boolean;
+    checked: number;
+    updated: number;
+    errors: number;
+    message: string;
+  }>({ open: false, checked: 0, updated: 0, errors: 0, message: '' });
   const [tabValue, setTabValue] = useState(0); 
   
   // Selection
@@ -650,6 +658,26 @@ const Receivables: React.FC = () => {
     }
   };
 
+  const handleReconcileBB = async () => {
+    if (!activeCompany?.id) return;
+    setReconciling(true);
+    try {
+      const res = await api.post(`/receivables/empresa/${activeCompany.id}/reconcile-bb?days_back=60`);
+      const data = res.data;
+      setReconcileResult({ open: true, ...data });
+      if (data.updated > 0) {
+        loadReceivables();
+      }
+    } catch (err: any) {
+      setSnackbar({ open: true, message: err?.response?.data?.detail || 'Erro ao reconciliar pagamentos BB', severity: 'error' });
+    } finally {
+      setReconciling(false);
+    }
+  };
+
+  const isAdmin = user?.is_superuser || (user as any)?.empresas?.some((e: any) => e.empresa_id === activeCompany?.id && e.is_admin);
+
+
   const getStatusChip = (status: string) => {
     const s = status?.toUpperCase();
     if (s === 'PAID') return <Chip label="Pago" size="small" color="success" />;
@@ -688,6 +716,19 @@ const Receivables: React.FC = () => {
           <Button variant="contained" startIcon={generating ? <CircularProgress size={20} color="inherit" /> : <PlusIcon className="w-5 h-5" />} onClick={() => setOpenAutoGen(true)} disabled={generating}>
             Gerar Automático
           </Button>
+          {isAdmin && (
+            <Tooltip title="Consulta a API do Banco do Brasil e atualiza o status dos boletos que foram pagos mas não notificados via webhook">
+              <Button
+                variant="outlined"
+                color="warning"
+                startIcon={reconciling ? <CircularProgress size={18} color="inherit" /> : <ArrowPathIcon className="w-5 h-5" />}
+                onClick={handleReconcileBB}
+                disabled={reconciling}
+              >
+                {reconciling ? 'Reconciliando...' : 'Reconciliar BB'}
+              </Button>
+            </Tooltip>
+          )}
         </Box>
       </Box>
 
@@ -735,6 +776,7 @@ const Receivables: React.FC = () => {
                 <TableCell>Cliente</TableCell>
                 <TableCell>Emissão</TableCell>
                 <TableCell>Vencimento</TableCell>
+                <TableCell>Pagamento</TableCell>
                 <TableCell align="right">Valor</TableCell>
                 <TableCell align="right">Vlr Pago</TableCell>
                 <TableCell>Status</TableCell>
@@ -744,7 +786,7 @@ const Receivables: React.FC = () => {
             </TableHead>
             <TableBody sx={{ whiteSpace: 'nowrap' }}>
               {loading && receivables.length === 0 ? (
-                <TableRow><TableCell colSpan={9} align="center" sx={{ py: 5 }}><CircularProgress /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} align="center" sx={{ py: 5 }}><CircularProgress /></TableCell></TableRow>
               ) : paginatedReceivables.map(r => (
                 <TableRow key={r.id} hover>
                   <TableCell padding="checkbox">
@@ -757,6 +799,7 @@ const Receivables: React.FC = () => {
                   </TableCell>
                   <TableCell>{new Date(r.issue_date).toLocaleDateString('pt-BR')}</TableCell>
                   <TableCell>{new Date(r.due_date).toLocaleDateString('pt-BR')}</TableCell>
+                  <TableCell>{r.paid_at ? new Date(r.paid_at).toLocaleDateString('pt-BR') : '-'}</TableCell>
                   <TableCell align="right">{(r.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</TableCell>
                   <TableCell align="right">
                     {r.paid_amount !== null && r.paid_amount !== undefined 
@@ -1304,6 +1347,24 @@ const Receivables: React.FC = () => {
             disabled={generating || !autoGenStartDate || !autoGenEndDate}
           >
             {generating ? 'Gerando...' : 'Confirmar Geração'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal de Resultado da Reconciliação BB */}
+      <Dialog open={reconcileResult.open} onClose={() => setReconcileResult({ ...reconcileResult, open: false })} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Resultado da Reconciliação BB</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body1" sx={{ mb: 2, fontWeight: 500 }}>{reconcileResult.message}</Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, bgcolor: 'background.default', p: 2, borderRadius: 2 }}>
+            <Typography variant="body2"><b>Verificados:</b> {reconcileResult.checked}</Typography>
+            <Typography variant="body2" color="success.main"><b>Atualizados:</b> {reconcileResult.updated}</Typography>
+            <Typography variant="body2" color={reconcileResult.errors > 0 ? 'error.main' : 'text.primary'}><b>Erros:</b> {reconcileResult.errors}</Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReconcileResult({ ...reconcileResult, open: false })} variant="contained" color="primary">
+            Fechar
           </Button>
         </DialogActions>
       </Dialog>
