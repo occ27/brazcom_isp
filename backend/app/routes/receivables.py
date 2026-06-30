@@ -128,15 +128,13 @@ class ReceivableResponse(BaseModel):
 @router.post("/empresa/{empresa_id}/reconcile-bb", status_code=status.HTTP_200_OK)
 def reconcile_bb_payments(
     empresa_id: int,
-    days_back: int = 60,
+    payload: dict = Body(...),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_active_user),
 ):
     """
-    Reconcilia pagamentos do Banco do Brasil para uma empresa.
-    Consulta a API do BB para todos os boletos pendentes/registrados e atualiza o status no sistema.
-    Útil como rede de segurança quando o webhook não chegou.
-    Requer permissão de admin da empresa ou superusuário.
+    Reconcilia pagamentos do Banco do Brasil para boletos selecionados.
+    Consulta a API do BB para os boletos informados e atualiza o status no sistema.
     """
     is_admin = current_user.is_superuser or any(
         assoc.empresa_id == empresa_id and assoc.is_admin
@@ -145,38 +143,27 @@ def reconcile_bb_payments(
     if not is_admin:
         raise HTTPException(status_code=403, detail="Apenas administradores podem executar a reconciliação.")
 
+    receivable_ids = payload.get("receivable_ids", [])
+    if not receivable_ids:
+        return {"checked": 0, "updated": 0, "errors": 0, "message": "Nenhum boleto selecionado para reconciliação."}
+
     from app.models.models import BankAccount
     from app.services import bb_api_service
-    from datetime import timedelta
 
     total_checked = 0
     total_updated = 0
     total_errors = 0
     details = []
 
-    cutoff_date = datetime.now() - timedelta(days=days_back)
-
-    # Grupo 1: boletos REGISTERED pelo nosso sistema (têm bb_boleto_numero)
-    q1 = db.query(Receivable).filter(
+    # Busca apenas os boletos selecionados (que sejam PENDING ou REGISTERED e do BB)
+    receivables = db.query(Receivable).filter(
         Receivable.empresa_id == empresa_id,
-        Receivable.status == 'REGISTERED',
-        Receivable.bb_boleto_numero != None,
-        Receivable.bb_boleto_numero != '',
-        Receivable.due_date >= cutoff_date,
-    )
-    # Grupo 2: boletos PENDING importados do Altarede (nosso_numero, sem bb_boleto_numero)
-    q2 = db.query(Receivable).filter(
-        Receivable.empresa_id == empresa_id,
-        Receivable.status == 'PENDING',
-        Receivable.nosso_numero != None,
-        Receivable.nosso_numero != '',
-        Receivable.bb_boleto_numero == None,
-        Receivable.due_date >= cutoff_date,
-    )
-
-    receivables = q1.all() + q2.all()
+        Receivable.id.in_(receivable_ids),
+        Receivable.status.in_(['PENDING', 'REGISTERED'])
+    ).all()
 
     if not receivables:
+        return {"checked": 0, "updated": 0, "errors": 0, "message": "Nenhum dos boletos selecionados é elegível para reconciliação BB (devem estar Pendentes ou Registrados)."}
         return {"checked": 0, "updated": 0, "errors": 0, "message": "Nenhum boleto BB pendente encontrado."}
 
     # Agrupa por bank_account_id para reutilizar tokens

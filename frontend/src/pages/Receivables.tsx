@@ -66,6 +66,7 @@ const Receivables: React.FC = () => {
   // UI State
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [batchAnchorEl, setBatchAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedReceivable, setSelectedReceivable] = useState<Receivable | null>(null);
   const [errorDialog, setErrorDialog] = useState<{open: boolean, msg: string}>({ open: false, msg: '' });
   const [dateType, setDateType] = useState('due_date');
@@ -659,10 +660,12 @@ const Receivables: React.FC = () => {
   };
 
   const handleReconcileBB = async () => {
-    if (!activeCompany?.id) return;
+    if (!activeCompany?.id || selectedIds.length === 0) return;
     setReconciling(true);
     try {
-      const res = await api.post(`/receivables/empresa/${activeCompany.id}/reconcile-bb?days_back=60`);
+      const res = await api.post(`/receivables/empresa/${activeCompany.id}/reconcile-bb`, {
+        receivable_ids: selectedIds
+      });
       const data = res.data;
       setReconcileResult({ open: true, ...data });
       if (data.updated > 0) {
@@ -695,19 +698,39 @@ const Receivables: React.FC = () => {
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           {selectedIds.length > 0 && (
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button variant="contained" color="secondary" startIcon={<CloudIcon className="w-5 h-5" />} onClick={handleBatchRegisterBB}>
-                Registrar ({selectedIds.length})
+            <Box>
+              <Button
+                variant="contained"
+                color="secondary"
+                endIcon={<DocumentArrowDownIcon className="w-5 h-5" />}
+                onClick={(e) => setBatchAnchorEl(e.currentTarget)}
+              >
+                Ações Lote ({selectedIds.length})
               </Button>
-              <Button variant="contained" color="success" startIcon={<QrCodeIcon className="w-5 h-5" />} onClick={() => navigate('/checkout', { state: { receivableIds: selectedIds } })}>
-                Pagar ({selectedIds.length})
-              </Button>
-              <Button variant="contained" sx={{ bgcolor: 'info.main' }} startIcon={<EnvelopeIcon className="w-5 h-5" />} onClick={handleSendCarnet}>
-                Enviar Carnê ({selectedIds.length})
-              </Button>
-              <Button variant="contained" sx={{ bgcolor: 'primary.dark' }} startIcon={<PrinterIcon className="w-5 h-5" />} onClick={handleDownloadCarnet}>
-                Baixar Carnê ({selectedIds.length})
-              </Button>
+              <Menu
+                anchorEl={batchAnchorEl}
+                open={Boolean(batchAnchorEl)}
+                onClose={() => setBatchAnchorEl(null)}
+              >
+                <MenuItem onClick={() => { handleBatchRegisterBB(); setBatchAnchorEl(null); }}>
+                  <CloudIcon className="w-5 h-5 mr-2" style={{ color: theme.palette.secondary.main }} /> Registrar
+                </MenuItem>
+                <MenuItem onClick={() => { navigate('/checkout', { state: { receivableIds: selectedIds } }); setBatchAnchorEl(null); }}>
+                  <QrCodeIcon className="w-5 h-5 mr-2" style={{ color: theme.palette.success.main }} /> Pagar
+                </MenuItem>
+                <MenuItem onClick={() => { handleSendCarnet(); setBatchAnchorEl(null); }}>
+                  <EnvelopeIcon className="w-5 h-5 mr-2" style={{ color: theme.palette.info.main }} /> Enviar Carnê
+                </MenuItem>
+                <MenuItem onClick={() => { handleDownloadCarnet(); setBatchAnchorEl(null); }}>
+                  <PrinterIcon className="w-5 h-5 mr-2" style={{ color: theme.palette.primary.dark }} /> Baixar Carnê
+                </MenuItem>
+                {isAdmin && tabValue !== 3 && tabValue !== 4 && (
+                  <MenuItem onClick={() => { handleReconcileBB(); setBatchAnchorEl(null); }} disabled={reconciling}>
+                    {reconciling ? <CircularProgress size={18} color="inherit" sx={{ mr: 2 }} /> : <ArrowPathIcon className="w-5 h-5 mr-2" style={{ color: theme.palette.warning.main }} />}
+                    Reconciliar
+                  </MenuItem>
+                )}
+              </Menu>
             </Box>
           )}
           <Button variant="outlined" startIcon={<PlusIcon className="w-5 h-5" />} onClick={() => setOpenCreate(true)}>
@@ -716,19 +739,6 @@ const Receivables: React.FC = () => {
           <Button variant="contained" startIcon={generating ? <CircularProgress size={20} color="inherit" /> : <PlusIcon className="w-5 h-5" />} onClick={() => setOpenAutoGen(true)} disabled={generating}>
             Gerar Automático
           </Button>
-          {isAdmin && (
-            <Tooltip title="Consulta a API do Banco do Brasil e atualiza o status dos boletos que foram pagos mas não notificados via webhook">
-              <Button
-                variant="outlined"
-                color="warning"
-                startIcon={reconciling ? <CircularProgress size={18} color="inherit" /> : <ArrowPathIcon className="w-5 h-5" />}
-                onClick={handleReconcileBB}
-                disabled={reconciling}
-              >
-                {reconciling ? 'Reconciliando...' : 'Reconciliar BB'}
-              </Button>
-            </Tooltip>
-          )}
         </Box>
       </Box>
 
