@@ -241,6 +241,7 @@ class ReportService:
                 Paragraph('ID', header_style),
                 Paragraph('Cliente / Endereço', header_style),
                 Paragraph('Tipo', header_style),
+                Paragraph('Emissão', header_style),
                 Paragraph('Vencimento', header_style),
                 Paragraph('Valor', header_style),
                 Paragraph('Vlr Pago', header_style),
@@ -274,6 +275,7 @@ class ReportService:
                     Paragraph(str(r.get('id', '')), cell_style),
                     client_cell,
                     Paragraph(r.get('tipo', ''), cell_style),
+                    Paragraph(r.get('issue_date', ''), cell_style),
                     Paragraph(r.get('due_date', ''), cell_style),
                     Paragraph(f"R$ {amt:.2f}", cell_style),
                     Paragraph(f"R$ {p_amt:.2f}" if r.get('paid_amount') is not None else "-", cell_style),
@@ -281,9 +283,9 @@ class ReportService:
                     Paragraph(r.get('paid_at', '') or '-', cell_style)
                 ])
             
-            data.append(['', Paragraph('Subtotal do Grupo', cell_style), '', '', Paragraph(f"R$ {plan_total:.2f}", cell_style), Paragraph(f"R$ {plan_paid_total:.2f}", cell_style), '', ''])
+            data.append(['', Paragraph('Subtotal do Grupo', cell_style), '', '', '', Paragraph(f"R$ {plan_total:.2f}", cell_style), Paragraph(f"R$ {plan_paid_total:.2f}", cell_style), '', ''])
                 
-            table = Table(data, colWidths=[1.6*cm, 9.0*cm, 2.9*cm, 2.8*cm, 2.8*cm, 2.8*cm, 2.8*cm, 3*cm])
+            table = Table(data, colWidths=[1.3*cm, 8.5*cm, 2.2*cm, 2.5*cm, 2.5*cm, 2.5*cm, 2.5*cm, 2.7*cm, 3.0*cm])
             table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),

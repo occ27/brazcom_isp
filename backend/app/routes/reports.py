@@ -178,7 +178,7 @@ def get_financial_report_pdf(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     status: Optional[str] = None,
-    date_type: str = Query("due_date", enum=["due_date", "paid_at"]),
+    date_type: str = Query("due_date", enum=["due_date", "paid_at", "issue_date"]),
     servico_id: Optional[int] = None,
     municipio: Optional[str] = None,
     bairro: Optional[List[str]] = Query(None),
@@ -217,7 +217,12 @@ def get_financial_report_pdf(
     )
     
     # Determinar coluna de data
-    date_col = Receivable.due_date if date_type == "due_date" else Receivable.paid_at
+    if date_type == "issue_date":
+        date_col = Receivable.issue_date
+    elif date_type == "paid_at":
+        date_col = Receivable.paid_at
+    else:
+        date_col = Receivable.due_date
     
     if start_date:
         query = query.filter(date_col >= start_date)
@@ -285,6 +290,7 @@ def get_financial_report_pdf(
             "id": r.id,
             "cliente_nome": r.cliente.nome_razao_social if r.cliente else "N/A",
             "tipo": r.tipo,
+            "issue_date": r.issue_date.strftime('%d/%m/%Y') if r.issue_date else "",
             "due_date": r.due_date.strftime('%d/%m/%Y') if r.due_date else "",
             "amount": r.amount,
             "paid_amount": r.paid_amount,

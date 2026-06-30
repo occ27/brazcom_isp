@@ -506,6 +506,7 @@ const Reports: React.FC = () => {
                       label="Data de"
                       onChange={(e) => setFinancialDateType(e.target.value)}
                     >
+                      <MenuItem value="issue_date">Emissão</MenuItem>
                       <MenuItem value="due_date">Vencimento</MenuItem>
                       <MenuItem value="paid_at">Pagamento</MenuItem>
                     </Select>
