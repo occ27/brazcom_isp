@@ -678,7 +678,7 @@ const Receivables: React.FC = () => {
     }
   };
 
-  const isAdmin = user?.is_superuser || (user as any)?.empresas?.some((e: any) => e.empresa_id === activeCompany?.id && e.is_admin);
+  const isAdmin = user?.is_superuser || user?.is_company_admin;
 
 
   const getStatusChip = (status: string) => {
