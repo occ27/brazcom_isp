@@ -972,15 +972,12 @@ def print_carnet_route(req: CarnetRequest, db: Session = Depends(get_db), curren
     if len(receivables) != len(req.receivable_ids):
         raise HTTPException(status_code=404, detail="Algumas cobranças não foram encontradas.")
 
-    # Validar se todas pertencem à mesma empresa e mesmo cliente
+    # Validar se todas pertencem à mesma empresa
     empresa_id = receivables[0].empresa_id
-    cliente_id = receivables[0].cliente_id
     
     for r in receivables:
         if r.empresa_id != empresa_id:
             raise HTTPException(status_code=400, detail="Cobranças pertencem a empresas diferentes.")
-        if r.cliente_id != cliente_id:
-            raise HTTPException(status_code=400, detail="Cobranças pertencem a clientes diferentes.")
             
     deps.check_empresa_access(db, empresa_id, current_user)
     

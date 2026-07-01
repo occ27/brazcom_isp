@@ -203,6 +203,8 @@ const Contracts: React.FC = () => {
   const [servicos, setServicos] = useState<Servico[]>([]);
   const [servicoSearch, setServicoSearch] = useState('');
   const [servicoLoading, setServicoLoading] = useState(false);
+  const [servicoPage, setServicoPage] = useState(1);
+  const [servicoHasMore, setServicoHasMore] = useState(true);
 
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [bankAccountLoading, setBankAccountLoading] = useState(false);
@@ -534,26 +536,38 @@ const Contracts: React.FC = () => {
     }
   }, [activeCompany, form.cliente_id]);
 
-  const loadServicos = useCallback(async (search: string = '') => {
+  const loadServicos = useCallback(async (search: string = '', page: number = 1, append: boolean = false) => {
     if (!activeCompany) return;
     setServicoLoading(true);
     try {
-      const response = await servicoService.getServicosByEmpresaPaginated(activeCompany.id, 1, 20, search || undefined);
+      const limit = 10; // Aumentado para 10 para forçar a barra de rolagem a aparecer
+      const response = await servicoService.getServicosByEmpresaPaginated(activeCompany.id, page, limit, search || undefined);
       const list = response.servicos || [];
+      const hasMore = list.length === limit;
 
       setServicos(prev => {
-        if (!search) return list;
+        let newList = append ? [...prev, ...list] : list;
         const currentId = form.servico_id;
-        const currentServico = prev.find(s => s.id === currentId);
 
-        if (currentServico && !list.some(s => s.id === currentId)) {
-          return [currentServico, ...list];
+        if (currentId) {
+          const currentServico = prev.find(s => s.id === currentId);
+          if (currentServico && !newList.some(s => s.id === currentId)) {
+            newList = [currentServico, ...newList];
+          }
         }
-        return list;
+        
+        const uniqueIds = new Set();
+        return newList.filter(s => {
+          if (uniqueIds.has(s.id)) return false;
+          uniqueIds.add(s.id);
+          return true;
+        });
       });
+      setServicoHasMore(hasMore);
+      setServicoPage(page);
     } catch (error) {
       console.error("Erro ao carregar serviços:", error);
-      setServicos([]);
+      if (!append) setServicos([]);
     } finally {
       setServicoLoading(false);
     }
@@ -1461,7 +1475,7 @@ const Contracts: React.FC = () => {
         } else {
           loadClients('');
         }
-        loadServicos('');
+        loadServicos('', 1, false);
         loadBankAccounts();
         loadRouters();
       }
@@ -1473,7 +1487,7 @@ const Contracts: React.FC = () => {
     // 20 clientes paginados, fazendo o cliente selecionado "desaparecer" do Autocomplete.
     if (activeCompany) {
       if (!c && !clientSearch && !preselectedClient) loadClients('');
-      if (!servicoSearch) loadServicos('');
+      if (!servicoSearch) loadServicos('', 1, false);
     }
     setOpenForm(true);
   };
@@ -2477,6 +2491,7 @@ const Contracts: React.FC = () => {
                         openOnFocus
                         options={servicos}
                         getOptionLabel={(option) => `${option.codigo || ''} - ${option.descricao || ''}`}
+                        filterOptions={(x) => x} // Desativa o filtro interno do MUI para usar o do servidor
                         value={servicos.find(s => s.id === form.servico_id) || null}
                         onChange={(_, value) => {
                           handleInputChange('servico_id', value?.id || undefined);
@@ -2543,21 +2558,43 @@ const Contracts: React.FC = () => {
                           }
                         }}
                         onInputChange={(_, value, reason) => {
+                          setServicoSearch(value);
                           if (reason === 'input') {
                             if (servicoSearchTimer.current) clearTimeout(servicoSearchTimer.current);
 
                             servicoSearchTimer.current = setTimeout(() => {
                               if (value.length >= 1) {
-                                loadServicos(value);
+                                loadServicos(value, 1, false);
                               } else if (value.length === 0) {
-                                loadServicos('');
+                                loadServicos('', 1, false);
                               }
                             }, 400);
                           } else if (reason === 'clear') {
-                            loadServicos('');
+                            loadServicos('', 1, false);
                           }
                         }}
                         loading={servicoLoading}
+                        PaperComponent={({ children }) => (
+                          <Paper>
+                            {children}
+                            {servicoHasMore && (
+                              <Box 
+                                p={1} 
+                                display="flex" 
+                                justifyContent="center" 
+                                onMouseDown={(e) => e.preventDefault()}
+                              >
+                                <Button 
+                                  size="small" 
+                                  variant="text" 
+                                  onClick={() => loadServicos(servicoSearch, servicoPage + 1, true)}
+                                >
+                                  Carregar mais planos...
+                                </Button>
+                              </Box>
+                            )}
+                          </Paper>
+                        )}
                         renderInput={(params) => (
                           <TextField
                             {...params}
