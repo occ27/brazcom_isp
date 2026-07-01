@@ -892,6 +892,7 @@ def delete_receivable(receivable_id: int, db: Session = Depends(get_db), current
                     logger.info(f"Baixa solicitada no BB para fatura {recv.id}")
                 except Exception as e:
                     logger.error(f"Erro ao solicitar baixa no BB antes da exclusão (fatura {recv.id}): {e}")
+                    raise HTTPException(status_code=400, detail=f"Erro ao cancelar boleto no Banco do Brasil: {e}")
         
         # Sicoob
         elif recv.bank == 'SICOB':
@@ -922,8 +923,12 @@ def delete_receivable(receivable_id: int, db: Session = Depends(get_db), current
                                 loop.run_until_complete(gateway.baixar_boleto(recv.nosso_numero))
                         except Exception as loop_e:
                             logger.error(f"Erro definitivo ao solicitar baixa no Sicoob: {loop_e}")
+                            raise HTTPException(status_code=400, detail=f"Erro ao cancelar boleto no Sicoob: {loop_e}")
+            except HTTPException:
+                raise
             except Exception as e:
                 logger.error(f"Erro ao processar baixa no Sicoob (fatura {recv.id}): {e}")
+                raise HTTPException(status_code=400, detail=f"Erro ao comunicar com o Sicoob: {e}")
         
         # Mercado Pago
         elif recv.mp_payment_id and recv.status != 'PAID':
@@ -938,8 +943,12 @@ def delete_receivable(receivable_id: int, db: Session = Depends(get_db), current
                         logger.info(f"Pagamento MP {recv.mp_payment_id} cancelado com sucesso")
                     else:
                         logger.warning(f"Falha ao cancelar pagamento MP {recv.mp_payment_id}: {cancel_res['response']}")
+                        raise HTTPException(status_code=400, detail=f"O Mercado Pago recusou o cancelamento: {cancel_res['response'].get('message', 'Erro desconhecido')}")
+            except HTTPException:
+                raise
             except Exception as e:
                 logger.error(f"Erro ao cancelar pagamento no Mercado Pago (fatura {recv.id}): {e}")
+                raise HTTPException(status_code=400, detail=f"Erro ao cancelar pagamento no Mercado Pago: {e}")
 
     # Exclusão física do banco
     db.delete(recv)

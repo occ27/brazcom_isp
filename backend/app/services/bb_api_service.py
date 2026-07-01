@@ -372,7 +372,17 @@ def solicitar_baixa(bank_account: BankAccount, bb_numero: str) -> bool:
 
     with _make_http_client(sandbox) as client:
         resp = client.post(url, json={'numeroConvenio': int(ba.convenio or 0)}, headers=headers)
-        return resp.status_code in [200, 204]
+        if resp.status_code not in [200, 204]:
+            logger.error(f'BB Baixa erro {resp.status_code}: {resp.text}')
+            
+            # Se o erro indicar que já está baixado/cancelado ou não encontrado, ignora para permitir a exclusão local
+            error_text = resp.text.lower()
+            if "já se encontra" in error_text or "baixado" in error_text or "cancelado" in error_text or "não encontrado" in error_text:
+                logger.info(f'BB Baixa aviso: Boleto {bb_numero} já baixado ou não encontrado no BB. {resp.text}')
+                return True
+                
+            raise ValueError(f'Erro da API ({resp.status_code}): {resp.text}')
+        return True
 
 
 def consultar_boleto(bank_account: BankAccount, bb_numero: str) -> Dict[str, Any]:
