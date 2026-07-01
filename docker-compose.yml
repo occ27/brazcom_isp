@@ -24,6 +24,26 @@ services:
     networks:
       - brazcom_network
 
+  # Banco de Dados PostgreSQL para a Evolution API (Corrige bugs do Prisma/MySQL)
+  evolution_db:
+    image: postgres:15
+    container_name: brazcom_evolution_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: evolution_password
+      POSTGRES_DB: evolution
+      TZ: America/Sao_Paulo
+    volumes:
+      - evolution_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d evolution"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - brazcom_network
+
   # Serviço do Backend (API FastAPI)
   backend:
     build: ./backend
@@ -98,17 +118,20 @@ services:
       - AUTHENTICATION_TYPE=apikey
       - AUTHENTICATION_API_KEY=c6145a8e18df283b40d7c0bb9c3a3fe40a927fa1e5c2cf9b33adcdbf84f29107
       - DATABASE_ENABLED=true
-      - DATABASE_PROVIDER=mysql
-      - DATABASE_CONNECTION_URI=mysql://root:${MYSQL_ROOT_PASSWORD}@db:3306/brazcom_evolution
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://postgres:evolution_password@evolution_db:5432/evolution?schema=public
       - DATABASE_SAVE_DATA_INSTANCE=true
-      - DATABASE_SAVE_DATA_NEW_MESSAGE=false
-      - DATABASE_SAVE_MESSAGE_UPDATE=false
-      - DATABASE_SAVE_DATA_CONTACTS=false
-      - DATABASE_SAVE_DATA_CHATS=false
+      - DATABASE_SAVE_DATA_NEW_MESSAGE=true
+      - DATABASE_SAVE_MESSAGE_UPDATE=true
+      - DATABASE_SAVE_DATA_CONTACTS=true
+      - DATABASE_SAVE_DATA_CHATS=true
       - CACHE_REDIS_ENABLED=false
-      - CACHE_LOCAL_ENABLED=false
+      - CACHE_LOCAL_ENABLED=true
     volumes:
       - brazcom_evolution_data:/evolution/instances
+    depends_on:
+      evolution_db:
+        condition: service_healthy
     networks:
       - brazcom_network
 
@@ -150,4 +173,6 @@ volumes:
   brazcom_db_data:
     driver: local
   brazcom_evolution_data:
+    driver: local
+  evolution_db_data:
     driver: local

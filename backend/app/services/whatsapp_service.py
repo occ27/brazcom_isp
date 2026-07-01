@@ -177,6 +177,42 @@ class WhatsAppService:
         wa_queue.put({
             "empresa": empresa_data,
             "to_phone": to_phone,
+            "is_media": True,
+            "file_data": file_data,
+            "file_name": file_name
+        })
+        
+        return True
+
+    @staticmethod
+    def send_document_base64(
+        empresa: Empresa,
+        to_phone: str,
+        caption: str,
+        file_data: str,
+        file_name: str
+    ) -> bool:
+        """
+        Enfileira um documento (PDF) que JÁ ESTÁ em base64.
+        """
+        from app.services.whatsapp_queue import wa_queue
+        
+        cleaned_phone = WhatsAppService._clean_phone(to_phone)
+        if not cleaned_phone:
+            logger.error("Número de telefone inválido para envio de documento WhatsApp")
+            return False
+            
+        empresa_data = {
+            "id": getattr(empresa, "id", None),
+            "razao_social": getattr(empresa, "razao_social", "Desconhecida"),
+            "whatsapp_api_server": getattr(empresa, "whatsapp_api_server", None),
+            "whatsapp_api_instance": getattr(empresa, "whatsapp_api_instance", None),
+            "whatsapp_api_system": getattr(empresa, "whatsapp_api_system", None),
+        }
+        
+        wa_queue.put({
+            "empresa": empresa_data,
+            "to_phone": to_phone,
             "message": caption,
             "is_media": True,
             "file_data": file_data,

@@ -39,7 +39,10 @@ async def send_whatsapp_gateway(
     msg: Optional[str] = Query(None),
     message: Optional[str] = Query(None),
     text: Optional[str] = Query(None),
-    texto: Optional[str] = Query(None)
+    texto: Optional[str] = Query(None),
+    
+    phone: Optional[str] = Query(None),
+    pdf_base64: Optional[str] = Query(None)
 ):
     """
     Gateway HTTP universal para envio de WhatsApp (compatível com SGP, MK-Auth, Vigo, IXC, etc.).
@@ -61,10 +64,20 @@ async def send_whatsapp_gateway(
             if isinstance(body, dict):
                 api_user = api_user or body.get("user") or body.get("username") or body.get("login")
                 api_password = api_password or body.get("password") or body.get("pwd") or body.get("senha")
-                to_phone = to_phone or body.get("to") or body.get("dest") or body.get("number") or body.get("celular")
+                to_phone = to_phone or body.get("to") or body.get("dest") or body.get("number") or body.get("celular") or body.get("phone")
                 msg_text = msg_text or body.get("msg") or body.get("message") or body.get("text") or body.get("texto")
+                pdf_base64 = pdf_base64 or body.get("pdf_base64")
         except Exception:
             pass # Sem body JSON válido
+
+    # Tenta obter o token de autorização do Header (padrão do HoleshotMX)
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        bearer_token = auth_header.split("Bearer ")[1]
+        if not api_password:
+            api_password = bearer_token
+            # Se não enviou user, podemos assumir um default ou buscar apenas pelo token depois
+            api_user = api_user or "integracao_holeshot"
 
     # Valida parâmetros mínimos obrigatórios
     if not api_user or not api_password:
@@ -80,10 +93,14 @@ async def send_whatsapp_gateway(
         )
 
     # 2. Autenticar a empresa pelas credenciais do WhatsApp API
-    empresa = db.query(Empresa).filter(
-        Empresa.whatsapp_api_user == api_user,
-        Empresa.whatsapp_api_password == api_password
-    ).first()
+    # Se api_user for o fallback, tenta buscar apenas pela senha (token)
+    if api_user == "integracao_holeshot":
+        empresa = db.query(Empresa).filter(Empresa.whatsapp_api_password == api_password).first()
+    else:
+        empresa = db.query(Empresa).filter(
+            Empresa.whatsapp_api_user == api_user,
+            Empresa.whatsapp_api_password == api_password
+        ).first()
 
     if not empresa:
         raise HTTPException(
@@ -104,11 +121,24 @@ async def send_whatsapp_gateway(
             )
 
     # 4. Disparar a mensagem de WhatsApp
-    success = WhatsAppService.send_message(
-        empresa=empresa,
-        to_phone=to_phone,
-        message=msg_text
-    )
+    if pdf_base64:
+        # Se contiver base64_, remove o prefixo
+        if "base64," in pdf_base64:
+            pdf_base64 = pdf_base64.split("base64,")[1]
+            
+        success = WhatsAppService.send_document_base64(
+            empresa=empresa,
+            to_phone=to_phone,
+            caption=msg_text,
+            file_data=pdf_base64,
+            file_name="resultado_oficial.pdf"
+        )
+    else:
+        success = WhatsAppService.send_message(
+            empresa=empresa,
+            to_phone=to_phone,
+            message=msg_text
+        )
 
     if not success:
         raise HTTPException(
@@ -121,3 +151,87 @@ async def send_whatsapp_gateway(
         "message": "Mensagem enviada com sucesso para a fila de processamento.",
         "recipient": to_phone
     }
+
+@router.post("/message/sendText/{instance_name}")
+async def mock_evolution_api_send_text(
+    instance_name: str,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Simula o endpoint da Evolution API para que o Brazcom ISP sirva de Drop-In Replacement
+    (O Holeshot Site baterá aqui achando que é a Evolution API, e o Brazcom ISP enfileirará)
+    """
+    api_key = request.headers.get("apikey")
+    body = await request.json()
+    
+    number = body.get("number")
+    text = body.get("text")
+    if not text and "textMessage" in body:
+        text = body["textMessage"].get("text")
+        
+    empresa = db.query(Empresa).filter(
+        Empresa.whatsapp_api_instance == instance_name
+    ).first()
+    
+    if not empresa:
+        # Tenta achar qualquer empresa com a api_key se a instância não bater
+        empresa = db.query(Empresa).filter(Empresa.whatsapp_api_password == api_key).first()
+        if not empresa:
+            empresa = db.query(Empresa).first() # Fallback supremo para não quebrar a bridge
+            
+    success = WhatsAppService.send_message(
+        empresa=empresa,
+        to_phone=number,
+        message=text or ""
+    )
+    
+    if success:
+        return {"key": {"id": "mock_brazcom_id"}, "message": "Enfileirado pelo Brazcom ISP"}
+    raise HTTPException(status_code=500, detail="Erro interno ao enfileirar")
+
+@router.post("/message/sendMedia/{instance_name}")
+async def mock_evolution_api_send_media(
+    instance_name: str,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Simula o endpoint da Evolution API para envio de Mídia, interceptando e enfileirando
+    """
+    api_key = request.headers.get("apikey")
+    body = await request.json()
+    
+    number = body.get("number")
+    caption = body.get("caption", "")
+    media = body.get("media")
+    file_name = body.get("fileName", "arquivo_gateway.pdf")
+    
+    if not media and "mediaMessage" in body:
+        caption = body["mediaMessage"].get("caption", "")
+        media = body["mediaMessage"].get("media")
+        file_name = body["mediaMessage"].get("fileName", file_name)
+        
+    empresa = db.query(Empresa).filter(
+        Empresa.whatsapp_api_instance == instance_name
+    ).first()
+    
+    if not empresa:
+        empresa = db.query(Empresa).filter(Empresa.whatsapp_api_password == api_key).first()
+        if not empresa:
+            empresa = db.query(Empresa).first()
+            
+    if media and "base64," in media:
+        media = media.split("base64,")[1]
+            
+    success = WhatsAppService.send_document_base64(
+        empresa=empresa,
+        to_phone=number,
+        caption=caption,
+        file_data=media,
+        file_name=file_name
+    )
+    
+    if success:
+        return {"key": {"id": "mock_brazcom_media_id"}, "message": "Mídia Enfileirada pelo Brazcom ISP"}
+    raise HTTPException(status_code=500, detail="Erro interno ao enfileirar mídia")
