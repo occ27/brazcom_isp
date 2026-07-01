@@ -1004,18 +1004,9 @@ def print_carnet_route(req: CarnetRequest, db: Session = Depends(get_db), curren
         logo_path = os.path.abspath(os.path.join(settings.UPLOAD_DIR, relative_part))
         if not os.path.exists(logo_path):
             logo_path = None
-
-    pdf_bytes = generate_boletos_pdf(contexts, logo_path=logo_path)
-    
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=carne.pdf"}
-    )
-
 @router.post("/send-carnet")
 def send_carnet_route(req: CarnetRequest, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
-    """Gera um PDF único com múltiplos boletos (Carnê) e envia por E-mail/WhatsApp."""
+    """Envia carnês (múltiplas cobranças) em lote, agrupando inteligentemente por cliente."""
     deps.permission_checker('receivables_edit')(db=db, current_user=current_user)
     
     if not req.receivable_ids:
@@ -1025,34 +1016,25 @@ def send_carnet_route(req: CarnetRequest, db: Session = Depends(get_db), current
     if len(receivables) != len(req.receivable_ids):
         raise HTTPException(status_code=404, detail="Algumas cobranças não foram encontradas.")
 
-    # Validar se todas pertencem à mesma empresa e mesmo cliente
+    # Validar se todas pertencem à mesma empresa
     empresa_id = receivables[0].empresa_id
-    cliente_id = receivables[0].cliente_id
-    
     for r in receivables:
         if r.empresa_id != empresa_id:
-            raise HTTPException(status_code=400, detail="Cobranças pertencem a empresas diferentes.")
-        if r.cliente_id != cliente_id:
-            raise HTTPException(status_code=400, detail="Cobranças pertencem a clientes diferentes.")
+            raise HTTPException(status_code=400, detail="Lotes devem pertencer à mesma empresa.")
             
     deps.check_empresa_access(db, empresa_id, current_user)
     
     from app.models.models import Empresa, Cliente
     empresa = db.query(Empresa).filter(Empresa.id == empresa_id).first()
-    cliente = db.query(Cliente).filter(Cliente.id == cliente_id).first()
     
     from app.services.receivable_service import build_boleto_context
     from app.services.boleto_generator import generate_boletos_pdf
     from app.services.email_service import EmailService
+    from app.services.whatsapp_service import WhatsAppService
     import tempfile
     import os
     
-    contexts = []
-    amount_total = 0.0
-    for r in receivables:
-        contexts.append(build_boleto_context(db, r))
-        amount_total += float(r.amount)
-        
+    # Obter logo da empresa
     logo_path = None
     if empresa.logo_url and empresa.logo_url.startswith("/files/"):
         relative_part = empresa.logo_url[len("/files/"):]
@@ -1060,63 +1042,94 @@ def send_carnet_route(req: CarnetRequest, db: Session = Depends(get_db), current
         l_path = os.path.abspath(os.path.join(settings.UPLOAD_DIR, relative_part))
         if os.path.exists(l_path):
             logo_path = l_path
+            
+    send_email_enabled = getattr(empresa, "send_method_email", True)
+    send_whatsapp_enabled = getattr(empresa, "send_method_whatsapp", False)
+    if not send_email_enabled and not send_whatsapp_enabled:
+        send_email_enabled = True
 
-    pdf_bytes = generate_boletos_pdf(contexts, logo_path=logo_path)
-    
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-        tmp.write(pdf_bytes)
-        pdf_path = tmp.name
-
-    send_email = getattr(empresa, "send_method_email", True)
-    send_whatsapp = getattr(empresa, "send_method_whatsapp", False)
-    
-    if not send_email and not send_whatsapp:
-        send_email = True
-
-    success_email = False
-    success_whatsapp = False
-    channels_sent = []
-
-    if send_email:
-        if not cliente.email:
-            raise HTTPException(status_code=400, detail="Cliente não possui email cadastrado para receber por e-mail")
-        success_email = EmailService.send_carnet_email(
-            empresa=empresa,
-            cliente_email=cliente.email,
-            amount_total=amount_total,
-            boletos_count=len(receivables),
-            pdf_path=pdf_path
-        )
-        if success_email:
-            channels_sent.append("E-mail")
-
-    if send_whatsapp:
-        if not cliente.telefone:
-            raise HTTPException(status_code=400, detail="Cliente não possui telefone cadastrado para receber por WhatsApp")
-        from app.services.whatsapp_service import WhatsAppService
-        success_whatsapp = WhatsAppService.send_carnet_message(
-            empresa=empresa,
-            cliente_nome=cliente.nome_razao_social,
-            cliente_phone=cliente.telefone,
-            amount_total=amount_total,
-            boletos_count=len(receivables),
-            pdf_path=pdf_path
-        )
-        if success_whatsapp:
-            channels_sent.append("WhatsApp")
-
-    if (send_email and not success_email) or (send_whatsapp and not success_whatsapp):
-        failed_channels = []
-        if send_email and not success_email: failed_channels.append("E-mail")
-        if send_whatsapp and not success_whatsapp: failed_channels.append("WhatsApp")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Falha ao enviar por: {', '.join(failed_channels)}. Verifique as configurações."
-        )
-
+    # Agrupar por cliente_id
+    from collections import defaultdict
+    grouped = defaultdict(list)
     for r in receivables:
-        r.sent_at = datetime.now()
-        db.add(r)
-    db.commit()
+        grouped[r.cliente_id].append(r)
+        
+    clientes_sucesso = 0
+    total_emails = 0
+    total_whatsapps = 0
+    
+    for cliente_id, client_receivables in grouped.items():
+        cliente = db.query(Cliente).filter(Cliente.id == cliente_id).first()
+        if not cliente:
+            continue
+            
+        # Pular silenciosamente se não houver contato válido pro método habilitado
+        if send_email_enabled and not cliente.email and not send_whatsapp_enabled:
+            continue
+        if send_whatsapp_enabled and not cliente.telefone and not send_email_enabled:
+            continue
+        if send_email_enabled and send_whatsapp_enabled and not cliente.email and not cliente.telefone:
+            continue
+            
+        contexts = []
+        amount_total = 0.0
+        for r in client_receivables:
+            contexts.append(build_boleto_context(db, r))
+            amount_total += float(r.amount)
+            
+        pdf_bytes = generate_boletos_pdf(contexts, logo_path=logo_path)
+        
+        pdf_path = None
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+            tmp.write(pdf_bytes)
+            pdf_path = tmp.name
+            
+        try:
+            success_email = False
+            success_whatsapp = False
+            
+            if send_email_enabled and cliente.email:
+                success_email = EmailService.send_carnet_email(
+                    empresa=empresa,
+                    cliente_email=cliente.email,
+                    amount_total=amount_total,
+                    boletos_count=len(client_receivables),
+                    pdf_path=pdf_path
+                )
+                if success_email:
+                    total_emails += 1
+                    
+            if send_whatsapp_enabled and cliente.telefone:
+                success_whatsapp = WhatsAppService.send_carnet_message(
+                    empresa=empresa,
+                    cliente_nome=cliente.nome_razao_social,
+                    cliente_phone=cliente.telefone,
+                    amount_total=amount_total,
+                    boletos_count=len(client_receivables),
+                    pdf_path=pdf_path
+                )
+                if success_whatsapp:
+                    total_whatsapps += 1
+                    
+            if success_email or success_whatsapp:
+                clientes_sucesso += 1
+                for r in client_receivables:
+                    r.sent_at = datetime.now()
+                    db.add(r)
+                    
+        finally:
+            if pdf_path and os.path.exists(pdf_path):
+                try:
+                    os.unlink(pdf_path)
+                except:
+                    pass
 
-    return {"message": f"Carnê enviado com sucesso via {', '.join(channels_sent)}!"}
+    db.commit()
+    
+    if clientes_sucesso == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Nenhum carnê enviado. Verifique se os clientes possuem e-mail/telefone cadastrados."
+        )
+        
+    return {"message": f"Envio em lote concluído: {clientes_sucesso} clientes alcançados ({total_emails} e-mails, {total_whatsapps} WhatsApps)."}
