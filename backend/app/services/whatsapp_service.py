@@ -156,6 +156,16 @@ class WhatsAppService:
             logger.error("Número de telefone inválido para envio de documento WhatsApp")
             return False
             
+        import base64
+        import os
+        try:
+            with open(file_path, "rb") as f:
+                file_data = base64.b64encode(f.read()).decode('utf-8')
+            file_name = os.path.basename(file_path)
+        except Exception as e:
+            logger.error(f"Erro ao ler o documento PDF antes de enfileirar: {e}")
+            return False
+            
         empresa_data = {
             "id": getattr(empresa, "id", None),
             "razao_social": getattr(empresa, "razao_social", "Desconhecida"),
@@ -169,7 +179,8 @@ class WhatsAppService:
             "to_phone": to_phone,
             "message": caption,
             "is_media": True,
-            "file_path": file_path
+            "file_data": file_data,
+            "file_name": file_name
         })
         
         return True
@@ -179,7 +190,8 @@ class WhatsAppService:
         empresa: Empresa,
         to_phone: str,
         caption: str,
-        file_path: str
+        file_data: str,
+        file_name: str
     ) -> bool:
         """
         Envia um documento via WhatsApp API usando message/sendMedia
@@ -212,12 +224,6 @@ class WhatsAppService:
                         "Content-Type": "application/json",
                         "apikey": api_key
                     }
-                    
-                    import base64
-                    with open(file_path, "rb") as f:
-                        file_data = base64.b64encode(f.read()).decode('utf-8')
-                    
-                    file_name = os.path.basename(file_path)
                     
                     payload = {
                         "number": cleaned_phone,
@@ -263,7 +269,7 @@ class WhatsAppService:
             logger.info("=========================================")
             logger.info("  DISPARO DE WHATSAPP COM ARQUIVO (SIMULADO)")
             logger.info(f"  Destinatário: {cleaned_phone}")
-            logger.info(f"  Arquivo: {file_path}")
+            logger.info(f"  Arquivo: {file_name}")
             logger.info(f"  Legenda: {caption}")
             logger.info("=========================================")
             
@@ -272,7 +278,7 @@ class WhatsAppService:
             log_path = os.path.join(log_dir, "whatsapp_sent.log")
             with open(log_path, "a", encoding="utf-8") as f:
                 clean_msg = caption.replace('\n', ' ')
-                f.write(f"[{empresa.razao_social}] Para: {cleaned_phone} | Arquivo: {os.path.basename(file_path)} | Msg: {clean_msg}\n")
+                f.write(f"[{empresa.razao_social}] Para: {cleaned_phone} | Arquivo: {file_name} | Msg: {clean_msg}\n")
 
             return True
         except Exception as e:

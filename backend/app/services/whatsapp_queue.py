@@ -32,7 +32,8 @@ def _wa_worker():
             to_phone = task.get("to_phone")
             message = task.get("message")
             is_media = task.get("is_media", False)
-            file_path = task.get("file_path")
+            file_data = task.get("file_data")
+            file_name = task.get("file_name")
             
             # Recria o objeto mock da empresa para o WhatsAppService
             empresa = MockEmpresa()
@@ -43,7 +44,7 @@ def _wa_worker():
             
             # Chama o método síncrono real de envio na WhatsAppService
             if is_media:
-                WhatsAppService._send_document_sync_real(empresa, to_phone, message, file_path)
+                WhatsAppService._send_document_sync_real(empresa, to_phone, message, file_data, file_name)
             else:
                 WhatsAppService._send_message_sync_real(empresa, to_phone, message)
                 
