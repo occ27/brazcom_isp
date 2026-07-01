@@ -260,6 +260,10 @@ def health():
 def on_startup():
     """Evento de startup do FastAPI: aguarda DB e cria tabelas."""
     wait_for_db_and_migrate(retries=30, delay=2)
+    
+    # Inicia a fila assíncrona de envio de mensagens do WhatsApp
+    from app.services.whatsapp_queue import start_whatsapp_worker
+    start_whatsapp_worker()
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 

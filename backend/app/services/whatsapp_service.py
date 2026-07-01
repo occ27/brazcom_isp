@@ -40,7 +40,38 @@ class WhatsAppService:
     @staticmethod
     def send_message(empresa: Empresa, to_phone: str, message: str) -> bool:
         """
+        Coloca a mensagem na fila assíncrona do WhatsApp para evitar bloqueio por anti-spam.
+        Retorna True imediatamente.
+        """
+        from app.services.whatsapp_queue import wa_queue
+        
+        cleaned_phone = WhatsAppService._clean_phone(to_phone)
+        if not cleaned_phone:
+            logger.error("Número de telefone inválido para envio de WhatsApp")
+            return False
+            
+        empresa_data = {
+            "id": getattr(empresa, "id", None),
+            "razao_social": getattr(empresa, "razao_social", "Desconhecida"),
+            "whatsapp_api_server": getattr(empresa, "whatsapp_api_server", None),
+            "whatsapp_api_instance": getattr(empresa, "whatsapp_api_instance", None),
+            "whatsapp_api_system": getattr(empresa, "whatsapp_api_system", None),
+        }
+        
+        wa_queue.put({
+            "empresa": empresa_data,
+            "to_phone": to_phone,
+            "message": message,
+            "is_media": False
+        })
+        
+        return True
+
+    @staticmethod
+    def _send_message_sync_real(empresa: Empresa, to_phone: str, message: str) -> bool:
+        """
         Envia uma mensagem de WhatsApp real via Evolution API com fallback de simulação em log local.
+        (Chamado pelo worker da fila)
         """
         try:
             cleaned_phone = WhatsAppService._clean_phone(to_phone)
@@ -115,7 +146,44 @@ class WhatsAppService:
         file_path: str
     ) -> bool:
         """
+        Coloca o documento na fila assíncrona do WhatsApp.
+        Retorna True imediatamente.
+        """
+        from app.services.whatsapp_queue import wa_queue
+        
+        cleaned_phone = WhatsAppService._clean_phone(to_phone)
+        if not cleaned_phone:
+            logger.error("Número de telefone inválido para envio de documento WhatsApp")
+            return False
+            
+        empresa_data = {
+            "id": getattr(empresa, "id", None),
+            "razao_social": getattr(empresa, "razao_social", "Desconhecida"),
+            "whatsapp_api_server": getattr(empresa, "whatsapp_api_server", None),
+            "whatsapp_api_instance": getattr(empresa, "whatsapp_api_instance", None),
+            "whatsapp_api_system": getattr(empresa, "whatsapp_api_system", None),
+        }
+        
+        wa_queue.put({
+            "empresa": empresa_data,
+            "to_phone": to_phone,
+            "message": caption,
+            "is_media": True,
+            "file_path": file_path
+        })
+        
+        return True
+
+    @staticmethod
+    def _send_document_sync_real(
+        empresa: Empresa,
+        to_phone: str,
+        caption: str,
+        file_path: str
+    ) -> bool:
+        """
         Envia um documento via WhatsApp API usando message/sendMedia
+        (Chamado pelo worker da fila)
         """
         if not to_phone:
             return False
