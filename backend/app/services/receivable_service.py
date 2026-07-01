@@ -793,8 +793,8 @@ def send_receivable_notification(db: Session, recv: Receivable) -> bool:
 
     pdf_path = None
     try:
-        # Se NÃO for Mercado Pago e não tiver link, gerar o PDF do boleto
-        if not recv.payment_url:
+        # Gerar o PDF do boleto se NÃO for Mercado Pago
+        if recv.tipo != 'MERCADO_PAGO' and recv.bank != 'MERCADO_PAGO':
             try:
                 logo_path = None
                 if empresa and empresa.logo_url:
@@ -858,7 +858,8 @@ def send_receivable_notification(db: Session, recv: Receivable) -> bool:
                     empresa=empresa_raw,
                     cliente_nome=cliente.nome_razao_social,
                     cliente_phone=cliente.telefone,
-                    receivable_data=receivable_data
+                    receivable_data=receivable_data,
+                    pdf_path=pdf_path
                 )
                 if success_whatsapp:
                     success = True
@@ -909,10 +910,11 @@ def send_carne_notification(db: Session, recvs: list[Receivable]) -> bool:
     total_amount = 0.0
     for r in recvs:
         total_amount += r.amount
-        try:
-            contexts.append(build_boleto_context(db, r))
-        except Exception as e:
-            logging.error(f"Erro montando contexto boleto: {e}")
+        if r.tipo != 'MERCADO_PAGO' and r.bank != 'MERCADO_PAGO':
+            try:
+                contexts.append(build_boleto_context(db, r))
+            except Exception as e:
+                logging.error(f"Erro montando contexto boleto: {e}")
 
     pdf_path = None
     if contexts:
